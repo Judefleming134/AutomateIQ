@@ -213,6 +213,146 @@ footer{border-top:1px solid var(--line);padding:48px 0 60px;margin-top:30px}
  .g3,.g2,.outcomes,.steps{grid-template-columns:1fr}
  .sec{padding:78px 0}
 }
+
+/* ===== AGENT EXPLAINER (namespaced aix-, self-contained colours) ===== */
+/* modal */
+.aix-overlay{position:fixed;inset:0;background:rgba(3,4,8,.78);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000;opacity:0;transition:opacity .25s}
+.aix-overlay.aix-show{display:flex;opacity:1}
+.aix-modal{position:relative;width:100%;max-width:620px;max-height:92vh;overflow-y:auto;background:linear-gradient(180deg,#11151f,#0c0f17);border:1px solid #2a3344;border-radius:22px;padding:34px;transform:translateY(16px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.25,1)}
+.aix-overlay.aix-show .aix-modal{transform:none}
+.aix-modal .aix-x{position:absolute;top:18px;right:18px;width:34px;height:34px;border-radius:9px;border:1px solid #2a3344;background:#0c0f17;color:#8a98a6;font-size:18px;cursor:pointer;display:grid;place-items:center;z-index:5}
+.aix-modal .aix-x:hover{color:#e8eef5;border-color:#2E80F2}
+.aix-m-head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.aix-m-head .aix-ico{width:50px;height:50px;border-radius:13px;background:linear-gradient(150deg,rgba(46,128,242,.25),rgba(46,128,242,.05));border:1px solid rgba(46,128,242,.35);display:grid;place-items:center;flex:none}
+.aix-m-head h2{font-family:'Space Grotesk',sans-serif;font-size:1.45rem;font-weight:600;letter-spacing:-.01em}
+.aix-m-head .aix-tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#5AA0FF}
+
+.aix-prob{display:flex;gap:12px;align-items:flex-start;background:rgba(242,85,60,.06);border:1px solid rgba(242,85,60,.2);border-radius:13px;padding:14px 16px;margin-bottom:22px}
+.aix-prob .aix-lbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#f2553c;flex:none;margin-top:3px}
+.aix-prob p{font-size:14.5px;color:#e8eef5}
+
+/* stage (animated scene) */
+.aix-stage{position:relative;height:220px;border-radius:15px;background:radial-gradient(120% 120% at 50% 0%,#0e1420,#080a11);border:1px solid #1d2433;overflow:hidden;margin-bottom:22px;display:flex;align-items:center;justify-content:center}
+.aix-stage .aix-grin{position:absolute;inset:0;background-image:linear-gradient(#1d2433 1px,transparent 1px),linear-gradient(90deg,#1d2433 1px,transparent 1px);background-size:26px 26px;opacity:.25;mask-image:radial-gradient(circle at 50% 50%,#000,transparent 75%)}
+
+.aix-how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.aix-step{background:#0c0f17;border:1px solid #1d2433;border-radius:12px;padding:14px}
+.aix-step .aix-n{font-family:'Space Mono',monospace;font-size:11px;color:#5AA0FF;margin-bottom:7px}
+.aix-step b{font-family:'Space Grotesk',sans-serif;font-size:13.5px;font-weight:600;display:block;margin-bottom:3px}
+.aix-step span{font-size:12px;color:#8a98a6;line-height:1.45}
+
+.aix-cta{margin-top:22px;display:flex;gap:10px;align-items:center}
+.aix-btn{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;padding:13px 20px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(150deg,#5AA0FF,#2E80F2);color:#fff;box-shadow:0 10px 26px rgba(46,128,242,.35)}
+.aix-btn:hover{transform:translateY(-2px)}
+.aix-cta .aix-note{font-size:12px;color:#5e6b7a}
+
+/* ===== shared scene atoms ===== */
+.aix-chip{position:absolute;background:#11151f;border:1px solid #2a3344;border-radius:10px;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.aix-chip.aix-blue{border-color:rgba(46,128,242,.5);color:#8fc0ff}
+.aix-chip.aix-green{border-color:rgba(31,191,117,.5);color:#7fe9bf}
+.aix-chip.aix-amber{border-color:rgba(243,169,60,.5);color:#ffd79a}
+.aix-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:18px;background:linear-gradient(150deg,rgba(46,128,242,.3),rgba(46,128,242,.08));border:1px solid rgba(46,128,242,.5);display:grid;place-items:center;z-index:2}
+.aix-core::before{content:"";position:absolute;inset:-7px;border-radius:23px;border:1px solid rgba(46,128,242,.25);animation:aixk-pulsering 2.6s ease-out infinite}
+@keyframes aixk-pulsering{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.45);opacity:0}}
+.aix-conn{position:absolute;height:0;border-top:1px dashed #2a3344}
+.aix-pulse{position:absolute;width:9px;height:9px;border-radius:50%;background:#5AA0FF;box-shadow:0 0 12px 2px rgba(46,128,242,.85);margin-top:-4px;opacity:0}
+.aix-clock{position:absolute;top:13px;right:15px;font-family:'Space Mono',monospace;font-size:11px;color:#1fbf75;display:flex;align-items:center;gap:6px;z-index:3}
+.aix-clock .aix-d{width:6px;height:6px;border-radius:50%;background:#1fbf75;animation:blink 1.6s infinite}
+
+/* scene 1: SUPPORT — question pulses in, answer pulses out, both eased */
+.aix-s1 .aix-db{position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9.5px;color:#8fc0ff;border:1px solid rgba(46,128,242,.35);border-radius:8px;padding:4px 9px;background:rgba(46,128,242,.06);white-space:nowrap}
+.aix-s1 .aix-vline{position:absolute;left:50%;top:calc(50% + 37px);width:1px;height:15px;background:#2a3344;transform:translateX(-50%)}
+.aix-s1 .aix-pq{top:50%;animation:aixk-s1q 4.6s cubic-bezier(.5,0,.4,1) infinite}
+@keyframes aixk-s1q{0%{left:21%;opacity:0}10%{opacity:1}40%{left:46%;opacity:1}46%{left:46%;opacity:0}100%{left:46%;opacity:0}}
+.aix-s1 .aix-pa{top:50%;animation:aixk-s1a 4.6s cubic-bezier(.5,0,.4,1) infinite}
+@keyframes aixk-s1a{0%,48%{left:54%;opacity:0}56%{opacity:1}86%{left:79%;opacity:1}92%,100%{left:79%;opacity:0}}
+
+/* scene 2: EMAIL — inbox pulse to core, sorted pulses out to 3 lanes */
+.aix-s2 .aix-core{left:31%}
+.aix-s2 .aix-lane{position:absolute;right:5%;width:110px;font-size:11px;border-radius:8px;padding:7px 10px;border:1px solid #2a3344;background:#11151f}
+.aix-s2 .aix-l1{top:22%;color:#7fe9bf;border-color:rgba(31,191,117,.35)}
+.aix-s2 .aix-l2{top:50%;transform:translateY(-50%);color:#ffd79a;border-color:rgba(243,169,60,.35)}
+.aix-s2 .aix-l3{bottom:22%;color:#8a98a6}
+.aix-s2 .aix-pin{animation:aixk-s2in 4.8s cubic-bezier(.5,0,.4,1) infinite}
+@keyframes aixk-s2in{0%{left:17%;top:50%;opacity:0}10%{opacity:1}38%{left:28%;top:50%;opacity:1}44%,100%{opacity:0}}
+.aix-s2 .aix-po{animation-duration:4.8s;animation-timing-function:cubic-bezier(.5,0,.4,1);animation-iteration-count:infinite}
+.aix-s2 .aix-o1{animation-name:aixk-s2o1}@keyframes aixk-s2o1{0%,46%{left:37%;top:50%;opacity:0}54%{opacity:1}82%{left:71%;top:28%;opacity:1}88%,100%{opacity:0}}
+.aix-s2 .aix-o2{animation-name:aixk-s2o2}@keyframes aixk-s2o2{0%,48%{left:37%;top:50%;opacity:0}56%{opacity:1}84%{left:71%;top:50%;opacity:1}90%,100%{opacity:0}}
+.aix-s2 .aix-o3{animation-name:aixk-s2o3}@keyframes aixk-s2o3{0%,50%{left:37%;top:50%;opacity:0}58%{opacity:1}86%{left:71%;top:72%;opacity:1}92%,100%{opacity:0}}
+
+/* scene 3: CHATBOT — sequential bubbles + typing indicator, smooth fade */
+.aix-s3 .aix-win{width:80%;max-width:340px;height:172px;background:#11151f;border:1px solid #2a3344;border-radius:13px;position:relative;overflow:hidden}
+.aix-s3 .aix-bar{height:26px;border-bottom:1px solid #1d2433;display:flex;align-items:center;gap:5px;padding:0 11px}
+.aix-s3 .aix-bar i{width:7px;height:7px;border-radius:50%;background:#2a3344}
+.aix-s3 .aix-bub{position:absolute;padding:7px 11px;border-radius:11px;font-size:11.5px;max-width:62%;opacity:0}
+.aix-s3 .aix-b1{left:14px;top:42px;background:#1a2230;color:#e8eef5;animation:aixk-s3b1 5.4s ease-in-out infinite}
+@keyframes aixk-s3b1{0%,4%{opacity:0;transform:translateY(7px)}11%,90%{opacity:1;transform:none}96%,100%{opacity:0}}
+.aix-s3 .aix-typing{right:14px;top:78px;background:#2E80F2;border-radius:11px;padding:9px 12px;display:flex;gap:4px;opacity:0;animation:aixk-s3ty 5.4s ease-in-out infinite}
+.aix-s3 .aix-typing span{width:5px;height:5px;border-radius:50%;background:#fff;animation:aixk-tyb 1.1s ease-in-out infinite}
+.aix-s3 .aix-typing span:nth-child(2){animation-delay:.15s}.aix-s3 .aix-typing span:nth-child(3){animation-delay:.3s}
+@keyframes aixk-tyb{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}
+@keyframes aixk-s3ty{0%,22%{opacity:0}28%,42%{opacity:1}48%,100%{opacity:0}}
+.aix-s3 .aix-b2{right:14px;top:78px;background:#2E80F2;color:#fff;animation:aixk-s3b2 5.4s ease-in-out infinite}
+@keyframes aixk-s3b2{0%,48%{opacity:0;transform:translateY(7px)}55%,90%{opacity:1;transform:none}96%,100%{opacity:0}}
+.aix-s3 .aix-lead{position:absolute;left:50%;bottom:13px;background:rgba(31,191,117,.12);border:1px solid rgba(31,191,117,.5);color:#7fe9bf;border-radius:11px;padding:7px 12px;font-size:10.5px;white-space:nowrap;animation:aixk-s3lead 5.4s ease-in-out infinite}
+@keyframes aixk-s3lead{0%,66%{opacity:0;transform:translate(-50%,7px) scale(.92)}76%,90%{opacity:1;transform:translate(-50%,0) scale(1)}96%,100%{opacity:0;transform:translate(-50%,0)}}
+
+/* scene 5: WORKFLOW — token glides with pauses, nodes light in turn */
+.aix-s5 .aix-pipe{position:absolute;left:9%;right:9%;top:50%;height:3px;background:#2a3344;transform:translateY(-50%);border-radius:3px}
+.aix-s5 .aix-fill{position:absolute;left:9%;top:50%;height:3px;background:linear-gradient(90deg,#2E80F2,#5AA0FF);transform:translateY(-50%);border-radius:3px;animation:aixk-s5fill 5.5s cubic-bezier(.6,0,.4,1) infinite}
+@keyframes aixk-s5fill{0%{width:0}88%,100%{width:79%}}
+.aix-s5 .aix-pnode{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:#11151f;border:2px solid #2a3344;z-index:2}
+.aix-s5 .aix-plbl{position:absolute;top:calc(50% + 17px);transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9.5px;color:#5e6b7a;white-space:nowrap}
+.aix-s5 .aix-token{position:absolute;top:50%;width:24px;height:24px;border-radius:8px;background:linear-gradient(150deg,#5AA0FF,#2E80F2);box-shadow:0 0 18px rgba(46,128,242,.75);z-index:3;transform:translate(-50%,-50%);margin-top:-1px;animation:aixk-s5tok 5.5s cubic-bezier(.55,0,.45,1) infinite}
+@keyframes aixk-s5tok{0%,6%{left:9%}22%,28%{left:26.5%}44%,50%{left:44%}66%,72%{left:61.5%}88%,100%{left:88%}}
+.aix-s5 n1{}
+.aix-s5 .aix-pnode.aix-x{animation:aixk-lite 5.5s linear infinite}
+@keyframes aixk-lite{0%,100%{}}
+.aix-s5 .aix-sync{position:absolute;top:15px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;color:#7fe9bf;display:flex;align-items:center;gap:6px;opacity:0;animation:aixk-s5sync 5.5s ease-in-out infinite}
+@keyframes aixk-s5sync{0%,74%{opacity:0}82%,94%{opacity:1}100%{opacity:0}}
+
+/* scene 6: VOICE */
+.aix-s6{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.aix-s6 .aix-phone{position:relative;width:64px;height:64px;border-radius:17px;background:linear-gradient(150deg,rgba(46,128,242,.3),rgba(46,128,242,.08));border:1px solid rgba(46,128,242,.5);display:grid;place-items:center;z-index:2}
+.aix-s6 .aix-wave{position:absolute;width:64px;height:64px;border-radius:18px;border:1.5px solid rgba(46,128,242,.45)}
+.aix-s6 .aix-w1{animation:aixk-s6w 2.8s ease-out infinite}
+.aix-s6 .aix-w2{animation:aixk-s6w 2.8s ease-out infinite .9s}
+.aix-s6 .aix-w3{animation:aixk-s6w 2.8s ease-out infinite 1.8s}
+@keyframes aixk-s6w{0%{transform:scale(1);opacity:.7}100%{transform:scale(2.4);opacity:0}}
+.aix-s6 .aix-bars{position:absolute;bottom:34px;display:flex;gap:4px;align-items:flex-end;height:26px;z-index:3}
+.aix-s6 .aix-bars i{width:4px;background:#5AA0FF;border-radius:2px;animation:aixk-eq 1.1s ease-in-out infinite}
+.aix-s6 .aix-bars i:nth-child(2){animation-delay:.16s}.aix-s6 .aix-bars i:nth-child(3){animation-delay:.32s}
+.aix-s6 .aix-bars i:nth-child(4){animation-delay:.48s}.aix-s6 .aix-bars i:nth-child(5){animation-delay:.64s}
+@keyframes aixk-eq{0%,100%{height:6px}50%{height:24px}}
+
+/* SECURITY svg diagram */
+.aix-secsvg{width:100%;height:100%}
+.aix-secsvg .aix-pan{transform-box:fill-box;transform-origin:center top;animation:aixk-campan 6s ease-in-out infinite}
+@keyframes aixk-campan{0%,18%{transform:rotate(8deg)}34%,72%{transform:rotate(-26deg)}88%,100%{transform:rotate(8deg)}}
+.aix-secsvg .aix-sensor{animation:aixk-senpulse 6s ease-in-out infinite}
+@keyframes aixk-senpulse{0%,6%{opacity:.4;r:4px}12%{opacity:1;r:7px}20%,100%{opacity:.4;r:4px}}
+.aix-secsvg .aix-p1{opacity:0;animation:aixk-dot1 6s linear infinite}
+@keyframes aixk-dot1{0%,14%{opacity:0}16%{opacity:1}30%{opacity:1}34%,100%{opacity:0}}
+.aix-secsvg .aix-p2{opacity:0;animation:aixk-dot2 6s linear infinite}
+@keyframes aixk-dot2{0%,56%{opacity:0}58%{opacity:1}72%{opacity:1}76%,100%{opacity:0}}
+.aix-secsvg .aix-alertg{opacity:0;animation:aixk-secalert 6s ease-in-out infinite}
+@keyframes aixk-secalert{0%,74%{opacity:0}82%{opacity:1}94%{opacity:1}100%{opacity:0}}
+.aix-secsvg .aix-shield.aix-lit{animation:aixk-shlit 6s ease-in-out infinite}
+@keyframes aixk-shlit{0%,74%{stroke:#5e6b7a}82%,96%{stroke:#f3a93c}100%{stroke:#5e6b7a}}
+
+@media(max-width:880px){.aix-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){
+ .aix-grid{grid-template-columns:1fr}
+ .aix-modal{padding:24px 20px}
+ .aix-how{grid-template-columns:1fr;gap:8px}
+ .aix-step{display:flex;gap:10px;align-items:baseline}
+ .aix-step .aix-n{margin:0}
+}
+
+#agents .card{cursor:pointer}
+#agents .card .aix-hint{display:inline-flex;align-items:center;gap:5px;margin-top:14px;font-size:12.5px;font-weight:600;color:#5AA0FF}
+#agents .card .aix-hint svg{transition:transform .2s}
+#agents .card:hover .aix-hint svg{transform:translateX(4px)}
 </style>
 </head>
 <body>
@@ -319,7 +459,7 @@ footer{border-top:1px solid var(--line);padding:48px 0 60px;margin-top:30px}
     <div class="orbit-lines"><svg width="360" height="360" viewBox="0 0 360 360" fill="none"><line x1="180" y1="180" x2="180" y2="30" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="255" y2="50" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="310" y2="105" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="330" y2="180" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="310" y2="255" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="255" y2="310" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="180" y2="330" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="105" y2="310" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="70" y2="255" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="30" y2="180" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="70" y2="105" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/><line x1="180" y1="180" x2="105" y2="50" stroke="#2E80F2" stroke-opacity="0.18" stroke-width="1.3" stroke-dasharray="3 5"/></svg></div>
     <div class="ring ring-1"></div><div class="ring ring-2"></div>
     <div class="orbit-core"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2E80F2" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82z"/></svg><span class="lbl">AutomateIQ</span></div>
-    <span class="app" style="left:180px;top:30px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/gmail/aeb6c4" alt="gmail" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:255px;top:50px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="3" width="19" height="18" rx="2.5" fill="#1D6F42"/><path d="M8 8.5l8 7M16 8.5l-8 7" stroke="#fff" stroke-width="2.1" stroke-linecap="round"/></svg></span></span><span class="app" style="left:310px;top:105px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/stripe/aeb6c4" alt="stripe" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:330px;top:180px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/googlesheets/aeb6c4" alt="googlesheets" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:310px;top:255px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/whatsapp/aeb6c4" alt="whatsapp" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:255px;top:310px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/notion/aeb6c4" alt="notion" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:180px;top:330px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/slack/aeb6c4" alt="slack" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:105px;top:310px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/airtable/aeb6c4" alt="airtable" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:70px;top:255px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/xero/aeb6c4" alt="xero" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:30px;top:180px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/paypal/aeb6c4" alt="paypal" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:70px;top:105px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/hubspot/aeb6c4" alt="hubspot" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span><span class="app" style="left:105px;top:50px"><span class="tile"><img loading="lazy" src="https://cdn.simpleicons.org/googlecalendar/aeb6c4" alt="googlecalendar" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2223%22%20height=%2223%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23aeb6c4%22%20stroke-width=%221.7%22%3E%3Crect%20x=%223%22%20y=%223%22%20width=%2218%22%20height=%2218%22%20rx=%224%22/%3E%3C/svg%3E'"/></span></span>
+    <span class="app" style="left:180px;top:30px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#EA4335"/><rect x="5" y="8" width="14" height="9" rx="1.5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M5.5 9l6.5 4.5 6.5-4.5" fill="none" stroke="#fff" stroke-width="1.5"/></svg></span></span><span class="app" style="left:255px;top:50px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#1D6F42"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">X</text></svg></span></span><span class="app" style="left:310px;top:105px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#635BFF"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">S</text></svg></span></span><span class="app" style="left:330px;top:180px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0F9D58"/><rect x="6" y="6" width="12" height="12" rx="1.2" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M6 11h12M11 6v12" stroke="#fff" stroke-width="1.4"/></svg></span></span><span class="app" style="left:310px;top:255px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#25D366"/><path d="M8.7 8c.25 1 .75 1.95 1.5 2.8.75.75 1.7 1.25 2.8 1.5l.95-1.2 2 .6v1.9c0 .6-.5 1.05-1.1 1C12 14.3 9.7 12 9.4 8.15 9.35 7.55 9.8 7.05 10.4 7.05h1.85z" fill="#fff"/></svg></span></span><span class="app" style="left:255px;top:310px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#F4F4F4"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#111">N</text></svg></span></span><span class="app" style="left:180px;top:330px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#4A154B"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">#</text></svg></span></span><span class="app" style="left:105px;top:310px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#F5C518"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#222">A</text></svg></span></span><span class="app" style="left:70px;top:255px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#13B5EA"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">X</text></svg></span></span><span class="app" style="left:30px;top:180px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#0070BA"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">P</text></svg></span></span><span class="app" style="left:70px;top:105px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF7A59"/><text x="12" y="16.4" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" font-weight="700" fill="#fff">H</text></svg></span></span><span class="app" style="left:105px;top:50px"><span class="tile"><svg width="23" height="23" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FFFFFF"/><text x="12" y="15.2" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="700" fill="#4285F4">31</text></svg></span></span>
    </div>
   </div>
  </div>
@@ -366,24 +506,24 @@ footer{border-top:1px solid var(--line);padding:48px 0 60px;margin-top:30px}
    <p>Purpose-built agents handle the repetitive, time-consuming work — so your people focus on the jobs that actually grow the business.</p>
   </div>
   <div class="grid g3" style="margin-top:42px">
-   <div class="card reveal"><div class="viz">
+   <div class="card reveal" data-agent="voice"><div class="viz">
      <svg width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none"><g fill="#2E80F2"><rect x="4" y="14" width="4" height="12" rx="2"/><rect x="14" y="8" width="4" height="24" rx="2"/><rect x="24" y="2" width="4" height="36" rx="2"/><rect x="34" y="12" width="4" height="16" rx="2"/><rect x="44" y="6" width="4" height="28" rx="2"/><rect x="54" y="16" width="4" height="8" rx="2"/><rect x="64" y="4" width="4" height="32" rx="2"/><rect x="74" y="12" width="4" height="16" rx="2"/><rect x="84" y="9" width="4" height="22" rx="2"/><rect x="94" y="15" width="4" height="10" rx="2"/></g></svg></div>
-    <h3>Voice receptionist</h3><p>Answers every call, qualifies the lead and books the job — even when the whole team is on site. No missed calls, no lost work.</p></div>
-   <div class="card reveal"><div class="viz">
+    <h3>Voice receptionist</h3><p>Answers every call, qualifies the lead and books the job — even when the whole team is on site. No missed calls, no lost work.</p><span class="aix-hint">Talk to the demo <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+   <div class="card reveal" data-agent="support"><div class="viz">
      <svg width="60" height="40" viewBox="0 0 60 40" fill="none" stroke="#2E80F2" stroke-width="1.6"><rect x="2" y="4" width="34" height="22" rx="6"/><rect x="22" y="16" width="34" height="20" rx="6" fill="rgba(46,128,242,.12)"/></svg></div>
-    <h3>Support agent</h3><p>Handles customer questions, status updates and follow-ups around the clock, with every answer pulled from the live job record.</p></div>
-   <div class="card reveal"><div class="viz">
+    <h3>Support agent</h3><p>Handles customer questions, status updates and follow-ups around the clock, with every answer pulled from the live job record.</p><span class="aix-hint">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+   <div class="card reveal" data-agent="email"><div class="viz">
      <svg width="70" height="40" viewBox="0 0 70 40" fill="none" stroke="#2E80F2" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="6" width="44" height="28" rx="4"/><path d="m2 10 22 13 22-13"/><circle cx="58" cy="28" r="9" fill="rgba(46,128,242,.15)" stroke="none"/><path d="M54 28l3 3 5-6" stroke="#5AA0FF"/></svg></div>
-    <h3>Email agent</h3><p>Reads, sorts, replies and chases — turning a chaotic inbox into a clean, automated pipeline that nothing falls out of.</p></div>
-   <div class="card reveal"><div class="viz">
+    <h3>Email agent</h3><p>Reads, sorts, replies and chases — turning a chaotic inbox into a clean, automated pipeline that nothing falls out of.</p><span class="aix-hint">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+   <div class="card reveal" data-agent="chat"><div class="viz">
      <svg width="80" height="40" viewBox="0 0 80 40" fill="none" stroke="#2E80F2" stroke-width="1.6"><rect x="2" y="8" width="40" height="24" rx="6"/><path d="M12 18h22M12 24h14"/><circle cx="64" cy="20" r="11" fill="rgba(46,128,242,.12)"/></svg></div>
-    <h3>Website chatbot</h3><p>Greets every visitor, answers instantly and captures qualified leads the moment interest is highest — like the one on this page.</p></div>
-   <div class="card reveal"><div class="viz">
+    <h3>Website chatbot</h3><p>Greets every visitor, answers instantly and captures qualified leads the moment interest is highest — like the one on this page.</p><span class="aix-hint">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+   <div class="card reveal" data-agent="security"><div class="viz">
      <svg width="60" height="40" viewBox="0 0 60 40" fill="none" stroke="#2E80F2" stroke-width="1.6" stroke-linejoin="round"><path d="M16 4l12 4v9c0 7-5 11-12 15-7-4-12-8-12-15V8z" fill="rgba(46,128,242,.12)"/><rect x="38" y="10" width="20" height="14" rx="3"/><circle cx="48" cy="17" r="3"/></svg></div>
-    <h3>Security &amp; camera intelligence</h3><p>Door and camera events become real-time alerts and automated actions — so the right person knows the moment something happens.</p></div>
-   <div class="card reveal"><div class="viz">
+    <h3>Security &amp; camera intelligence</h3><p>Door and camera events become real-time alerts and automated actions — so the right person knows the moment something happens.</p><span class="aix-hint">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
+   <div class="card reveal" data-agent="flow"><div class="viz">
      <svg width="80" height="40" viewBox="0 0 80 40" fill="none" stroke="#2E80F2" stroke-width="1.6"><circle cx="12" cy="20" r="6"/><circle cx="40" cy="9" r="6"/><circle cx="40" cy="31" r="6"/><circle cx="68" cy="20" r="6" fill="rgba(46,128,242,.15)"/><path d="M18 18l16-6M18 22l16 6M46 9l16 9M46 31l16-9"/></svg></div>
-    <h3>Workflow &amp; data agent</h3><p>Moves every job through the pipeline, updates records and triggers the next step — keeping the whole system in sync with zero manual entry.</p></div>
+    <h3>Workflow &amp; data agent</h3><p>Moves every job through the pipeline, updates records and triggers the next step — keeping the whole system in sync with zero manual entry.</p><span class="aix-hint">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div>
   </div>
   <div class="sec-head center reveal" style="margin-top:64px"><span class="eyebrow" style="justify-content:center">Platform assistants</span>
    <h2 style="font-size:clamp(1.5rem,2.6vw,2rem)">Built in across the platform</h2></div>
@@ -597,5 +737,76 @@ footer{border-top:1px solid var(--line);padding:48px 0 60px;margin-top:30px}
 })();
 </script>
 
+
+<!-- ===== AGENT EXPLAINER MODAL ===== -->
+<div class="aix-overlay" id="aixOverlay">
+ <div class="aix-modal" id="aixModal"><button class="aix-x" id="aixX">&times;</button><div id="aixBody"></div></div>
+</div>
+<script>
+
+/* paste your ElevenLabs agent/share URL between the quotes to enable the voice demo button */
+window.VOICE_DEMO_URL = "";
+
+
+var DATA={
+ voice:{tag:"Live demo · voice",title:"Voice receptionist",
+  icon:'<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>',
+  problem:"Missed calls are missed jobs. A tradesperson on the tools can\u2019t answer the phone \u2014 and voicemail loses the customer.",
+  scene:'<div class="aix-grin"></div><div class="aix-s6"><div class="aix-wave aix-w1"></div><div class="aix-wave aix-w2"></div><div class="aix-wave aix-w3"></div><div class="aix-phone"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div><div class="aix-bars"><i></i><i></i><i></i><i></i><i></i></div></div>',
+  steps:[["01","Answers instantly","Picks up every call, day or night."],["02","Books the job","Takes name, address & problem by voice."],["03","Logs it","Drops straight into the job record."]],
+  cta:true},
+ support:{tag:"Always-on support",title:"Support agent",
+  icon:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  problem:"Customers ask \u201cwhen are you coming?\u201d at all hours \u2014 and chasing those replies eats the evening.",
+  scene:'<div class="aix-s1"><div class="aix-grin"></div><span class="aix-clock"><span class="aix-d"></span> 24/7</span><div class="aix-chip aix-blue" style="left:4%;top:50%;transform:translateY(-50%)">Customer</div><div class="aix-conn" style="left:19%;right:57%;top:50%"></div><div class="aix-core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5c0 2 1 3.2 2 4.2V15a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2.8c1-1 2-2.2 2-4.2a5 5 0 0 0-5-5z"/><path d="M10 20h4"/></svg></div><div class="aix-vline"></div><div class="aix-db">Live job record</div><div class="aix-conn" style="left:57%;right:19%;top:50%"></div><div class="aix-chip aix-green" style="right:4%;top:50%;transform:translateY(-50%)">Reply ✓</div><div class="aix-pulse aix-pq"></div><div class="aix-pulse aix-pa"></div></div>',
+  steps:[["01","Customer asks","Any hour, any channel."],["02","Reads job record","Pulls the real, live answer."],["03","Replies instantly","Accurate, on-brand, automatic."]]},
+ email:{tag:"Inbox, automated",title:"Email agent",
+  icon:'<path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3 7 9 6 9-6"/>',
+  problem:"A flooded inbox means quotes go cold and follow-ups get forgotten \u2014 money quietly walking out the door.",
+  scene:'<div class="aix-s2" style="position:absolute;inset:0"><div class="aix-grin"></div><div class="aix-chip" style="left:4%;top:50%;transform:translateY(-50%)">Inbox</div><div class="aix-core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><div class="aix-lane aix-l1">Replied ✓</div><div class="aix-lane aix-l2">Chasing →</div><div class="aix-lane aix-l3">Filed</div><div class="aix-pulse aix-pin"></div><div class="aix-pulse aix-po aix-o1"></div><div class="aix-pulse aix-po aix-o2"></div><div class="aix-pulse aix-po aix-o3"></div></div>',
+  steps:[["01","Reads everything","Every new email, instantly."],["02","Sorts & replies","Answers the easy ones itself."],["03","Chases the rest","Follows up so nothing stalls."]]},
+ chat:{tag:"Lead capture",title:"Website chatbot",
+  icon:'<path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/>',
+  problem:"Visitors land, get no answer, and leave \u2014 the lead is gone before the phone ever rings.",
+  scene:'<div class="aix-s3" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%"><div class="aix-win"><div class="aix-bar"><i></i><i></i><i></i></div><div class="aix-bub aix-b1">Do you cover my area?</div><div class="aix-typing"><span></span><span></span><span></span></div><div class="aix-bub aix-b2">We do — want a quote?</div><div class="aix-lead">✓ Lead captured — name &amp; job saved</div></div></div>',
+  steps:[["01","Greets visitors","The second they land."],["02","Answers instantly","No waiting, no friction."],["03","Captures the lead","Name & job, while it\u2019s hot."]]},
+ security:{tag:"Real-time alerts",title:"Security & camera intelligence",
+  icon:'<path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
+  problem:"By the time you check the footage, it\u2019s hours later \u2014 the moment that mattered is long gone.",
+  scene:'<svg class="aix-secsvg" viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet"><path d="M70 80 C 130 50 190 48 240 46" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><path d="M250 56 C 300 78 325 95 344 116" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><rect x="40" y="68" width="12" height="84" rx="2" fill="#11151f" stroke="#2a3344"/><path d="M52 70 L72 60 L72 150 L52 150 Z" fill="#161b27" stroke="#2a3344"/><circle class="aix-sensor" cx="72" cy="62" r="4" fill="#f3a93c"/><text x="44" y="170" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Door 3</text><g opacity="0.35"><rect x="135" y="30" width="26" height="15" rx="3" fill="#11151f" stroke="#5e6b7a"/><circle cx="148" cy="37" r="3.5" fill="none" stroke="#5e6b7a"/><text x="133" y="22" fill="#5e6b7a" font-size="10" font-family="Space Mono, monospace">Cam 1</text></g><g class="aix-pan"><polygon points="245,46 216,118 274,118" fill="rgba(46,128,242,0.16)" stroke="rgba(46,128,242,0.32)" stroke-width="1"/></g><rect x="232" y="30" width="26" height="16" rx="3" fill="#11151f" stroke="#2E80F2"/><circle cx="245" cy="38" r="3.8" fill="none" stroke="#5AA0FF"/><text x="231" y="22" fill="#8fc0ff" font-size="10" font-family="Space Mono, monospace">Cam 2</text><path class="aix-shield aix-lit" d="M345 103 l14 5 v9 c0 9 -6 16 -14 19 c-8 -3 -14 -10 -14 -19 v-9 z" fill="#11151f" stroke="#5e6b7a" stroke-width="1.5"/><text x="329" y="158" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Security</text><circle r="4" fill="#5AA0FF" class="aix-p1"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.16;0.30;1" calcMode="linear" path="M70 80 C 130 50 190 48 240 46"/></circle><circle r="4" fill="#f3a93c" class="aix-p2"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.58;0.72;1" calcMode="linear" path="M250 56 C 300 78 325 95 344 116"/></circle><g class="aix-alertg"><rect x="286" y="86" width="98" height="22" rx="6" fill="rgba(243,169,60,0.12)" stroke="rgba(243,169,60,0.5)"/><text x="295" y="101" fill="#ffd79a" font-size="11" font-family="Space Mono, monospace">⚠ Door 3 · alert</text></g></svg>',
+  steps:[["01","Event happens","Door opens, motion detected."],["02","Understands it","Knows normal from notable."],["03","Acts at once","Alerts the right person."]]},
+ flow:{tag:"Zero manual entry",title:"Workflow & data agent",
+  icon:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/>',
+  problem:"Re-typing the same job into five places is slow, error-prone, and the reason things slip through the cracks.",
+  scene:'<div class="aix-s5" style="position:absolute;inset:0"><div class="aix-sync"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7fe9bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> records synced</div><div class="aix-pipe"></div><div class="aix-fill"></div><div class="aix-pnode" style="left:9%"></div><div class="aix-plbl" style="left:9%">Lead</div><div class="aix-pnode" style="left:26.5%"></div><div class="aix-plbl" style="left:26.5%">Quote</div><div class="aix-pnode" style="left:44%"></div><div class="aix-plbl" style="left:44%">Job</div><div class="aix-pnode" style="left:61.5%"></div><div class="aix-plbl" style="left:61.5%">Install</div><div class="aix-pnode" style="left:88%"></div><div class="aix-plbl" style="left:88%">Paid</div><div class="aix-token"></div></div>',
+  steps:[["01","Job moves stage","Lead \u2192 quote \u2192 job \u2192 paid."],["02","Records update","Every system, automatically."],["03","Next step fires","The right action, every time."]]}
+};
+
+var overlay=document.getElementById('aixOverlay'),modal=document.getElementById('aixModal'),mbody=document.getElementById('aixBody'),xb=document.getElementById('aixX');
+
+function render(key){
+ var d=DATA[key];if(!d)return;
+ var steps=d.steps.map(function(s){return '<div class="aix-step"><div class="aix-n">'+s[0]+'</div><b>'+s[1]+'</b><span>'+s[2]+'</span></div>';}).join('');
+ var cta=d.cta?'<div class="aix-cta"><button class="aix-btn" id="aixVoiceBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg> Talk to the live demo</button><span class="aix-note">Mic access \u00b7 ~1 min</span></div>':'';
+ mbody.innerHTML=
+  '<div class="aix-m-head"><div class="aix-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+d.icon+'</svg></div><div><div class="aix-tag">'+d.tag+'</div><h2>'+d.title+'</h2></div></div>'+
+  '<div class="aix-prob"><span class="aix-lbl">Problem</span><p>'+d.problem+'</p></div>'+
+  '<div class="aix-stage">'+d.scene+'</div>'+
+  '<div class="aix-how">'+steps+'</div>'+cta;
+ var vb=document.getElementById('aixVoiceBtn');
+ if(vb)vb.onclick=function(){ if(window.VOICE_DEMO_URL){window.open(window.VOICE_DEMO_URL,'_blank');} else {alert('Add your ElevenLabs demo link to VOICE_DEMO_URL to enable this button.');} };
+}
+function open(key){render(key);overlay.classList.add('aix-show');document.body.style.overflow='hidden';}
+function close(){overlay.classList.remove('aix-show');document.body.style.overflow='';}
+
+document.querySelectorAll('[data-agent]').forEach(function(c){
+ c.addEventListener('click',function(){open(c.getAttribute('data-agent'));});
+ c.addEventListener('mousemove',function(e){var r=c.getBoundingClientRect();c.style.setProperty('--mx',(e.clientX-r.left)+'px');c.style.setProperty('--my',(e.clientY-r.top)+'px');});
+});
+xb.onclick=close;
+overlay.addEventListener('click',function(e){if(e.target===overlay)close();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+
+</script>
 </body>
 </html>
