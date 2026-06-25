@@ -30,7 +30,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 /* card grid */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding-bottom:80px}
 .card{position:relative;background:linear-gradient(170deg,var(--panel),var(--bg));border:1px solid var(--line);border-radius:18px;padding:26px;cursor:pointer;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
-.card::after{content:"";position:absolute;inset:0;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(46,128,242,.10),transparent 60%);opacity:0;transition:opacity .3s}
+.card::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(46,128,242,.10),transparent 60%);opacity:0;transition:opacity .3s}
 .card:hover{transform:translateY(-5px);border-color:var(--line-2);box-shadow:0 24px 50px rgba(0,0,0,.5)}
 .card:hover::after{opacity:1}
 .card .ico{width:48px;height:48px;border-radius:13px;background:linear-gradient(150deg,rgba(46,128,242,.22),rgba(46,128,242,.06));border:1px solid rgba(46,128,242,.3);display:grid;place-items:center;margin-bottom:18px}
@@ -44,7 +44,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* modal */
-.overlay{position:fixed;inset:0;background:rgba(3,4,8,.78);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000;opacity:0;transition:opacity .25s}
+.overlay{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(3,4,8,.78);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px;z-index:1000;opacity:0;transition:opacity .25s}
 .overlay.show{display:flex;opacity:1}
 .modal{position:relative;width:100%;max-width:620px;max-height:92vh;overflow-y:auto;background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line-2);border-radius:22px;padding:34px;transform:translateY(16px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.25,1)}
 .overlay.show .modal{transform:none}
@@ -61,7 +61,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 
 /* stage (animated scene) */
 .stage{position:relative;height:220px;border-radius:15px;background:radial-gradient(120% 120% at 50% 0%,#0e1420,#080a11);border:1px solid var(--line);overflow:hidden;margin-bottom:22px;display:flex;align-items:center;justify-content:center}
-.stage .grin{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:26px 26px;opacity:.25;mask-image:radial-gradient(circle at 50% 50%,#000,transparent 75%)}
+.stage .grin{position:absolute;top:0;right:0;bottom:0;left:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:26px 26px;opacity:.25;mask-image:radial-gradient(circle at 50% 50%,#000,transparent 75%)}
 
 .how{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
@@ -205,17 +205,19 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 
 /* scene 8: COLLECTIONS */
 .s8 .core{left:50%}
-.s8 .jr{left:4%;top:50%;transform:translateY(-50%)}
-.s8 .paid{left:4%;top:22%;opacity:0;animation:s8paid 5.4s ease-in-out infinite}
+.s8 .jrl{position:absolute;left:5%;top:31%;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#5e6b7a}
+.s8 .jr{left:5%;top:50%;transform:translateY(-50%)}
+.s8 .paid{left:5%;top:65%;opacity:0;animation:s8paid 5.4s ease-in-out infinite}
 @keyframes s8paid{0%,62%{opacity:0;transform:translateY(4px)}72%,90%{opacity:1;transform:none}96%,100%{opacity:0}}
-.s8 .cap{position:absolute;left:50%;top:74%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9px;color:#5e6b7a;white-space:nowrap}
-.s8 .ch{position:absolute;top:50%;width:7px;height:7px;border-radius:50%;background:#5AA0FF;transform:translateY(-50%);animation:s8ch 1.3s ease-in-out infinite}
-.s8 .c1{left:44%}.s8 .c2{left:50%;animation-delay:.2s}.s8 .c3{left:56%;animation-delay:.4s}
-@keyframes s8ch{0%,100%{opacity:.22}50%{opacity:1}}
+.s8 .chan{position:absolute;left:50%;top:15%;transform:translateX(-50%);display:flex;gap:9px;align-items:center;background:var(--panel-2);border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.s8 .chan svg{display:block;opacity:.35;animation:s8ch 1.6s ease-in-out infinite}
+.s8 .chan svg:nth-child(2){animation-delay:.27s}.s8 .chan svg:nth-child(3){animation-delay:.54s}
+@keyframes s8ch{0%,100%{opacity:.3}50%{opacity:1}}
+.s8 .cap{position:absolute;left:50%;top:73%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9px;color:#5e6b7a;white-space:nowrap}
 .s8 .pout{top:50%;animation:s8out 5.4s cubic-bezier(.5,0,.4,1) infinite}
-@keyframes s8out{0%{left:18%;opacity:0}12%{opacity:1}40%{left:46%;opacity:1}46%,100%{opacity:0}}
+@keyframes s8out{0%{left:30%;opacity:0}14%{opacity:1}42%{left:44%;opacity:1}48%,100%{opacity:0}}
 .s8 .pback{top:50%;background:#1fbf75;box-shadow:0 0 12px 2px rgba(31,191,117,.7);animation:s8back 5.4s cubic-bezier(.5,0,.4,1) infinite}
-@keyframes s8back{0%,58%{left:46%;opacity:0}64%{opacity:1}86%{left:20%;opacity:1}92%,100%{opacity:0}}
+@keyframes s8back{0%,56%{left:44%;opacity:0}62%{opacity:1}86%{left:30%;opacity:1}92%,100%{opacity:0}}
 
 /* scene 9: RESEARCH */
 .s9 .core{left:30%}
@@ -332,7 +334,7 @@ var DATA={
  email:{tag:"Inbox, automated",title:"Email agent",
   icon:'<path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3 7 9 6 9-6"/>',
   problem:"A flooded inbox means quotes go cold and follow-ups get forgotten \u2014 money quietly walking out the door.",
-  scene:'<div class="s2" style="position:absolute;inset:0"><div class="grin"></div><div class="chip" style="left:4%;top:50%;transform:translateY(-50%)">Inbox</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><div class="lane l1">Replied ✓</div><div class="lane l2">Chasing →</div><div class="lane l3">Filed</div><div class="pulse pin"></div><div class="pulse po o1"></div><div class="pulse po o2"></div><div class="pulse po o3"></div></div>',
+  scene:'<div class="s2" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip" style="left:4%;top:50%;transform:translateY(-50%)">Inbox</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><div class="lane l1">Replied ✓</div><div class="lane l2">Chasing →</div><div class="lane l3">Filed</div><div class="pulse pin"></div><div class="pulse po o1"></div><div class="pulse po o2"></div><div class="pulse po o3"></div></div>',
   steps:[["01","Reads everything","Every new email, instantly."],["02","Sorts & replies","Answers the easy ones itself."],["03","Chases the rest","Follows up so nothing stalls."]]},
  chat:{tag:"Lead capture",title:"Website chatbot",
   icon:'<path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/>',
@@ -347,24 +349,24 @@ var DATA={
  flow:{tag:"Zero manual entry",title:"Workflow & data agent",
   icon:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/>',
   problem:"Re-typing the same job into five places is slow, error-prone, and the reason things slip through the cracks.",
-  scene:'<div class="s5" style="position:absolute;inset:0"><div class="sync"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7fe9bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> records synced</div><div class="pipe"></div><div class="fill"></div><div class="pnode" style="left:9%"></div><div class="plbl" style="left:9%">Lead</div><div class="pnode" style="left:26.5%"></div><div class="plbl" style="left:26.5%">Quote</div><div class="pnode" style="left:44%"></div><div class="plbl" style="left:44%">Job</div><div class="pnode" style="left:61.5%"></div><div class="plbl" style="left:61.5%">Install</div><div class="pnode" style="left:88%"></div><div class="plbl" style="left:88%">Paid</div><div class="token"></div></div>',
+  scene:'<div class="s5" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="sync"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7fe9bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> records synced</div><div class="pipe"></div><div class="fill"></div><div class="pnode" style="left:9%"></div><div class="plbl" style="left:9%">Lead</div><div class="pnode" style="left:26.5%"></div><div class="plbl" style="left:26.5%">Quote</div><div class="pnode" style="left:44%"></div><div class="plbl" style="left:44%">Job</div><div class="pnode" style="left:61.5%"></div><div class="plbl" style="left:61.5%">Install</div><div class="pnode" style="left:88%"></div><div class="plbl" style="left:88%">Paid</div><div class="token"></div></div>',
   steps:[["01","Job moves stage","Lead \u2192 quote \u2192 job \u2192 paid."],["02","Records update","Every system, automatically."],["03","Next step fires","The right action, every time."]]},
  secops:{tag:"Security · operations",title:"Security Operations Agent",
   icon:'<path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/><circle cx="12" cy="11" r="2.4"/>',
   problem:"Security firms live on recurring monitoring and maintenance contracts — but reactive callouts, missed device failures and contracts lapsing quietly lose money.",
-  scene:'<div class="s7" style="position:absolute;inset:0"><div class="grin"></div><div class="chip blue site sA"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site A</div><div class="chip blue site sB"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site B</div><div class="chip blue site sC"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site C</div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 20h8M12 17v3"/><circle cx="12" cy="10.5" r="2.2"/></svg></div><div class="alert">⚠ Camera offline · Site B</div><div class="pulse pin"></div><div class="chip green outc">Job raised ✓</div><div class="pulse pout"></div></div>',
+  scene:'<div class="s7" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip blue site sA"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site A</div><div class="chip blue site sB"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site B</div><div class="chip blue site sC"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site C</div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 20h8M12 17v3"/><circle cx="12" cy="10.5" r="2.2"/></svg></div><div class="alert">⚠ Camera offline · Site B</div><div class="pulse pin"></div><div class="chip green outc">Job raised ✓</div><div class="pulse pout"></div></div>',
   steps:[["01","Watches every site","Cameras & doors across all premises on one screen."],["02","Spots the issue","Device offline, door forced, contract or credential expiring."],["03","Acts on it","Raises a Job and schedules maintenance before a contract lapses."]],
   integrations:"Connects to systems like <b>Verkada</b>, <b>Avigilon</b>, <b>Genetec</b>, <b>Brivo</b>, <b>Kisi</b>, <b>Ubiquiti UniFi</b> and <b>DeterTech</b> (construction sites) — every event lands in the Job Record."},
  collections:{tag:"Payment · collections",title:"Collections Agent",
   icon:'<circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/>',
   problem:"Most trades hate chasing money and are bad at it — overdue invoices pile up and cash quietly leaks out of the business.",
-  scene:'<div class="s8" style="position:absolute;inset:0"><div class="grin"></div><div class="chip amber jr">Job Record · €420 overdue</div><div class="chip green paid">Paid ✓</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div><div class="ch c1"></div><div class="ch c2"></div><div class="ch c3"></div><div class="cap">resolution partner</div><div class="pulse pout"></div><div class="pulse pback"></div></div>',
+  scene:'<div class="s8" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="jrl">Job Record</div><div class="chip amber jr">€420 overdue</div><div class="chip green paid">Paid ✓</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div><div class="chan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div><div class="cap">AI resolution partner</div><div class="pulse pout"></div><div class="pulse pback"></div></div>',
   steps:[["01","Overdue flows out","An unpaid balance leaves the Job Record."],["02","Partner chases","A specialist AI debt-resolution partner follows up across channels, humanely."],["03","Status flows back","Repayment and outcome land back in the Job Record."]],
   integrations:"Orchestrates a best-in-class <b>AI debt-resolution partner</b> — AutomateIQ keeps the Job Record as the single source of truth; we don’t rebuild collections."},
  research:{tag:"Growth · prospecting",title:"Research / Growth Agent",
   icon:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   problem:"Most platforms only run the jobs you already have — they don’t help you find the next ones.",
-  scene:'<div class="s9" style="position:absolute;inset:0"><div class="grin"></div><div class="search">“Plumbing firms in Dublin, 10+ staff”<span class="car"></span></div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="pulse pin"></div><div class="lead ld1">Acme Plumbing · Dublin 4</div><div class="lead ld2">FlowFix Ltd · Swords</div><div class="lead ld3">PipeWorks · Tallaght</div><div class="tolead">→ added as new leads</div></div>',
+  scene:'<div class="s9" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="search">“Plumbing firms in Dublin, 10+ staff”<span class="car"></span></div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="pulse pin"></div><div class="lead ld1">Acme Plumbing · Dublin 4</div><div class="lead ld2">FlowFix Ltd · Swords</div><div class="lead ld3">PipeWorks · Tallaght</div><div class="tolead">→ added as new leads</div></div>',
   steps:[["01","Describe your customer","In plain English — plumbing firms in Dublin, 10+ staff."],["02","It finds them","Verified, enriched companies and contacts from the live web."],["03","Drops into pipeline","Added straight to the Job Record as new leads."]],
   integrations:"Built on our integration with <b>Exa</b> semantic search & Websets — Supabase stays the system of record; Exa is the web-intelligence layer we work alongside."}
 };
