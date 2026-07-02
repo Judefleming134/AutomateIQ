@@ -112,7 +112,8 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .col:hover{border-color:var(--line2);transform:translateY(-3px)}
 .col.win{background:linear-gradient(180deg,rgba(59,130,246,.1),rgba(59,130,246,.02));border-color:rgba(59,130,246,.45);box-shadow:0 0 0 1px rgba(59,130,246,.15),0 0 48px rgba(59,130,246,.12)}
 .col .k{font:10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
-.col.win .k{color:var(--ac2)}
+.col.win .k{color:var(--ac2);animation:labelglow 3.2s ease-in-out infinite}
+@keyframes labelglow{0%,100%{text-shadow:0 0 0 transparent}50%{text-shadow:0 0 12px rgba(59,130,246,.6)}}
 .col h3{font-size:1.2rem;margin-bottom:8px}
 .col .d{font-size:13px;color:var(--body);margin-bottom:18px;min-height:38px}
 .col ul{list-style:none;display:flex;flex-direction:column;gap:11px}
@@ -129,7 +130,8 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .c2{grid-template-columns:repeat(2,1fr)}
 .cell{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:16px;padding:28px 24px;transition:border-color .3s,box-shadow .3s,transform .3s}
 .cell:hover{border-color:var(--line2);transform:translateY(-3px);box-shadow:0 0 0 1px rgba(59,130,246,.08),0 0 40px rgba(59,130,246,.08)}
-.cell .n{font:10.5px var(--mono);letter-spacing:.12em;color:var(--ac2);margin-bottom:14px}
+.cell .n{font:10.5px var(--mono);letter-spacing:.12em;color:var(--ac2);margin-bottom:14px;display:inline-block;transition:transform .35s cubic-bezier(.16,1,.3,1),text-shadow .35s}
+.cell:hover .n{transform:scale(1.15);text-shadow:0 0 16px rgba(59,130,246,.7)}
 .cell h3{font-size:1.12rem;margin-bottom:9px}
 .cell p{font-size:13.5px;color:var(--body);line-height:1.55}
 @media(max-width:920px){.c4{grid-template-columns:1fr 1fr}}
@@ -138,7 +140,8 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 /* image bands */
 .band{position:relative;overflow:hidden;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;text-align:center;min-height:clamp(440px,64vw,640px);padding:64px 24px}
 .band-tall{min-height:clamp(480px,72vw,700px)}
-.bandbg{position:absolute;top:-8%;left:0;right:0;height:116%;background-size:cover;background-position:center calc(50% + var(--bgy,0px));z-index:0;transform:scale(1.12);will-change:transform}
+.bandbg{position:absolute;top:-8%;left:0;right:0;height:116%;background-size:cover;background-position:center calc(50% + var(--bgy,0px));z-index:0;transform:scale(1.12);will-change:transform;animation:kenburns 22s ease-in-out infinite alternate}
+@keyframes kenburns{0%{transform:scale(1.12)}100%{transform:scale(1.2)}}
 .band::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,var(--bg) 0%,rgba(21,19,20,.7) 15%,rgba(21,19,20,.46) 50%,rgba(21,19,20,.74) 85%,var(--bg) 100%)}
 .bandc{position:relative;z-index:2;max-width:840px}
 .bandc h2{font-size:clamp(1.9rem,4.6vw,3.3rem)}
