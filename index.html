@@ -149,16 +149,19 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .sw-tab{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--body);border:1px solid var(--line2);background:transparent;padding:11px 18px;border-radius:8px;cursor:pointer;transition:.2s}
 .sw-tab:hover{border-color:var(--ac-line);color:var(--heading)}
 .sw-tab.on{background:var(--ac);border-color:var(--ac);color:#fff;box-shadow:0 0 20px rgba(59,130,246,.3)}
-.appwrap{position:relative;display:flex;justify-content:center;gap:48px;align-items:center;flex-wrap:wrap;margin-top:8px}
+.appwrap{position:relative;display:flex;justify-content:center;gap:48px;align-items:center;flex-wrap:wrap;margin-top:8px;perspective:1200px}
 .appwrap::before{content:"";position:absolute;top:50%;left:50%;width:min(460px,80vw);height:460px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(59,130,246,.15),transparent 68%);filter:blur(10px);z-index:0}
-.appphone{position:relative;z-index:1;width:296px;border:11px solid var(--panel);border-radius:46px;background:#0d0c0d;box-shadow:0 0 0 1px var(--line2),0 40px 100px rgba(0,0,0,.5),0 0 60px rgba(59,130,246,.08);overflow:hidden;transition:transform .5s cubic-bezier(.16,1,.3,1),opacity .25s;transform-style:preserve-3d;will-change:transform}
+.appphone{position:relative;z-index:1;width:296px;border:11px solid var(--panel);border-radius:46px;background:#0d0c0d;box-shadow:0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 40px 100px rgba(0,0,0,.5),0 0 90px rgba(59,130,246,.15);overflow:hidden;transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .25s;transform-style:preserve-3d;will-change:transform;-webkit-box-reflect:below 14px linear-gradient(transparent 60%,rgba(255,255,255,.05))}
 .appstatus{height:30px;display:flex;align-items:center;justify-content:center;position:relative}
 .appstatus::after{content:"";position:absolute;top:9px;width:96px;height:20px;background:var(--panel);border-radius:14px}
 .appscreen{padding:8px 15px 22px;min-height:520px;background:radial-gradient(120% 60% at 50% 0,rgba(59,130,246,.08),transparent 50%)}
 .apphead{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px}
 .appttl{font-family:var(--display);font-weight:600;font-size:15px;color:var(--heading)}
 .appsub{font:9px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:3px}
-.appav{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--ac2),var(--ac))}
+.appav{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--ac2),var(--ac));position:relative}
+.appav::after{content:"";position:absolute;right:-2px;bottom:-2px;width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--panel);animation:livedot 2s ease-in-out infinite}
+@keyframes livedot{0%,100%{opacity:1}50%{opacity:.35}}
+#ap-jobs{transition:opacity .3s ease}
 .appk{display:flex;gap:9px;margin-bottom:14px}
 .appkc{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
 .appkc .v{font-family:var(--display);font-weight:700;font-size:19px;color:var(--heading)}
@@ -674,27 +677,77 @@ el.innerHTML=L.map(function(a){return '<div class="logo-tile" title="'+a[0]+'"><
 (function(){
 var D={
 plumbing:{t:'ClearWater Plumbing',s:'Field ops · live',c:'5 active',k:[['€48k','Revenue MTD'],['27','Open jobs']],
-j:[['JB','J. Byrne — Softener install','Booked · D4','#36e0a6','Paid'],['CP','Coastal Plumbing — Leak','New lead · 09:14','#5AA0FF','New'],['MD','M. Doyle — Service','Quote €1,895 sent','#f3b14c','Quote'],['RK','R. Kelly — Repipe','In progress','#5AA0FF','Active']]},
+j:[['JB','J. Byrne — Softener install','Booked · D4','#36e0a6','Paid'],['CP','Coastal Plumbing — Leak','New lead · 09:14','#3B82F6','New'],['MD','M. Doyle — Service','Quote €1,895 sent','#f3b14c','Quote'],['RK','R. Kelly — Repipe','In progress','#3B82F6','Active']]},
 electrical:{t:'Volt Electrical',s:'Field ops · live',c:'7 active',k:[['€61k','Revenue MTD'],['34','Open jobs']],
-j:[['EC','Emergency callout — 22:14','Logged by Voice','#5AA0FF','New'],['SM','S. Murphy — Rewire','Cert issued','#36e0a6','Done'],['TF','TechFit — Fit-out','Quote €2,430 sent','#f3b14c','Quote'],['NB','N. Byrne — Board upgrade','Scheduled','#5AA0FF','Active']]},
+j:[['EC','Emergency callout — 22:14','Logged by Voice','#3B82F6','New'],['SM','S. Murphy — Rewire','Cert issued','#36e0a6','Done'],['TF','TechFit — Fit-out','Quote €2,430 sent','#f3b14c','Quote'],['NB','N. Byrne — Board upgrade','Scheduled','#3B82F6','Active']]},
 solar:{t:'SunGrid Renewables',s:'Field ops · live',c:'6 active',k:[['€128k','Revenue MTD'],['19','Installs']],
-j:[['GS','Galway survey — booked','Web chatbot','#5AA0FF','New'],['SD','SEAI grant — approved','Workflow agent','#36e0a6','Done'],['JD','J. Doyle — Install','Deposit €4,700 paid','#36e0a6','Paid'],['37','37 systems monitored','Output nominal','#5AA0FF','Active']]},
+j:[['GS','Galway survey — booked','Web chatbot','#3B82F6','New'],['SD','SEAI grant — approved','Workflow agent','#36e0a6','Done'],['JD','J. Doyle — Install','Deposit €4,700 paid','#36e0a6','Paid'],['37','37 systems monitored','Output nominal','#3B82F6','Active']]},
 hvac:{t:'AirFlow HVAC',s:'Field ops · live',c:'4 active',k:[['€54k','Revenue MTD'],['23','Open jobs']],
-j:[['OF','Office — service request','Email agent','#5AA0FF','New'],['LD','Lidl — contract renewed','€4,800/yr','#36e0a6','Paid'],['AC','A. Casey — AC fit','Quote €3,150 sent','#f3b14c','Quote'],['15','15 assets — filter due','Flagged','#f3b14c','Due']]}
+j:[['OF','Office — service request','Email agent','#3B82F6','New'],['LD','Lidl — contract renewed','€4,800/yr','#36e0a6','Paid'],['AC','A. Casey — AC fit','Quote €3,150 sent','#f3b14c','Quote'],['15','15 assets — filter due','Flagged','#f3b14c','Due']]}
 };
-var BG={New:['#5AA0FF','rgba(46,128,242,.14)'],Quote:['#ffd79a','rgba(243,177,76,.14)'],Paid:['#7fe9bf','rgba(54,224,166,.14)'],Done:['#7fe9bf','rgba(54,224,166,.14)'],Active:['#5AA0FF','rgba(46,128,242,.14)'],Due:['#ffd79a','rgba(243,177,76,.14)']};
+var BG={New:['#3B82F6','rgba(59,130,246,.14)'],Quote:['#ffd79a','rgba(243,177,76,.14)'],Paid:['#7fe9bf','rgba(54,224,166,.14)'],Done:['#7fe9bf','rgba(54,224,166,.14)'],Active:['#3B82F6','rgba(59,130,246,.14)'],Due:['#ffd79a','rgba(243,177,76,.14)']};
 var phone=document.getElementById('appphone');
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var rotateTimer=null;
+function countUp(el,text){
+ var m=/^(€?)([\d,]+)(k?)$/.exec(text);
+ if(!m||reduceMotion){el.textContent=text;return;}
+ var prefix=m[1],target=parseInt(m[2].replace(/,/g,''),10),suffix=m[3],start=performance.now(),dur=800;
+ function step(now){var p=Math.min(1,(now-start)/dur);var eased=1-Math.pow(1-p,3);var val=Math.round(target*eased);
+ el.textContent=prefix+val.toLocaleString()+suffix;
+ if(p<1)requestAnimationFrame(step);}
+ requestAnimationFrame(step);
+}
+function jobsHTML(list){return list.map(function(r){var b=BG[r[4]]||BG.Active;return '<div class="appjob"><div class="ic" style="background:'+r[3]+'33;color:'+r[3]+'">'+r[0]+'</div><div><div class="nm">'+r[1]+'</div><div class="s2">'+r[2]+'</div></div><span class="bg" style="color:'+b[0]+';background:'+b[1]+'">'+r[4]+'</span></div>';}).join('');}
 function render(t){var d=D[t];if(!d)return;
+if(rotateTimer){clearInterval(rotateTimer);rotateTimer=null;}
 document.getElementById('ap-title').textContent=d.t;
 document.getElementById('ap-sub').textContent=d.s;
 document.getElementById('ap-count').textContent=d.c;
-document.getElementById('ap-kpis').innerHTML=d.k.map(function(k){return '<div class="appkc"><div class="v">'+k[0]+'</div><div class="l">'+k[1]+'</div></div>';}).join('');
-document.getElementById('ap-jobs').innerHTML=d.j.map(function(r){var b=BG[r[4]]||BG.Active;return '<div class="appjob"><div class="ic" style="background:'+r[3]+'33;color:'+r[3]+'">'+r[0]+'</div><div><div class="nm">'+r[1]+'</div><div class="s2">'+r[2]+'</div></div><span class="bg" style="color:'+b[0]+';background:'+b[1]+'">'+r[4]+'</span></div>';}).join('');
+var kpiEls=d.k.map(function(k){return '<div class="appkc"><div class="v">'+k[0]+'</div><div class="l">'+k[1]+'</div></div>';});
+document.getElementById('ap-kpis').innerHTML=kpiEls.join('');
+var vEls=document.querySelectorAll('#ap-kpis .v');
+d.k.forEach(function(k,i){if(vEls[i])countUp(vEls[i],k[0]);});
+var jobs=d.j.slice();
+var jobsEl=document.getElementById('ap-jobs');
+jobsEl.innerHTML=jobsHTML(jobs);
+if(!reduceMotion){
+ rotateTimer=setInterval(function(){
+  jobs.push(jobs.shift());
+  jobsEl.style.opacity='0';
+  setTimeout(function(){jobsEl.innerHTML=jobsHTML(jobs);jobsEl.style.opacity='1';},300);
+ },7000);
+}
 }
 var tabs=[].slice.call(document.querySelectorAll('.sw-tab'));
 tabs.forEach(function(tab){tab.addEventListener('click',function(){tabs.forEach(function(x){x.classList.remove('on');});tab.classList.add('on');
 if(phone){phone.style.opacity='.35';setTimeout(function(){render(tab.getAttribute('data-t'));phone.style.opacity='1';},200);}else render(tab.getAttribute('data-t'));});});
 if(phone)phone.style.transition='opacity .25s';
 render('plumbing');
+})();
+(function(){
+var wrap=document.querySelector('#trade .appwrap'),phone=document.getElementById('appphone');
+if(!wrap||!phone)return;
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var isTouch=window.matchMedia('(hover: none), (pointer: coarse)').matches;
+var baseRX=8,baseRY=-6,curRX=baseRX,curRY=baseRY,extraX=0,extraY=0;
+function apply(){phone.style.transform='perspective(1200px) rotateX('+(curRX+extraX).toFixed(2)+'deg) rotateY('+(curRY+extraY).toFixed(2)+'deg)';}
+if(reduceMotion){apply();return;}
+function onScroll(){
+ var r=wrap.getBoundingClientRect(),vh=window.innerHeight||1;
+ var center=r.top+r.height/2;
+ var p=1-Math.min(1,Math.max(0,center/vh));
+ curRX=baseRX*(1-p);curRY=baseRY*(1-p);
+ apply();
+}
+addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onScroll);onScroll();
+if(!isTouch){
+ wrap.addEventListener('mousemove',function(e){
+  var r=wrap.getBoundingClientRect();
+  var mx=(e.clientX-r.left)/r.width-0.5,my=(e.clientY-r.top)/r.height-0.5;
+  extraY=mx*6;extraX=-my*6;apply();
+ });
+ wrap.addEventListener('mouseleave',function(){extraX=0;extraY=0;apply();});
+}
 })();</script>
 </body></html>
