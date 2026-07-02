@@ -245,7 +245,8 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 @media(max-width:900px){.ag-featured{grid-template-columns:1fr 1fr}}
 .ag-fcard{text-align:left;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:15px;padding:18px;cursor:pointer;transition:.3s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;gap:9px;font-family:inherit}
 .ag-fcard:hover{transform:translateY(-4px);border-color:var(--line2)}
-.ag-fcard.on{border-color:var(--ac2);background:linear-gradient(180deg,rgba(59,130,246,.1),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12)}
+.ag-fcard.on{border-color:var(--ac2);background:linear-gradient(180deg,rgba(59,130,246,.1),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12);animation:cardglow 3.4s ease-in-out infinite}
+@keyframes cardglow{0%,100%{box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12)}50%{box-shadow:0 0 0 1px rgba(59,130,246,.45),0 0 44px rgba(59,130,246,.22)}}
 .ag-fcard.guard{border-color:rgba(59,130,246,.35)}
 .ag-fcard .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2);animation:icobreathe 7s ease-in-out infinite}
 .ag-fcard:nth-child(2) .ico{animation-delay:-1.7s}
@@ -263,7 +264,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 .ag-chip.on{border-color:var(--ac2);color:#fff;background:rgba(59,130,246,.12)}
 .ag-chip .d{width:7px;height:7px;border-radius:50%;background:var(--line2);transition:.25s}
 .ag-chip.on .d{background:var(--ac2);box-shadow:0 0 8px rgba(59,130,246,.7)}
-.ag-preview{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.015);transition:opacity .3s}
+.ag-preview{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.015);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);transition:opacity .3s cubic-bezier(.16,1,.3,1),transform .3s cubic-bezier(.16,1,.3,1)}
 .agp-card{padding:28px}
 @media(max-width:560px){.agp-card{padding:20px}}
 .agp-top{display:flex;align-items:center;gap:14px;margin-bottom:22px}
@@ -711,11 +712,13 @@ chipEl.innerHTML=AG.map(function(a,i){return '<button class="ag-chip" data-id="'
 function render(idx){var a=AG[idx];
 var flow=a.flow.map(function(s,i){return '<div class="agp-step"><span class="agp-sn">'+(i+1)+'</span><span class="agp-sl">'+s+'</span></div>';}).join('<span class="agp-ar">&rarr;</span>');
 prevEl.style.opacity='0';
+prevEl.style.transform='translateY(8px)';
 setTimeout(function(){
 prevEl.innerHTML='<div class="agp-card"><div class="agp-top"><span class="agp-ico">'+svg(a.ic)+'</span><div><div class="agp-name">'+a.n+'</div><div class="agp-tag">'+a.t+'</div></div></div>'
 +'<div class="agp-grid"><div class="agp-block"><h4>What it does</h4><p>'+a.what+'</p></div><div class="agp-block"><h4>The detail</h4><p>'+a.detail+'</p></div></div>'
 +'<div class="agp-flow-wrap"><h4>How it works</h4><div class="agp-flow">'+flow+'</div></div></div>';
 prevEl.style.opacity='1';
+prevEl.style.transform='none';
 },170);
 [].forEach.call(grid.querySelectorAll('[data-id]'),function(el){el.classList.toggle('on',+el.getAttribute('data-id')===idx);});
 }
