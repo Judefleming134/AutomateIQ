@@ -210,8 +210,12 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .ag-fcard:hover{transform:translateY(-4px);border-color:var(--line2)}
 .ag-fcard.on{border-color:var(--ac2);background:linear-gradient(180deg,rgba(59,130,246,.1),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12)}
 .ag-fcard.guard{border-color:rgba(59,130,246,.35)}
-.ag-fcard .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2)}
+.ag-fcard .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2);animation:icobreathe 7s ease-in-out infinite}
+.ag-fcard:nth-child(2) .ico{animation-delay:-1.7s}
+.ag-fcard:nth-child(3) .ico{animation-delay:-3.4s}
+.ag-fcard:nth-child(4) .ico{animation-delay:-5.1s}
 .ag-fcard .ico svg{width:21px;height:21px}
+@keyframes icobreathe{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}50%{box-shadow:0 0 16px 1px rgba(59,130,246,.25)}}
 .ag-fcard h3{font-size:1.02rem;color:var(--heading);line-height:1.2}
 .ag-fcard p{font-size:12px;color:var(--body)}
 .ag-fcard .more{font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ac2);margin-top:2px}
@@ -428,7 +432,7 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 <section id="agents">
  <div class="wrap">
   <div class="head reveal"><div><div class="eyebrow"><span class="num">06</span> / AI Agents</div><h2>Your digital workforce <span class="ac">that never clocks off.</span></h2></div>
-   <p class="lead">Each agent reads from and writes to your single Job Record — capturing leads, answering customers, chasing payments, watching your sites and moving every job through the pipeline. They take action, not just show data.</p></div>
+   <p class="lead">Each agent reads from and writes to your single Job Record — capturing leads, answering customers, chasing payments, watching your sites and moving every job through the pipeline. <span class="hl">They take action, not just show data.</span></p></div>
   <div class="agpanel reveal">
    <div class="agentgrid" id="agentgrid"></div>
    <div style="margin-top:14px;font:10.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)">Ten agents · interactive live diagrams</div>
