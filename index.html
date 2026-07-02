@@ -367,6 +367,24 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 #aiqbot-input{flex:1;background:rgba(255,255,255,.03);border:1px solid var(--line2);border-radius:8px;padding:11px 12px;color:var(--heading);font-family:var(--body-f);font-size:13.5px}
 #aiqbot-input:focus{outline:none;border-color:var(--ac2)}
 #aiqbot-send{background:var(--ac);border:none;color:#fff;border-radius:8px;padding:0 15px;cursor:pointer;font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+
+/* mobile performance tuning: backdrop-filter is the single most expensive
+   effect added in this pass (compositing cost scales with blurred-layer
+   count); drop it on narrow/coarse-pointer devices where it's most likely
+   to cost scroll frames, and thin out redundant continuous CSS animations
+   that add little on a small screen but keep compositing busy. Visuals
+   fall back to the plain glass-card recipe (still looks intentional). */
+@media(max-width:760px),(pointer:coarse){
+ .glass,.cell,.col,.tlstep,.ag-fcard,.browserwin,.ag-preview,#aiqbot-panel,.pipeline span:not(.ar){backdrop-filter:none;-webkit-backdrop-filter:none}
+ .bandbg{animation:none}
+ .ag-fcard.on{animation:none}
+ .col.win .k{animation:none}
+ .appphone{animation:none}
+ .sw-tab.on{animation:none}
+}
+@media(max-width:480px){
+ #aiqbot-launch{animation:none}
+}
 </style></head>
 <body>
 
