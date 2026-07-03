@@ -11,6 +11,10 @@ const createCustomerSchema = z.object({
   email: z.string().trim().email("A valid email is required"),
 });
 
+function getSiteUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie";
+}
+
 export async function createCustomer(
   _prevState: { error?: string; ok?: boolean } | undefined,
   formData: FormData
@@ -39,7 +43,12 @@ export async function createCustomer(
 
   const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
     email,
-    { data: { role: "customer", business_id: business.id } }
+    {
+      data: { role: "customer", business_id: business.id },
+      // Without this the link falls back to the Supabase project's Site URL
+      // (the marketing homepage), where the session tokens are silently lost.
+      redirectTo: `${getSiteUrl()}/auth/set-password`,
+    }
   );
 
   if (inviteError) {
@@ -111,7 +120,9 @@ export async function resetUserPassword(userId: string, email: string) {
 
   // The customer gets a reset email directly — the admin never sees or
   // transmits a live credential.
-  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${getSiteUrl()}/auth/set-password`,
+  });
 
   if (error) return { error: error.message };
 
