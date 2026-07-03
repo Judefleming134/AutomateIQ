@@ -229,8 +229,29 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 .sw-tab:hover{border-color:var(--ac-line);color:var(--heading)}
 .sw-tab.on{background:var(--ac);border-color:var(--ac);color:#fff;box-shadow:0 0 20px rgba(59,130,246,.3);animation:tabpulse 3.2s ease-in-out infinite}
 @keyframes tabpulse{0%,100%{box-shadow:0 0 20px rgba(59,130,246,.3)}50%{box-shadow:0 0 30px rgba(59,130,246,.5)}}
-.appwrap{position:relative;display:flex;justify-content:center;gap:48px;align-items:center;flex-wrap:wrap;margin-top:8px;perspective:1200px}
+.appwrap{position:relative;display:flex;justify-content:center;gap:48px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:70px 0;perspective:1200px}
 .appwrap::before{content:"";position:absolute;top:50%;left:50%;width:min(460px,80vw);height:460px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(59,130,246,.15),transparent 68%);filter:blur(10px);z-index:0}
+
+/* "living AI ecosystem" around the #trade phone: floating holographic signal
+   cards on independent organic (dual-sine, non-circular) drift, each with
+   its own fade-in/hold/fade-out lifecycle, connected to the phone by a
+   glowing trail that draws in and sends a data-packet pulse outward when
+   the card surfaces — reads as live telemetry emitted by the phone, not a
+   decorative ring. Ambient glow and particles reuse the orbit-glow and
+   orbit-particle look already established for the #stack ecosystem. */
+.signal-stage{position:absolute;inset:0;z-index:0;pointer-events:none}
+.signal-frags{position:absolute;inset:0;z-index:2;pointer-events:none}
+.sig-frag{position:absolute;left:0;top:0;transform:translate(-50%,-50%);opacity:0;transition:opacity 1.2s cubic-bezier(.16,1,.3,1);will-change:left,top,opacity;max-width:172px;z-index:2}
+.sig-frag.on{opacity:.92}
+.sig-card{display:flex;align-items:center;gap:9px;background:linear-gradient(160deg,rgba(255,255,255,.055),rgba(255,255,255,.015));border:1px solid rgba(59,130,246,.3);border-radius:12px;padding:10px 14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.4),0 0 22px rgba(59,130,246,.14);white-space:nowrap}
+.sig-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 7px var(--ok);flex:none;animation:secdot 2.2s ease-in-out infinite}
+.sig-txt{font:600 11.5px var(--mono);letter-spacing:.01em;color:var(--body)}
+.sig-links{position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:0}
+.sig-links path{fill:none;stroke:var(--ac2);stroke-width:1;opacity:0}
+.sig-links .pkt{fill:#fff;filter:drop-shadow(0 0 6px rgba(59,130,246,.95))}
+@media(max-width:900px){.sig-frag{max-width:148px}.sig-card{padding:8px 12px}.sig-txt{font-size:10.5px}}
+@media(max-width:600px){.appwrap{padding:46px 0}.sig-frag{max-width:128px}.sig-card{padding:7px 10px;gap:7px}.sig-txt{font-size:9.5px;white-space:normal;line-height:1.3}}
+@media(prefers-reduced-motion:reduce){.sig-frag{transition:none;opacity:.92!important}.sig-dot{animation:none}.sig-links{display:none}}
 
 /* holographic AI-ecosystem orbit around the #stack "Job Record" hub: tilted
    elliptical orbital planes (not concentric circles) of channel icons that
@@ -255,7 +276,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 .orbit-links .pkt{fill:#fff;filter:drop-shadow(0 0 6px rgba(59,130,246,.95))}
 .orbit-particle{position:absolute;left:50%;top:50%;width:2.5px;height:2.5px;border-radius:50%;background:rgba(255,255,255,.5);box-shadow:0 0 5px 1px rgba(59,130,246,.5);animation:orbitfloat 7s ease-in-out infinite}
 @keyframes orbitfloat{0%,100%{opacity:.2;transform:translate(-50%,-50%) translate(var(--px),var(--py)) translateY(0)}50%{opacity:.65;transform:translate(-50%,-50%) translate(var(--px),var(--py)) translateY(-10px)}}
-.orbit-item{position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x,0) * 1%),calc(-50% + var(--y,0) * 1%)) scale(var(--sc,1));opacity:var(--op,1);filter:blur(var(--bl,0px));will-change:transform,opacity,filter;z-index:0}
+.orbit-item{position:absolute;left:0;top:0;transform:translate(-50%,-50%) scale(var(--sc,1));opacity:var(--op,1);filter:blur(var(--bl,0px));will-change:left,top,transform,opacity,filter;z-index:0}
 .orbit-item.icon .oi-inner{position:relative;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:linear-gradient(160deg,rgba(59,130,246,.12),rgba(255,255,255,.03));border:1px solid rgba(59,130,246,.3);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:var(--ac2);box-shadow:0 0 14px rgba(59,130,246,.18),inset 0 1px 0 rgba(255,255,255,.08);overflow:hidden;transition:border-color .3s,box-shadow .3s}
 .orbit-item.icon .oi-inner svg{width:14px;height:14px;position:relative;z-index:1}
 .orbit-item.icon .oi-inner::before{content:"";position:absolute;inset:-40% -120%;background:linear-gradient(100deg,transparent 40%,rgba(255,255,255,.16) 48%,transparent 56%);animation:oisheen 5s linear infinite}
@@ -540,6 +561,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
    <button class="sw-tab on" data-t="plumbing">Plumbing</button><button class="sw-tab" data-t="electrical">Electrical</button><button class="sw-tab" data-t="solar">Solar</button><button class="sw-tab" data-t="hvac">HVAC</button>
   </div>
   <div class="appwrap reveal">
+   <div class="signal-stage" id="signal-stage" aria-hidden="true"></div>
    <div class="appphone" id="appphone"><div class="appstatus"></div>
     <div class="appscreen">
      <div class="apphead"><div><div class="appttl" id="ap-title">ClearWater Plumbing</div><div class="appsub" id="ap-sub">Field ops · live</div></div><div class="appav"></div></div>
@@ -548,6 +570,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
      <div id="ap-jobs"></div>
      <div class="appnav"><i class="on"></i><i></i><i></i><i></i></div>
     </div></div>
+   <div class="signal-frags" id="signal-frags" aria-hidden="true"></div>
   </div>
   <p class="lead reveal" style="margin-top:22px;color:var(--faint);font-size:14px">Same connected core, a different screen for every trade &mdash; built around how each business actually works.</p>
  </div>
@@ -1001,8 +1024,10 @@ if(!wrap||!phone)return;
 var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 var isTouch=window.matchMedia('(hover: none), (pointer: coarse)').matches;
 var baseRX=8,baseRY=-6,curRX=baseRX,curRY=baseRY,extraX=0,extraY=0;
+window.__tradeParallax={x:0,y:0};
 function apply(){
  phone.style.transform='perspective(1200px) rotateX('+(curRX+extraX).toFixed(2)+'deg) rotateY('+(curRY+extraY).toFixed(2)+'deg)';
+ window.__tradeParallax.x=extraY;window.__tradeParallax.y=extraX;
 }
 if(reduceMotion){apply();return;}
 function onScroll(){
@@ -1021,6 +1046,131 @@ if(!isTouch){
  });
  wrap.addEventListener('mouseleave',function(){extraX=0;extraY=0;apply();});
 }
+})();
+(function(){
+var stage=document.getElementById('signal-stage');
+var fragLayer=document.getElementById('signal-frags');
+var wrap=document.querySelector('#trade .appwrap');
+if(!stage||!fragLayer||!wrap)return;
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var svgNS='http://www.w3.org/2000/svg';
+
+var glowA=document.createElement('div');glowA.className='orbit-glow-a';stage.appendChild(glowA);
+var glowB=document.createElement('div');glowB.className='orbit-glow-b';stage.appendChild(glowB);
+
+var linksSvg=document.createElementNS(svgNS,'svg');
+linksSvg.setAttribute('class','sig-links');
+stage.appendChild(linksSvg);
+
+var SIGNALS=[
+ {t:'New lead · Coastal Plumbing',x:-34,y:-30},
+ {t:'Quote sent · €1,895',x:32,y:-22},
+ {t:'AI reply drafted',x:-32,y:12},
+ {t:'Payment received · €340',x:34,y:18},
+ {t:'Job scheduled · Thu 09:00',x:-22,y:36},
+ {t:'5★ review posted',x:22,y:38}
+];
+
+var stageRect={width:1,height:1};
+var xScale=1;
+function measure(){
+ var r=stage.getBoundingClientRect();
+ stageRect=r;
+ linksSvg.setAttribute('viewBox','0 0 '+r.width+' '+r.height);
+ var maxAbs=34,avail=50-11000/Math.max(r.width,1);
+ xScale=Math.max(.16,Math.min(1,avail/maxAbs));
+ frags.forEach(function(f){f.el.style.left=(50+f.baseX*xScale).toFixed(2)+'%';});
+}
+
+var frags=SIGNALS.map(function(s,i){
+ var el=document.createElement('div');
+ el.className='sig-frag';
+ el.style.left=(50+s.x)+'%';
+ el.style.top=(50+s.y)+'%';
+ el.innerHTML='<div class="sig-card"><span class="sig-dot"></span><span class="sig-txt">'+s.t+'</span></div>';
+ fragLayer.appendChild(el);
+ return {el:el,baseX:s.x,baseY:s.y,freqX:.00018+Math.random()*.00012,freqY:.00014+Math.random()*.0001,phX:Math.random()*Math.PI*2,phY:Math.random()*Math.PI*2,ampX:2.2+Math.random()*1.6,ampY:1.8+Math.random()*1.4,depth:.5+Math.random()*.5,cycle:9000+i*1400+Math.random()*1600,offset:i*1500};
+});
+measure();
+var resizeTimer=null;
+addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(measure,150);});
+
+if(reduceMotion){
+ frags.forEach(function(f){f.el.classList.add('on');});
+ return;
+}
+
+var pulseId=0;
+function firePulse(f){
+ var r=stageRect,cx=r.width/2,cy=r.height/2;
+ var fx=cx+(f.baseX*xScale/100)*r.width,fy=cy+(f.baseY/100)*r.height;
+ var mx=(cx+fx)/2,my=(cy+fy)/2-14;
+ var path=document.createElementNS(svgNS,'path');
+ path.setAttribute('d','M'+cx.toFixed(1)+' '+cy.toFixed(1)+' Q '+mx.toFixed(1)+' '+my.toFixed(1)+' '+fx.toFixed(1)+' '+fy.toFixed(1));
+ path.id='sigpath-'+(pulseId++);
+ linksSvg.appendChild(path);
+ var plen=path.getTotalLength();
+ path.style.strokeDasharray=plen;
+ path.style.strokeDashoffset=plen;
+ path.style.transition='stroke-dashoffset .7s ease-out,opacity .3s';
+ requestAnimationFrame(function(){requestAnimationFrame(function(){path.style.opacity='.4';path.style.strokeDashoffset='0';});});
+ var pkt=document.createElementNS(svgNS,'circle');
+ pkt.setAttribute('class','pkt');pkt.setAttribute('r','1.8');
+ var anim=document.createElementNS(svgNS,'animateMotion');
+ anim.setAttribute('dur','.9s');anim.setAttribute('begin','.1s');anim.setAttribute('fill','freeze');
+ var mpath=document.createElementNS(svgNS,'mpath');
+ mpath.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+path.id);
+ anim.appendChild(mpath);
+ pkt.appendChild(anim);
+ linksSvg.appendChild(pkt);
+ setTimeout(function(){
+  path.style.opacity='0';
+  setTimeout(function(){path.remove();pkt.remove();},400);
+ },2200);
+}
+
+function cycleFrag(f){
+ f.el.classList.add('on');
+ firePulse(f);
+ setTimeout(function(){f.el.classList.remove('on');},f.cycle*0.62);
+ setTimeout(function(){cycleFrag(f);},f.cycle);
+}
+if(stageRect.width<480){
+ var seqIdx=0;
+ function showNext(){
+  var f=frags[seqIdx];
+  f.el.classList.add('on');
+  firePulse(f);
+  setTimeout(function(){
+   f.el.classList.remove('on');
+   seqIdx=(seqIdx+1)%frags.length;
+   setTimeout(showNext,550);
+  },2700);
+ }
+ setTimeout(showNext,700);
+}else{
+ frags.forEach(function(f){setTimeout(function(){cycleFrag(f);},f.offset);});
+}
+
+var running=false,raf=null;
+function tick(t){
+ if(!running)return;
+ var px=(window.__tradeParallax?window.__tradeParallax.x:0)||0;
+ var py=(window.__tradeParallax?window.__tradeParallax.y:0)||0;
+ frags.forEach(function(f){
+  var dx=Math.sin(t*f.freqX+f.phX)*f.ampX;
+  var dy=Math.cos(t*f.freqY+f.phY)*f.ampY;
+  f.el.style.left=(50+(f.baseX+dx+px*f.depth*0.9)*xScale).toFixed(2)+'%';
+  f.el.style.top=(50+f.baseY+dy+py*f.depth*0.9).toFixed(2)+'%';
+ });
+ raf=requestAnimationFrame(tick);
+}
+function start(){if(!running){running=true;raf=requestAnimationFrame(tick);}}
+function stop(){running=false;if(raf)cancelAnimationFrame(raf);raf=null;}
+if('IntersectionObserver' in window){
+ var io=new IntersectionObserver(function(es){es.forEach(function(e){e.isIntersecting?start():stop();});},{threshold:0});
+ io.observe(stage);
+}else{start();}
 })();
 (function(){
 var stage=document.getElementById('orbit-stage');
@@ -1158,8 +1308,8 @@ if(reduceMotion){
  items.forEach(function(it){
   var pos=computeXY(it,0);
   it._pos=pos;
-  it.el.style.setProperty('--x',pos.x.toFixed(2));
-  it.el.style.setProperty('--y',pos.y.toFixed(2));
+  it.el.style.left=(50+pos.x).toFixed(2)+'%';
+  it.el.style.top=(50+pos.y).toFixed(2)+'%';
   it.el.style.setProperty('--op','.55');
   it.el.style.setProperty('--sc','.85');
  });
@@ -1210,8 +1360,8 @@ function tick(t){
  items.forEach(function(it){
   var pos=computeXY(it,it.ring._spin);
   it._pos=pos;
-  it.el.style.setProperty('--x',pos.x.toFixed(2));
-  it.el.style.setProperty('--y',pos.y.toFixed(2));
+  it.el.style.left=(50+pos.x).toFixed(2)+'%';
+  it.el.style.top=(50+pos.y).toFixed(2)+'%';
   it.el.style.setProperty('--op',(0.15+pos.depth*0.55).toFixed(2));
   it.el.style.setProperty('--sc',(0.6+pos.depth*0.3).toFixed(2));
   it.el.style.setProperty('--bl',(2*(1-pos.depth)).toFixed(2)+'px');
