@@ -205,6 +205,25 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 @keyframes tabpulse{0%,100%{box-shadow:0 0 20px rgba(59,130,246,.3)}50%{box-shadow:0 0 30px rgba(59,130,246,.5)}}
 .appwrap{position:relative;display:flex;justify-content:center;gap:48px;align-items:center;flex-wrap:wrap;margin-top:8px;perspective:1200px}
 .appwrap::before{content:"";position:absolute;top:50%;left:50%;width:min(460px,80vw);height:460px;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(59,130,246,.15),transparent 68%);filter:blur(10px);z-index:0}
+
+/* orbital icon/keyword system around the phone mockup */
+.orbit-stage{position:absolute;left:50%;top:50%;width:min(720px,92vw);height:min(720px,92vw);transform:translate(-50%,-50%);z-index:0;pointer-events:none;transform-style:preserve-3d;will-change:transform}
+.orbit-halo{position:absolute;inset:8%;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.22),rgba(59,130,246,.06) 55%,transparent 72%);filter:blur(22px);animation:orbithalo 9s ease-in-out infinite}
+@keyframes orbithalo{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+.orbit-rings{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.orbit-rings circle{fill:none;stroke:rgba(59,130,246,.16);stroke-width:1}
+.orbit-rings .trail{stroke:rgba(59,130,246,.55);stroke-width:1.4;stroke-dasharray:2 14;animation:orbittrail linear infinite}
+@keyframes orbittrail{to{stroke-dashoffset:-320}}
+.orbit-particle{position:absolute;left:50%;top:50%;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.55);box-shadow:0 0 6px 1px rgba(59,130,246,.5);animation:orbitfloat 7s ease-in-out infinite}
+@keyframes orbitfloat{0%,100%{opacity:.25;transform:translate(-50%,-50%) translate(var(--px),var(--py)) translateY(0)}50%{opacity:.75;transform:translate(-50%,-50%) translate(var(--px),var(--py)) translateY(-14px)}}
+.orbit-item{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(calc(var(--a) + var(--spin,0deg))) translateX(var(--r)) rotate(calc(-1*(var(--a) + var(--spin,0deg))));opacity:var(--op,1);filter:blur(var(--bl,0px));will-change:transform,opacity,filter}
+.orbit-item .oi-inner{transform:scale(var(--sc,1));transition:border-color .3s,box-shadow .3s}
+.orbit-item.icon .oi-inner{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:var(--ac2);box-shadow:0 0 18px rgba(59,130,246,.12)}
+.orbit-item.icon .oi-inner svg{width:18px;height:18px}
+.orbit-item.keyword .oi-inner{font:600 10.5px var(--mono);letter-spacing:.05em;color:var(--body);background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:20px;padding:6px 12px;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+@media(max-width:900px){.orbit-stage{width:min(560px,94vw);height:min(560px,94vw)}.orbit-item.keyword{display:none}}
+@media(max-width:600px){.orbit-stage{display:none}}
+@media(prefers-reduced-motion:reduce){.orbit-halo{animation:none;opacity:.85}.orbit-rings .trail{animation:none}.orbit-particle{animation:none;opacity:.4}}
 .appphone{position:relative;z-index:1;width:296px;border:11px solid var(--panel);border-radius:46px;background:#0d0c0d;box-shadow:0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 40px 100px rgba(0,0,0,.5),0 0 90px rgba(59,130,246,.15);overflow:hidden;transition:transform .35s cubic-bezier(.16,1,.3,1),opacity .25s;transform-style:preserve-3d;will-change:transform;-webkit-box-reflect:below 14px linear-gradient(transparent 60%,rgba(255,255,255,.05));animation:phoneglow 6s ease-in-out infinite}
 @keyframes phoneglow{0%,100%{box-shadow:0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 40px 100px rgba(0,0,0,.5),0 0 90px rgba(59,130,246,.15)}50%{box-shadow:0 0 0 1px var(--line2),inset 0 1px 0 rgba(255,255,255,.06),0 40px 100px rgba(0,0,0,.5),0 0 120px rgba(59,130,246,.28)}}
 .appstatus{height:30px;display:flex;align-items:center;justify-content:center;position:relative}
@@ -461,6 +480,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
    <button class="sw-tab on" data-t="plumbing">Plumbing</button><button class="sw-tab" data-t="electrical">Electrical</button><button class="sw-tab" data-t="solar">Solar</button><button class="sw-tab" data-t="hvac">HVAC</button>
   </div>
   <div class="appwrap reveal">
+   <div class="orbit-stage" id="orbit-stage" aria-hidden="true"></div>
    <div class="appphone" id="appphone"><div class="appstatus"></div>
     <div class="appscreen">
      <div class="apphead"><div><div class="appttl" id="ap-title">ClearWater Plumbing</div><div class="appsub" id="ap-sub">Field ops · live</div></div><div class="appav"></div></div>
@@ -853,11 +873,15 @@ render('plumbing');
 })();
 (function(){
 var wrap=document.querySelector('#trade .appwrap'),phone=document.getElementById('appphone');
+var orbitStage=document.getElementById('orbit-stage');
 if(!wrap||!phone)return;
 var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 var isTouch=window.matchMedia('(hover: none), (pointer: coarse)').matches;
 var baseRX=8,baseRY=-6,curRX=baseRX,curRY=baseRY,extraX=0,extraY=0;
-function apply(){phone.style.transform='perspective(1200px) rotateX('+(curRX+extraX).toFixed(2)+'deg) rotateY('+(curRY+extraY).toFixed(2)+'deg)';}
+function apply(){
+ phone.style.transform='perspective(1200px) rotateX('+(curRX+extraX).toFixed(2)+'deg) rotateY('+(curRY+extraY).toFixed(2)+'deg)';
+ if(orbitStage)orbitStage.style.transform='translate(-50%,-50%) perspective(1200px) rotateX('+((curRX+extraX)*0.4).toFixed(2)+'deg) rotateY('+((curRY+extraY)*0.4).toFixed(2)+'deg)';
+}
 if(reduceMotion){apply();return;}
 function onScroll(){
  var r=wrap.getBoundingClientRect(),vh=window.innerHeight||1;
@@ -875,6 +899,124 @@ if(!isTouch){
  });
  wrap.addEventListener('mouseleave',function(){extraX=0;extraY=0;apply();});
 }
+})();
+(function(){
+var stage=document.getElementById('orbit-stage');
+if(!stage)return;
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var isNarrow=window.matchMedia('(max-width: 600px)').matches;
+if(isNarrow)return;
+
+var ICONS=[
+ ['Google','<path d="M21.6 12.23c0-.68-.06-1.36-.18-2H12v3.79h5.42a4.64 4.64 0 0 1-2 3.05v2.5h3.24c1.9-1.75 3-4.32 3-7.34z"/><path d="M12 22c2.7 0 4.97-.9 6.63-2.43l-3.24-2.5c-.9.6-2.06.96-3.39.96-2.6 0-4.8-1.76-5.6-4.12H3.05v2.58A10 10 0 0 0 12 22z"/><path d="M6.4 13.91a5.99 5.99 0 0 1 0-3.82V7.51H3.05a10 10 0 0 0 0 8.98z"/><path d="M12 5.98c1.47 0 2.79.5 3.82 1.5l2.87-2.87A9.96 9.96 0 0 0 12 2a10 10 0 0 0-8.95 5.51L6.4 10.1c.8-2.37 3-4.12 5.6-4.12z"/>'],
+ ['Facebook','<path d="M14 9h3V6h-3c-1.66 0-3 1.34-3 3v2H9v3h2v6h3v-6h3l1-3h-4V9c0-.55.45-1 1-1z"/>'],
+ ['Email','<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/>'],
+ ['SMS','<path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/>'],
+ ['AI','<path d="M12 2a3 3 0 0 1 3 3v1a3 3 0 0 1 3 3 3 3 0 0 1-1.5 5.2v.3a3 3 0 0 1-3 3H10.5a3 3 0 0 1-3-3v-.3A3 3 0 0 1 6 8a3 3 0 0 1 3-3V5a3 3 0 0 1 3-3z"/><path d="M9 18v1a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-1"/>'],
+ ['Chat','<path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/>'],
+ ['Calendar','<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'],
+ ['Analytics','<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>'],
+ ['Reviews','<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.7L5.8 21l1.6-7-5.4-4.7 7.1-.6z"/>'],
+ ['Notifications','<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>']
+];
+var KEYWORDS=['AI Replies','5★ Reviews','Automation','Customers','Leads','Bookings','Reputation','Growth','Analytics','SEO','Voice AI','Follow-Ups','CRM','Marketing','Smart Insights'];
+
+var svgNS='http://www.w3.org/2000/svg';
+var halo=document.createElement('div');halo.className='orbit-halo';stage.appendChild(halo);
+
+var ringsSvg=document.createElementNS(svgNS,'svg');
+ringsSvg.setAttribute('class','orbit-rings');
+ringsSvg.setAttribute('viewBox','0 0 100 100');
+ringsSvg.setAttribute('preserveAspectRatio','xMidYMid meet');
+var RING_PCT=[27,37,47];
+RING_PCT.forEach(function(pct,i){
+ var c=document.createElementNS(svgNS,'circle');
+ c.setAttribute('cx','50');c.setAttribute('cy','50');c.setAttribute('r',String(pct));
+ ringsSvg.appendChild(c);
+ var t=document.createElementNS(svgNS,'circle');
+ t.setAttribute('class','trail');
+ t.setAttribute('cx','50');t.setAttribute('cy','50');t.setAttribute('r',String(pct));
+ t.style.animationDuration=(22+i*9)+'s';
+ t.style.animationDirection=i%2?'reverse':'normal';
+ ringsSvg.appendChild(t);
+});
+stage.appendChild(ringsSvg);
+
+if(!reduceMotion){
+ for(var p=0;p<10;p++){
+  var particle=document.createElement('div');
+  particle.className='orbit-particle';
+  var pa=Math.random()*360,pr=30+Math.random()*45;
+  particle.style.setProperty('--px',(Math.cos(pa*Math.PI/180)*pr).toFixed(1)+'%');
+  particle.style.setProperty('--py',(Math.sin(pa*Math.PI/180)*pr).toFixed(1)+'%');
+  particle.style.animationDelay=(-Math.random()*7).toFixed(2)+'s';
+  particle.style.animationDuration=(6+Math.random()*3).toFixed(2)+'s';
+  stage.appendChild(particle);
+ }
+}
+
+var items=[];
+var RINGS=[
+ {radiusPct:27,speed:.0028,dir:1},
+ {radiusPct:37,speed:.0019,dir:-1},
+ {radiusPct:47,speed:.0013,dir:1}
+];
+function svgIcon(paths){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+paths+'</svg>';}
+function place(list,ringIndexer){
+ list.forEach(function(entry,i){
+  var ring=RINGS[ringIndexer(i)];
+  var el=document.createElement('div');
+  el.className='orbit-item '+(entry.icon?'icon':'keyword');
+  var inner=document.createElement('div');
+  inner.className='oi-inner';
+  if(entry.icon){inner.innerHTML=svgIcon(entry.icon);inner.title=entry.label;}
+  else{inner.textContent=entry.label;}
+  el.appendChild(inner);
+  stage.appendChild(el);
+  items.push({el:el,ring:ring});
+ });
+}
+place(ICONS.map(function(a){return {label:a[0],icon:a[1]};}),function(i){return i%3;});
+place(KEYWORDS.map(function(k){return {label:k};}),function(i){return i%3;});
+
+var perRing=[[],[],[]];
+items.forEach(function(it){perRing[RINGS.indexOf(it.ring)].push(it);});
+perRing.forEach(function(list,ri){
+ var n=list.length||1;
+ list.forEach(function(it,i){
+  var angle=(360/n)*i + ri*23;
+  it.angle=angle;
+  it.el.style.setProperty('--a',angle+'deg');
+  it.el.style.setProperty('--r',RINGS[ri].radiusPct+'%');
+ });
+});
+
+if(reduceMotion){
+ items.forEach(function(it){it.el.style.setProperty('--op','.85');});
+ return;
+}
+
+var running=false,raf=null;
+function tick(t){
+ if(!running)return;
+ RINGS.forEach(function(ring){ring._spin=(t*ring.speed*ring.dir)%360;});
+ items.forEach(function(it){
+  var total=(it.angle+it.ring._spin)*Math.PI/180;
+  var depth=(Math.cos(total)+1)/2;
+  it.el.style.setProperty('--spin',it.ring._spin.toFixed(2)+'deg');
+  it.el.style.setProperty('--op',(0.28+depth*0.72).toFixed(2));
+  it.el.style.setProperty('--sc',(0.72+depth*0.34).toFixed(2));
+  it.el.style.setProperty('--bl',(2.4*(1-depth)).toFixed(2)+'px');
+  it.el.style.zIndex=String(Math.round(depth*10));
+ });
+ raf=requestAnimationFrame(tick);
+}
+function start(){if(!running){running=true;raf=requestAnimationFrame(tick);}}
+function stop(){running=false;if(raf)cancelAnimationFrame(raf);raf=null;}
+if('IntersectionObserver' in window){
+ var io=new IntersectionObserver(function(es){es.forEach(function(e){e.isIntersecting?start():stop();});},{threshold:0});
+ io.observe(stage);
+}else{start();}
 })();</script>
 <script>(function(){
 var pipe=document.querySelector('.pipeline');
