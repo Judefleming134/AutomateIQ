@@ -34,7 +34,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
   if (secret !== setupSecret) {
-    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    // TEMPORARY diagnostic (remove once the real mismatch is found): reveals
+    // enough to distinguish "wrong value" from "extra/missing characters"
+    // without printing either secret in full.
+    return NextResponse.json(
+      {
+        error: "Forbidden.",
+        debug: {
+          receivedLength: typeof secret === "string" ? secret.length : null,
+          expectedLength: setupSecret.length,
+          receivedPreview:
+            typeof secret === "string"
+              ? `${secret.slice(0, 3)}…${secret.slice(-3)}`
+              : null,
+          expectedPreview: `${setupSecret.slice(0, 3)}…${setupSecret.slice(-3)}`,
+        },
+      },
+      { status: 403 }
+    );
   }
 
   const admin = createAdminClient();
