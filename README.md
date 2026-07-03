@@ -152,9 +152,8 @@ do anything beyond render its auth-guard redirect.
 
 ## Database migrations
 
-Apply in order via the Supabase CLI (requires you to be logged in and linked
-to your own project — not something that should ever be run with credentials
-shared in chat):
+**Option A — Supabase CLI** (requires a computer, not just a phone/browser).
+Apply in order:
 
 ```bash
 npx supabase link --project-ref <your-project-ref>
@@ -170,10 +169,22 @@ cron job calls). Then seed the product catalog:
 npx supabase db execute -f supabase/seed.sql
 ```
 
+**Option B — Supabase SQL Editor** (no CLI, no computer needed — works from
+the Supabase dashboard in a phone browser). Open your project's SQL Editor,
+paste the entire contents of `supabase/manual_setup.sql`, and run it once.
+It's the same four migrations plus `seed.sql` plus a `leads` table (needed
+by the marketing site's lead-capture form, which predates the platform and
+isn't part of the numbered migrations), combined into a single idempotent
+script — safe to re-run if something goes wrong partway through. Verified
+by applying it twice in a row against a real Postgres instance with no
+errors, and by running the tenant-isolation test below against its output.
+
 `supabase/tests/tenant_isolation_test.sql` is a self-contained smoke test
 (wrapped in `BEGIN … ROLLBACK`, safe to run against a real database) that
 asserts one business can never read another's data, and that a suspended
-business is blocked even with valid credentials.
+business is blocked even with valid credentials. Optional, but if you want
+to run it: paste it into the SQL Editor the same way, after
+`manual_setup.sql`.
 
 ## Deployment guide
 
