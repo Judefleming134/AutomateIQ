@@ -1,0 +1,98 @@
+/* Baseline only — the full premium visual pass (glassmorphism, gradients,
+   animated charts, etc.) happens in Stage 7 once every screen exists.
+   This just keeps development screens legible and on-brand in the
+   meantime, reusing the marketing site's actual token values. */
+
+:root {
+  --bg: #151314;
+  --bg2: #1a1819;
+  --panel: #18171a;
+  --line: rgba(255, 255, 255, 0.08);
+  --heading: #fafafa;
+  --body: #a1a1aa;
+  --ac: #1369ce;
+  --ac2: #3b82f6;
+  --display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--body);
+  font-family: var(--sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--display);
+  color: var(--heading);
+  margin: 0 0 12px;
+}
+
+.login-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.login-card label {
+  font-size: 13px;
+  color: var(--body);
+  margin-top: 8px;
+}
+
+.login-card input {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--heading);
+  font-size: 14px;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: var(--ac2);
+}
+
+.login-card button {
+  margin-top: 16px;
+  background: var(--ac2);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-card button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.login-error {
+  color: #f87171;
+  font-size: 13px;
+  margin: 4px 0 0;
+}
