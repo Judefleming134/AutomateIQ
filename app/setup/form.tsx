@@ -19,7 +19,10 @@ export function BootstrapAdminForm() {
       const res = await fetch("/api/setup/bootstrap-admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, secret }),
+        // .trim() guards against a stray leading/trailing space or newline
+        // sneaking in from a copy-paste, which would otherwise silently
+        // make an exact-match secret comparison fail.
+        body: JSON.stringify({ email: email.trim(), secret: secret.trim() }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -51,12 +54,19 @@ export function BootstrapAdminForm() {
       <label htmlFor="secret">SETUP_SECRET</label>
       <input
         id="secret"
-        type="password"
+        type="text"
         required
         autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
         value={secret}
         onChange={(e) => setSecret(e.target.value)}
       />
+      <p style={{ fontSize: 11, color: "var(--faint, #6f6f7a)", margin: "2px 0 0" }}>
+        {secret.length} characters entered — check this matches the length
+        of the value in Vercel.
+      </p>
       <button type="submit" disabled={loading}>
         {loading ? "Sending…" : "Create first admin"}
       </button>
