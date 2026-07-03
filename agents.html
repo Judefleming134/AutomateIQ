@@ -9,10 +9,11 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
- --bg:#06070C;--panel:#0c0f17;--panel-2:#11151f;--line:#1d2433;--line-2:#2a3344;
- --blue:#2E80F2;--blue-l:#5AA0FF;--blue-x:#8fc0ff;--ink:#e8eef5;--muted:#8a98a6;--faint:#5e6b7a;
- --green:#1fbf75;--amber:#f3a93c;--red:#f2553c;
+ --bg:#151314;--panel:#18171a;--panel-2:#202128;--line:rgba(255,255,255,.08);--line-2:rgba(255,255,255,.2);
+ --blue:#1369CE;--blue-l:#3B82F6;--blue-x:#7EB2FF;--ink:#FAFAFA;--muted:#A1A1AA;--faint:#71717A;
+ --green:#36e0a6;--amber:#f3b14c;--red:#f2553c;
 }
+html{overflow-x:hidden;max-width:100%}
 body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .disp{font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em}
 .mono{font-family:'Space Mono',monospace}
@@ -29,17 +30,17 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 
 /* card grid */
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;padding-bottom:80px}
-.card{position:relative;background:linear-gradient(170deg,var(--panel),var(--bg));border:1px solid var(--line);border-radius:18px;padding:26px;cursor:pointer;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
-.card::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(46,128,242,.10),transparent 60%);opacity:0;transition:opacity .3s}
-.card:hover{transform:translateY(-5px);border-color:var(--line-2);box-shadow:0 24px 50px rgba(0,0,0,.5)}
+.card{position:relative;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:16px;padding:26px;cursor:pointer;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s}
+.card::after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(59,130,246,.10),transparent 60%);opacity:0;transition:opacity .3s}
+.card:hover{transform:translateY(-5px);border-color:var(--line-2);box-shadow:0 0 0 1px rgba(59,130,246,.08),0 0 40px rgba(59,130,246,.08)}
 .card:hover::after{opacity:1}
-.card .ico{width:48px;height:48px;border-radius:13px;background:linear-gradient(150deg,rgba(46,128,242,.22),rgba(46,128,242,.06));border:1px solid rgba(46,128,242,.3);display:grid;place-items:center;margin-bottom:18px}
+.card .ico{width:48px;height:48px;border-radius:13px;background:linear-gradient(150deg,rgba(59,130,246,.22),rgba(59,130,246,.06));border:1px solid rgba(59,130,246,.3);display:grid;place-items:center;margin-bottom:18px}
 .card h3{font-family:'Space Grotesk',sans-serif;font-size:1.18rem;font-weight:600;margin-bottom:8px}
 .card p{font-size:13.7px;color:var(--muted);line-height:1.55}
 .card .open{display:inline-flex;align-items:center;gap:6px;margin-top:16px;font-size:12.5px;font-weight:600;color:var(--blue-l)}
 .card .open svg{transition:transform .25s}
 .card:hover .open svg{transform:translateX(4px)}
-.card .live{position:absolute;top:16px;right:16px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);background:rgba(31,191,117,.1);border:1px solid rgba(31,191,117,.3);padding:4px 9px;border-radius:20px;display:flex;align-items:center;gap:6px}
+.card .live{position:absolute;top:16px;right:16px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--green);background:rgba(54,224,166,.1);border:1px solid rgba(54,224,166,.3);padding:4px 9px;border-radius:20px;display:flex;align-items:center;gap:6px}
 .card .live .d{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.6s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
@@ -51,7 +52,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 .modal .x{position:absolute;top:18px;right:18px;width:34px;height:34px;border-radius:9px;border:1px solid var(--line-2);background:var(--panel);color:var(--muted);font-size:18px;cursor:pointer;display:grid;place-items:center;z-index:5}
 .modal .x:hover{color:var(--ink);border-color:var(--blue)}
 .m-head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
-.m-head .ico{width:50px;height:50px;border-radius:13px;background:linear-gradient(150deg,rgba(46,128,242,.25),rgba(46,128,242,.05));border:1px solid rgba(46,128,242,.35);display:grid;place-items:center;flex:none}
+.m-head .ico{width:50px;height:50px;border-radius:13px;background:linear-gradient(150deg,rgba(59,130,246,.25),rgba(59,130,246,.05));border:1px solid rgba(59,130,246,.35);display:grid;place-items:center;flex:none}
 .m-head h2{font-family:'Space Grotesk',sans-serif;font-size:1.45rem;font-weight:600;letter-spacing:-.01em}
 .m-head .tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue-l)}
 
@@ -70,25 +71,26 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 .step span{font-size:12px;color:var(--muted);line-height:1.45}
 
 .cta{margin-top:22px;display:flex;gap:10px;align-items:center}
-.btn{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;padding:13px 20px;border-radius:11px;border:none;cursor:pointer;background:linear-gradient(150deg,var(--blue-l),var(--blue));color:#fff;box-shadow:0 10px 26px rgba(46,128,242,.35)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;padding:13px 20px;border-radius:11px;border:none;cursor:pointer;background:var(--blue);color:#fff;box-shadow:0 0 24px rgba(59,130,246,.3)}
+.btn:hover{background:var(--blue-l)}
 .btn:hover{transform:translateY(-2px)}
 .cta .note{font-size:12px;color:var(--faint)}
 
 /* ===== shared scene atoms ===== */
 .chip{position:absolute;background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}
-.chip.blue{border-color:rgba(46,128,242,.5);color:var(--blue-x)}
-.chip.green{border-color:rgba(31,191,117,.5);color:#7fe9bf}
-.chip.amber{border-color:rgba(243,169,60,.5);color:#ffd79a}
-.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:18px;background:linear-gradient(150deg,rgba(46,128,242,.3),rgba(46,128,242,.08));border:1px solid rgba(46,128,242,.5);display:grid;place-items:center;z-index:2}
-.core::before{content:"";position:absolute;inset:-7px;border-radius:23px;border:1px solid rgba(46,128,242,.25);animation:pulsering 2.6s ease-out infinite}
+.chip.blue{border-color:rgba(59,130,246,.5);color:var(--blue-x)}
+.chip.green{border-color:rgba(54,224,166,.5);color:#7fe9bf}
+.chip.amber{border-color:rgba(243,177,76,.5);color:#ffd79a}
+.core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:18px;background:linear-gradient(150deg,rgba(59,130,246,.3),rgba(59,130,246,.08));border:1px solid rgba(59,130,246,.5);display:grid;place-items:center;z-index:2}
+.core::before{content:"";position:absolute;inset:-7px;border-radius:23px;border:1px solid rgba(59,130,246,.25);animation:pulsering 2.6s ease-out infinite}
 @keyframes pulsering{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.45);opacity:0}}
 .conn{position:absolute;height:0;border-top:1px dashed var(--line-2)}
-.pulse{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--blue-l);box-shadow:0 0 12px 2px rgba(46,128,242,.85);margin-top:-4px;opacity:0}
+.pulse{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--blue-l);box-shadow:0 0 12px 2px rgba(59,130,246,.85);margin-top:-4px;opacity:0}
 .clock{position:absolute;top:13px;right:15px;font-family:'Space Mono',monospace;font-size:11px;color:var(--green);display:flex;align-items:center;gap:6px;z-index:3}
 .clock .d{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 1.6s infinite}
 
 /* scene 1: SUPPORT — question pulses in, answer pulses out, both eased */
-.s1 .db{position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9.5px;color:var(--blue-x);border:1px solid rgba(46,128,242,.35);border-radius:8px;padding:4px 9px;background:rgba(46,128,242,.06);white-space:nowrap}
+.s1 .db{position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9.5px;color:var(--blue-x);border:1px solid rgba(59,130,246,.35);border-radius:8px;padding:4px 9px;background:rgba(59,130,246,.06);white-space:nowrap}
 .s1 .vline{position:absolute;left:50%;top:calc(50% + 37px);width:1px;height:15px;background:var(--line-2);transform:translateX(-50%)}
 .s1 .pq{top:50%;animation:s1q 4.6s cubic-bezier(.5,0,.4,1) infinite}
 @keyframes s1q{0%{left:21%;opacity:0}10%{opacity:1}40%{left:46%;opacity:1}46%{left:46%;opacity:0}100%{left:46%;opacity:0}}
@@ -98,8 +100,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 /* scene 2: EMAIL — inbox pulse to core, sorted pulses out to 3 lanes */
 .s2 .core{left:31%}
 .s2 .lane{position:absolute;right:5%;width:110px;font-size:11px;border-radius:8px;padding:7px 10px;border:1px solid var(--line-2);background:var(--panel-2)}
-.s2 .l1{top:22%;color:#7fe9bf;border-color:rgba(31,191,117,.35)}
-.s2 .l2{top:50%;transform:translateY(-50%);color:#ffd79a;border-color:rgba(243,169,60,.35)}
+.s2 .l1{top:22%;color:#7fe9bf;border-color:rgba(54,224,166,.35)}
+.s2 .l2{top:50%;transform:translateY(-50%);color:#ffd79a;border-color:rgba(243,177,76,.35)}
 .s2 .l3{bottom:22%;color:var(--muted)}
 .s2 .pin{animation:s2in 4.8s cubic-bezier(.5,0,.4,1) infinite}
 @keyframes s2in{0%{left:17%;top:50%;opacity:0}10%{opacity:1}38%{left:28%;top:50%;opacity:1}44%,100%{opacity:0}}
@@ -122,7 +124,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 @keyframes s3ty{0%,22%{opacity:0}28%,42%{opacity:1}48%,100%{opacity:0}}
 .s3 .b2{right:14px;top:78px;background:var(--blue);color:#fff;animation:s3b2 5.4s ease-in-out infinite}
 @keyframes s3b2{0%,48%{opacity:0;transform:translateY(7px)}55%,90%{opacity:1;transform:none}96%,100%{opacity:0}}
-.s3 .lead{position:absolute;left:50%;bottom:13px;background:rgba(31,191,117,.12);border:1px solid rgba(31,191,117,.5);color:#7fe9bf;border-radius:11px;padding:7px 12px;font-size:10.5px;white-space:nowrap;animation:s3lead 5.4s ease-in-out infinite}
+.s3 .lead{position:absolute;left:50%;bottom:13px;background:rgba(54,224,166,.12);border:1px solid rgba(54,224,166,.5);color:#7fe9bf;border-radius:11px;padding:7px 12px;font-size:10.5px;white-space:nowrap;animation:s3lead 5.4s ease-in-out infinite}
 @keyframes s3lead{0%,66%{opacity:0;transform:translate(-50%,7px) scale(.92)}76%,90%{opacity:1;transform:translate(-50%,0) scale(1)}96%,100%{opacity:0;transform:translate(-50%,0)}}
 
 /* scene 5: WORKFLOW — token glides with pauses, nodes light in turn */
@@ -131,7 +133,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 @keyframes s5fill{0%{width:0}88%,100%{width:79%}}
 .s5 .pnode{position:absolute;top:50%;transform:translate(-50%,-50%);width:14px;height:14px;border-radius:50%;background:var(--panel-2);border:2px solid var(--line-2);z-index:2}
 .s5 .plbl{position:absolute;top:calc(50% + 17px);transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9.5px;color:var(--faint);white-space:nowrap}
-.s5 .token{position:absolute;top:50%;width:24px;height:24px;border-radius:8px;background:linear-gradient(150deg,var(--blue-l),var(--blue));box-shadow:0 0 18px rgba(46,128,242,.75);z-index:3;transform:translate(-50%,-50%);margin-top:-1px;animation:s5tok 5.5s cubic-bezier(.55,0,.45,1) infinite}
+.s5 .token{position:absolute;top:50%;width:24px;height:24px;border-radius:8px;background:linear-gradient(150deg,var(--blue-l),var(--blue));box-shadow:0 0 18px rgba(59,130,246,.75);z-index:3;transform:translate(-50%,-50%);margin-top:-1px;animation:s5tok 5.5s cubic-bezier(.55,0,.45,1) infinite}
 @keyframes s5tok{0%,6%{left:9%}22%,28%{left:26.5%}44%,50%{left:44%}66%,72%{left:61.5%}88%,100%{left:88%}}
 .s5 n1{}
 .s5 .pnode.x{animation:lite 5.5s linear infinite}
@@ -141,8 +143,8 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 
 /* scene 6: VOICE */
 .s6{position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
-.s6 .phone{position:relative;width:64px;height:64px;border-radius:17px;background:linear-gradient(150deg,rgba(46,128,242,.3),rgba(46,128,242,.08));border:1px solid rgba(46,128,242,.5);display:grid;place-items:center;z-index:2}
-.s6 .wave{position:absolute;width:64px;height:64px;border-radius:18px;border:1.5px solid rgba(46,128,242,.45)}
+.s6 .phone{position:relative;width:64px;height:64px;border-radius:17px;background:linear-gradient(150deg,rgba(59,130,246,.3),rgba(59,130,246,.08));border:1px solid rgba(59,130,246,.5);display:grid;place-items:center;z-index:2}
+.s6 .wave{position:absolute;width:64px;height:64px;border-radius:18px;border:1.5px solid rgba(59,130,246,.45)}
 .s6 .w1{animation:s6w 2.8s ease-out infinite}
 .s6 .w2{animation:s6w 2.8s ease-out infinite .9s}
 .s6 .w3{animation:s6w 2.8s ease-out infinite 1.8s}
@@ -178,16 +180,16 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 }
 
 /* ===== nav / footer / integrations ===== */
-.agnav{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;padding:13px 22px;background:rgba(6,7,12,.85);backdrop-filter:blur(10px);border-bottom:1px solid #1d2433}
+.agnav{position:sticky;top:0;z-index:60;display:flex;align-items:center;justify-content:space-between;padding:13px 22px;background:rgba(21,19,20,.75);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .agnav .brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;color:#fff;letter-spacing:-.02em}
-.agnav .back{font-size:13px;color:#8a98a6}.agnav .back:hover{color:#5AA0FF}
-.integ{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:12px;color:#8a98a6;line-height:1.5}
-.integ .ilbl{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#5AA0FF;flex:none}
-.integ b{color:#c3ccd6;font-weight:600}
-.agfoot{max-width:1140px;margin:10px auto 0;padding:28px 22px 56px;border-top:1px solid #1d2433;text-align:center}
-.agfoot p{color:#8a98a6;font-size:13.5px;max-width:62ch;margin:0 auto 10px}.agfoot p b{color:#c3ccd6}
-.agfoot .disc{font-size:11px;color:#5e6b7a;max-width:74ch}
-.agfoot .back2{display:inline-block;margin-top:14px;color:#5AA0FF;font-size:13.5px;font-weight:600}
+.agnav .back{font-size:13px;color:var(--muted)}.agnav .back:hover{color:var(--blue-l)}
+.integ{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;font-size:12px;color:var(--muted);line-height:1.5}
+.integ .ilbl{font-family:'Space Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--blue-l);flex:none}
+.integ b{color:var(--ink);font-weight:600}
+.agfoot{max-width:1140px;margin:10px auto 0;padding:28px 22px 56px;border-top:1px solid var(--line);text-align:center}
+.agfoot p{color:var(--muted);font-size:13.5px;max-width:62ch;margin:0 auto 10px}.agfoot p b{color:var(--ink)}
+.agfoot .disc{font-size:11px;color:var(--faint);max-width:74ch}
+.agfoot .back2{display:inline-block;margin-top:14px;color:var(--blue-l);font-size:13.5px;font-weight:600}
 
 /* scene 7: SECURITY OPS */
 .s7 .core{left:47%}
@@ -196,7 +198,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 @keyframes s7site{0%,6%{opacity:0}14%,92%{opacity:1}97%,100%{opacity:0}}
 .s7 .pin{top:50%;animation:s7in 5.2s cubic-bezier(.5,0,.4,1) infinite}
 @keyframes s7in{0%{left:20%;opacity:0}14%{opacity:1}40%{left:44%;opacity:1}46%,100%{opacity:0}}
-.s7 .alert{position:absolute;left:47%;top:10%;transform:translateX(-50%);background:rgba(243,169,60,.14);border:1px solid rgba(243,169,60,.5);color:#ffd79a;border-radius:8px;padding:5px 10px;font-size:10.5px;white-space:nowrap;opacity:0;animation:s7alert 5.2s ease-in-out infinite}
+.s7 .alert{position:absolute;left:47%;top:10%;transform:translateX(-50%);background:rgba(243,177,76,.14);border:1px solid rgba(243,177,76,.5);color:#ffd79a;border-radius:8px;padding:5px 10px;font-size:10.5px;white-space:nowrap;opacity:0;animation:s7alert 5.2s ease-in-out infinite}
 @keyframes s7alert{0%,38%{opacity:0}48%,86%{opacity:1}92%,100%{opacity:0}}
 .s7 .outc{right:4%;top:50%;opacity:0;animation:s7out 5.2s ease-in-out infinite}
 @keyframes s7out{0%,58%{opacity:0;transform:translate(8px,-50%)}68%,88%{opacity:1;transform:translate(0,-50%)}94%,100%{opacity:0;transform:translate(0,-50%)}}
@@ -216,13 +218,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 .s8 .cap{position:absolute;left:50%;top:73%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:9px;color:#5e6b7a;white-space:nowrap}
 .s8 .pout{top:50%;animation:s8out 5.4s cubic-bezier(.5,0,.4,1) infinite}
 @keyframes s8out{0%{left:30%;opacity:0}14%{opacity:1}42%{left:44%;opacity:1}48%,100%{opacity:0}}
-.s8 .pback{top:50%;background:#1fbf75;box-shadow:0 0 12px 2px rgba(31,191,117,.7);animation:s8back 5.4s cubic-bezier(.5,0,.4,1) infinite}
+.s8 .pback{top:50%;background:#1fbf75;box-shadow:0 0 12px 2px rgba(54,224,166,.7);animation:s8back 5.4s cubic-bezier(.5,0,.4,1) infinite}
 @keyframes s8back{0%,56%{left:44%;opacity:0}62%{opacity:1}86%{left:30%;opacity:1}92%,100%{opacity:0}}
 
 /* scene 9: RESEARCH */
 .s9 .core{left:30%}
 .s9 .search{position:absolute;left:50%;top:12%;transform:translateX(-50%);background:#11151f;border:1px solid #2a3344;border-radius:8px;padding:6px 11px;font-size:10.5px;color:#cfe0f0;white-space:nowrap;max-width:88%}
-.s9 .search .car{display:inline-block;width:1px;height:11px;background:#5AA0FF;margin-left:1px;vertical-align:-2px;animation:s9car 1s step-end infinite}
+.s9 .search .car{display:inline-block;width:1px;height:11px;background:#3B82F6;margin-left:1px;vertical-align:-2px;animation:s9car 1s step-end infinite}
 @keyframes s9car{50%{opacity:0}}
 .s9 .lead{position:absolute;right:5%;width:44%;background:#11151f;border:1px solid #2a3344;border-radius:8px;padding:6px 9px;font-size:10px;color:#cfe0f0;opacity:0}
 .s9 .ld1{top:42%;animation:s9lead 5s ease-in-out infinite}
@@ -237,7 +239,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 </style>
 </head>
 <body>
-<nav class="agnav"><a href="/" class="brand">Automate<span style="color:#5AA0FF">IQ</span></a><a href="/" class="back">← Back to home</a></nav>
+<nav class="agnav"><a href="/" class="brand">Automate<span style="color:#3B82F6">IQ</span></a><a href="/" class="back">← Back to home</a></nav>
 
 <div class="wrap">
  <div class="head">
@@ -251,60 +253,60 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
   <!-- VOICE -->
   <div class="card" data-agent="voice">
    <span class="live"><span class="d"></span> Live demo</span>
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div>
    <h3>Voice receptionist</h3>
    <p>Answers every call 24/7, books the job and never leaves a customer on hold — talk to it yourself.</p>
    <span class="open">Talk to the demo <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <!-- SUPPORT -->
   <div class="card" data-agent="support">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
    <h3>Support agent</h3>
    <p>Handles customer questions, status updates and follow-ups around the clock — every answer pulled from the live job record.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <!-- EMAIL -->
   <div class="card" data-agent="email">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3 7 9 6 9-6"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3 7 9 6 9-6"/></svg></div>
    <h3>Email agent</h3>
    <p>Reads, sorts, replies and chases — turning a chaotic inbox into a clean pipeline that nothing falls out of.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <!-- CHATBOT -->
   <div class="card" data-agent="chat">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/><path d="M8 11h.01M12 11h.01M16 11h.01"/></svg></div>
    <h3>Website chatbot</h3>
    <p>Greets every visitor, answers instantly and captures qualified leads the moment interest is highest.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <!-- SECURITY -->
   <div class="card" data-agent="security">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
    <h3>Security &amp; camera intelligence</h3>
    <p>Door and camera events become real-time alerts and automated actions — so the right person knows instantly.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <!-- WORKFLOW -->
   <div class="card" data-agent="flow">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/></svg></div>
    <h3>Workflow &amp; data agent</h3>
    <p>Moves every job through the pipeline, updates records and triggers the next step — zero manual entry.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <div class="card" data-agent="secops">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/><circle cx="12" cy="11" r="2.4"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/><circle cx="12" cy="11" r="2.4"/></svg></div>
    <h3>Security Operations Agent</h3>
    <p>One screen across every site — watches cameras, doors, device health and service contracts, and raises a job the moment something needs attention.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <div class="card" data-agent="collections">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div>
    <h3>Collections Agent</h3>
    <p>Chases overdue invoices automatically through a specialist debt-resolution partner — and feeds every outcome back into the Job Record.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
   <div class="card" data-agent="research">
-   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#5AA0FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
    <h3>Research / Growth Agent</h3>
    <p>Describe your ideal customer in plain English and it returns enriched, ready-to-contact leads — straight into the top of your pipeline.</p>
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
@@ -323,18 +325,18 @@ var DATA={
  voice:{tag:"Live demo · voice",title:"Voice receptionist",
   icon:'<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>',
   problem:"Missed calls are missed jobs. A tradesperson on the tools can\u2019t answer the phone \u2014 and voicemail loses the customer.",
-  scene:'<div class="grin"></div><div class="s6"><div class="wave w1"></div><div class="wave w2"></div><div class="wave w3"></div><div class="phone"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div><div class="bars"><i></i><i></i><i></i><i></i><i></i></div></div>',
+  scene:'<div class="grin"></div><div class="s6"><div class="wave w1"></div><div class="wave w2"></div><div class="wave w3"></div><div class="phone"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div><div class="bars"><i></i><i></i><i></i><i></i><i></i></div></div>',
   steps:[["01","Answers instantly","Picks up every call, day or night."],["02","Books the job","Takes name, address & problem by voice."],["03","Logs it","Drops straight into the job record."]],
   cta:true},
  support:{tag:"Always-on support",title:"Support agent",
   icon:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   problem:"Customers ask \u201cwhen are you coming?\u201d at all hours \u2014 and chasing those replies eats the evening.",
-  scene:'<div class="s1"><div class="grin"></div><span class="clock"><span class="d"></span> 24/7</span><div class="chip blue" style="left:4%;top:50%;transform:translateY(-50%)">Customer</div><div class="conn" style="left:19%;right:57%;top:50%"></div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5c0 2 1 3.2 2 4.2V15a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2.8c1-1 2-2.2 2-4.2a5 5 0 0 0-5-5z"/><path d="M10 20h4"/></svg></div><div class="vline"></div><div class="db">Live job record</div><div class="conn" style="left:57%;right:19%;top:50%"></div><div class="chip green" style="right:4%;top:50%;transform:translateY(-50%)">Reply ✓</div><div class="pulse pq"></div><div class="pulse pa"></div></div>',
+  scene:'<div class="s1"><div class="grin"></div><span class="clock"><span class="d"></span> 24/7</span><div class="chip blue" style="left:4%;top:50%;transform:translateY(-50%)">Customer</div><div class="conn" style="left:19%;right:57%;top:50%"></div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a5 5 0 0 0-5 5c0 2 1 3.2 2 4.2V15a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2.8c1-1 2-2.2 2-4.2a5 5 0 0 0-5-5z"/><path d="M10 20h4"/></svg></div><div class="vline"></div><div class="db">Live job record</div><div class="conn" style="left:57%;right:19%;top:50%"></div><div class="chip green" style="right:4%;top:50%;transform:translateY(-50%)">Reply ✓</div><div class="pulse pq"></div><div class="pulse pa"></div></div>',
   steps:[["01","Customer asks","Any hour, any channel."],["02","Reads job record","Pulls the real, live answer."],["03","Replies instantly","Accurate, on-brand, automatic."]]},
  email:{tag:"Inbox, automated",title:"Email agent",
   icon:'<path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="m3 7 9 6 9-6"/>',
   problem:"A flooded inbox means quotes go cold and follow-ups get forgotten \u2014 money quietly walking out the door.",
-  scene:'<div class="s2" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip" style="left:4%;top:50%;transform:translateY(-50%)">Inbox</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><div class="lane l1">Replied ✓</div><div class="lane l2">Chasing →</div><div class="lane l3">Filed</div><div class="pulse pin"></div><div class="pulse po o1"></div><div class="pulse po o2"></div><div class="pulse po o3"></div></div>',
+  scene:'<div class="s2" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip" style="left:4%;top:50%;transform:translateY(-50%)">Inbox</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></div><div class="lane l1">Replied ✓</div><div class="lane l2">Chasing →</div><div class="lane l3">Filed</div><div class="pulse pin"></div><div class="pulse po o1"></div><div class="pulse po o2"></div><div class="pulse po o3"></div></div>',
   steps:[["01","Reads everything","Every new email, instantly."],["02","Sorts & replies","Answers the easy ones itself."],["03","Chases the rest","Follows up so nothing stalls."]]},
  chat:{tag:"Lead capture",title:"Website chatbot",
   icon:'<path d="M12 2a10 10 0 0 1 0 20H4l2.5-2.5A10 10 0 0 1 12 2z"/>',
@@ -344,7 +346,7 @@ var DATA={
  security:{tag:"Real-time alerts",title:"Security & camera intelligence",
   icon:'<path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
   problem:"By the time you check the footage, it\u2019s hours later \u2014 the moment that mattered is long gone.",
-  scene:'<svg class="secsvg" viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet"><path d="M70 80 C 130 50 190 48 240 46" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><path d="M250 56 C 300 78 325 95 344 116" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><rect x="40" y="68" width="12" height="84" rx="2" fill="#11151f" stroke="#2a3344"/><path d="M52 70 L72 60 L72 150 L52 150 Z" fill="#161b27" stroke="#2a3344"/><circle class="sensor" cx="72" cy="62" r="4" fill="#f3a93c"/><text x="44" y="170" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Door 3</text><g opacity="0.35"><rect x="135" y="30" width="26" height="15" rx="3" fill="#11151f" stroke="#5e6b7a"/><circle cx="148" cy="37" r="3.5" fill="none" stroke="#5e6b7a"/><text x="133" y="22" fill="#5e6b7a" font-size="10" font-family="Space Mono, monospace">Cam 1</text></g><g class="pan"><polygon points="245,46 216,118 274,118" fill="rgba(46,128,242,0.16)" stroke="rgba(46,128,242,0.32)" stroke-width="1"/></g><rect x="232" y="30" width="26" height="16" rx="3" fill="#11151f" stroke="#2E80F2"/><circle cx="245" cy="38" r="3.8" fill="none" stroke="#5AA0FF"/><text x="231" y="22" fill="#8fc0ff" font-size="10" font-family="Space Mono, monospace">Cam 2</text><path class="shield lit" d="M345 103 l14 5 v9 c0 9 -6 16 -14 19 c-8 -3 -14 -10 -14 -19 v-9 z" fill="#11151f" stroke="#5e6b7a" stroke-width="1.5"/><text x="329" y="158" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Security</text><circle r="4" fill="#5AA0FF" class="p1"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.16;0.30;1" calcMode="linear" path="M70 80 C 130 50 190 48 240 46"/></circle><circle r="4" fill="#f3a93c" class="p2"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.58;0.72;1" calcMode="linear" path="M250 56 C 300 78 325 95 344 116"/></circle><g class="alertg"><rect x="286" y="86" width="98" height="22" rx="6" fill="rgba(243,169,60,0.12)" stroke="rgba(243,169,60,0.5)"/><text x="295" y="101" fill="#ffd79a" font-size="11" font-family="Space Mono, monospace">⚠ Door 3 · alert</text></g></svg>',
+  scene:'<svg class="secsvg" viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet"><path d="M70 80 C 130 50 190 48 240 46" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><path d="M250 56 C 300 78 325 95 344 116" stroke="#2a3344" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/><rect x="40" y="68" width="12" height="84" rx="2" fill="#11151f" stroke="#2a3344"/><path d="M52 70 L72 60 L72 150 L52 150 Z" fill="#161b27" stroke="#2a3344"/><circle class="sensor" cx="72" cy="62" r="4" fill="#f3a93c"/><text x="44" y="170" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Door 3</text><g opacity="0.35"><rect x="135" y="30" width="26" height="15" rx="3" fill="#11151f" stroke="#5e6b7a"/><circle cx="148" cy="37" r="3.5" fill="none" stroke="#5e6b7a"/><text x="133" y="22" fill="#5e6b7a" font-size="10" font-family="Space Mono, monospace">Cam 1</text></g><g class="pan"><polygon points="245,46 216,118 274,118" fill="rgba(59,130,246,0.16)" stroke="rgba(59,130,246,0.32)" stroke-width="1"/></g><rect x="232" y="30" width="26" height="16" rx="3" fill="#11151f" stroke="#1369CE"/><circle cx="245" cy="38" r="3.8" fill="none" stroke="#3B82F6"/><text x="231" y="22" fill="#7EB2FF" font-size="10" font-family="Space Mono, monospace">Cam 2</text><path class="shield lit" d="M345 103 l14 5 v9 c0 9 -6 16 -14 19 c-8 -3 -14 -10 -14 -19 v-9 z" fill="#11151f" stroke="#5e6b7a" stroke-width="1.5"/><text x="329" y="158" fill="#8a98a6" font-size="11" font-family="Space Mono, monospace">Security</text><circle r="4" fill="#3B82F6" class="p1"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.16;0.30;1" calcMode="linear" path="M70 80 C 130 50 190 48 240 46"/></circle><circle r="4" fill="#f3a93c" class="p2"><animateMotion dur="6s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.58;0.72;1" calcMode="linear" path="M250 56 C 300 78 325 95 344 116"/></circle><g class="alertg"><rect x="286" y="86" width="98" height="22" rx="6" fill="rgba(243,177,76,0.12)" stroke="rgba(243,177,76,0.5)"/><text x="295" y="101" fill="#ffd79a" font-size="11" font-family="Space Mono, monospace">⚠ Door 3 · alert</text></g></svg>',
   steps:[["01","Event happens","Door opens, motion detected."],["02","Understands it","Knows normal from notable."],["03","Acts at once","Alerts the right person."]]},
  flow:{tag:"Zero manual entry",title:"Workflow & data agent",
   icon:'<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h6a3 3 0 0 1 3 3v6"/>',
@@ -354,19 +356,19 @@ var DATA={
  secops:{tag:"Security · operations",title:"Security Operations Agent",
   icon:'<path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/><circle cx="12" cy="11" r="2.4"/>',
   problem:"Security firms live on recurring monitoring and maintenance contracts — but reactive callouts, missed device failures and contracts lapsing quietly lose money.",
-  scene:'<div class="s7" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip blue site sA"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site A</div><div class="chip blue site sB"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site B</div><div class="chip blue site sC"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site C</div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 20h8M12 17v3"/><circle cx="12" cy="10.5" r="2.2"/></svg></div><div class="alert">⚠ Camera offline · Site B</div><div class="pulse pin"></div><div class="chip green outc">Job raised ✓</div><div class="pulse pout"></div></div>',
+  scene:'<div class="s7" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="chip blue site sA"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site A</div><div class="chip blue site sB"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site B</div><div class="chip blue site sC"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="2"><path d="M23 7l-7 5 7 5z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Site C</div><div class="core"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 20h8M12 17v3"/><circle cx="12" cy="10.5" r="2.2"/></svg></div><div class="alert">⚠ Camera offline · Site B</div><div class="pulse pin"></div><div class="chip green outc">Job raised ✓</div><div class="pulse pout"></div></div>',
   steps:[["01","Watches every site","Cameras & doors across all premises on one screen."],["02","Spots the issue","Device offline, door forced, contract or credential expiring."],["03","Acts on it","Raises a Job and schedules maintenance before a contract lapses."]],
   integrations:"Connects to systems like <b>Verkada</b>, <b>Avigilon</b>, <b>Genetec</b>, <b>Brivo</b>, <b>Kisi</b>, <b>Ubiquiti UniFi</b> and <b>DeterTech</b> (construction sites) — every event lands in the Job Record."},
  collections:{tag:"Payment · collections",title:"Collections Agent",
   icon:'<circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/>',
   problem:"Most trades hate chasing money and are bad at it — overdue invoices pile up and cash quietly leaks out of the business.",
-  scene:'<div class="s8" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="jrl">Job Record</div><div class="chip amber jr">€420 overdue</div><div class="chip green paid">Paid ✓</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div><div class="chan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div><div class="cap">AI resolution partner</div><div class="pulse pout"></div><div class="pulse pback"></div></div>',
+  scene:'<div class="s8" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="jrl">Job Record</div><div class="chip amber jr">€420 overdue</div><div class="chip green paid">Paid ✓</div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4A3.6 3.6 0 0 0 9 11.9a3.6 3.6 0 0 0 5.6 2.5M8.4 11h4.6M8.4 13h4.6"/></svg></div><div class="chan"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z"/></svg><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.8"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div><div class="cap">AI resolution partner</div><div class="pulse pout"></div><div class="pulse pback"></div></div>',
   steps:[["01","Overdue flows out","An unpaid balance leaves the Job Record."],["02","Partner chases","A specialist AI debt-resolution partner follows up across channels, humanely."],["03","Status flows back","Repayment and outcome land back in the Job Record."]],
   integrations:"Orchestrates a best-in-class <b>AI debt-resolution partner</b> — AutomateIQ keeps the Job Record as the single source of truth; we don’t rebuild collections."},
  research:{tag:"Growth · prospecting",title:"Research / Growth Agent",
   icon:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   problem:"Most platforms only run the jobs you already have — they don’t help you find the next ones.",
-  scene:'<div class="s9" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="search">“Plumbing firms in Dublin, 10+ staff”<span class="car"></span></div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="pulse pin"></div><div class="lead ld1">Acme Plumbing · Dublin 4</div><div class="lead ld2">FlowFix Ltd · Swords</div><div class="lead ld3">PipeWorks · Tallaght</div><div class="tolead">→ added as new leads</div></div>',
+  scene:'<div class="s9" style="position:absolute;top:0;right:0;bottom:0;left:0"><div class="grin"></div><div class="search">“Plumbing firms in Dublin, 10+ staff”<span class="car"></span></div><div class="core"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div><div class="pulse pin"></div><div class="lead ld1">Acme Plumbing · Dublin 4</div><div class="lead ld2">FlowFix Ltd · Swords</div><div class="lead ld3">PipeWorks · Tallaght</div><div class="tolead">→ added as new leads</div></div>',
   steps:[["01","Describe your customer","In plain English — plumbing firms in Dublin, 10+ staff."],["02","It finds them","Verified, enriched companies and contacts from the live web."],["03","Drops into pipeline","Added straight to the Job Record as new leads."]],
   integrations:"Built on our integration with <b>Exa</b> semantic search & Websets — Supabase stays the system of record; Exa is the web-intelligence layer we work alongside."}
 };
@@ -379,7 +381,7 @@ function render(key){
  var integ=d.integrations?'<div class="integ"><span class="ilbl">Integrates with</span><span>'+d.integrations+'</span></div>':'';
  var cta=d.cta?'<div class="cta"><button class="btn" id="voiceBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg> Talk to the live demo</button><span class="note">Mic access \u00b7 ~1 min</span></div>':'';
  mbody.innerHTML=
-  '<div class="m-head"><div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8fc0ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+d.icon+'</svg></div><div><div class="tag">'+d.tag+'</div><h2>'+d.title+'</h2></div></div>'+
+  '<div class="m-head"><div class="ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+d.icon+'</svg></div><div><div class="tag">'+d.tag+'</div><h2>'+d.title+'</h2></div></div>'+
   '<div class="prob"><span class="lbl">Problem</span><p>'+d.problem+'</p></div>'+
   '<div class="stage">'+d.scene+'</div>'+
   '<div class="how">'+steps+'</div>'+integ+cta;
