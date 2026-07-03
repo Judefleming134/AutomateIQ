@@ -123,19 +123,45 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .col.win li .m{color:var(--ac2)}
 @media(max-width:760px){.cmp{grid-template-columns:1fr}}
 
-/* card grids (#services / #security) */
-.cards{display:grid;gap:16px}
-.c4{grid-template-columns:repeat(4,1fr)}
-.c3{grid-template-columns:repeat(3,1fr)}
-.c2{grid-template-columns:repeat(2,1fr)}
-.cell{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:16px;padding:28px 24px;transition:border-color .3s,box-shadow .3s,transform .3s}
-.cell:hover{border-color:var(--line2);transform:translateY(-3px);box-shadow:0 0 0 1px rgba(59,130,246,.08),0 0 40px rgba(59,130,246,.08)}
-.cell .n{font:10.5px var(--mono);letter-spacing:.12em;color:var(--ac2);margin-bottom:14px;display:inline-block;transition:transform .35s cubic-bezier(.16,1,.3,1),text-shadow .35s}
-.cell:hover .n{transform:scale(1.15);text-shadow:0 0 16px rgba(59,130,246,.7)}
-.cell h3{font-size:1.12rem;margin-bottom:9px}
-.cell p{font-size:13.5px;color:var(--body);line-height:1.55}
-@media(max-width:920px){.c4{grid-template-columns:1fr 1fr}}
-@media(max-width:600px){.c4,.c3,.c2{grid-template-columns:1fr}}
+/* note: the old .cards/.cell feature-grid component was retired in favour of
+   the .flowdiag (#services) and .secmon (#security) treatments below —
+   #why's .cmp/.col comparison table is the site's one remaining card layout */
+
+/* connected-node workflow diagram (#services) — full-width, no card boxes */
+.flowdiag{position:relative;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-top:8px}
+.flowdiag-line{position:absolute;left:0;top:26px;width:100%;height:2px;overflow:visible;pointer-events:none;z-index:0}
+.flowdiag-line path{fill:none;stroke:var(--line2);stroke-width:1.5}
+.flowdiag-line .fd-dot{fill:var(--ac2);filter:drop-shadow(0 0 6px rgba(59,130,246,.85))}
+.flowdiag-node{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:flex-start;max-width:280px;padding-right:18px}
+.fd-icon{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--ac2);margin-bottom:20px;transition:border-color .35s,box-shadow .35s,transform .35s}
+.fd-icon svg{width:24px;height:24px}
+.flowdiag-node:hover .fd-icon{border-color:var(--ac-line);box-shadow:0 0 24px rgba(59,130,246,.22);transform:translateY(-3px)}
+.fd-n{font:10.5px var(--mono);letter-spacing:.12em;color:var(--ac2);display:block;margin-bottom:10px}
+.fd-body h3{font-size:1.1rem;margin-bottom:9px}
+.fd-body p{font-size:13.5px;color:var(--body);line-height:1.6}
+@media(max-width:900px){.flowdiag{flex-direction:column;gap:36px}.flowdiag-line{display:none}.flowdiag-node{max-width:none;padding-right:0}}
+
+/* live security status monitor (#security) — dashboard console, not cards */
+.secmon{position:relative;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:18px;overflow:hidden;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.secmon-scan{position:absolute;left:0;right:0;height:64px;background:linear-gradient(180deg,transparent,rgba(59,130,246,.07),transparent);pointer-events:none;animation:secscan 7s linear infinite;z-index:0}
+@keyframes secscan{0%{transform:translateY(-64px)}100%{transform:translateY(340px)}}
+.secmon-row{position:relative;z-index:1;display:flex;align-items:center;gap:18px;padding:22px 26px;border-top:1px solid var(--line);transition:background .3s}
+.secmon-row:hover{background:rgba(59,130,246,.03)}
+.secmon-row:hover .secmon-icon{border-color:var(--ac-line);box-shadow:0 0 18px rgba(59,130,246,.2)}
+.secmon-row:first-child{border-top:0}
+.secmon-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 8px var(--ok);animation:secdot 2.4s ease-in-out infinite}
+.secmon-row:nth-child(2) .secmon-dot{animation-delay:-.6s}
+.secmon-row:nth-child(3) .secmon-dot{animation-delay:-1.2s}
+.secmon-row:nth-child(4) .secmon-dot{animation-delay:-1.8s}
+@keyframes secdot{0%,100%{opacity:1}50%{opacity:.35}}
+.secmon-icon{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2);flex:none}
+.secmon-icon svg{width:20px;height:20px}
+.secmon-body{flex:1;min-width:0}
+.secmon-body h3{font-size:1rem;margin-bottom:4px}
+.secmon-body p{font-size:13px;color:var(--body);line-height:1.5}
+.secmon-badge{flex:none;font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ok);border:1px solid rgba(54,224,166,.35);background:rgba(54,224,166,.08);border-radius:20px;padding:5px 11px}
+@media(max-width:700px){.secmon-row{flex-wrap:wrap;gap:12px 16px}.secmon-badge{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.secmon-scan{display:none}.secmon-dot{animation:none;opacity:1}}
 
 /* image bands */
 .band{position:relative;overflow:hidden;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;text-align:center;min-height:clamp(440px,64vw,640px);padding:64px 24px}
@@ -299,22 +325,30 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 /* agents grid (#agents) */
 .agpanel{border:1px solid var(--line);border-radius:16px;background:linear-gradient(165deg,rgba(59,130,246,.06),transparent);padding:clamp(28px,4vw,48px);text-align:center}
 .ag-stage{display:flex;flex-direction:column;gap:22px}
-.ag-featured{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-@media(max-width:900px){.ag-featured{grid-template-columns:1fr 1fr}}
-.ag-fcard{text-align:left;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:15px;padding:18px;cursor:pointer;transition:.3s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;gap:9px;font-family:inherit}
-.ag-fcard:hover{transform:translateY(-4px);border-color:var(--line2)}
-.ag-fcard.on{border-color:var(--ac2);background:linear-gradient(180deg,rgba(59,130,246,.1),rgba(255,255,255,.02));box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12);animation:cardglow 3.4s ease-in-out infinite}
-@keyframes cardglow{0%,100%{box-shadow:0 0 0 1px rgba(59,130,246,.3),0 0 32px rgba(59,130,246,.12)}50%{box-shadow:0 0 0 1px rgba(59,130,246,.45),0 0 44px rgba(59,130,246,.22)}}
-.ag-fcard.guard{border-color:rgba(59,130,246,.35)}
-.ag-fcard .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2);animation:icobreathe 7s ease-in-out infinite}
+/* live activity strip (#agents featured row) — capsule rows, not boxed cards */
+.ag-featured{display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:16px;overflow:hidden;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.ag-fcard{text-align:left;background:transparent;border:0;border-top:1px solid var(--line);padding:16px 20px;cursor:pointer;transition:background .3s;display:flex;align-items:center;gap:16px;font-family:inherit;width:100%;position:relative}
+.ag-fcard:first-child{border-top:0}
+.ag-fcard:hover{background:rgba(59,130,246,.04)}
+.ag-fcard::before{content:"";width:6px;height:6px;border-radius:50%;flex:none;background:var(--ok);box-shadow:0 0 7px var(--ok);animation:secdot 2.4s ease-in-out infinite}
+.ag-fcard:nth-child(2)::before{animation-delay:-.6s}
+.ag-fcard:nth-child(3)::before{animation-delay:-1.2s}
+.ag-fcard:nth-child(4)::before{animation-delay:-1.8s}
+.ag-fcard.on{background:linear-gradient(90deg,rgba(59,130,246,.1),transparent)}
+.ag-fcard.on::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--ac2);box-shadow:0 0 10px rgba(59,130,246,.7)}
+.ag-fcard.guard .ico{border-color:rgba(59,130,246,.5)}
+.ag-fcard .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--ac-dim);border:1px solid var(--ac-line);color:var(--ac2);flex:none;animation:icobreathe 7s ease-in-out infinite}
 .ag-fcard:nth-child(2) .ico{animation-delay:-1.7s}
 .ag-fcard:nth-child(3) .ico{animation-delay:-3.4s}
 .ag-fcard:nth-child(4) .ico{animation-delay:-5.1s}
-.ag-fcard .ico svg{width:21px;height:21px}
+.ag-fcard .ico svg{width:19px;height:19px}
 @keyframes icobreathe{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}50%{box-shadow:0 0 16px 1px rgba(59,130,246,.25)}}
-.ag-fcard h3{font-size:1.02rem;color:var(--heading);line-height:1.2}
+.ag-fcard .fc-body{flex:1;min-width:0;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ag-fcard h3{font-size:.96rem;color:var(--heading);line-height:1.2}
 .ag-fcard p{font-size:12px;color:var(--body)}
-.ag-fcard .more{font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ac2);margin-top:2px}
+.ag-fcard .more{font:10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ac2);flex:none;opacity:0;transition:opacity .25s}
+.ag-fcard:hover .more,.ag-fcard.on .more{opacity:1}
+@media(max-width:640px){.ag-fcard{flex-wrap:wrap;gap:10px}.ag-fcard .fc-body{flex-direction:column;gap:2px}.ag-fcard .more{display:none}}
 .ag-more{display:flex;flex-wrap:wrap;align-items:center;gap:9px}
 .ag-more-l{font:10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-right:4px}
 .ag-chip{font:600 12px var(--mono);letter-spacing:.02em;color:var(--body);background:transparent;border:1px solid var(--line);border-radius:30px;padding:9px 14px;cursor:pointer;transition:.25s;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono)}
@@ -344,20 +378,26 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 /* stack / integration logos (#stack) */
 .stack-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:46px;align-items:center}
 @media(max-width:820px){.stack-grid{grid-template-columns:1fr;gap:30px}}
-.logos{display:grid;grid-template-columns:repeat(6,1fr);gap:30px 26px;align-items:center;justify-items:center}
-@media(max-width:760px){.logos{grid-template-columns:repeat(3,1fr);gap:36px 22px}}
-.logo-tile{display:grid;place-items:center;filter:grayscale(1) opacity(.55);transition:filter .4s,transform .4s;animation:logodrift 9s ease-in-out infinite}
-.logo-tile:nth-child(2){animation-delay:-1.5s}
-.logo-tile:nth-child(3){animation-delay:-3s}
-.logo-tile:nth-child(4){animation-delay:-4.5s}
-.logo-tile:nth-child(5){animation-delay:-6s}
-.logo-tile:nth-child(6){animation-delay:-7.5s}
+/* connected diagram (#stack) — tools flowing into the one Job Record hub */
+.stack-diagram{position:relative;width:100%;aspect-ratio:1/1;max-width:420px;margin:0 auto}
+.stk-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;z-index:0}
+.stk-lines path{fill:none;stroke:rgba(59,130,246,.18);stroke-width:1.3}
+.stk-lines .stk-dot{fill:var(--ac2);filter:drop-shadow(0 0 5px rgba(59,130,246,.85))}
+.stk-hub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;width:104px;height:104px;border-radius:50%;display:grid;place-items:center;text-align:center;background:radial-gradient(circle,rgba(59,130,246,.16),rgba(255,255,255,.03) 70%);border:1px solid var(--ac-line);box-shadow:0 0 40px rgba(59,130,246,.18);animation:stkhubpulse 4s ease-in-out infinite}
+.stk-hub span{font:600 11px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--heading);padding:0 10px}
+@keyframes stkhubpulse{0%,100%{box-shadow:0 0 40px rgba(59,130,246,.18)}50%{box-shadow:0 0 56px rgba(59,130,246,.32)}}
+.stk-nodes{position:absolute;inset:0;z-index:1}
+.stk-node{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;display:grid;place-items:center;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);filter:grayscale(1) opacity(.6);transition:filter .4s,border-color .4s,box-shadow .4s;animation:logodrift 9s ease-in-out infinite}
+.stk-node:nth-child(2){animation-delay:-1.5s}
+.stk-node:nth-child(3){animation-delay:-3s}
+.stk-node:nth-child(4){animation-delay:-4.5s}
+.stk-node:nth-child(5){animation-delay:-6s}
+.stk-node:nth-child(6){animation-delay:-7.5s}
 @keyframes logodrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-.logo-tile img{width:auto;height:40px;object-fit:contain}
-.logo-tile{position:relative}
-.logo-tile::before{content:"";position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.28),transparent 70%);opacity:0;transition:opacity .4s;z-index:-1}
-.logo-tile:hover{filter:grayscale(0) opacity(1);transform:translateY(-4px);animation-play-state:paused}
-.logo-tile:hover::before{opacity:1}
+.stk-node img{width:auto;height:24px;object-fit:contain}
+.stk-node:hover{filter:grayscale(0) opacity(1);border-color:var(--ac-line);box-shadow:0 0 22px rgba(59,130,246,.25);animation-play-state:paused}
+@media(max-width:820px){.stack-diagram{max-width:340px}}
+@media(prefers-reduced-motion:reduce){.stk-hub{animation:none}.stk-node{animation:none}}
 
 /* proof (#proof) */
 .proof{display:grid;grid-template-columns:1fr 1fr;gap:46px;align-items:center}
@@ -370,6 +410,10 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 .bw-bar{display:flex;align-items:center;gap:8px;padding:12px 14px;background:rgba(0,0,0,.2);border-bottom:1px solid var(--line)}
 .bw-bar i{width:11px;height:11px;border-radius:50%;background:var(--line2)}
 .bw-url{margin-left:12px;font:11px var(--mono);color:var(--body);background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:6px;padding:6px 14px;letter-spacing:.02em;flex:1}
+.bw-live{flex:none;display:inline-flex;align-items:center;gap:6px;font:10px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ok)}
+.bw-live-dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 7px var(--ok);animation:secdot 2.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.bw-live-dot{animation:none}}
+@media(max-width:520px){.bw-live{display:none}}
 .bw-body{padding:34px 30px 40px;background:radial-gradient(120% 80% at 50% 0,rgba(59,130,246,.1),transparent 55%)}
 .bw-logo{font-family:var(--display);font-weight:700;font-size:20px;color:var(--heading)}
 .bw-logo b{color:var(--ac2)}
@@ -510,11 +554,12 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
  <div class="wrap">
   <div class="head reveal"><div><div class="eyebrow"><span class="num">03</span> / What we do</div><h2>Built around you, <span class="ac">not off the shelf.</span></h2></div>
    <p class="lead">These are the pillars we work in &mdash; but nothing's a template. <span class="hl">We tailor the system to your data, workflows and people.</span></p></div>
-  <div class="cards c4 reveal stagger">
-   <div class="cell"><div class="n">01</div><h3>AI Agents</h3><p>A team of agents that runs the repetitive work end to end — answering, qualifying, quoting, chasing and scheduling, 24/7.</p></div>
-   <div class="cell"><div class="n">02</div><h3>Connected Core</h3><p>Every job lives on one Job Record — your single source of truth. Nothing typed twice, nothing lost.</p></div>
-   <div class="cell"><div class="n">03</div><h3>Enterprise Intelligence</h3><p>We add AI to the heavy systems you already run — asset management, ERP, inventory and procurement.</p></div>
-   <div class="cell"><div class="n">04</div><h3>Bespoke build</h3><p>We shape all of it around your exact operation — your logic, your team, your tools — not a fixed feature list.</p></div>
+  <div class="flowdiag reveal stagger" id="services-flow">
+   <svg class="flowdiag-line" id="services-flow-line"></svg>
+   <div class="flowdiag-node"><div class="fd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></div><div class="fd-body"><span class="fd-n">01</span><h3>AI Agents</h3><p>A team of agents that runs the repetitive work end to end — answering, qualifying, quoting, chasing and scheduling, 24/7.</p></div></div>
+   <div class="flowdiag-node"><div class="fd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6a8 3 0 0 0 16 0V5M4 11v6a8 3 0 0 0 16 0v-6"/></svg></div><div class="fd-body"><span class="fd-n">02</span><h3>Connected Core</h3><p>Every job lives on one Job Record — your single source of truth. Nothing typed twice, nothing lost.</p></div></div>
+   <div class="flowdiag-node"><div class="fd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h3"/></svg></div><div class="fd-body"><span class="fd-n">03</span><h3>Enterprise Intelligence</h3><p>We add AI to the heavy systems you already run — asset management, ERP, inventory and procurement.</p></div></div>
+   <div class="flowdiag-node"><div class="fd-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div><div class="fd-body"><span class="fd-n">04</span><h3>Bespoke build</h3><p>We shape all of it around your exact operation — your logic, your team, your tools — not a fixed feature list.</p></div></div>
   </div>
  </div>
 </section>
@@ -588,11 +633,32 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
  <div class="wrap">
   <div class="head reveal"><div><div class="eyebrow"><span class="num">&middot;</span> Enterprise security</div><h2>Secure by default. <span class="ac">Audited by design.</span></h2></div>
    <p class="lead">Every file, customer record and AI workflow is protected with encryption, intelligent access control, continuous monitoring and complete audit trails &mdash; <span class="hl">enterprise-grade security, without adding complexity.</span></p></div>
-  <div class="cards c4 reveal stagger">
-   <div class="cell"><div class="n">01</div><h3>Encryption</h3><p>Every file and record encrypted in transit and at rest.</p></div>
-   <div class="cell"><div class="n">02</div><h3>Access control</h3><p>Role-based permissions so people see only what they should.</p></div>
-   <div class="cell"><div class="n">03</div><h3>Continuous monitoring</h3><p>Systems watched around the clock, threats flagged in real time.</p></div>
-   <div class="cell"><div class="n">04</div><h3>Full audit trails</h3><p>Every action logged and traceable &mdash; complete accountability.</p></div>
+  <div class="secmon reveal stagger" id="secmon">
+   <div class="secmon-scan"></div>
+   <div class="secmon-row">
+    <span class="secmon-dot"></span>
+    <div class="secmon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+    <div class="secmon-body"><h3>Encryption</h3><p>Every file and record encrypted in transit and at rest.</p></div>
+    <span class="secmon-badge">Active</span>
+   </div>
+   <div class="secmon-row">
+    <span class="secmon-dot"></span>
+    <div class="secmon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V5z"/><circle cx="12" cy="11" r="2.4"/></svg></div>
+    <div class="secmon-body"><h3>Access control</h3><p>Role-based permissions so people see only what they should.</p></div>
+    <span class="secmon-badge">Active</span>
+   </div>
+   <div class="secmon-row">
+    <span class="secmon-dot"></span>
+    <div class="secmon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 5V3M12 21v-2M5 12H3M21 12h-2M6.5 6.5 5 5M19 19l-1.5-1.5M6.5 17.5 5 19M19 5l-1.5 1.5"/></svg></div>
+    <div class="secmon-body"><h3>Continuous monitoring</h3><p>Systems watched around the clock, threats flagged in real time.</p></div>
+    <span class="secmon-badge">Active</span>
+   </div>
+   <div class="secmon-row">
+    <span class="secmon-dot"></span>
+    <div class="secmon-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v1h1a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1z"/><path d="M9 12l2 2 4-4"/></svg></div>
+    <div class="secmon-body"><h3>Full audit trails</h3><p>Every action logged and traceable &mdash; complete accountability.</p></div>
+    <span class="secmon-badge">Active</span>
+   </div>
   </div>
  </div>
 </section>
@@ -605,7 +671,11 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
     <p class="lead" style="margin-top:20px">We take the tools and data you already have, pull them into one source of truth, <span class="hl">then redesign or rebuild the workflows around it — with our AI agents working inside them.</span></p>
     
    </div>
-   <div class="logos reveal stagger" id="logos"></div>
+   <div class="stack-diagram reveal" id="stack-diagram">
+    <svg class="stk-lines" id="stack-lines"></svg>
+    <div class="stk-hub"><span>Job Record</span></div>
+    <div class="stk-nodes" id="stack-nodes"></div>
+   </div>
   </div>
  </div>
 </section>
@@ -626,7 +696,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
     <div class="badges"><span class="badge">Live today</span><span class="badge">No rip-and-replace</span><span class="badge">One source of truth</span></div>
     <a href="https://clearwaterireland.ie" target="_blank" rel="noopener" class="btn">Explore the live build <span class="ar">&rarr;</span></a></div>
    <a href="https://clearwaterireland.ie" target="_blank" rel="noopener" class="browserwin reveal" style="display:block">
-    <div class="bw-bar"><i></i><i></i><i></i><span class="bw-url">clearwaterireland.ie</span></div>
+    <div class="bw-bar"><i></i><i></i><i></i><span class="bw-url">clearwaterireland.ie</span><span class="bw-live"><span class="bw-live-dot"></span>Live</span></div>
     <div class="bw-body"><div class="bw-logo">Clear<b>Water</b><span>Ireland</span></div>
      <div class="bw-h">Soft water, sorted — quoted, booked and paid online.</div>
      <div class="bw-row"><span class="bw-pill">Live site</span><span class="bw-pill">Customer portal</span><span class="bw-pill">Online payments</span><span class="bw-pill">Automated quotes</span></div>
@@ -798,7 +868,7 @@ grid.innerHTML='<div class="ag-stage"><div class="ag-featured" id="ag-featured">
 var featEl=document.getElementById('ag-featured'),chipEl=document.getElementById('ag-chips'),prevEl=document.getElementById('ag-preview');
 function svg(p){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';}
 featEl.innerHTML=AG.filter(function(a){return a.f;}).map(function(a){var i=AG.indexOf(a);
-return '<button class="ag-fcard'+(a.g?' guard':'')+'" data-id="'+i+'"><div class="ico">'+svg(a.ic)+'</div><h3>'+a.n+'</h3><p>'+a.t+'</p><span class="more">Click to preview &rarr;</span></button>';}).join('');
+return '<button class="ag-fcard'+(a.g?' guard':'')+'" data-id="'+i+'"><div class="ico">'+svg(a.ic)+'</div><div class="fc-body"><h3>'+a.n+'</h3><p>'+a.t+'</p></div><span class="more">Click to preview &rarr;</span></button>';}).join('');
 chipEl.innerHTML=AG.map(function(a,i){return '<button class="ag-chip" data-id="'+i+'"><span class="d"></span>'+a.n+'</button>';}).join('');
 function render(idx){var a=AG[idx];
 var flow=a.flow.map(function(s,i){return '<div class="agp-step"><span class="agp-sn">'+(i+1)+'</span><span class="agp-sl">'+s+'</span></div>';}).join('<span class="agp-ar">&rarr;</span>');
@@ -816,9 +886,47 @@ prevEl.style.transform='none';
 grid.addEventListener('click',function(e){var t=e.target.closest('[data-id]'); if(!t)return; render(+t.getAttribute('data-id'));});
 render(0);
 })();
-(function(){var el=document.getElementById('logos');if(!el)return;
+(function(){
+var stage=document.getElementById('stack-diagram'),nodesRoot=document.getElementById('stack-nodes'),linesSvg=document.getElementById('stack-lines');
+if(!stage||!nodesRoot||!linesSvg)return;
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 var L=[['Google Docs','mark-googledocs.png'],['Gmail','mark-gmail.png'],['Stripe','mark-stripe.png'],['Microsoft Excel','mark-excel.png'],['OpenAI','mark-openai.png'],['WhatsApp','mark-whatsapp.png']];
-el.innerHTML=L.map(function(a){return '<div class="logo-tile" title="'+a[0]+'"><img loading="lazy" src="'+a[1]+'" alt="'+a[0]+'"/></div>';}).join('');
+nodesRoot.innerHTML=L.map(function(a){return '<div class="stk-node" title="'+a[0]+'"><img loading="lazy" src="'+a[1]+'" alt="'+a[0]+'"/></div>';}).join('');
+var nodeEls=[].slice.call(nodesRoot.children);
+var svgNS='http://www.w3.org/2000/svg';
+function layoutAndDraw(){
+ var w=stage.clientWidth,h=stage.clientHeight;
+ if(!w||!h)return;
+ linesSvg.setAttribute('viewBox','0 0 '+w+' '+h);
+ var cx=w/2,cy=h/2,radius=w*0.42;
+ linesSvg.innerHTML='';
+ nodeEls.forEach(function(el,i){
+  var angle=(i/nodeEls.length)*Math.PI*2 - Math.PI/2;
+  var x=cx+Math.cos(angle)*radius,y=cy+Math.sin(angle)*radius;
+  el.style.left=x+'px';el.style.top=y+'px';el.style.margin='-27px 0 0 -27px';
+  var path=document.createElementNS(svgNS,'path');
+  path.setAttribute('d','M'+x+' '+y+' L'+cx+' '+cy);
+  path.id='stkpath-'+i;
+  linesSvg.appendChild(path);
+  if(!reduceMotion){
+   var dot=document.createElementNS(svgNS,'circle');
+   dot.setAttribute('class','stk-dot');
+   dot.setAttribute('r','3');
+   var anim=document.createElementNS(svgNS,'animateMotion');
+   anim.setAttribute('dur',(5+i*0.6)+'s');
+   anim.setAttribute('repeatCount','indefinite');
+   anim.setAttribute('begin',(i*0.4)+'s');
+   var mpath=document.createElementNS(svgNS,'mpath');
+   mpath.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+path.id);
+   anim.appendChild(mpath);
+   dot.appendChild(anim);
+   linesSvg.appendChild(dot);
+  }
+ });
+}
+layoutAndDraw();
+var resizeTimer=null;
+addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(layoutAndDraw,150);});
 })();
 (function(){
 var D={
@@ -1273,7 +1381,7 @@ var isTouch=window.matchMedia('(hover: none), (pointer: coarse)').matches;
 
 /* 3D tilt + cursor-spotlight on card surfaces (desktop pointer only) */
 (function(){
- var sel='.cell,.col,.tlstep,.ag-fcard,.browserwin';
+ var sel='.col,.tlstep,.ag-fcard,.browserwin';
  var els=[].slice.call(document.querySelectorAll(sel));
  els.forEach(function(el){el.classList.add('tilt3d');});
  var winCard=document.querySelector('.col.win');
@@ -1391,6 +1499,78 @@ if('IntersectionObserver' in window){
  io.observe(wrap);
 }else{
  mount();
+}
+})();</script>
+<script>(function(){
+/* reusable connected-node diagram: draws an SVG line through a row of node
+   icons, animates it in on scroll, and loops a glowing pulse along it.
+   Used by #services and #stack. Mirrors the proven #work pipeline pattern. */
+window.buildFlowDiagram=function(containerEl,svgEl,nodeEls,opts){
+ if(!containerEl||!svgEl||!nodeEls.length)return;
+ opts=opts||{};
+ var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ var breakAt=opts.breakAt||900;
+ var svgNS='http://www.w3.org/2000/svg';
+ var path=document.createElementNS(svgNS,'path');
+ svgEl.appendChild(path);
+ var dot=null;
+ if(!reduceMotion){
+  dot=document.createElementNS(svgNS,'circle');
+  dot.setAttribute('class','fd-dot');
+  dot.setAttribute('r','4');
+  var anim=document.createElementNS(svgNS,'animateMotion');
+  anim.setAttribute('dur',(opts.loopDur||8)+'s');
+  anim.setAttribute('repeatCount','indefinite');
+  var mpath=document.createElementNS(svgNS,'mpath');
+  path.id=path.id||('fdpath-'+Math.random().toString(36).slice(2));
+  mpath.setAttributeNS('http://www.w3.org/1999/xlink','href','#'+path.id);
+  anim.appendChild(mpath);
+  dot.appendChild(anim);
+  svgEl.appendChild(dot);
+ }
+ function measure(){
+  if(window.innerWidth<=breakAt)return null;
+  var cr=containerEl.getBoundingClientRect();
+  var pts=nodeEls.map(function(iconEl){
+   var r=iconEl.getBoundingClientRect();
+   return{x:r.left-cr.left+r.width/2,y:r.top-cr.top+r.height/2};
+  });
+  var d='M'+pts[0].x+' '+pts[0].y;
+  for(var i=1;i<pts.length;i++)d+=' L'+pts[i].x+' '+pts[i].y;
+  return d;
+ }
+ if(reduceMotion){
+  var d0=measure();if(d0)path.setAttribute('d',d0);
+  addEventListener('resize',function(){var d2=measure();if(d2)path.setAttribute('d',d2);});
+  return;
+ }
+ var drawn=false,visible=false;
+ function drawIn(){
+  drawn=true;
+  var d=measure();if(!d)return;
+  path.setAttribute('d',d);
+  var len=path.getTotalLength();
+  path.style.strokeDasharray=len;
+  path.style.strokeDashoffset=len;
+  path.style.transition='stroke-dashoffset 1.3s cubic-bezier(.16,1,.3,1)';
+  requestAnimationFrame(function(){requestAnimationFrame(function(){path.style.strokeDashoffset='0';});});
+ }
+ if('IntersectionObserver' in window){
+  var io=new IntersectionObserver(function(es){
+   es.forEach(function(e){
+    visible=e.isIntersecting;
+    if(visible&&!drawn)setTimeout(drawIn,400);
+   });
+  },{threshold:.3});
+  io.observe(containerEl);
+ }else{visible=true;drawIn();}
+ addEventListener('resize',function(){if(drawn){var d=measure();if(d){path.setAttribute('d',d);path.style.transition='none';path.style.strokeDasharray='none';path.style.strokeDashoffset='0';}}});
+};
+var svc=document.getElementById('services-flow');
+if(svc){
+ var svgEl=document.getElementById('services-flow-line');
+ var icons=[].slice.call(svc.querySelectorAll('.fd-icon'));
+ window.buildFlowDiagram(svc,svgEl,icons,{loopDur:9});
 }
 })();</script>
 </body></html>
