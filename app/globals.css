@@ -96,3 +96,15 @@ h3 {
   font-size: 13px;
   margin: 4px 0 0;
 }
+
+.inline-form {
+  display: inline;
+}
+
+.create-customer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+  margin-top: 12px;
+}
