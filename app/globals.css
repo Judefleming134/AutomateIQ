@@ -101,10 +101,51 @@ h3 {
   display: inline;
 }
 
-.create-customer-form {
+.create-customer-form,
+.settings-form,
+.send-request-form {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 360px;
+  max-width: 400px;
   margin-top: 12px;
+}
+
+.create-customer-form label,
+.settings-form label,
+.send-request-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--body);
+  margin-top: 8px;
+}
+
+.create-customer-form input,
+.settings-form input,
+.settings-form textarea,
+.send-request-form input {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--heading);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.create-customer-form button,
+.settings-form button,
+.send-request-form button {
+  margin-top: 12px;
+  background: var(--ac2);
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  width: fit-content;
 }
