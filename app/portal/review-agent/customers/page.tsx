@@ -12,31 +12,40 @@ export default async function ReviewAgentCustomersPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Customers</h1>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left" }}>Name</th>
-            <th style={{ textAlign: "left" }}>Email</th>
-            <th style={{ textAlign: "left" }}>Added</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(customers ?? []).map((c) => (
-            <tr key={c.id}>
-              <td>{c.name}</td>
-              <td>{c.email}</td>
-              <td>{new Date(c.created_at).toLocaleDateString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {(customers ?? []).length === 0 && (
-        <p style={{ fontStyle: "italic", marginTop: 16 }}>
-          No customers yet — send your first review request to get started.
-        </p>
-      )}
-    </main>
+    <>
+      <div className="page-header">
+        <div>
+          <h1>Customers</h1>
+          <p>Everyone you&apos;ve sent a review request to.</p>
+        </div>
+      </div>
+
+      <div className="table-wrap">
+        {(customers ?? []).length === 0 ? (
+          <p className="empty-state">
+            No customers yet — send your first review request to get started.
+          </p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(customers ?? []).map((c) => (
+                <tr key={c.id}>
+                  <td>{c.name}</td>
+                  <td>{c.email}</td>
+                  <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }

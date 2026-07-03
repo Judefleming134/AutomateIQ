@@ -16,6 +16,7 @@ export type ProductDefinition = {
   href: string;
   iconName: string;
   accent: string; // per-product tile accent color, chrome stays brand blue
+  status: ProductStatus; // mirrors products.status, drives the tile's badge
 };
 
 export const PRODUCT_REGISTRY: ProductDefinition[] = [
@@ -27,6 +28,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/review-agent",
     iconName: "star",
     accent: "#7C3AED",
+    status: "active",
   },
   {
     key: "website-agent",
@@ -35,6 +37,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/website-agent",
     iconName: "globe",
     accent: "#3B82F6",
+    status: "coming_soon",
   },
   {
     key: "ai-assistant",
@@ -43,6 +46,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/ai-assistant",
     iconName: "bot",
     accent: "#22D3EE",
+    status: "coming_soon",
   },
   {
     key: "custom-solutions",
@@ -51,6 +55,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/custom-solutions",
     iconName: "box",
     accent: "#F472B6",
+    status: "framework",
   },
 ];
 

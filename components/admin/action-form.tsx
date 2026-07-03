@@ -27,10 +27,12 @@ export function ActionForm({
   return (
     <form action={formAction} className={className}>
       {children}
-      {state?.error && (
-        <p style={{ color: "#f87171", fontSize: 13 }}>{state.error}</p>
+      {state?.error && <p className="login-error">{state.error}</p>}
+      {pending && (
+        <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>
+          Working…
+        </p>
       )}
-      {pending && <p style={{ fontSize: 12 }}>Working…</p>}
     </form>
   );
 }

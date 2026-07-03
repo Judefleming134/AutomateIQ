@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { Lock } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_REGISTRY } from "@/lib/products/registry";
+import { ProductIcon } from "@/lib/products/icons";
 
 export default async function PortalHome() {
   const { profile } = await requireSession();
@@ -25,46 +27,60 @@ export default async function PortalHome() {
   );
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Welcome back, {business?.name ?? "there"} 👋</h1>
-      <p>Here&apos;s what&apos;s happening with your AutomateIQ platform today.</p>
+    <>
+      <div className="page-header">
+        <div>
+          <h1>Welcome back, {business?.name ?? "there"}</h1>
+          <p>Here&apos;s what&apos;s happening with your AutomateIQ platform today.</p>
+        </div>
+      </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: 16,
-          marginTop: 24,
-        }}
-      >
+      <div className="product-grid">
         {PRODUCT_REGISTRY.map((product) => {
           const isEnabled = enabledKeys.has(product.key);
+          const style = { "--tile-accent": product.accent } as React.CSSProperties;
+
           const tile = (
-            <div
-              style={{
-                border: "1px solid var(--line)",
-                borderRadius: 14,
-                padding: 20,
-                background: "var(--panel)",
-                opacity: isEnabled ? 1 : 0.55,
-              }}
-            >
-              <h3 style={{ color: product.accent }}>{product.name}</h3>
-              <p style={{ fontSize: 13 }}>{product.description}</p>
-              <p style={{ fontSize: 12, marginTop: 8 }}>
-                {isEnabled ? "Active" : "Not enabled for your account"}
-              </p>
-            </div>
+            <>
+              <div className="product-tile-icon">
+                <ProductIcon name={product.iconName} size={21} />
+              </div>
+              <h3>{product.name}</h3>
+              <p>{product.description}</p>
+              {isEnabled ? (
+                <span className="badge badge-green">Active</span>
+              ) : product.status === "coming_soon" ? (
+                <span className="badge badge-gray">
+                  <Lock size={11} /> Coming soon
+                </span>
+              ) : (
+                <span className="badge badge-gray">
+                  <Lock size={11} /> Not enabled
+                </span>
+              )}
+            </>
           );
+
           return isEnabled ? (
-            <Link key={product.key} href={product.href} style={{ textDecoration: "none", color: "inherit" }}>
+            <Link
+              key={product.key}
+              href={product.href}
+              className="product-tile panel"
+              style={style}
+            >
               {tile}
             </Link>
           ) : (
-            <div key={product.key}>{tile}</div>
+            <div
+              key={product.key}
+              className="product-tile panel is-disabled"
+              style={style}
+            >
+              {tile}
+            </div>
           );
         })}
       </div>
-    </main>
+    </>
   );
 }

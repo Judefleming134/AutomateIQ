@@ -1,5 +1,8 @@
+import { Send, Clock3 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { StatCard } from "@/components/portal/stat-card";
+import { StatusBadge } from "@/components/portal/status-badge";
 
 export default async function ReviewAgentOverviewPage() {
   await requireSession();
@@ -24,49 +27,59 @@ export default async function ReviewAgentOverviewPage() {
     ]);
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Review Agent</h1>
-      <p>Send review requests and grow your online reputation.</p>
-
-      <div style={{ display: "flex", gap: 16, margin: "24px 0" }}>
-        <StatCard label="Review Requests" value={totalSent ?? 0} />
-        <StatCard label="Pending Follow-ups" value={pendingFollowUps ?? 0} />
+    <>
+      <div className="page-header">
+        <div>
+          <h1>Review Agent</h1>
+          <p>Send review requests and grow your online reputation.</p>
+        </div>
       </div>
 
-      <h2>Recent Activity</h2>
-      <ul>
-        {(recent ?? []).map((r) => {
-          const customer = r.ra_customers as unknown as { name: string } | null;
-          return (
-            <li key={r.id}>
-              {r.status} — {customer?.name ?? "unknown"} (
-              {new Date(r.created_at).toLocaleString()})
-            </li>
-          );
-        })}
-      </ul>
-      {(recent ?? []).length === 0 && (
-        <p style={{ fontStyle: "italic" }}>No activity yet.</p>
-      )}
-    </main>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div
-      style={{
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: 16,
-        background: "var(--panel)",
-        minWidth: 140,
-      }}
-    >
-      <div style={{ fontSize: 24, fontWeight: 700, color: "var(--heading)" }}>
-        {value}
+      <div className="stat-grid">
+        <StatCard
+          label="Review Requests"
+          value={totalSent ?? 0}
+          icon={<Send />}
+          accent="#7C3AED"
+        />
+        <StatCard
+          label="Pending Follow-ups"
+          value={pendingFollowUps ?? 0}
+          icon={<Clock3 />}
+          accent="#FB923C"
+        />
       </div>
-      <div style={{ fontSize: 13 }}>{label}</div>
-    </div>
+
+      <h2 style={{ fontSize: 16, marginBottom: 14 }}>Recent Activity</h2>
+      <div className="table-wrap">
+        {(recent ?? []).length === 0 ? (
+          <p className="empty-state">No activity yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(recent ?? []).map((r) => {
+                const customer = r.ra_customers as unknown as { name: string } | null;
+                return (
+                  <tr key={r.id}>
+                    <td>{customer?.name ?? "unknown"}</td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                    </td>
+                    <td>{new Date(r.created_at).toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
   );
 }

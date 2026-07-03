@@ -1,8 +1,10 @@
+import { ComingSoon } from "@/components/portal/coming-soon";
+
 export default function WebsiteAgentPage() {
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Website Agent</h1>
-      <p>Coming soon.</p>
-    </main>
+    <ComingSoon
+      title="Website Agent"
+      description="AI-powered websites that convert and engage."
+    />
   );
 }

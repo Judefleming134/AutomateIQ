@@ -39,7 +39,11 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="login-card">
-      <h1>Sign in to AutomateIQ</h1>
+      <div className="login-brand">
+        <span className="sidebar-brand-mark">Iq</span>
+        AutomateIQ
+      </div>
+      <h1>Sign in to your account</h1>
       <label htmlFor="email">Email</label>
       <input
         id="email"

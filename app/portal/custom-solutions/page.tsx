@@ -1,3 +1,4 @@
+import { Box } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -11,28 +12,35 @@ export default async function CustomSolutionsPage() {
     .select("id, name, description, route_slug");
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Custom Solutions</h1>
-      <p>
-        Bespoke AI modules built specifically for your business — quote
-        generators, invoicing tools, custom CRMs, and more. Get in touch to
-        discuss what you need.
-      </p>
+    <>
+      <div className="page-header">
+        <div>
+          <h1>Custom Solutions</h1>
+          <p>
+            Bespoke AI modules built specifically for your business — quote
+            generators, invoicing tools, custom CRMs, and more. Get in touch
+            to discuss what you need.
+          </p>
+        </div>
+      </div>
 
       {modules && modules.length > 0 ? (
-        <ul style={{ marginTop: 24 }}>
+        <div className="product-grid">
           {modules.map((m) => (
-            <li key={m.id}>
-              <strong>{m.name}</strong>
-              {m.description ? ` — ${m.description}` : null}
-            </li>
+            <div key={m.id} className="panel product-tile" style={{ "--tile-accent": "#F472B6" } as React.CSSProperties}>
+              <div className="product-tile-icon">
+                <Box size={21} />
+              </div>
+              <h3>{m.name}</h3>
+              {m.description && <p>{m.description}</p>}
+            </div>
           ))}
-        </ul>
+        </div>
       ) : (
-        <p style={{ marginTop: 24, fontStyle: "italic" }}>
+        <div className="panel empty-state" style={{ borderRadius: "var(--radius)" }}>
           No custom modules assigned yet.
-        </p>
+        </div>
       )}
-    </main>
+    </>
   );
 }
