@@ -1822,4 +1822,54 @@ if(svc){
  window.buildFlowDiagram(svc,svgEl,icons,{loopDur:9});
 }
 })();</script>
+<script>(function(){
+/* sitewide kinetic-typography: word-by-word scroll reveal for every section
+   h2, reusing the .rv-w unit built for the hero headline (Pass 3) instead
+   of a bespoke system per section. Headings read as "being generated" as
+   they scroll in, rather than the plain block fade the rest of .reveal
+   still uses. No copy touched — this only wraps existing text nodes. */
+var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(reduceMotion)return;
+if(!('IntersectionObserver' in window))return;
+
+function wrapWords(el){
+ var nodes=[].slice.call(el.childNodes);
+ var units=[];
+ nodes.forEach(function(n){
+  if(n.nodeType===3){
+   var words=n.textContent.split(/(\s+)/).filter(function(w){return w.length;});
+   words.forEach(function(w){
+    if(/^\s+$/.test(w)){el.insertBefore(document.createTextNode(w),n);return;}
+    var span=document.createElement('span');
+    span.className='rv-w';
+    span.textContent=w;
+    el.insertBefore(span,n);
+    units.push(span);
+   });
+   el.removeChild(n);
+  }else if(n.nodeType===1){
+   n.classList.add('rv-w');
+   units.push(n);
+  }
+ });
+ units.forEach(function(u,i){u.style.transitionDelay=(i*45)+'ms';});
+ return units;
+}
+
+var targets=[].slice.call(document.querySelectorAll('h2'));
+var prepared=targets.map(function(h){return {el:h,units:wrapWords(h)};});
+
+var io=new IntersectionObserver(function(es){
+ es.forEach(function(e){
+  if(!e.isIntersecting)return;
+  var item=prepared.filter(function(p){return p.el===e.target;})[0];
+  if(!item)return;
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+   item.units.forEach(function(u){u.classList.add('in');});
+  });});
+  io.unobserve(e.target);
+ });
+},{rootMargin:'0px 0px -10% 0px',threshold:.1});
+prepared.forEach(function(p){io.observe(p.el);});
+})();</script>
 </body></html>
