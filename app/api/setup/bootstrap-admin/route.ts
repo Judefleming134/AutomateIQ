@@ -34,24 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
   if (secret !== setupSecret) {
-    // TEMPORARY diagnostic (remove once the real mismatch is found): reveals
-    // enough to distinguish "wrong value" from "extra/missing characters"
-    // without printing either secret in full.
-    return NextResponse.json(
-      {
-        error: "Forbidden.",
-        debug: {
-          receivedLength: typeof secret === "string" ? secret.length : null,
-          expectedLength: setupSecret.length,
-          receivedPreview:
-            typeof secret === "string"
-              ? `${secret.slice(0, 3)}…${secret.slice(-3)}`
-              : null,
-          expectedPreview: `${setupSecret.slice(0, 3)}…${setupSecret.slice(-3)}`,
-        },
-      },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -71,8 +54,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Send the invite link to our own set-password page rather than relying
+  // on the Supabase project's Site URL setting (which defaults to
+  // localhost:3000 on a fresh project). The URL must also be added to the
+  // project's Redirect URLs allow-list or Supabase falls back to Site URL.
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie";
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { role: "admin" },
+    redirectTo: `${siteUrl}/auth/set-password`,
   });
 
   if (error) {
