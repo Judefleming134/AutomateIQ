@@ -169,9 +169,16 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .bandbg{position:absolute;top:-8%;left:0;right:0;height:116%;background-size:cover;background-position:center calc(50% + var(--bgy,0px));z-index:0;transform:scale(1.12);will-change:transform;animation:kenburns 22s ease-in-out infinite alternate}
 @keyframes kenburns{0%{transform:scale(1.12)}100%{transform:scale(1.2)}}
 .band::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,var(--bg) 0%,rgba(21,19,20,.7) 15%,rgba(21,19,20,.46) 50%,rgba(21,19,20,.74) 85%,var(--bg) 100%)}
-.bandc{position:relative;z-index:2;max-width:840px}
+.bandc{position:relative;z-index:2;max-width:840px;padding:38px 46px}
 .bandc h2{font-size:clamp(1.9rem,4.6vw,3.3rem)}
 .bandc p{color:var(--body);margin-top:14px;font-size:clamp(1rem,1.6vw,1.2rem);line-height:1.6}
+.bandc::before,.bandc::after{content:"";position:absolute;width:26px;height:26px;border:1px solid rgba(59,130,246,.55);opacity:0;transition:opacity 1s ease .25s,width 1s ease .25s,height 1s ease .25s}
+.bandc::before{top:0;left:0;border-right:0;border-bottom:0}
+.bandc::after{bottom:0;right:0;border-left:0;border-top:0}
+.band.reveal.in .bandc::before,.band.reveal.in .bandc::after{opacity:.85;width:34px;height:34px}
+.band-scan{position:absolute;left:0;right:0;top:-140px;height:140px;background:linear-gradient(180deg,transparent,rgba(59,130,246,.07),transparent);pointer-events:none;z-index:1;animation:bandscan 7s linear infinite}
+@keyframes bandscan{0%{top:-140px}100%{top:100%}}
+@media(prefers-reduced-motion:reduce){.band-scan{display:none}.bandc::before,.bandc::after{transition:none}.band.reveal.in .bandc::before,.band.reveal.in .bandc::after{opacity:.6;width:26px;height:26px}}
 
 /* hero */
 .hero2{position:relative;background:var(--bg);border-top:0;padding-top:0}
@@ -197,6 +204,11 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .rv-w.in{opacity:1;transform:none;filter:blur(0)}
 span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.16,1,.3,1)}
 @media(prefers-reduced-motion:reduce){.rv-w{opacity:1!important;transform:none!important;filter:none!important}}
+.type-cursor{display:inline-block;width:2px;height:.95em;background:var(--ac2);margin-left:3px;vertical-align:-.12em;opacity:0;box-shadow:0 0 6px rgba(59,130,246,.7)}
+.type-cursor.on{opacity:1;animation:cursorblink .9s step-end infinite}
+.type-cursor.done{animation:none;opacity:0;transition:opacity .7s ease}
+@keyframes cursorblink{50%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.type-cursor{display:none}}
 /* hero entrance sequence: tag -> headline (word-reveal, handled separately) -> subhead -> CTAs -> image settle */
 .seq-in{opacity:0;transform:translateY(16px);filter:blur(4px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1),filter .6s cubic-bezier(.16,1,.3,1)}
 .seq-in.in{opacity:1;transform:none;filter:blur(0)}
@@ -603,7 +615,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 </section>
 
 <section class="band reveal">
- <div class="bandbg" style="background-image:url(shot-visibility.jpeg)"></div>
+ <div class="bandbg" style="background-image:url(shot-visibility.jpeg)"></div><div class="band-scan" aria-hidden="true"></div>
  <div class="bandc"><div class="eyebrow" style="justify-content:center"><span class="num">&middot;</span> Analytics &middot; total visibility</div>
   <h2>See everything, <span class="ac">in real time.</span></h2>
   <p>Every number that matters — revenue, open jobs, cash, agents — live on one screen. <span class="hl">Decide on what's happening now, not last month's report.</span></p></div>
@@ -619,7 +631,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 </section>
 
 <section class="band reveal">
- <div class="bandbg" style="background-image:url(band-meeting.jpeg)"></div>
+ <div class="bandbg" style="background-image:url(band-meeting.jpeg)"></div><div class="band-scan" aria-hidden="true"></div>
  <div class="bandc"><div class="eyebrow" style="justify-content:center"><span class="num">&middot;</span> The point of all of it</div>
   <h2>Less admin. More margin. <span class="ac">Fewer dropped balls.</span></h2>
   <p>Your people stop re-typing data and chasing updates — <span class="hl">and get back to the work that grows the business.</span></p></div>
@@ -659,7 +671,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 </section>
 
 <section id="operations" class="band band-tall reveal">
- <div class="bandbg" style="background-image:url(band-operations.jpeg)"></div>
+ <div class="bandbg" style="background-image:url(band-operations.jpeg)"></div><div class="band-scan" aria-hidden="true"></div>
  <div class="bandc" style="max-width:900px">
   <div class="eyebrow" style="justify-content:center"><span class="num">&middot;</span> Operations</div>
   <h2>One command view for <span class="ac">the whole operation.</span></h2>
@@ -720,7 +732,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 </section>
 
 <section class="band reveal">
- <div class="bandbg" style="background-image:url(band-office-open.jpeg)"></div>
+ <div class="bandbg" style="background-image:url(band-office-open.jpeg)"></div><div class="band-scan" aria-hidden="true"></div>
  <div class="bandc"><div class="eyebrow" style="justify-content:center"><span class="num">&middot;</span> Who it's for</div>
   <h2>Built for the people who <span class="ac">actually run the business.</span></h2>
   <p>Owners, office staff and field teams — <span class="hl">each gets exactly what they need, on one system everyone trusts.</span></p></div>
@@ -1832,7 +1844,7 @@ var reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 if(reduceMotion)return;
 if(!('IntersectionObserver' in window))return;
 
-function wrapWords(el){
+function wrapWords(el,stagger){
  var nodes=[].slice.call(el.childNodes);
  var units=[];
  nodes.forEach(function(n){
@@ -1852,13 +1864,25 @@ function wrapWords(el){
    units.push(n);
   }
  });
- units.forEach(function(u,i){u.style.transitionDelay=(i*45)+'ms';});
+ units.forEach(function(u,i){u.style.transitionDelay=(i*stagger)+'ms';});
  return units;
 }
 
-var targets=[].slice.call(document.querySelectorAll('h2'));
-var prepared=targets.map(function(h){return {el:h,units:wrapWords(h)};});
+var headings=[].slice.call(document.querySelectorAll('h2'));
+var preparedH=headings.map(function(h){return {el:h,units:wrapWords(h,45),cursor:null};});
 
+/* lead paragraphs get a faster word cascade plus a trailing blinking
+   cursor — reads as the copy being typed/generated, not just fading in */
+var leads=[].slice.call(document.querySelectorAll('.lead, .bandc p'));
+var preparedL=leads.map(function(p){
+ var units=wrapWords(p,22);
+ var cursor=document.createElement('span');
+ cursor.className='type-cursor';
+ p.appendChild(cursor);
+ return {el:p,units:units,cursor:cursor};
+});
+
+var prepared=preparedH.concat(preparedL);
 var io=new IntersectionObserver(function(es){
  es.forEach(function(e){
   if(!e.isIntersecting)return;
@@ -1867,6 +1891,11 @@ var io=new IntersectionObserver(function(es){
   requestAnimationFrame(function(){requestAnimationFrame(function(){
    item.units.forEach(function(u){u.classList.add('in');});
   });});
+  if(item.cursor){
+   var lastDelay=item.units.length?item.units.length*22:0;
+   setTimeout(function(){item.cursor.classList.add('on');},lastDelay+300);
+   setTimeout(function(){item.cursor.classList.add('done');},lastDelay+2100);
+  }
   io.unobserve(e.target);
  });
 },{rootMargin:'0px 0px -10% 0px',threshold:.1});
