@@ -9,6 +9,7 @@ import {
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StatCard } from "@/components/portal/stat-card";
+import { RunRemindersButton } from "@/components/admin/run-reminders-button";
 
 const AUDIT_LABELS: Record<string, string> = {
   "customer.create": "Created customer",
@@ -83,6 +84,18 @@ export default async function AdminHome() {
           </Link>
         </div>
       </section>
+
+      <div className="panel panel-block" style={{ marginBottom: 28 }}>
+        <h2 className="panel-title" style={{ marginBottom: 10 }}>
+          Daily tasks
+        </h2>
+        <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--body)" }}>
+          Review-request reminders send automatically every morning. Use this
+          to run them right now instead of waiting — safe to press any number
+          of times, each reminder can only ever send once.
+        </p>
+        <RunRemindersButton />
+      </div>
 
       <div className="stat-grid">
         <StatCard
