@@ -5,6 +5,10 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { StatCard } from "@/components/portal/stat-card";
 import { CopyButton } from "@/components/portal/copy-button";
+import {
+  ActivityBarChart,
+  bucketByDay,
+} from "@/components/portal/activity-chart";
 import { updateWebsitePage } from "./actions";
 
 function defaultSlug(name: string) {
@@ -35,6 +39,13 @@ export default async function WebsiteAgentPage() {
         .from("wa_leads")
         .select("id", { count: "exact", head: true }),
     ]);
+
+  const leadsSince = new Date(Date.now() - 13 * 86_400_000).toISOString();
+  const { data: leadRows } = await supabase
+    .from("wa_leads")
+    .select("created_at")
+    .gte("created_at", leadsSince)
+    .limit(1000);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie";
   const slug = page?.slug ?? defaultSlug(business?.name ?? "");
@@ -74,6 +85,20 @@ export default async function WebsiteAgentPage() {
           icon={<Users />}
           accent="#3B82F6"
           hint="all time"
+        />
+      </div>
+
+      <div className="panel panel-block" style={{ marginBottom: 28 }}>
+        <h2 className="panel-title">
+          <span>
+            <span className="sys-index">01 /</span>
+            Leads — last 14 days
+          </span>
+        </h2>
+        <ActivityBarChart
+          buckets={bucketByDay((leadRows ?? []).map((r) => r.created_at), 14)}
+          accent="var(--chart-3)"
+          unit="leads"
         />
       </div>
 

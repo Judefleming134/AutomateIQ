@@ -7,6 +7,11 @@ import { PRODUCT_REGISTRY } from "@/lib/products/registry";
 import { ProductIcon } from "@/lib/products/icons";
 import { StatCard } from "@/components/portal/stat-card";
 import { StatusBadge } from "@/components/portal/status-badge";
+import { HudCorners } from "@/components/shell/hud-corners";
+import {
+  ActivityBarChart,
+  bucketByDay,
+} from "@/components/portal/activity-chart";
 
 export default async function PortalHome() {
   const { profile } = await requireSession();
@@ -44,8 +49,11 @@ export default async function PortalHome() {
     ra_customers: unknown;
   }[] = [];
 
+  let chartTimestamps: string[] = [];
+
   if (hasReviewAgent) {
-    const [sentRes, clickedRes, recentRes] = await Promise.all([
+    const chartSince = new Date(Date.now() - 13 * 86_400_000).toISOString();
+    const [sentRes, clickedRes, recentRes, chartRes] = await Promise.all([
       supabase
         .from("ra_review_requests")
         .select("id", { count: "exact", head: true })
@@ -59,10 +67,16 @@ export default async function PortalHome() {
         .select("id, status, created_at, ra_customers(name)")
         .order("created_at", { ascending: false })
         .limit(5),
+      supabase
+        .from("ra_review_requests")
+        .select("created_at")
+        .gte("created_at", chartSince)
+        .limit(1000),
     ]);
     totalSent = sentRes.count ?? 0;
     totalClicked = clickedRes.count ?? 0;
     recent = recentRes.data ?? [];
+    chartTimestamps = (chartRes.data ?? []).map((r) => r.created_at);
   }
 
   const clickRate =
@@ -77,6 +91,7 @@ export default async function PortalHome() {
   return (
     <>
       <section className="page-hero">
+        <HudCorners />
         <div className="page-hero-row">
           <div>
             <p className="page-hero-date">
@@ -160,6 +175,74 @@ export default async function PortalHome() {
         </div>
       )}
 
+      {hasReviewAgent && (
+        <div className="grid-main-side">
+          <div className="panel panel-block">
+            <h2 className="panel-title">
+              <span>
+                <span className="sys-index">01 /</span>
+                Review requests — last 14 days
+              </span>
+              <Link href="/portal/review-agent">Open Review Agent →</Link>
+            </h2>
+            <ActivityBarChart
+              buckets={bucketByDay(chartTimestamps, 14)}
+              accent="var(--chart-1)"
+            />
+          </div>
+
+          <div className="panel panel-block">
+            <h2 className="panel-title">
+              <span>
+                <span className="sys-index">02 /</span>
+                Recent activity
+              </span>
+              <Link href="/portal/review-agent/history">View all →</Link>
+            </h2>
+            {recent.length === 0 ? (
+              <p className="empty-state">
+                No activity yet — send your first review request.
+              </p>
+            ) : (
+              <ul className="feed-list">
+                {recent.map((r) => {
+                  const customer = r.ra_customers as { name: string } | null;
+                  return (
+                    <li key={r.id}>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          minWidth: 0,
+                        }}
+                      >
+                        <StatusBadge status={r.status} />
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {customer?.name ?? "unknown"}
+                        </span>
+                      </span>
+                      <span className="feed-time">
+                        {new Date(r.created_at).toLocaleDateString("en-IE", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       <h2 className="section-title">Your products</h2>
       <div className="product-grid" style={{ marginBottom: 28 }}>
         {PRODUCT_REGISTRY.map((product) => {
@@ -208,45 +291,6 @@ export default async function PortalHome() {
         })}
       </div>
 
-      {hasReviewAgent && (
-        <div className="panel panel-block">
-          <h2 className="panel-title">
-            Recent activity
-            <Link href="/portal/review-agent/history">View all →</Link>
-          </h2>
-          {recent.length === 0 ? (
-            <p className="empty-state">
-              No activity yet — send your first review request to get started.
-            </p>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((r) => {
-                    const customer = r.ra_customers as { name: string } | null;
-                    return (
-                      <tr key={r.id}>
-                        <td>{customer?.name ?? "unknown"}</td>
-                        <td>
-                          <StatusBadge status={r.status} />
-                        </td>
-                        <td>{new Date(r.created_at).toLocaleString()}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 }

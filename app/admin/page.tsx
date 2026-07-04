@@ -11,6 +11,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getLocalWeather, greetingForNow } from "@/lib/weather";
 import { StatCard } from "@/components/portal/stat-card";
 import { RunRemindersButton } from "@/components/admin/run-reminders-button";
+import { HudCorners } from "@/components/shell/hud-corners";
+import {
+  ActivityBarChart,
+  bucketByDay,
+} from "@/components/portal/activity-chart";
 
 const AUDIT_LABELS: Record<string, string> = {
   "customer.create": "Created customer",
@@ -69,7 +74,22 @@ export default async function AdminHome() {
       .limit(8),
   ]);
 
-  const weather = await getLocalWeather();
+  const since30 = new Date(Date.now() - 29 * 86_400_000).toISOString();
+  const since14 = new Date(Date.now() - 13 * 86_400_000).toISOString();
+  const [weather, { data: newBusinesses }, { data: newRequests }] =
+    await Promise.all([
+      getLocalWeather(),
+      supabase
+        .from("businesses")
+        .select("created_at")
+        .gte("created_at", since30)
+        .limit(1000),
+      supabase
+        .from("ra_review_requests")
+        .select("created_at")
+        .gte("created_at", since14)
+        .limit(2000),
+    ]);
 
   const today = new Date().toLocaleDateString("en-IE", {
     weekday: "long",
@@ -80,6 +100,7 @@ export default async function AdminHome() {
   return (
     <>
       <section className="page-hero">
+        <HudCorners />
         <div className="page-hero-row">
           <div>
             <p className="page-hero-date">
@@ -139,7 +160,45 @@ export default async function AdminHome() {
       <div className="grid-2">
         <div className="panel panel-block">
           <h2 className="panel-title">
-            Newest customers
+            <span>
+              <span className="sys-index">01 /</span>
+              New customers — last 30 days
+            </span>
+          </h2>
+          <ActivityBarChart
+            buckets={bucketByDay(
+              (newBusinesses ?? []).map((b) => b.created_at),
+              30
+            )}
+            accent="var(--chart-2)"
+            unit="customers"
+          />
+        </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">02 /</span>
+              Review requests — last 14 days
+            </span>
+          </h2>
+          <ActivityBarChart
+            buckets={bucketByDay(
+              (newRequests ?? []).map((r) => r.created_at),
+              14
+            )}
+            accent="var(--chart-1)"
+          />
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">03 /</span>
+              Newest customers
+            </span>
             <Link href="/admin/customers">View all →</Link>
           </h2>
           {(recentBusinesses ?? []).length === 0 ? (
@@ -188,7 +247,12 @@ export default async function AdminHome() {
         </div>
 
         <div className="panel panel-block">
-          <h2 className="panel-title">Recent admin activity</h2>
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">04 /</span>
+              Recent admin activity
+            </span>
+          </h2>
           {(recentAudit ?? []).length === 0 ? (
             <p className="empty-state">Nothing logged yet.</p>
           ) : (

@@ -59,6 +59,10 @@ export function AppShell({
             <span className="topbar-title">{topbarTitle}</span>
           </div>
           <div className="topbar-user">
+            <span className="status-chip">
+              <span className="dot" />
+              <span className="chip-text">Systems live</span>
+            </span>
             <span className="topbar-user-label">{userLabel}</span>
             <span className="topbar-avatar">{userInitial}</span>
           </div>
