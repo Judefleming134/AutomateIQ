@@ -1760,3 +1760,30 @@ table.data-table {
   opacity: 0.55;
   cursor: default;
 }
+
+/* Official AutomateIQ logo — replaces the placeholder "Iq" mark. The
+   source PNG is 811x124; rendering at 24px tall keeps it well above 2x
+   density on retina screens, so it stays crisp with no scaling artifacts. */
+
+.brand-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+  flex: none;
+}
+
+.brand-admin-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--ac2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: var(--ac2-soft);
+  border-radius: 5px;
+  padding: 2px 6px;
+  flex: none;
+}
+
+.login-brand .brand-logo {
+  height: 28px;
+}

@@ -10,8 +10,8 @@ export default function SetPasswordPage() {
     <main className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <span className="sidebar-brand-mark">Iq</span>
-          AutomateIQ
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-aiq.png" alt="AutomateIQ" className="brand-logo" />
         </div>
         <h1>Set your password</h1>
         <SetPasswordForm />

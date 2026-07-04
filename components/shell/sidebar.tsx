@@ -21,8 +21,11 @@ export function Sidebar({
   return (
     <aside className={`sidebar${isOpen ? " is-open" : ""}`}>
       <div className="sidebar-brand">
-        <span className="sidebar-brand-mark">Iq</span>
-        {brandLabel}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-aiq.png" alt="AutomateIQ" className="brand-logo" />
+        {brandLabel.includes("Admin") && (
+          <span className="brand-admin-badge">ADMIN</span>
+        )}
       </div>
 
       <nav className="sidebar-nav">

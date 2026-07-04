@@ -10,8 +10,8 @@ export default function SetupPage() {
     <main className="login-page">
       <div className="login-card">
         <div className="login-brand">
-          <span className="sidebar-brand-mark">Iq</span>
-          AutomateIQ
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-aiq.png" alt="AutomateIQ" className="brand-logo" />
         </div>
         <h1>Bootstrap first admin</h1>
         <p style={{ fontSize: 13, color: "var(--body)", margin: "0 0 4px" }}>
