@@ -399,7 +399,15 @@ function render(key){
   '<div class="stage">'+d.scene+'</div>'+
   '<div class="how">'+steps+'</div>'+integ+cta;
  var vb=document.getElementById('voiceBtn');
- if(vb)vb.onclick=function(){alert("This is where the live ElevenLabs voice demo opens.\\n\\nSend me your agent ID and I\u2019ll wire it in.");};
+ if(vb)vb.onclick=function(){
+  close();
+  var hint=document.createElement('div');
+  hint.textContent='\ud83d\udc4b Tap the voice bubble in the corner to talk to the receptionist';
+  hint.style.cssText='position:fixed;bottom:110px;right:24px;z-index:9999;background:rgba(20,26,38,.97);border:1px solid rgba(59,130,246,.5);color:#e4e4e7;font:500 13px Inter,sans-serif;padding:12px 16px;border-radius:12px;max-width:240px;box-shadow:0 12px 40px rgba(0,0,0,.5);opacity:0;transition:opacity .3s';
+  document.body.appendChild(hint);
+  requestAnimationFrame(function(){hint.style.opacity='1';});
+  setTimeout(function(){hint.style.opacity='0';setTimeout(function(){hint.remove();},350);},5200);
+ };
 }
 function open(key){render(key);overlay.classList.add('show');document.body.style.overflow='hidden';}
 function close(){overlay.classList.remove('show');document.body.style.overflow='';}
@@ -414,6 +422,8 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
 var initial=(location.hash||'').replace('#','');
 if(initial&&DATA[initial]){setTimeout(function(){open(initial);},250);}
 </script>
+<elevenlabs-convai agent-id="agent_9901kwd6vd1ve24af05zj6e4breb"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 <footer class="agfoot"><p>Every agent reads from and writes to one <b>Job Record</b> — the single source of truth across your business.</p><p class="disc">Named platforms (e.g. Verkada, Genetec, DeterTech, Exa) are independent third-party systems that AutomateIQ integrates with and works alongside. AutomateIQ does not build, own, white-label or resell them, and references describe integrations rather than formal partnerships.</p><a href="/" class="back2">← Back to AutomateIQ</a><p class="disc" style="margin-top:14px"><a href="/privacy.html" style="color:inherit">Privacy Policy</a> · <a href="/terms.html" style="color:inherit">Terms &amp; Conditions</a> · <a href="/cookies.html" style="color:inherit">Cookies</a></p></footer>
 </body>
 </html>
