@@ -244,7 +244,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 <div class="wrap">
  <div class="head">
   <span class="eyebrow">The AutomateIQ agents</span>
-  <h1>Nine AI agents. <span class="g">One connected system.</span></h1>
+  <h1>Ten AI agents. <span class="g">One connected system.</span></h1>
   <p>Each agent reads from and writes to your single Job Record — capturing work, taking action, and keeping everything in sync. Tap any agent to see exactly how it works.</p>
   <div class="tap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3 8-8"/><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg> Tap a card to open</div>
  </div>
@@ -312,6 +312,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
    <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
   </div>
 
+  <div class="card" data-agent="guardian">
+   <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+   <h3>Security &amp; Data Guardian</h3>
+   <p>The trust layer around everything — encryption, role-based access and complete audit trails protecting every record and workflow.</p>
+   <span class="open">See how it works <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </div>
+
  </div>
 </div>
 
@@ -322,6 +329,12 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--i
 
 <script>
 var DATA={
+ guardian:{tag:"Enterprise trust",title:"Security & Data Guardian",
+  icon:'<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  problem:"Your job records, customer details and payments are the business. One leak, one wrong permission, one silent change \u2014 and trust is gone.",
+  scene:'<div class="grin"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#7EB2FF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>',
+  steps:[["01","Encrypts everything","Every file and record, in transit and at rest."],["02","Controls access","Role-based permissions \u2014 people see only what they should."],["03","Audits it all","A complete trail of who did what, when."]]},
+
  voice:{tag:"Live demo · voice",title:"Voice receptionist",
   icon:'<path d="M12 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>',
   problem:"Missed calls are missed jobs. A tradesperson on the tools can\u2019t answer the phone \u2014 and voicemail loses the customer.",
@@ -398,7 +411,9 @@ document.querySelectorAll('.card').forEach(function(c){
 xb.onclick=close;
 overlay.addEventListener('click',function(e){if(e.target===overlay)close();});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+var initial=(location.hash||'').replace('#','');
+if(initial&&DATA[initial]){setTimeout(function(){open(initial);},250);}
 </script>
-<footer class="agfoot"><p>Every agent reads from and writes to one <b>Job Record</b> — the single source of truth across your business.</p><p class="disc">Named platforms (e.g. Verkada, Genetec, DeterTech, Exa) are independent third-party systems that AutomateIQ integrates with and works alongside. AutomateIQ does not build, own, white-label or resell them, and references describe integrations rather than formal partnerships.</p><a href="/" class="back2">← Back to AutomateIQ</a></footer>
+<footer class="agfoot"><p>Every agent reads from and writes to one <b>Job Record</b> — the single source of truth across your business.</p><p class="disc">Named platforms (e.g. Verkada, Genetec, DeterTech, Exa) are independent third-party systems that AutomateIQ integrates with and works alongside. AutomateIQ does not build, own, white-label or resell them, and references describe integrations rather than formal partnerships.</p><a href="/" class="back2">← Back to AutomateIQ</a><p class="disc" style="margin-top:14px"><a href="/privacy.html" style="color:inherit">Privacy Policy</a> · <a href="/terms.html" style="color:inherit">Terms &amp; Conditions</a> · <a href="/cookies.html" style="color:inherit">Cookies</a></p></footer>
 </body>
 </html>

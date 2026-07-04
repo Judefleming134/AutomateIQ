@@ -1,4 +1,4 @@
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, FileText } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_REGISTRY } from "@/lib/products/registry";
@@ -40,6 +40,11 @@ export default async function PortalLayout({
           href: "/portal",
           label: "Dashboard",
           icon: <LayoutDashboard />,
+        },
+        {
+          href: "/portal/documents",
+          label: "Documents",
+          icon: <FileText />,
         },
       ],
     },

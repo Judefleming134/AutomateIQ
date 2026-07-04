@@ -20,6 +20,10 @@ const AUDIT_LABELS: Record<string, string> = {
   "customer.password_reset_sent": "Sent password reset",
   "product.assign": "Assigned product",
   "product.remove": "Removed product",
+  "module.create": "Created custom module",
+  "module.delete": "Deleted custom module",
+  "document.upload": "Uploaded document",
+  "document.delete": "Deleted document",
 };
 
 export default async function AdminHome() {

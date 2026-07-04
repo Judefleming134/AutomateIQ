@@ -188,3 +188,92 @@ export async function setProductEnabled(
   revalidatePath(`/admin/customers/${businessId}`);
   return { ok: true };
 }
+
+const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+
+export async function uploadDocument(
+  businessId: string,
+  _prevState: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const file = formData.get("file");
+  const label = String(formData.get("label") ?? "").trim();
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a file to upload." };
+  }
+  if (file.size > MAX_DOCUMENT_BYTES) {
+    return { error: "File is too large — 15MB max." };
+  }
+
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_").slice(0, 80);
+  const storagePath = `${businessId}/${crypto.randomUUID()}-${safeName}`;
+
+  const { error: storageError } = await supabase.storage
+    .from("documents")
+    .upload(storagePath, file, {
+      contentType: file.type || "application/octet-stream",
+    });
+
+  if (storageError) {
+    return { error: `Upload failed: ${storageError.message}` };
+  }
+
+  const { error: rowError } = await supabase.from("documents").insert({
+    business_id: businessId,
+    name: label || file.name,
+    storage_path: storagePath,
+    file_size: file.size,
+    content_type: file.type || null,
+  });
+
+  if (rowError) {
+    // Don't leave an orphaned file the index doesn't know about.
+    await supabase.storage.from("documents").remove([storagePath]);
+    if (rowError.code === "42P01") {
+      return { error: "Database update required — run supabase/manual_update_0006.sql." };
+    }
+    return { error: rowError.message };
+  }
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "document.upload",
+    targetBusinessId: businessId,
+    metadata: { name: label || file.name, size: file.size },
+  });
+
+  revalidatePath(`/admin/customers/${businessId}`);
+  return { ok: true };
+}
+
+export async function deleteDocument(documentId: string) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: doc } = await supabase
+    .from("documents")
+    .select("business_id, name, storage_path")
+    .eq("id", documentId)
+    .maybeSingle();
+
+  if (!doc) return { error: "Document not found." };
+
+  const { error } = await supabase.from("documents").delete().eq("id", documentId);
+  if (error) return { error: error.message };
+
+  await supabase.storage.from("documents").remove([doc.storage_path]);
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "document.delete",
+    targetBusinessId: doc.business_id,
+    metadata: { name: doc.name },
+  });
+
+  revalidatePath(`/admin/customers/${doc.business_id}`);
+  return { ok: true };
+}

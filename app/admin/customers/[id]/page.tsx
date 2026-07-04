@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { KeyRound } from "lucide-react";
+import { KeyRound, FileText } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -7,6 +7,8 @@ import {
   softDeleteBusiness,
   resetUserPassword,
   setProductEnabled,
+  uploadDocument,
+  deleteDocument,
 } from "../actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -28,7 +30,7 @@ export default async function AdminCustomerDetailPage({
 
   if (!business) notFound();
 
-  const [{ data: users }, { data: products }, { data: enabled }] =
+  const [{ data: users }, { data: products }, { data: enabled }, { data: documents }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -36,6 +38,11 @@ export default async function AdminCustomerDetailPage({
         .eq("business_id", id),
       supabase.from("products").select("id, key, name, status"),
       supabase.from("business_products").select("product_id").eq("business_id", id),
+      supabase
+        .from("documents")
+        .select("id, name, file_size, created_at")
+        .eq("business_id", id)
+        .order("created_at", { ascending: false }),
     ]);
 
   // profiles has no email column (that lives on auth.users) — fetch emails
@@ -193,6 +200,88 @@ export default async function AdminCustomerDetailPage({
             })}
           </ul>
         </div>
+      </div>
+
+      <div className="panel panel-block" style={{ marginBottom: 28 }}>
+        <h2 className="panel-title">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <FileText size={16} /> Documents
+          </span>
+        </h2>
+        <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
+          Contracts and paperwork uploaded here appear in this customer&apos;s
+          portal under Documents, ready to view and download.
+        </p>
+
+        <ActionForm action={uploadDocument.bind(null, id)}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              type="file"
+              name="file"
+              required
+              style={{ fontSize: 13, color: "var(--body)", maxWidth: 260 }}
+            />
+            <input
+              type="text"
+              name="label"
+              placeholder="Display name (optional)"
+              style={{
+                background: "var(--bg2)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-sm)",
+                padding: "9px 12px",
+                color: "var(--heading)",
+                fontSize: 13.5,
+              }}
+            />
+            <SubmitButton className="btn btn-primary btn-sm" pendingText="Uploading…">
+              Upload
+            </SubmitButton>
+          </div>
+        </ActionForm>
+
+        {(documents ?? []).length > 0 && (
+          <ul className="feed-list" style={{ marginTop: 14 }}>
+            {(documents ?? []).map((doc) => {
+              async function removeDoc(_p: unknown, _f: FormData) {
+                "use server";
+                return deleteDocument(doc.id);
+              }
+              return (
+                <li key={doc.id}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    <FileText size={14} style={{ flex: "none", color: "var(--ac2)" }} />
+                    <span
+                      style={{
+                        color: "var(--heading)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {doc.name}
+                    </span>
+                    <span style={{ flex: "none", fontSize: 11.5, color: "var(--faint)" }}>
+                      {doc.file_size ? `${(doc.file_size / 1024 / 1024).toFixed(1)}MB` : ""}
+                    </span>
+                  </span>
+                  <ActionForm action={removeDoc} className="inline-form">
+                    <SubmitButton className="btn btn-danger btn-sm" pendingText="…">
+                      Delete
+                    </SubmitButton>
+                  </ActionForm>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </>
   );

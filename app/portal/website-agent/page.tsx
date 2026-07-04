@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { StatCard } from "@/components/portal/stat-card";
+import { CopyButton } from "@/components/portal/copy-button";
 import { updateWebsitePage } from "./actions";
 
 function defaultSlug(name: string) {
@@ -50,9 +51,12 @@ export default async function WebsiteAgentPage() {
           </p>
         </div>
         {page?.published && (
-          <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-            <Globe size={14} /> View live page
-          </a>
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <CopyButton text={publicUrl} label="Copy link" />
+            <a href={publicUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
+              <Globe size={13} /> View live page
+            </a>
+          </span>
         )}
       </div>
 

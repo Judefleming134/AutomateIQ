@@ -1,3 +1,5 @@
+import { CountUp } from "./count-up";
+
 export function StatCard({
   label,
   value,
@@ -22,7 +24,9 @@ export function StatCard({
         <div className="stat-card-icon">{icon}</div>
         {hint && <span className="stat-card-hint">{hint}</span>}
       </div>
-      <div className="stat-card-value">{value}</div>
+      <div className="stat-card-value">
+        {typeof value === "number" ? <CountUp value={value} /> : value}
+      </div>
       <div className="stat-card-label">{label}</div>
     </div>
   );
