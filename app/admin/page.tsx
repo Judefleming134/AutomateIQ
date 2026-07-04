@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getLocalWeather, greetingForNow } from "@/lib/weather";
 import { StatCard } from "@/components/portal/stat-card";
 import { RunRemindersButton } from "@/components/admin/run-reminders-button";
 
@@ -64,6 +65,8 @@ export default async function AdminHome() {
       .limit(8),
   ]);
 
+  const weather = await getLocalWeather();
+
   const today = new Date().toLocaleDateString("en-IE", {
     weekday: "long",
     day: "numeric",
@@ -75,8 +78,12 @@ export default async function AdminHome() {
       <section className="page-hero">
         <div className="page-hero-row">
           <div>
-            <p className="page-hero-date">{today}</p>
-            <h1>Platform overview</h1>
+            <p className="page-hero-date">
+              {today}
+              {weather &&
+                ` · ${weather.emoji} ${weather.tempC}°C ${weather.label} in ${weather.city}`}
+            </p>
+            <h1>{greetingForNow()} — platform overview</h1>
             <p>Signed in as {user.email}</p>
           </div>
           <Link href="/admin/customers" className="btn btn-primary">

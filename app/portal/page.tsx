@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Lock, Send, MousePointerClick, TrendingUp } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { getLocalWeather, greetingForNow } from "@/lib/weather";
 import { PRODUCT_REGISTRY } from "@/lib/products/registry";
 import { ProductIcon } from "@/lib/products/icons";
 import { StatCard } from "@/components/portal/stat-card";
@@ -11,16 +12,18 @@ export default async function PortalHome() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: business }, { data: enabledRows }] = await Promise.all([
-    supabase
-      .from("businesses")
-      .select("name, google_review_link")
-      .eq("id", profile.business_id)
-      .single(),
-    // RLS already scopes this to the caller's own business — no need to
-    // filter by business_id again here.
-    supabase.from("business_products").select("products(key)"),
-  ]);
+  const [{ data: business }, { data: enabledRows }, weather] =
+    await Promise.all([
+      supabase
+        .from("businesses")
+        .select("name, google_review_link")
+        .eq("id", profile.business_id)
+        .single(),
+      // RLS already scopes this to the caller's own business — no need to
+      // filter by business_id again here.
+      supabase.from("business_products").select("products(key)"),
+      getLocalWeather(),
+    ]);
 
   const enabledKeys = new Set(
     (enabledRows ?? [])
@@ -76,8 +79,14 @@ export default async function PortalHome() {
       <section className="page-hero">
         <div className="page-hero-row">
           <div>
-            <p className="page-hero-date">{today}</p>
-            <h1>Welcome back, {business?.name ?? "there"}</h1>
+            <p className="page-hero-date">
+              {today}
+              {weather &&
+                ` · ${weather.emoji} ${weather.tempC}°C ${weather.label} in ${weather.city}`}
+            </p>
+            <h1>
+              {greetingForNow()}, {business?.name ?? "there"}
+            </h1>
             <p>Here&apos;s what&apos;s happening with your AutomateIQ platform today.</p>
           </div>
           {hasReviewAgent && (
