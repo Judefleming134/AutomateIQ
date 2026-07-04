@@ -95,55 +95,58 @@ export default async function AdminCustomerDetailPage({
         </div>
       </div>
 
-      <h2 style={{ fontSize: 16, marginBottom: 14 }}>Users</h2>
-      <div className="table-wrap" style={{ marginBottom: 32 }}>
-        {usersWithEmail.length === 0 ? (
-          <p className="empty-state">No users yet.</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Email</th>
-                <th>Role</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+      <div className="grid-2">
+        <div className="panel panel-block">
+          <h2 className="panel-title">Users</h2>
+          {usersWithEmail.length === 0 ? (
+            <p className="empty-state">No users yet.</p>
+          ) : (
+            <ul className="feed-list">
               {usersWithEmail.map((u) => {
                 async function reset(_p: unknown, _f: FormData) {
                   "use server";
                   return resetUserPassword(u.id, u.email);
                 }
                 return (
-                  <tr key={u.id}>
-                    <td>{u.email}</td>
-                    <td>{u.role}</td>
-                    <td>
-                      <ActionForm action={reset} className="inline-form">
-                        <SubmitButton className="btn btn-secondary btn-sm" pendingText="Sending…">
-                          <KeyRound size={13} /> Reset password
-                        </SubmitButton>
-                      </ActionForm>
-                    </td>
-                  </tr>
+                  <li key={u.id}>
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        minWidth: 0,
+                      }}
+                    >
+                      <span className="badge badge-blue">{u.role}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          color: "var(--heading)",
+                        }}
+                      >
+                        {u.email}
+                      </span>
+                    </span>
+                    <ActionForm action={reset} className="inline-form">
+                      <SubmitButton
+                        className="btn btn-secondary btn-sm"
+                        pendingText="Sending…"
+                      >
+                        <KeyRound size={13} /> Reset password
+                      </SubmitButton>
+                    </ActionForm>
+                  </li>
                 );
               })}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </ul>
+          )}
+        </div>
 
-      <h2 style={{ fontSize: 16, marginBottom: 14 }}>Products</h2>
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
+        <div className="panel panel-block">
+          <h2 className="panel-title">Products</h2>
+          <ul className="feed-list">
             {(products ?? []).map((p) => {
               const isEnabled = enabledProductIds.has(p.id);
               async function toggle(_prev: unknown, _f: FormData) {
@@ -151,28 +154,45 @@ export default async function AdminCustomerDetailPage({
                 return setProductEnabled(id, p.id, !isEnabled);
               }
               return (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  <td>
-                    <span className={`badge ${isEnabled ? "badge-green" : "badge-gray"}`}>
+                <li key={p.id}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      minWidth: 0,
+                    }}
+                  >
+                    <span
+                      className={`badge ${isEnabled ? "badge-green" : "badge-gray"}`}
+                    >
                       {isEnabled ? "Enabled" : "Disabled"}
                     </span>
-                  </td>
-                  <td>
-                    <ActionForm action={toggle} className="inline-form">
-                      <SubmitButton
-                        className={`btn btn-sm ${isEnabled ? "btn-danger" : "btn-primary"}`}
-                        pendingText="Saving…"
-                      >
-                        {isEnabled ? "Remove" : "Assign"}
-                      </SubmitButton>
-                    </ActionForm>
-                  </td>
-                </tr>
+                    <span
+                      style={{
+                        color: "var(--heading)",
+                        fontWeight: 600,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                  </span>
+                  <ActionForm action={toggle} className="inline-form">
+                    <SubmitButton
+                      className={`btn btn-sm ${isEnabled ? "btn-danger" : "btn-primary"}`}
+                      pendingText="Saving…"
+                    >
+                      {isEnabled ? "Remove" : "Assign"}
+                    </SubmitButton>
+                  </ActionForm>
+                </li>
               );
             })}
-          </tbody>
-        </table>
+          </ul>
+        </div>
       </div>
     </>
   );

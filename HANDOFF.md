@@ -30,41 +30,36 @@ Everything is merged to `main` (PR #3) and **live in production**.
   `SUPABASE_ANON_KEY` (legacy name, unused), `NEXT_PUBLIC_SUPABASE_URL`,
   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SETUP_SECRET`, `RESEND_API_KEY`.
 
-### In progress — the very next steps (was mid-flight when session ended)
-The first admin account bootstrap. The first invite attempt failed because
-the Supabase project's Site URL defaulted to localhost; the fix is deployed
-(`/auth/set-password` page + explicit redirectTo). Remaining:
+### Completed since first writing this doc (2026-07-04 overnight update)
+- First admin account bootstrapped and working (`/setup` → invite →
+  `/auth/set-password` → `/admin`). The endpoint now permanently refuses
+  to create a second admin.
+- Supabase Site URL set to `https://automateiq.ie`; Redirect URLs include
+  `https://automateiq.ie/auth/set-password`. All invite/reset links go to
+  the set-password page (bootstrap, customer invites, password resets).
+- Supabase custom SMTP configured through Resend (username is literally
+  `resend`, password is the Resend API key) — removed the 2-4/hour
+  built-in email rate limit and auth emails now come from
+  hello@automateiq.ie.
+- All Vercel env vars now set including `NEXT_PUBLIC_SITE_URL`,
+  `RESEND_FROM_EMAIL`, `CRON_SECRET`.
+- End-to-end verified with a real test customer: invite → login → set
+  Google Review Link → send review request → email delivered.
+- Resend send failures are no longer silent (SDK returns errors rather
+  than throwing; now surfaced as status='failed' + visible message).
+- Desktop dashboard upgrade shipped (hero band, richer stats incl. click
+  rate, 14-day activity chart, admin activity/customer feeds, two-column
+  desktop layouts). Mobile layout unchanged.
 
-1. Supabase dashboard → Authentication → URL Configuration:
-   - Site URL = `https://automateiq.ie`
-   - Redirect URLs: add `https://automateiq.ie/auth/set-password`
-2. Supabase dashboard → Authentication → Users: **delete** the
-   half-created user from the failed first invite.
-3. Go to `https://automateiq.ie/setup`, enter the owner's email + the
-   `SETUP_SECRET` value (the short ~12-char one in Vercel env vars — NOT a
-   Supabase key), submit. Click the link in the invite email → set
-   password → you land in `/admin`.
-
-The `/setup` page and its API permanently refuse to run once one admin
-exists, so it's safe to leave deployed.
-
-### Still to do after that (in order)
-1. **Add missing Vercel env vars** (Settings → Environment Variables,
-   Production + Preview, then redeploy):
-   - `NEXT_PUBLIC_SITE_URL` = `https://automateiq.ie` (click-tracking links
-     in emails; code currently falls back to this value anyway)
-   - `RESEND_FROM_EMAIL` = e.g. `AutomateIQ <hello@automateiq.ie>` (without
-     it, emails send from Resend's sandbox address)
-   - `CRON_SECRET` = any long random string (without it the daily reminder
-     cron at `/api/cron/dispatch` rejects everything — reminders won't send)
-2. **End-to-end test** (checklist in README.md, "Post-deployment"): create a
-   test customer in `/admin`, assign Review Agent, log in as them, set a
-   Google Review Link in settings, send a review request to yourself,
-   confirm the email + click tracking work, suspend the customer and
-   confirm lockout.
-3. **Optional cleanup**: rotate `SETUP_SECRET`; configure custom SMTP in
-   Supabase Auth settings if you want invite/reset emails from your own
-   domain (they currently come from Supabase's).
+### Still to do
+1. **Verify the reminder cron end-to-end**: needs a request that's been in
+   status 'sent' for 3+ days (or backdate `sent_at` in SQL Editor), then
+   confirm exactly one reminder sends at the next 08:00 UTC cron run.
+2. **Click-tracking check**: click a review email's button, confirm History
+   shows status "Clicked".
+3. **Suspension check**: suspend the test customer, confirm immediate
+   portal lockout.
+4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
 ## Key knowledge that isn't obvious from the code
 
