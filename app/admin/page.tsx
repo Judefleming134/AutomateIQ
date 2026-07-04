@@ -134,6 +134,19 @@ export default async function AdminHome() {
       .is("businesses.deleted_at", null),
   ]);
 
+  const [{ data: newAiMessages }, { data: newLeads }] = await Promise.all([
+    supabase
+      .from("aa_messages")
+      .select("created_at")
+      .gte("created_at", since14)
+      .limit(2000),
+    supabase
+      .from("wa_leads")
+      .select("created_at")
+      .gte("created_at", since14)
+      .limit(2000),
+  ]);
+
   // Product adoption — businesses per product, counted from the join table.
   const adoption = new Map<string, number>();
   for (const row of adoptionRows ?? []) {
@@ -273,13 +286,47 @@ export default async function AdminHome() {
             accent="var(--chart-1)"
           />
         </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">03 /</span>
+              AI messages — last 14 days
+            </span>
+          </h2>
+          <ActivityBarChart
+            buckets={bucketByDay(
+              (newAiMessages ?? []).map((r) => r.created_at),
+              14
+            )}
+            accent="var(--chart-2)"
+            unit="messages"
+          />
+        </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">04 /</span>
+              Website leads — last 14 days
+            </span>
+          </h2>
+          <ActivityBarChart
+            buckets={bucketByDay(
+              (newLeads ?? []).map((r) => r.created_at),
+              14
+            )}
+            accent="var(--chart-3)"
+            unit="leads"
+          />
+        </div>
       </div>
 
       <div className="grid-2">
         <div className="panel panel-block">
           <h2 className="panel-title">
             <span>
-              <span className="sys-index">03 /</span>
+              <span className="sys-index">05 /</span>
               Product adoption
             </span>
             <Link href="/admin/modules">Modules →</Link>
@@ -306,7 +353,7 @@ export default async function AdminHome() {
         <div className="panel panel-block">
           <h2 className="panel-title">
             <span>
-              <span className="sys-index">04 /</span>
+              <span className="sys-index">06 /</span>
               Platform engagement
             </span>
           </h2>
@@ -326,7 +373,7 @@ export default async function AdminHome() {
         <div className="panel panel-block">
           <h2 className="panel-title">
             <span>
-              <span className="sys-index">05 /</span>
+              <span className="sys-index">07 /</span>
               Newest customers
             </span>
             <Link href="/admin/customers">View all →</Link>
@@ -379,7 +426,7 @@ export default async function AdminHome() {
         <div className="panel panel-block">
           <h2 className="panel-title">
             <span>
-              <span className="sys-index">06 /</span>
+              <span className="sys-index">08 /</span>
               Recent admin activity
             </span>
           </h2>
