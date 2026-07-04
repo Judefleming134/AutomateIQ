@@ -61,6 +61,39 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Second overnight update (2026-07-04, later): all products now real
+
+Website Agent, AI Assistant and Custom Solutions are now functional
+end-to-end products, not placeholders. **Two setup steps required before
+they work in production:**
+
+1. **Run `supabase/manual_update_0005.sql` in the Supabase SQL Editor**
+   (one paste, idempotent — same procedure as manual_setup.sql). Creates
+   the wa_/aa_ tables + RLS, and flips website-agent/ai-assistant to
+   'active' in the product catalog. Until this runs, those two products'
+   pages show a clear "database update required" error instead of working.
+2. **Add `ANTHROPIC_API_KEY` to Vercel env vars** (get one at
+   console.anthropic.com → API Keys) and redeploy. Only the AI Assistant
+   needs this; everything else works without it. Until it's set, the chat
+   shows a clear "needs an API key" message.
+
+What each product now does:
+
+- **Website Agent** — customer edits a hosted mini-site (headline, about,
+  services, phone, publish toggle) at `/portal/website-agent`; it's served
+  publicly at `automateiq.ie/b/<slug>` with a lead-capture form; enquiries
+  land in the Leads tab (RLS-scoped) and trigger a best-effort email
+  notification to the business's contact email via Resend.
+- **AI Assistant** — customer fills in a Knowledge panel (services,
+  prices, hours, policies); the chat is backed by Claude
+  (model `claude-sonnet-5`), grounded in that knowledge, with conversation
+  history persisted per business (aa_conversations/aa_messages).
+- **Custom Solutions** — admin creates modules at `/admin/modules`
+  (name, description, content, optional embed URL, assigned to a business
+  — the Custom Solutions product is auto-enabled for that business);
+  each module renders at `/portal/custom-solutions/<slug>` with the
+  content and an embedded iframe if an embed URL was set.
+
 ## Key knowledge that isn't obvious from the code
 
 - **Sandbox never had real secrets.** All local testing used placeholders;

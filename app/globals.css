@@ -631,6 +631,7 @@ a.product-tile:hover {
 }
 
 .field input,
+.field select,
 .field textarea {
   background: var(--bg2);
   border: 1px solid var(--line);
@@ -642,6 +643,7 @@ a.product-tile:hover {
 }
 
 .field input:focus,
+.field select:focus,
 .field textarea:focus {
   outline: none;
   border-color: var(--ac2);
@@ -1455,4 +1457,306 @@ table.data-table {
   font-size: 12.5px;
   color: var(--body);
   line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------------- *
+ * Website Agent — public hosted business page (/b/[slug])
+ * ---------------------------------------------------------------------- */
+
+.wa-page {
+  position: relative;
+  min-height: 100svh;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+.wa-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+      700px 400px at 50% -10%,
+      rgba(59, 130, 246, 0.18),
+      transparent 60%
+    ),
+    radial-gradient(500px 350px at 90% 40%, rgba(124, 58, 237, 0.08), transparent 60%);
+}
+
+.wa-hero {
+  text-align: center;
+  padding: 72px 0 44px;
+}
+
+.wa-logo {
+  max-height: 64px;
+  max-width: 220px;
+  object-fit: contain;
+  margin: 0 auto 20px;
+  display: block;
+}
+
+.wa-logo-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  margin: 0 auto 20px;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--ac2), var(--purple));
+}
+
+.wa-hero h1 {
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  margin-bottom: 10px;
+}
+
+.wa-headline {
+  font-size: clamp(1rem, 2.4vw, 1.15rem);
+  color: var(--body);
+  margin: 0 auto;
+  max-width: 46ch;
+}
+
+.wa-phone {
+  display: inline-flex;
+  margin-top: 22px;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--ac2), #2563eb);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14.5px;
+  text-decoration: none;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.wa-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wa-section {
+  background: var(--panel-glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 28px 26px;
+  box-shadow: var(--shadow-panel);
+}
+
+.wa-section h2 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+
+.wa-about {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--body);
+  white-space: pre-line;
+}
+
+.wa-services {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+@media (min-width: 560px) {
+  .wa-services {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.wa-services li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 13.5px;
+  color: var(--heading);
+}
+
+.wa-services li::before {
+  content: "✓";
+  color: var(--green);
+  font-weight: 700;
+}
+
+.wa-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.wa-form input,
+.wa-form textarea {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  color: var(--heading);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.wa-form input:focus,
+.wa-form textarea:focus {
+  outline: none;
+  border-color: var(--ac2);
+  box-shadow: 0 0 0 3px var(--ac2-soft);
+}
+
+.wa-form button {
+  background: linear-gradient(135deg, var(--ac2), #2563eb);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.wa-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.wa-sent {
+  margin-top: 16px;
+  color: var(--green);
+  font-size: 14.5px;
+}
+
+.wa-error {
+  margin: 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.wa-footer {
+  text-align: center;
+  margin-top: 44px;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.wa-footer a {
+  color: var(--ac2);
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------------- *
+ * AI Assistant — chat interface
+ * ---------------------------------------------------------------------- */
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: min(62vh, 560px);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px 12px;
+}
+
+.chat-msg {
+  max-width: 82%;
+  padding: 11px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-msg.is-user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--ac2), #2563eb);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg.is-assistant {
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--heading);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg.is-typing {
+  color: var(--faint);
+  font-style: italic;
+}
+
+.chat-empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--faint);
+  font-size: 13.5px;
+  padding: 24px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.chat-input-row input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 11px 18px;
+  color: var(--heading);
+  font-size: 14px;
+}
+
+.chat-input-row input:focus {
+  outline: none;
+  border-color: var(--ac2);
+}
+
+.chat-input-row button {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--ac2), #2563eb);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: var(--shadow-glow-blue);
+}
+
+.chat-input-row button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }

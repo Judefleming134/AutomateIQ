@@ -5,8 +5,8 @@
 insert into products (key, name, description, icon_name, status)
 values
   ('review-agent', 'Review Agent', 'Automate review requests and follow-ups to grow your online reputation.', 'star', 'active'),
-  ('website-agent', 'Website Agent', 'AI-powered websites that convert and engage.', 'globe', 'coming_soon'),
-  ('ai-assistant', 'AI Assistant', 'A smart assistant that helps your business around the clock.', 'bot', 'coming_soon'),
+  ('website-agent', 'Website Agent', 'AI-powered websites that convert and engage.', 'globe', 'active'),
+  ('ai-assistant', 'AI Assistant', 'A smart assistant that helps your business around the clock.', 'bot', 'active'),
   ('custom-solutions', 'Custom Solutions', 'Bespoke AI modules built specifically for your business.', 'box', 'framework')
 on conflict (key) do update set
   name = excluded.name,

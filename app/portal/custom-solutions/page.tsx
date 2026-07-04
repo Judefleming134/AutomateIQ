@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Box, MessageSquare } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
@@ -56,8 +57,9 @@ export default async function CustomSolutionsPage() {
       {hasModules ? (
         <div className="product-grid">
           {(modules ?? []).map((m) => (
-            <div
+            <Link
               key={m.id}
+              href={`/portal/custom-solutions/${m.route_slug}`}
               className="panel product-tile"
               style={{ "--tile-accent": "#F472B6" } as React.CSSProperties}
             >
@@ -67,7 +69,7 @@ export default async function CustomSolutionsPage() {
               <h3>{m.name}</h3>
               {m.description && <p>{m.description}</p>}
               <span className="badge badge-green">Active</span>
-            </div>
+            </Link>
           ))}
         </div>
       ) : (

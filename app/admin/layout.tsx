@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Users, Box } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
@@ -18,6 +18,7 @@ export default async function AdminLayout({
       items: [
         { href: "/admin", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/admin/customers", label: "Customers", icon: <Users /> },
+        { href: "/admin/modules", label: "Custom modules", icon: <Box /> },
       ],
     },
   ];

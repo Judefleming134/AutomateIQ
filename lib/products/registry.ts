@@ -37,7 +37,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/website-agent",
     iconName: "globe",
     accent: "#3B82F6",
-    status: "coming_soon",
+    status: "active",
   },
   {
     key: "ai-assistant",
@@ -46,7 +46,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/ai-assistant",
     iconName: "bot",
     accent: "#22D3EE",
-    status: "coming_soon",
+    status: "active",
   },
   {
     key: "custom-solutions",
