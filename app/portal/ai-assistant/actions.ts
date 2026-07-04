@@ -150,12 +150,21 @@ export async function sendAssistantMessage(
     content: parsed.data.text,
   });
 
-  const { data: history } = await supabase
+  // Most-recent 30 messages, restored to chronological order — an
+  // ascending limit would truncate from the WRONG end and silently drop
+  // the newest turns once a conversation grows past the limit.
+  const { data: historyDesc } = await supabase
     .from("aa_messages")
     .select("role, content")
     .eq("conversation_id", convId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(30);
+  const history = (historyDesc ?? []).reverse();
+  // Both providers require the window to open on a user turn — drop any
+  // assistant rows the truncation left dangling at the front.
+  while (history.length > 0 && history[0].role !== "user") {
+    history.shift();
+  }
 
   // ---- Dynamic agent discovery -----------------------------------------
   const tools = getToolsForBusiness(enabledKeys);
@@ -182,7 +191,7 @@ export async function sendAssistantMessage(
     `Never invent prices, availability or policies that aren't in the business information.`,
   ].join("\n\n");
 
-  const turns = (history ?? []).map((m) => ({
+  const turns = history.map((m) => ({
     role: m.role as "user" | "assistant",
     content: m.content,
   }));
@@ -281,7 +290,9 @@ async function runClaude(
       },
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 1024,
+        // Enough headroom that a tool_use block's input JSON can't truncate
+        // mid-generation.
+        max_tokens: 2048,
         system,
         messages,
         ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),

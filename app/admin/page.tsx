@@ -128,7 +128,10 @@ export default async function AdminHome() {
       .from("aa_messages")
       .select("id", { count: "exact", head: true })
       .gte("created_at", sinceToday),
-    supabase.from("business_products").select("products(name)"),
+    supabase
+      .from("business_products")
+      .select("products(name), businesses!inner(deleted_at)")
+      .is("businesses.deleted_at", null),
   ]);
 
   // Product adoption — businesses per product, counted from the join table.

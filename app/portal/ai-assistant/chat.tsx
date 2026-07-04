@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Send, Zap } from "lucide-react";
 import { sendAssistantMessage } from "./actions";
 import { ACTION_PREFIX } from "./shared";
@@ -50,6 +51,7 @@ export function AssistantChat({
   initialMessages: Message[];
   suggestions: string[];
 }) {
+  const router = useRouter();
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
@@ -73,7 +75,17 @@ export function AssistantChat({
     setPending(false);
 
     if (result.ok) {
+      const isFirstMessage = !conversationId;
       setConversationId(result.conversationId);
+      // First message of a fresh thread: sync the URL to the new
+      // conversation id so the history sidebar picks it up. Every message
+      // is already persisted server-side before this returns, so the
+      // server re-render shows the full thread.
+      if (isFirstMessage) {
+        router.replace(`/portal/ai-assistant?c=${result.conversationId}`, {
+          scroll: false,
+        });
+      }
       setMessages((m) => [
         ...m,
         // Action chips first (what it did), then the reply itself —
