@@ -1,5 +1,16 @@
 import Link from "next/link";
-import { Lock, Send, MousePointerClick, TrendingUp } from "lucide-react";
+import {
+  Lock,
+  Send,
+  MousePointerClick,
+  Sparkles,
+  Users,
+  MessageSquare,
+  Zap,
+  Globe,
+  LifeBuoy,
+  Bell,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { getLocalWeather, greetingForNow } from "@/lib/weather";
@@ -48,6 +59,28 @@ export default async function PortalHome() {
     created_at: string;
     ra_customers: unknown;
   }[] = [];
+
+  const hasWebsiteAgent = enabledKeys.has("website-agent");
+  const hasAssistant = enabledKeys.has("ai-assistant");
+
+  // Cross-module KPIs — every count is a real RLS-scoped query; modules
+  // that aren't enabled (or whose tables aren't migrated yet) read 0.
+  const [{ count: leadCount }, { count: conversationCount }, { count: automationCount }, { data: assistant }] =
+    await Promise.all([
+      supabase.from("wa_leads").select("id", { count: "exact", head: true }),
+      supabase
+        .from("aa_conversations")
+        .select("id", { count: "exact", head: true }),
+      supabase
+        .from("ra_review_requests")
+        .select("id", { count: "exact", head: true })
+        .not("reminder_sent_at", "is", null),
+      supabase
+        .from("aa_assistants")
+        .select("knowledge")
+        .eq("business_id", profile.business_id!)
+        .maybeSingle(),
+    ]);
 
   let chartTimestamps: string[] = [];
 
@@ -103,6 +136,19 @@ export default async function PortalHome() {
               {greetingForNow()}, {business?.name ?? "there"}
             </h1>
             <p>Here&apos;s what&apos;s happening with your AutomateIQ platform today.</p>
+            <p style={{ marginTop: 10 }}>
+              <span
+                className={`badge ${hasAssistant ? (assistant?.knowledge ? "badge-green" : "badge-orange") : "badge-gray"}`}
+              >
+                <Sparkles size={11} />
+                AI Assistant:{" "}
+                {hasAssistant
+                  ? assistant?.knowledge
+                    ? "online"
+                    : "needs setup"
+                  : "not enabled"}
+              </span>
+            </p>
           </div>
           {hasReviewAgent && (
             <Link href="/portal/review-agent/send" className="btn btn-primary">
@@ -152,28 +198,110 @@ export default async function PortalHome() {
         </Link>
       )}
 
-      {hasReviewAgent && (
-        <div className="stat-grid">
-          <StatCard
-            label="Review requests sent"
-            value={totalSent}
-            icon={<Send />}
-            accent="#7C3AED"
-          />
-          <StatCard
-            label="Review link clicks"
-            value={totalClicked}
-            icon={<MousePointerClick />}
-            accent="#22D3EE"
-          />
-          <StatCard
-            label="Click rate"
-            value={clickRate}
-            icon={<TrendingUp />}
-            accent="#34D399"
-          />
-        </div>
-      )}
+      {/* Quick actions — every button is a real destination */}
+      <div className="quick-actions">
+        <Link
+          href="/portal/ai-assistant"
+          className={`qa-btn${hasAssistant ? "" : " is-disabled"}`}
+        >
+          <Sparkles size={16} /> Ask AI Assistant
+        </Link>
+        <Link
+          href="/portal/review-agent/send"
+          className={`qa-btn${hasReviewAgent ? "" : " is-disabled"}`}
+        >
+          <Send size={16} /> Send Review Request
+        </Link>
+        <Link
+          href="/portal/website-agent"
+          className={`qa-btn${hasWebsiteAgent ? "" : " is-disabled"}`}
+        >
+          <Globe size={16} /> Manage Website
+        </Link>
+        <Link
+          href="/portal/website-agent/leads"
+          className={`qa-btn${hasWebsiteAgent ? "" : " is-disabled"}`}
+        >
+          <Users size={16} /> View Leads
+        </Link>
+        <a href="mailto:hello@automateiq.ie" className="qa-btn">
+          <LifeBuoy size={16} /> Contact Support
+        </a>
+      </div>
+
+      <div className="stat-grid">
+        <StatCard
+          label="Leads"
+          value={leadCount ?? 0}
+          icon={<Users />}
+          accent="#0891B2"
+          hint="all time"
+        />
+        <StatCard
+          label="Review requests"
+          value={totalSent}
+          icon={<Send />}
+          accent="#7C3AED"
+          hint="all time"
+        />
+        <StatCard
+          label="Review link clicks"
+          value={totalClicked}
+          icon={<MousePointerClick />}
+          accent="#22D3EE"
+          hint={`${clickRate} click rate`}
+        />
+        <StatCard
+          label="AI conversations"
+          value={conversationCount ?? 0}
+          icon={<MessageSquare />}
+          accent="#3B82F6"
+        />
+        <StatCard
+          label="Automations completed"
+          value={automationCount ?? 0}
+          icon={<Zap />}
+          accent="#059669"
+          hint="auto follow-ups"
+        />
+      </div>
+
+      {/* Notifications — derived from real state, each links to its fix */}
+      {(() => {
+        const notes: { text: string; href: string }[] = [];
+        if (hasAssistant && !assistant?.knowledge) {
+          notes.push({
+            text: "Teach your AI Assistant about your business — add knowledge",
+            href: "/portal/ai-assistant",
+          });
+        }
+        if (hasReviewAgent && business?.google_review_link) {
+          // Pending follow-ups note comes from the stat we already show;
+          // only surface the setup-critical items here.
+        }
+        if (notes.length === 0) return null;
+        return (
+          <div className="panel panel-block" style={{ marginBottom: 26 }}>
+            <h2 className="panel-title">
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Bell size={15} /> Notifications
+              </span>
+            </h2>
+            <ul className="feed-list">
+              {notes.map((n) => (
+                <li key={n.text}>
+                  <Link
+                    href={n.href}
+                    style={{ color: "var(--heading)", textDecoration: "none" }}
+                  >
+                    {n.text} →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })()}
 
       {hasReviewAgent && (
         <div className="grid-main-side">

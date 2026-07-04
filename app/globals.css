@@ -1707,6 +1707,38 @@ table.data-table {
   padding: 24px;
 }
 
+.chat-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.chat-suggest button {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--body);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.chat-suggest button:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.45);
+  color: var(--heading);
+  transform: translateY(-1px);
+}
+
+.chat-suggest button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .chat-input-row {
   display: flex;
   gap: 10px;
@@ -2073,4 +2105,52 @@ table.data-table {
   color: var(--heading);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* Quick actions row on the dashboard home */
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.qa-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--panel-glass);
+  color: var(--heading);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.qa-btn svg {
+  color: var(--ac2);
+  flex: none;
+}
+
+.qa-btn:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: var(--ac2-soft);
+  transform: translateY(-2px);
+}
+
+.qa-btn.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
+    margin-bottom: 18px;
+  }
 }

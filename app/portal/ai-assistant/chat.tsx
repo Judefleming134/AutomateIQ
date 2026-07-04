@@ -6,6 +6,13 @@ import { sendAssistantMessage } from "./actions";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+const SUGGESTED_PROMPTS = [
+  "Draft a reply to a customer asking for a quote",
+  "Write a polite follow-up to a late payer",
+  "Give me three ideas to get more Google reviews",
+  "Write a short post announcing our summer availability",
+];
+
 export function AssistantChat({
   initialConversationId,
   initialMessages,
@@ -24,9 +31,7 @@ export function AssistantChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, pending]);
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    const text = input.trim();
+  async function submit(text: string) {
     if (!text || pending) return;
 
     setError(null);
@@ -45,19 +50,32 @@ export function AssistantChat({
     }
   }
 
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    void submit(input.trim());
+  }
+
   return (
     <div className="panel panel-block chat-panel">
       <div className="chat-messages" ref={scrollRef}>
         {messages.length === 0 && !pending ? (
           <div className="chat-empty">
             <div>
-              <p style={{ margin: "0 0 4px", color: "var(--body)" }}>
-                Ask your assistant anything.
+              <p style={{ margin: "0 0 12px", color: "var(--body)" }}>
+                Ask your assistant anything — or start with one of these:
               </p>
-              <p style={{ margin: 0, fontSize: 12.5 }}>
-                &quot;Draft a reply to a customer asking for a quote&quot; ·
-                &quot;What should I say to a late payer?&quot;
-              </p>
+              <div className="chat-suggest">
+                {SUGGESTED_PROMPTS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => void submit(p)}
+                    disabled={pending}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (

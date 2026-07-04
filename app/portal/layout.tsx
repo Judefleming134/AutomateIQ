@@ -1,4 +1,12 @@
-import { LayoutDashboard, FileText } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileText,
+  BarChart3,
+  Users,
+  CreditCard,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { PRODUCT_REGISTRY } from "@/lib/products/registry";
@@ -33,29 +41,43 @@ export default async function PortalLayout({
 
   const businessName = business?.name ?? "Your business";
 
+  // AI Assistant lives in the Workspace section — it's the platform's
+  // core, not just another product tile. Entitlement gating unchanged.
+  const productItems = PRODUCT_REGISTRY.filter(
+    (p) => p.key !== "ai-assistant"
+  ).map((product) => ({
+    href: product.href,
+    label: product.name,
+    icon: <ProductIcon name={product.iconName} />,
+    disabled: !enabledKeys.has(product.key),
+  }));
+
   const sections: NavSection[] = [
     {
+      label: "Workspace",
       items: [
+        { href: "/portal", label: "Dashboard", icon: <LayoutDashboard /> },
         {
-          href: "/portal",
-          label: "Dashboard",
-          icon: <LayoutDashboard />,
+          href: "/portal/ai-assistant",
+          label: "AI Assistant",
+          icon: <Sparkles />,
+          disabled: !enabledKeys.has("ai-assistant"),
         },
-        {
-          href: "/portal/documents",
-          label: "Documents",
-          icon: <FileText />,
-        },
+        { href: "/portal/analytics", label: "Analytics", icon: <BarChart3 /> },
+        { href: "/portal/documents", label: "Documents", icon: <FileText /> },
       ],
     },
     {
       label: "Products",
-      items: PRODUCT_REGISTRY.map((product) => ({
-        href: product.href,
-        label: product.name,
-        icon: <ProductIcon name={product.iconName} />,
-        disabled: !enabledKeys.has(product.key),
-      })),
+      items: productItems,
+    },
+    {
+      label: "Account",
+      items: [
+        { href: "/portal/team", label: "Team", icon: <Users /> },
+        { href: "/portal/billing", label: "Billing", icon: <CreditCard /> },
+        { href: "/portal/settings", label: "Settings", icon: <Settings /> },
+      ],
     },
   ];
 
