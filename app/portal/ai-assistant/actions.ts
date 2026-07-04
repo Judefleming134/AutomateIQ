@@ -77,12 +77,16 @@ export async function sendAssistantMessage(
     return { ok: false, error: "Invalid message." };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
+  // Provider selection: Claude when ANTHROPIC_API_KEY is set, otherwise
+  // Gemini's free tier as a fallback (GEMINI_API_KEY) — lets the assistant
+  // run at zero cost now and upgrade to Claude by just adding the key.
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!anthropicKey && !geminiKey) {
     return {
       ok: false,
       error:
-        "The assistant isn't connected yet — an ANTHROPIC_API_KEY needs to be added in Vercel.",
+        "The assistant isn't connected yet — add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel.",
     };
   }
 
@@ -146,51 +150,24 @@ export async function sendAssistantMessage(
     `Never invent prices, availability or policies that aren't in the business information.`,
   ].join("\n\n");
 
+  const turns = (history ?? []).map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
+
   let reply: string;
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 1024,
-        system,
-        messages: (history ?? []).map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-      }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error("Anthropic API error:", res.status, detail.slice(0, 300));
-      return {
-        ok: false,
-        error:
-          res.status === 401
-            ? "The assistant's API key was rejected — check ANTHROPIC_API_KEY in Vercel."
-            : "The assistant couldn't respond just now — please try again.",
-      };
-    }
-
-    const data = (await res.json()) as {
-      content: { type: string; text?: string }[];
-    };
-    reply =
-      data.content
-        ?.filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join("") || "…";
+    reply = anthropicKey
+      ? await callClaude(anthropicKey, system, turns)
+      : await callGemini(geminiKey!, system, turns);
   } catch (err) {
-    console.error("Anthropic API call failed:", err);
+    console.error("Assistant API call failed:", err);
+    const message = err instanceof Error ? err.message : "";
     return {
       ok: false,
-      error: "The assistant couldn't respond just now — please try again.",
+      error: message.startsWith("KEY_REJECTED")
+        ? "The assistant's API key was rejected — check it in Vercel."
+        : "The assistant couldn't respond just now — please try again.",
     };
   }
 
@@ -206,4 +183,88 @@ export async function sendAssistantMessage(
   void user;
 
   return { ok: true, conversationId: convId, reply };
+}
+
+type Turn = { role: "user" | "assistant"; content: string };
+
+async function callClaude(
+  apiKey: string,
+  system: string,
+  turns: Turn[]
+): Promise<string> {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-5",
+      max_tokens: 1024,
+      system,
+      messages: turns.map((t) => ({ role: t.role, content: t.content })),
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error("Anthropic API error:", res.status, detail.slice(0, 300));
+    throw new Error(res.status === 401 ? "KEY_REJECTED" : `HTTP ${res.status}`);
+  }
+
+  const data = (await res.json()) as {
+    content: { type: string; text?: string }[];
+  };
+  return (
+    data.content
+      ?.filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("") || "…"
+  );
+}
+
+async function callGemini(
+  apiKey: string,
+  system: string,
+  turns: Turn[]
+): Promise<string> {
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+    {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: turns.map((t) => ({
+          // Gemini uses "model" where Anthropic uses "assistant".
+          role: t.role === "assistant" ? "model" : "user",
+          parts: [{ text: t.content }],
+        })),
+        generationConfig: { maxOutputTokens: 1024 },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error("Gemini API error:", res.status, detail.slice(0, 300));
+    throw new Error(
+      res.status === 400 || res.status === 401 || res.status === 403
+        ? "KEY_REJECTED"
+        : `HTTP ${res.status}`
+    );
+  }
+
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] } }[];
+  };
+  return (
+    data.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text ?? "")
+      .join("") || "…"
+  );
 }
