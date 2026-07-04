@@ -31,7 +31,15 @@ export default async function AdminCustomersPage({
     query = query.ilike("name", `%${q.trim()}%`);
   }
 
-  const { data: businesses, count } = await query;
+  const [{ data: businesses, count }, { data: assignableProducts }] =
+    await Promise.all([
+      query,
+      supabase
+        .from("products")
+        .select("key, name, status")
+        .in("status", ["active"])
+        .order("name"),
+    ]);
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
   return (
@@ -62,6 +70,34 @@ export default async function AdminCustomersPage({
           <div className="field">
             <label htmlFor="email">Owner email</label>
             <input id="email" type="email" name="email" required />
+          </div>
+          <div className="field">
+            <label>Products to enable</label>
+            {(assignableProducts ?? []).map((p) => (
+              <label
+                key={p.key}
+                htmlFor={`product-${p.key}`}
+                style={{
+                  display: "flex",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                  margin: 0,
+                  fontSize: 13.5,
+                  color: "var(--heading)",
+                }}
+              >
+                <input
+                  id={`product-${p.key}`}
+                  type="checkbox"
+                  name="products"
+                  value={p.key}
+                  defaultChecked={p.key === "review-agent"}
+                  style={{ width: 15, height: 15 }}
+                />
+                {p.name}
+              </label>
+            ))}
           </div>
           <div className="form-actions">
             <SubmitButton pendingText="Creating…">Create &amp; send invite</SubmitButton>

@@ -14,7 +14,7 @@ export default async function PortalHome() {
   const [{ data: business }, { data: enabledRows }] = await Promise.all([
     supabase
       .from("businesses")
-      .select("name")
+      .select("name, google_review_link")
       .eq("id", profile.business_id)
       .single(),
     // RLS already scopes this to the caller's own business — no need to
@@ -87,6 +87,46 @@ export default async function PortalHome() {
           )}
         </div>
       </section>
+
+      {hasReviewAgent && !business?.google_review_link && (
+        <Link
+          href="/portal/review-agent/settings"
+          className="panel panel-block"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 26,
+            textDecoration: "none",
+            borderColor: "rgba(251, 146, 60, 0.35)",
+          }}
+        >
+          <span
+            style={{
+              flex: "none",
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              display: "grid",
+              placeItems: "center",
+              background: "rgba(251, 146, 60, 0.14)",
+              color: "var(--orange)",
+              fontSize: 17,
+            }}
+          >
+            !
+          </span>
+          <span>
+            <strong style={{ color: "var(--heading)", display: "block", fontSize: 14 }}>
+              Finish setup — add your Google review link
+            </strong>
+            <span style={{ fontSize: 12.5, color: "var(--body)" }}>
+              It takes 30 seconds, and it&apos;s all you need before sending
+              your first review request →
+            </span>
+          </span>
+        </Link>
+      )}
 
       {hasReviewAgent && (
         <div className="stat-grid">

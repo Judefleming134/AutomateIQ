@@ -30,6 +30,10 @@ export async function createCustomer(
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
   const { businessName, email } = parsed.data;
+  const productKeys = formData
+    .getAll("products")
+    .map(String)
+    .filter(Boolean);
 
   const { data: business, error: businessError } = await supabase
     .from("businesses")
@@ -57,11 +61,28 @@ export async function createCustomer(
     return { error: inviteError.message };
   }
 
+  // Assign the selected products in the same step — onboarding a customer
+  // is ONE form, not create-then-go-assign-things.
+  if (productKeys.length > 0) {
+    const { data: products } = await supabase
+      .from("products")
+      .select("id")
+      .in("key", productKeys);
+    if (products && products.length > 0) {
+      await supabase.from("business_products").insert(
+        products.map((p) => ({
+          business_id: business.id,
+          product_id: p.id,
+        }))
+      );
+    }
+  }
+
   await logAdminAction({
     actorId: admin.id,
     action: "customer.create",
     targetBusinessId: business.id,
-    metadata: { businessName, email },
+    metadata: { businessName, email, products: productKeys },
   });
 
   revalidatePath("/admin/customers");
