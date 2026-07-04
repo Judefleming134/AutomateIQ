@@ -26,50 +26,77 @@ export default async function ReviewAgentSettingsPage() {
         </div>
       </div>
 
-      <ActionForm action={updateBusinessSettings} className="panel form-card">
-        <div className="field">
-          <label htmlFor="businessName">Business Name</label>
-          <input
-            id="businessName"
-            type="text"
-            name="businessName"
-            defaultValue={business?.name ?? ""}
-            required
-          />
+      <div className="grid-main-side">
+        <ActionForm action={updateBusinessSettings} className="panel form-card">
+          <div className="field">
+            <label htmlFor="businessName">Business Name</label>
+            <input
+              id="businessName"
+              type="text"
+              name="businessName"
+              defaultValue={business?.name ?? ""}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="googleReviewLink">Google Review Link</label>
+            <input
+              id="googleReviewLink"
+              type="url"
+              name="googleReviewLink"
+              placeholder="https://g.page/r/…/review"
+              defaultValue={business?.google_review_link ?? ""}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="logoUrl">Company Logo (URL)</label>
+            <input
+              id="logoUrl"
+              type="url"
+              name="logoUrl"
+              placeholder="https://…/logo.png"
+              defaultValue={business?.logo_url ?? ""}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="emailSignature">Email Signature</label>
+            <textarea
+              id="emailSignature"
+              name="emailSignature"
+              rows={3}
+              defaultValue={business?.email_signature ?? ""}
+            />
+          </div>
+          <div className="form-actions">
+            <SubmitButton pendingText="Saving…">Save changes</SubmitButton>
+          </div>
+        </ActionForm>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">Where these appear</h2>
+          <ol className="timeline">
+            <li>
+              <h3>Business Name</h3>
+              <p>The email&apos;s heading and subject — who the request is from.</p>
+            </li>
+            <li>
+              <h3>Google Review Link</h3>
+              <p>
+                Where the &quot;Leave a review&quot; button sends your customer.
+                Required before you can send requests.
+              </p>
+            </li>
+            <li>
+              <h3>Company Logo</h3>
+              <p>Shown at the top of the email instead of plain text.</p>
+            </li>
+            <li>
+              <h3>Email Signature</h3>
+              <p>The sign-off at the bottom of every email.</p>
+            </li>
+          </ol>
         </div>
-        <div className="field">
-          <label htmlFor="googleReviewLink">Google Review Link</label>
-          <input
-            id="googleReviewLink"
-            type="url"
-            name="googleReviewLink"
-            placeholder="https://g.page/r/…/review"
-            defaultValue={business?.google_review_link ?? ""}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="logoUrl">Company Logo (URL)</label>
-          <input
-            id="logoUrl"
-            type="url"
-            name="logoUrl"
-            placeholder="https://…/logo.png"
-            defaultValue={business?.logo_url ?? ""}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="emailSignature">Email Signature</label>
-          <textarea
-            id="emailSignature"
-            name="emailSignature"
-            rows={3}
-            defaultValue={business?.email_signature ?? ""}
-          />
-        </div>
-        <div className="form-actions">
-          <SubmitButton pendingText="Saving…">Save changes</SubmitButton>
-        </div>
-      </ActionForm>
+      </div>
     </>
   );
 }
