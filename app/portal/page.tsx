@@ -63,24 +63,59 @@ export default async function PortalHome() {
   const hasWebsiteAgent = enabledKeys.has("website-agent");
   const hasAssistant = enabledKeys.has("ai-assistant");
 
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const sinceToday = dayStart.toISOString();
+
   // Cross-module KPIs — every count is a real RLS-scoped query; modules
   // that aren't enabled (or whose tables aren't migrated yet) read 0.
-  const [{ count: leadCount }, { count: conversationCount }, { count: automationCount }, { data: assistant }] =
-    await Promise.all([
-      supabase.from("wa_leads").select("id", { count: "exact", head: true }),
-      supabase
-        .from("aa_conversations")
-        .select("id", { count: "exact", head: true }),
-      supabase
-        .from("ra_review_requests")
-        .select("id", { count: "exact", head: true })
-        .not("reminder_sent_at", "is", null),
-      supabase
-        .from("aa_assistants")
-        .select("knowledge")
-        .eq("business_id", profile.business_id!)
-        .maybeSingle(),
-    ]);
+  const [
+    { count: leadCount },
+    { count: conversationCount },
+    { count: automationCount },
+    { data: assistant },
+    { count: leadsToday },
+    { count: requestsToday },
+    { count: aiMessagesToday },
+    { data: waPage },
+    { data: recentConversations },
+  ] = await Promise.all([
+    supabase.from("wa_leads").select("id", { count: "exact", head: true }),
+    supabase
+      .from("aa_conversations")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .not("reminder_sent_at", "is", null),
+    supabase
+      .from("aa_assistants")
+      .select("knowledge")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle(),
+    supabase
+      .from("wa_leads")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase
+      .from("aa_messages")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase
+      .from("wa_pages")
+      .select("published")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle(),
+    supabase
+      .from("aa_conversations")
+      .select("id, title, created_at")
+      .order("created_at", { ascending: false })
+      .limit(4),
+  ]);
 
   let chartTimestamps: string[] = [];
 
@@ -115,6 +150,51 @@ export default async function PortalHome() {
   const clickRate =
     totalSent > 0 ? `${Math.round((totalClicked / totalSent) * 100)}%` : "—";
 
+  // Business health — a setup-and-momentum score built from real state.
+  // Every unchecked item links straight to its fix.
+  const healthChecks: { label: string; ok: boolean; href: string }[] = [
+    {
+      label: "Google review link added",
+      ok: Boolean(business?.google_review_link),
+      href: "/portal/settings",
+    },
+    ...(hasAssistant
+      ? [
+          {
+            label: "AI Assistant trained on your business",
+            ok: Boolean(assistant?.knowledge),
+            href: "/portal/ai-assistant",
+          },
+        ]
+      : []),
+    ...(hasWebsiteAgent
+      ? [
+          {
+            label: "Website page published",
+            ok: Boolean(waPage?.published),
+            href: "/portal/website-agent",
+          },
+        ]
+      : []),
+    ...(hasReviewAgent
+      ? [
+          {
+            label: "First review request sent",
+            ok: totalSent > 0,
+            href: "/portal/review-agent/send",
+          },
+        ]
+      : []),
+    {
+      label: "First lead captured",
+      ok: (leadCount ?? 0) > 0,
+      href: hasWebsiteAgent ? "/portal/website-agent" : "/portal/products",
+    },
+  ];
+  const healthScore = Math.round(
+    (healthChecks.filter((h) => h.ok).length / healthChecks.length) * 100
+  );
+
   const today = new Date().toLocaleDateString("en-IE", {
     weekday: "long",
     day: "numeric",
@@ -135,7 +215,11 @@ export default async function PortalHome() {
             <h1>
               {greetingForNow()}, {business?.name ?? "there"}
             </h1>
-            <p>Here&apos;s what&apos;s happening with your AutomateIQ platform today.</p>
+            <p>
+              Today: {leadsToday ?? 0} lead{(leadsToday ?? 0) === 1 ? "" : "s"} ·{" "}
+              {requestsToday ?? 0} review request{(requestsToday ?? 0) === 1 ? "" : "s"} ·{" "}
+              {aiMessagesToday ?? 0} AI message{(aiMessagesToday ?? 0) === 1 ? "" : "s"}
+            </p>
             <p style={{ marginTop: 10 }}>
               <span
                 className={`badge ${hasAssistant ? (assistant?.knowledge ? "badge-green" : "badge-orange") : "badge-gray"}`}
@@ -302,6 +386,79 @@ export default async function PortalHome() {
           </div>
         );
       })()}
+
+      {/* Business health + recent AI activity */}
+      <div className="grid-main-side" style={{ marginBottom: 26 }}>
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">00 /</span>
+              Business health
+            </span>
+            <span
+              className={`badge ${healthScore >= 80 ? "badge-green" : healthScore >= 50 ? "badge-blue" : "badge-orange"}`}
+            >
+              {healthScore}%
+            </span>
+          </h2>
+          <div className="health-bar">
+            <span style={{ width: `${healthScore}%` }} />
+          </div>
+          <ul className="health-list">
+            {healthChecks.map((h) => (
+              <li key={h.label} className={h.ok ? "is-done" : ""}>
+                {h.ok ? (
+                  <span>{h.label}</span>
+                ) : (
+                  <Link href={h.href}>{h.label} →</Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <Sparkles size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+              Recent AI activity
+            </span>
+            {hasAssistant && (
+              <Link href="/portal/ai-assistant">Open assistant →</Link>
+            )}
+          </h2>
+          {(recentConversations ?? []).length === 0 ? (
+            <p className="empty-state">
+              No AI conversations yet — ask your assistant anything.
+            </p>
+          ) : (
+            <ul className="feed-list">
+              {(recentConversations ?? []).map((conv) => (
+                <li key={conv.id}>
+                  <Link
+                    href={`/portal/ai-assistant?c=${conv.id}`}
+                    style={{
+                      color: "var(--heading)",
+                      textDecoration: "none",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {conv.title || "Conversation"}
+                  </Link>
+                  <span className="feed-time">
+                    {new Date(conv.created_at).toLocaleDateString("en-IE", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
 
       {hasReviewAgent && (
         <div className="grid-main-side">

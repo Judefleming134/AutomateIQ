@@ -1,16 +1,15 @@
 import {
   LayoutDashboard,
-  FileText,
   BarChart3,
   Users,
   CreditCard,
   Settings,
   Sparkles,
+  Boxes,
+  FolderKanban,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
-import { PRODUCT_REGISTRY } from "@/lib/products/registry";
-import { ProductIcon } from "@/lib/products/icons";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
 
@@ -41,17 +40,9 @@ export default async function PortalLayout({
 
   const businessName = business?.name ?? "Your business";
 
-  // AI Assistant lives in the Workspace section — it's the platform's
-  // core, not just another product tile. Entitlement gating unchanged.
-  const productItems = PRODUCT_REGISTRY.filter(
-    (p) => p.key !== "ai-assistant"
-  ).map((product) => ({
-    href: product.href,
-    label: product.name,
-    icon: <ProductIcon name={product.iconName} />,
-    disabled: !enabledKeys.has(product.key),
-  }));
-
+  // V2 navigation: one clean set of destinations. Individual products live
+  // inside the Products hub (and are driven by the agent registry), so
+  // future agents never add sidebar entries.
   const sections: NavSection[] = [
     {
       label: "Workspace",
@@ -63,13 +54,10 @@ export default async function PortalLayout({
           icon: <Sparkles />,
           disabled: !enabledKeys.has("ai-assistant"),
         },
+        { href: "/portal/products", label: "Products", icon: <Boxes /> },
         { href: "/portal/analytics", label: "Analytics", icon: <BarChart3 /> },
-        { href: "/portal/documents", label: "Documents", icon: <FileText /> },
+        { href: "/portal/projects", label: "Projects", icon: <FolderKanban /> },
       ],
-    },
-    {
-      label: "Products",
-      items: productItems,
     },
     {
       label: "Account",

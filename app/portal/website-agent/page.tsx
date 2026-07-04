@@ -51,6 +51,20 @@ export default async function WebsiteAgentPage() {
   const slug = page?.slug ?? defaultSlug(business?.name ?? "");
   const publicUrl = `${siteUrl}/b/${slug}`;
 
+  // SEO & content readiness — computed from the page's real content.
+  const services = (page?.services as string[]) ?? [];
+  const seoChecks = [
+    { label: "Headline written", ok: Boolean(page?.headline) },
+    {
+      label: "About section (50+ characters)",
+      ok: (page?.about?.length ?? 0) >= 50,
+    },
+    { label: "At least 3 services listed", ok: services.length >= 3 },
+    { label: "Phone number added", ok: Boolean(page?.phone) },
+    { label: "Contact email set", ok: Boolean(page?.contact_email) },
+    { label: "Page published", ok: Boolean(page?.published) },
+  ];
+
   return (
     <>
       <div className="page-header">
@@ -102,6 +116,7 @@ export default async function WebsiteAgentPage() {
         />
       </div>
 
+      <div className="grid-main-side">
       <ActionForm action={updateWebsitePage} className="panel form-card" >
         <div className="field">
           <label htmlFor="slug">Web address</label>
@@ -176,6 +191,53 @@ export default async function WebsiteAgentPage() {
           <SubmitButton pendingText="Saving…">Save page</SubmitButton>
         </div>
       </ActionForm>
+
+      <div>
+        <div className="panel panel-block" style={{ marginBottom: 18 }}>
+          <h2 className="panel-title">
+            <span><span className="sys-index">02 /</span>SEO &amp; content readiness</span>
+          </h2>
+          <ul className="health-list">
+            {seoChecks.map((c) => (
+              <li key={c.label} className={c.ok ? "is-done" : ""}>
+                <span>{c.label}</span>
+              </li>
+            ))}
+          </ul>
+          <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "var(--faint)" }}>
+            Complete these in the form — each one makes your page rank and
+            convert better. AI content generation is coming to this panel.
+          </p>
+        </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span><span className="sys-index">03 /</span>Hosting</span>
+            <span className={`badge ${page?.published ? "badge-green" : "badge-gray"}`}>
+              {page?.published ? "Live" : "Offline"}
+            </span>
+          </h2>
+          <ul className="feed-list">
+            <li>
+              <span>Hosting</span>
+              <span className="feed-time">AutomateIQ edge network</span>
+            </li>
+            <li>
+              <span>SSL certificate</span>
+              <span className="feed-time">included &amp; automatic</span>
+            </li>
+            <li>
+              <span>Mobile-optimised</span>
+              <span className="feed-time">yes</span>
+            </li>
+            <li>
+              <span>Lead capture form</span>
+              <span className="feed-time">built in</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      </div>
     </>
   );
 }

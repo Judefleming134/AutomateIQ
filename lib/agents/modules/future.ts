@@ -1,0 +1,210 @@
+import type { AgentModule } from "@/lib/agents/types";
+
+/**
+ * Future agents — declared now so the Products page, the AI Assistant's
+ * awareness, and the roadmap all come from one place. Each ships later by
+ * flipping availability to "live", adding tools, and (optionally) a route —
+ * zero changes to the shell, navigation, or assistant architecture.
+ */
+export const FUTURE_AGENT_MODULES: AgentModule[] = [
+  {
+    key: "instant-quote-agent",
+    name: "Instant Quote Agent",
+    version: "0.1",
+    category: "sales",
+    description:
+      "Qualifies customers, collects job details and produces instant, accurate quotations.",
+    iconName: "calculator",
+    accent: "#EA580C",
+    availability: "coming_soon",
+    capabilities: [
+      "Customer qualification",
+      "Pricing calculation",
+      "Instant quotations",
+      "CRM opportunity creation",
+      "Proposal hand-off",
+    ],
+    tools: [],
+  },
+  {
+    key: "speed-to-lead-agent",
+    name: "Speed-to-Lead Agent",
+    version: "0.1",
+    category: "sales",
+    description:
+      "Responds to every new lead within 60 seconds, qualifies the opportunity and books the meeting.",
+    iconName: "zap",
+    accent: "#F59E0B",
+    availability: "coming_soon",
+    capabilities: [
+      "60-second response",
+      "Business research",
+      "Lead qualification",
+      "Meeting booking",
+      "Sales hand-off",
+    ],
+    tools: [],
+  },
+  {
+    key: "proposal-agent",
+    name: "Proposal Agent",
+    version: "0.1",
+    category: "sales",
+    description:
+      "Turns discovery calls into branded proposals with pricing, scope and timeline as professional PDFs.",
+    iconName: "file-signature",
+    accent: "#8B5CF6",
+    availability: "coming_soon",
+    capabilities: [
+      "Call-to-proposal drafting",
+      "Pricing & scope",
+      "Timeline planning",
+      "Branded PDF output",
+      "E-signature (future)",
+    ],
+    tools: [],
+  },
+  {
+    key: "operations-agent",
+    name: "Operations Agent",
+    version: "0.1",
+    category: "operations",
+    description:
+      "Automates the back office — CRM updates, data entry, internal workflows and task management.",
+    iconName: "briefcase",
+    accent: "#0891B2",
+    availability: "coming_soon",
+    capabilities: [
+      "CRM updates",
+      "Data entry automation",
+      "Internal workflows",
+      "Task management",
+      "Back-office automation",
+    ],
+    tools: [],
+  },
+  {
+    key: "content-agent",
+    name: "Content Agent",
+    version: "0.1",
+    category: "content",
+    description:
+      "Creates blogs, website copy, emails, SEO content, landing pages, social posts and campaigns.",
+    iconName: "pen-line",
+    accent: "#EC4899",
+    availability: "coming_soon",
+    capabilities: [
+      "Blogs & website copy",
+      "Email campaigns",
+      "SEO content",
+      "Landing pages",
+      "Social media",
+      "Case studies",
+    ],
+    tools: [],
+  },
+  {
+    key: "voice-agent",
+    name: "Voice Agent",
+    version: "0.1",
+    category: "voice",
+    description:
+      "An AI receptionist that answers calls, books jobs and never misses an enquiry.",
+    iconName: "mic",
+    accent: "#22D3EE",
+    availability: "coming_soon",
+    capabilities: [
+      "24/7 call answering",
+      "Job booking",
+      "Message taking",
+      "Call summaries",
+    ],
+    tools: [],
+  },
+  {
+    key: "sales-agent",
+    name: "Sales Agent",
+    version: "0.1",
+    category: "sales",
+    description:
+      "Works your pipeline — follow-ups, nudges and next-step recommendations that close more work.",
+    iconName: "trending-up",
+    accent: "#059669",
+    availability: "coming_soon",
+    capabilities: [
+      "Pipeline follow-ups",
+      "Deal nudges",
+      "Next-step recommendations",
+    ],
+    tools: [],
+  },
+  {
+    key: "crm-agent",
+    name: "CRM Agent",
+    version: "0.1",
+    category: "operations",
+    description:
+      "Keeps every customer record clean, current and connected across the platform.",
+    iconName: "contact",
+    accent: "#3B82F6",
+    availability: "coming_soon",
+    capabilities: [
+      "Unified customer records",
+      "Automatic enrichment",
+      "Deduplication",
+      "Activity timelines",
+    ],
+    tools: [],
+  },
+  {
+    key: "finance-agent",
+    name: "Finance Agent",
+    version: "0.1",
+    category: "finance",
+    description:
+      "Invoicing, payment chasing and cash-flow summaries without the paperwork.",
+    iconName: "banknote",
+    accent: "#84CC16",
+    availability: "coming_soon",
+    capabilities: [
+      "Invoicing",
+      "Payment reminders",
+      "Cash-flow summaries",
+    ],
+    tools: [],
+  },
+  {
+    key: "scheduling-agent",
+    name: "Scheduling Agent",
+    version: "0.1",
+    category: "scheduling",
+    description:
+      "Books jobs, manages the calendar and keeps the crew's day running on time.",
+    iconName: "calendar",
+    accent: "#A855F7",
+    availability: "coming_soon",
+    capabilities: [
+      "Job booking",
+      "Calendar management",
+      "Reminders & confirmations",
+    ],
+    tools: [],
+  },
+  {
+    key: "support-agent",
+    name: "Support Agent",
+    version: "0.1",
+    category: "support",
+    description:
+      "Answers customer questions instantly using your business knowledge, day and night.",
+    iconName: "life-buoy",
+    accent: "#F472B6",
+    availability: "coming_soon",
+    capabilities: [
+      "Instant customer answers",
+      "Business-aware responses",
+      "Escalation to you",
+    ],
+    tools: [],
+  },
+];
