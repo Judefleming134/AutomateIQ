@@ -11,6 +11,25 @@ export default function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+
+  async function handleForgotPassword() {
+    setError(null);
+    if (!email.trim()) {
+      setError("Enter your email above first, then tap Forgot password.");
+      return;
+    }
+    const supabase = createClient();
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      { redirectTo: `${window.location.origin}/auth/set-password` }
+    );
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+    setResetSent(true);
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -63,8 +82,29 @@ export default function LoginForm() {
         onChange={(e) => setPassword(e.target.value)}
       />
       {error && <p className="login-error">{error}</p>}
+      {resetSent && (
+        <p style={{ color: "var(--green, #34d399)", fontSize: 13, margin: "6px 0 0" }}>
+          ✓ Reset link sent — check your inbox, then set a new password.
+        </p>
+      )}
       <button type="submit" disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
+      </button>
+      <button
+        type="button"
+        onClick={handleForgotPassword}
+        style={{
+          marginTop: 12,
+          background: "none",
+          border: 0,
+          color: "var(--ac2, #3b82f6)",
+          fontSize: 13,
+          cursor: "pointer",
+          boxShadow: "none",
+          padding: 0,
+        }}
+      >
+        Forgot password?
       </button>
     </form>
   );
