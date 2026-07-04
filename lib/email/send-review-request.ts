@@ -18,7 +18,7 @@ export async function sendReviewRequestEmail(params: {
 
   const resend = getResendClient();
 
-  return resend.emails.send(
+  const result = await resend.emails.send(
     {
       from: getFromAddress(),
       to: params.customerEmail,
@@ -42,4 +42,14 @@ export async function sendReviewRequestEmail(params: {
       idempotencyKey: `review-${params.kind}-${params.requestId}`,
     }
   );
+
+  // Resend's SDK reports API-level failures (rejected sender, sandbox
+  // restrictions, invalid recipient...) via result.error rather than
+  // throwing — without this check a rejected email would be silently
+  // recorded as sent.
+  if (result.error) {
+    throw new Error(`Resend rejected the email: ${result.error.message}`);
+  }
+
+  return result;
 }
