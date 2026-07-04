@@ -17,23 +17,40 @@ export default async function ProductsPage() {
   const installed = getInstalledAgents(enabledKeys);
   const hasAssistant = enabledKeys.has("ai-assistant");
 
-  // Live per-module usage, RLS-scoped.
-  const [{ count: requests }, { count: leads }, { count: conversations }, { data: customModules }] =
-    await Promise.all([
-      supabase
-        .from("ra_review_requests")
-        .select("id", { count: "exact", head: true }),
-      supabase.from("wa_leads").select("id", { count: "exact", head: true }),
-      supabase
-        .from("aa_conversations")
-        .select("id", { count: "exact", head: true }),
-      supabase.from("custom_modules").select("id, name, description, route_slug"),
-    ]);
+  // Live per-module usage, RLS-scoped; unmigrated tables read 0.
+  const [
+    { count: requests },
+    { count: leads },
+    { count: conversations },
+    { count: contentPieces },
+    { count: quotes },
+    { count: instantReplies },
+    { data: customModules },
+  ] = await Promise.all([
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true }),
+    supabase.from("wa_leads").select("id", { count: "exact", head: true }),
+    supabase
+      .from("aa_conversations")
+      .select("id", { count: "exact", head: true }),
+    supabase.from("ca_content").select("id", { count: "exact", head: true }),
+    supabase.from("qa_quotes").select("id", { count: "exact", head: true }),
+    supabase.from("stl_replies").select("id", { count: "exact", head: true }),
+    supabase.from("custom_modules").select("id, name, description, route_slug"),
+  ]);
+  const { count: raCustomers } = await supabase
+    .from("ra_customers")
+    .select("id", { count: "exact", head: true });
 
   const usage: Record<string, string> = {
     "review-agent": `${requests ?? 0} review requests`,
     "website-agent": `${leads ?? 0} leads captured`,
     "ai-assistant": `${conversations ?? 0} conversations`,
+    "content-agent": `${contentPieces ?? 0} pieces written`,
+    "instant-quote-agent": `${quotes ?? 0} quotes created`,
+    "crm-agent": `${(raCustomers ?? 0) + (leads ?? 0)} contacts`,
+    "speed-to-lead-agent": `${instantReplies ?? 0} instant replies`,
   };
 
   const available = AGENT_MODULES.filter(

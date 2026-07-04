@@ -68,6 +68,13 @@ export default async function AiAssistantPage({
       ? ["How are my review requests performing?"]
       : []),
     ...(installedSet.has("website-agent") ? ["Show me my latest leads"] : []),
+    ...(installedSet.has("content-agent")
+      ? ["Write 3 social posts about our summer availability"]
+      : []),
+    ...(installedSet.has("instant-quote-agent")
+      ? ["Create a quote for a bathroom re-seal"]
+      : []),
+    ...(installedSet.has("crm-agent") ? ["Find a contact for me"] : []),
     "Draft a reply to a customer asking for a quote",
   ];
 

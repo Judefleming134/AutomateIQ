@@ -37,15 +37,72 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Page not found" }, { status: 404 });
   }
 
-  const { error } = await supabase.from("wa_leads").insert({
-    business_id: page.business_id,
-    name,
-    contact,
-    message: message || null,
-  });
+  const { data: lead, error } = await supabase
+    .from("wa_leads")
+    .insert({
+      business_id: page.business_id,
+      name,
+      contact,
+      message: message || null,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
+  if (error || !lead) {
     return NextResponse.json({ error: "Store failed" }, { status: 502 });
+  }
+
+  // Speed-to-Lead Agent: instant acknowledgment to the lead, only when the
+  // product is enabled for this business and the contact is an email.
+  // Best-effort — the lead is already stored, so nothing here may fail the
+  // request.
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) {
+    try {
+      const { data: stlEnabled } = await supabase
+        .from("business_products")
+        .select("business_id, products!inner(key)")
+        .eq("business_id", page.business_id)
+        .eq("products.key", "speed-to-lead-agent")
+        .maybeSingle();
+
+      if (stlEnabled) {
+        const business = page.businesses as unknown as { name: string } | null;
+        const businessName = business?.name ?? "the team";
+        const resend = getResendClient();
+        const result = await resend.emails.send(
+          {
+            from: getFromAddress(),
+            to: contact,
+            subject: `Thanks ${name} — we've got your enquiry`,
+            text: [
+              `Hi ${name},`,
+              ``,
+              `Thanks for getting in touch with ${businessName} — your message just landed with us and it's already in front of the team.`,
+              ``,
+              `We'll come back to you personally as soon as possible, usually within the hour during working hours.`,
+              ``,
+              `Talk soon,`,
+              businessName,
+            ].join("\n"),
+          },
+          { idempotencyKey: `stl-${lead.id}` }
+        );
+        if (result.error) {
+          console.error("Speed-to-Lead reply rejected:", result.error);
+        } else {
+          const { error: logError } = await supabase.from("stl_replies").insert({
+            business_id: page.business_id,
+            lead_id: lead.id,
+            sent_to: contact,
+          });
+          if (logError) {
+            console.error("Speed-to-Lead log failed:", logError.message);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Speed-to-Lead reply failed:", err);
+    }
   }
 
   // Best-effort owner notification — the lead is already stored, so an

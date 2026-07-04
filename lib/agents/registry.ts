@@ -5,6 +5,10 @@ import type { AgentModule, AgentTool } from "@/lib/agents/types";
 import { platformModule } from "@/lib/agents/modules/platform";
 import { reviewAgentModule } from "@/lib/agents/modules/review-agent";
 import { websiteAgentModule } from "@/lib/agents/modules/website-agent";
+import { contentAgentModule } from "@/lib/agents/modules/content-agent";
+import { instantQuoteAgentModule } from "@/lib/agents/modules/instant-quote-agent";
+import { crmAgentModule } from "@/lib/agents/modules/crm-agent";
+import { speedToLeadAgentModule } from "@/lib/agents/modules/speed-to-lead-agent";
 import { FUTURE_AGENT_MODULES } from "@/lib/agents/modules/future";
 
 /**
@@ -16,6 +20,10 @@ import { FUTURE_AGENT_MODULES } from "@/lib/agents/modules/future";
 export const AGENT_MODULES: AgentModule[] = [
   reviewAgentModule,
   websiteAgentModule,
+  contentAgentModule,
+  instantQuoteAgentModule,
+  crmAgentModule,
+  speedToLeadAgentModule,
   ...FUTURE_AGENT_MODULES,
 ];
 

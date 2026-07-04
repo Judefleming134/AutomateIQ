@@ -49,6 +49,46 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     status: "active",
   },
   {
+    key: "content-agent",
+    name: "Content Agent",
+    description:
+      "AI-written blogs, social posts, emails and ad copy — on brand, on demand.",
+    href: "/portal/content-agent",
+    iconName: "pen-line",
+    accent: "#EC4899",
+    status: "active",
+  },
+  {
+    key: "instant-quote-agent",
+    name: "Instant Quote Agent",
+    description:
+      "Turns a job description into a priced, itemised quote in seconds.",
+    href: "/portal/instant-quote-agent",
+    iconName: "calculator",
+    accent: "#EA580C",
+    status: "active",
+  },
+  {
+    key: "crm-agent",
+    name: "CRM Agent",
+    description:
+      "Every customer and lead in one place, searchable and up to date.",
+    href: "/portal/crm-agent",
+    iconName: "contact",
+    accent: "#3B82F6",
+    status: "active",
+  },
+  {
+    key: "speed-to-lead-agent",
+    name: "Speed-to-Lead Agent",
+    description:
+      "Replies to every new lead in under 60 seconds, day or night.",
+    href: "/portal/speed-to-lead-agent",
+    iconName: "zap",
+    accent: "#F59E0B",
+    status: "active",
+  },
+  {
     key: "custom-solutions",
     name: "Custom Solutions",
     description: "Bespoke AI modules built specifically for your business.",

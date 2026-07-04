@@ -61,6 +61,40 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Third overnight update (2026-07-04, V5): four new live agents
+
+Content Agent, Instant Quote Agent, CRM Agent and Speed-to-Lead Agent are
+now real, working products. **One setup step:**
+
+1. **Run `supabase/manual_update_0007.sql` in the Supabase SQL Editor**
+   (one paste, idempotent). Creates ca_content, qa_settings, qa_quotes and
+   stl_replies (+ RLS), and adds the four product rows so they can be
+   assigned to customers in the admin console. Until it runs: CRM Agent
+   works fully (it needs no new tables); the other three degrade
+   gracefully (content/quotes still generate but warn they can't save;
+   Speed-to-Lead sends but can't log).
+2. Assign the new products to a business in **Admin → customer → Products**
+   to switch them on.
+
+What they do:
+
+- **Content Agent** (`/portal/content-agent`) — writes blogs, social
+  posts, emails and ad copy in the business's brand voice (uses the AI
+  Assistant's knowledge + tone), saves everything to a library. Also
+  callable by the AI Assistant ("write 3 social posts about…").
+- **Instant Quote Agent** (`/portal/instant-quote-agent`) — the business
+  saves a price guide; a job description then becomes an itemised quote
+  priced ONLY from that guide (uncovered work is flagged "needs
+  confirmation", never priced). Quote history kept. AI Assistant tool:
+  create_quote.
+- **CRM Agent** (`/portal/crm-agent`) — unified, searchable contact list
+  merging review customers + website leads. No new tables. AI Assistant
+  tool: search_contacts.
+- **Speed-to-Lead Agent** — when a website lead with an email address
+  arrives, an instant personal acknowledgment goes out via Resend within
+  seconds (idempotency-keyed, best-effort, never blocks lead capture);
+  the reply log lives at `/portal/speed-to-lead-agent`.
+
 ### Second overnight update (2026-07-04, later): all products now real
 
 Website Agent, AI Assistant and Custom Solutions are now functional

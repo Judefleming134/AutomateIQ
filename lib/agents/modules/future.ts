@@ -8,44 +8,6 @@ import type { AgentModule } from "@/lib/agents/types";
  */
 export const FUTURE_AGENT_MODULES: AgentModule[] = [
   {
-    key: "instant-quote-agent",
-    name: "Instant Quote Agent",
-    version: "0.1",
-    category: "sales",
-    description:
-      "Qualifies customers, collects job details and produces instant, accurate quotations.",
-    iconName: "calculator",
-    accent: "#EA580C",
-    availability: "coming_soon",
-    capabilities: [
-      "Customer qualification",
-      "Pricing calculation",
-      "Instant quotations",
-      "CRM opportunity creation",
-      "Proposal hand-off",
-    ],
-    tools: [],
-  },
-  {
-    key: "speed-to-lead-agent",
-    name: "Speed-to-Lead Agent",
-    version: "0.1",
-    category: "sales",
-    description:
-      "Responds to every new lead within 60 seconds, qualifies the opportunity and books the meeting.",
-    iconName: "zap",
-    accent: "#F59E0B",
-    availability: "coming_soon",
-    capabilities: [
-      "60-second response",
-      "Business research",
-      "Lead qualification",
-      "Meeting booking",
-      "Sales hand-off",
-    ],
-    tools: [],
-  },
-  {
     key: "proposal-agent",
     name: "Proposal Agent",
     version: "0.1",
@@ -84,26 +46,6 @@ export const FUTURE_AGENT_MODULES: AgentModule[] = [
     tools: [],
   },
   {
-    key: "content-agent",
-    name: "Content Agent",
-    version: "0.1",
-    category: "content",
-    description:
-      "Creates blogs, website copy, emails, SEO content, landing pages, social posts and campaigns.",
-    iconName: "pen-line",
-    accent: "#EC4899",
-    availability: "coming_soon",
-    capabilities: [
-      "Blogs & website copy",
-      "Email campaigns",
-      "SEO content",
-      "Landing pages",
-      "Social media",
-      "Case studies",
-    ],
-    tools: [],
-  },
-  {
     key: "voice-agent",
     name: "Voice Agent",
     version: "0.1",
@@ -135,24 +77,6 @@ export const FUTURE_AGENT_MODULES: AgentModule[] = [
       "Pipeline follow-ups",
       "Deal nudges",
       "Next-step recommendations",
-    ],
-    tools: [],
-  },
-  {
-    key: "crm-agent",
-    name: "CRM Agent",
-    version: "0.1",
-    category: "operations",
-    description:
-      "Keeps every customer record clean, current and connected across the platform.",
-    iconName: "contact",
-    accent: "#3B82F6",
-    availability: "coming_soon",
-    capabilities: [
-      "Unified customer records",
-      "Automatic enrichment",
-      "Deduplication",
-      "Activity timelines",
     ],
     tools: [],
   },
