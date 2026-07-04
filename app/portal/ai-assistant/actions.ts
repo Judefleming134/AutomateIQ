@@ -348,10 +348,14 @@ async function runGemini(
     })
   );
 
+  // Gemini rejects OBJECT parameter schemas with empty `properties` —
+  // no-argument tools must omit `parameters` entirely.
   const functionDeclarations = tools.map((t) => ({
     name: t.name,
     description: t.description,
-    parameters: t.inputSchema,
+    ...(Object.keys(t.inputSchema.properties).length > 0
+      ? { parameters: t.inputSchema }
+      : {}),
   }));
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {

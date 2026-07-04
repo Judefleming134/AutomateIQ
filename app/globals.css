@@ -1677,6 +1677,31 @@ table.data-table {
   word-break: break-word;
 }
 
+.chat-line {
+  display: block;
+  min-height: 0.6em;
+}
+
+.chat-bullet {
+  position: relative;
+  padding-left: 16px;
+}
+
+.chat-bullet::before {
+  content: "•";
+  position: absolute;
+  left: 3px;
+  color: var(--ac2);
+}
+
+.chat-msg code {
+  font-family: var(--mono);
+  font-size: 0.88em;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
 .chat-msg.is-user {
   align-self: flex-end;
   background: linear-gradient(135deg, var(--ac2), #2563eb);
@@ -1705,6 +1730,78 @@ table.data-table {
   color: var(--faint);
   font-size: 13.5px;
   padding: 24px;
+}
+
+/* Admin — per-row product chips */
+.product-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.product-chips span {
+  font-size: 10.5px;
+  color: var(--body);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Admin — product adoption bars */
+.adoption-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.adoption-list li {
+  display: grid;
+  grid-template-columns: minmax(110px, 150px) minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 12px;
+}
+
+.adoption-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--heading);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adoption-label svg {
+  flex: none;
+  color: var(--ac2);
+}
+
+.adoption-bar {
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.adoption-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--chart-2), var(--chart-3));
+  transition: width 0.5s ease;
+}
+
+.adoption-count {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--body);
+  text-align: right;
 }
 
 /* Business health */
@@ -1772,6 +1869,13 @@ table.data-table {
 
 .health-list li a:hover {
   color: var(--ac2);
+}
+
+/* Horizontal variant — admin setup progress */
+.health-list-row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px 22px;
 }
 
 /* Products hub */

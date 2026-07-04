@@ -7,6 +7,40 @@ import { ACTION_PREFIX } from "./shared";
 
 type Message = { role: "user" | "assistant"; content: string };
 
+/**
+ * Minimal markdown-lite renderer for assistant replies — handles **bold**,
+ * `code`, and "- " bullet lines without any dependency or raw HTML.
+ * Everything is built as React nodes, so there's no injection surface.
+ */
+function renderInline(text: string, keyBase: string): React.ReactNode[] {
+  return text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${keyBase}-${i}`}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+      return <code key={`${keyBase}-${i}`}>{part.slice(1, -1)}</code>;
+    }
+    return part;
+  });
+}
+
+function MessageBody({ content }: { content: string }) {
+  const lines = content.split("\n");
+  return (
+    <>
+      {lines.map((line, i) => {
+        const bullet = /^\s*[-*]\s+/.test(line);
+        const text = bullet ? line.replace(/^\s*[-*]\s+/, "") : line;
+        return (
+          <span key={i} className={bullet ? "chat-line chat-bullet" : "chat-line"}>
+            {renderInline(text, `l${i}`)}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 export function AssistantChat({
   initialConversationId,
   initialMessages,
@@ -95,7 +129,7 @@ export function AssistantChat({
                 key={i}
                 className={`chat-msg ${m.role === "user" ? "is-user" : "is-assistant"}`}
               >
-                {m.content}
+                <MessageBody content={m.content} />
               </div>
             )
           )

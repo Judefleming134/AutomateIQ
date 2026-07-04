@@ -42,6 +42,34 @@ export default async function AdminCustomersPage({
     ]);
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / PAGE_SIZE));
 
+  // Enrich the visible page with enabled products + user counts — two
+  // batched queries over just this page's ids, not N+1.
+  const pageIds = (businesses ?? []).map((b) => b.id);
+  const productsByBusiness = new Map<string, string[]>();
+  const usersByBusiness = new Map<string, number>();
+  if (pageIds.length > 0) {
+    const [{ data: bpRows }, { data: profileRows }] = await Promise.all([
+      supabase
+        .from("business_products")
+        .select("business_id, products(name)")
+        .in("business_id", pageIds),
+      supabase.from("profiles").select("business_id").in("business_id", pageIds),
+    ]);
+    for (const row of bpRows ?? []) {
+      const name = (row.products as unknown as { name: string } | null)?.name;
+      if (!name) continue;
+      const list = productsByBusiness.get(row.business_id) ?? [];
+      list.push(name);
+      productsByBusiness.set(row.business_id, list);
+    }
+    for (const row of profileRows ?? []) {
+      usersByBusiness.set(
+        row.business_id,
+        (usersByBusiness.get(row.business_id) ?? 0) + 1
+      );
+    }
+  }
+
   return (
     <>
       <div className="page-header">
@@ -114,23 +142,40 @@ export default async function AdminCustomersPage({
               <tr>
                 <th>Business</th>
                 <th>Status</th>
+                <th>Products</th>
+                <th>Users</th>
                 <th>Created</th>
               </tr>
             </thead>
             <tbody>
-              {(businesses ?? []).map((b) => (
-                <tr key={b.id}>
-                  <td>
-                    <Link href={`/admin/customers/${b.id}`}>{b.name}</Link>
-                  </td>
-                  <td>
-                    <span className={`badge ${b.status === "active" ? "badge-green" : "badge-orange"}`}>
-                      {b.status}
-                    </span>
-                  </td>
-                  <td>{new Date(b.created_at).toLocaleDateString()}</td>
-                </tr>
-              ))}
+              {(businesses ?? []).map((b) => {
+                const productNames = productsByBusiness.get(b.id) ?? [];
+                return (
+                  <tr key={b.id}>
+                    <td>
+                      <Link href={`/admin/customers/${b.id}`}>{b.name}</Link>
+                    </td>
+                    <td>
+                      <span className={`badge ${b.status === "active" ? "badge-green" : "badge-orange"}`}>
+                        {b.status}
+                      </span>
+                    </td>
+                    <td>
+                      {productNames.length === 0 ? (
+                        <span style={{ color: "var(--faint)", fontSize: 12 }}>—</span>
+                      ) : (
+                        <span className="product-chips">
+                          {productNames.map((name) => (
+                            <span key={name}>{name}</span>
+                          ))}
+                        </span>
+                      )}
+                    </td>
+                    <td>{usersByBusiness.get(b.id) ?? 0}</td>
+                    <td>{new Date(b.created_at).toLocaleDateString()}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

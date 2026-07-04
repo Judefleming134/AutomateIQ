@@ -70,7 +70,7 @@ export const websiteAgentModule: AgentModule = {
         const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
         const { data } = await ctx.supabase
           .from("wa_leads")
-          .select("name, email, phone, message, created_at")
+          .select("name, contact, message, created_at")
           .order("created_at", { ascending: false })
           .limit(limit);
         if (!data || data.length === 0) {
@@ -79,7 +79,7 @@ export const websiteAgentModule: AgentModule = {
         return data
           .map(
             (l) =>
-              `${l.name} <${l.email}>${l.phone ? ` ${l.phone}` : ""} — ${new Date(l.created_at).toLocaleDateString("en-IE")}${l.message ? ` — "${String(l.message).slice(0, 140)}"` : ""}`
+              `${l.name} (${l.contact}) — ${new Date(l.created_at).toLocaleDateString("en-IE")}${l.message ? ` — "${String(l.message).slice(0, 140)}"` : ""}`
           )
           .join("\n");
       },

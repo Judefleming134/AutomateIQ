@@ -5,6 +5,10 @@ import {
   PauseCircle,
   Plus,
   Send,
+  Users,
+  MessageSquare,
+  MousePointerClick,
+  Boxes,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,6 +18,7 @@ import { RunRemindersButton } from "@/components/admin/run-reminders-button";
 import { HudCorners } from "@/components/shell/hud-corners";
 import {
   ActivityBarChart,
+  DonutChart,
   bucketByDay,
 } from "@/components/portal/activity-chart";
 
@@ -76,20 +81,69 @@ export default async function AdminHome() {
 
   const since30 = new Date(Date.now() - 29 * 86_400_000).toISOString();
   const since14 = new Date(Date.now() - 13 * 86_400_000).toISOString();
-  const [weather, { data: newBusinesses }, { data: newRequests }] =
-    await Promise.all([
-      getLocalWeather(),
-      supabase
-        .from("businesses")
-        .select("created_at")
-        .gte("created_at", since30)
-        .limit(1000),
-      supabase
-        .from("ra_review_requests")
-        .select("created_at")
-        .gte("created_at", since14)
-        .limit(2000),
-    ]);
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const sinceToday = dayStart.toISOString();
+
+  const [
+    weather,
+    { data: newBusinesses },
+    { data: newRequests },
+    { count: clicked },
+    { count: totalLeads },
+    { count: totalConversations },
+    { count: requestsToday },
+    { count: leadsToday },
+    { count: aiMessagesToday },
+    { data: adoptionRows },
+  ] = await Promise.all([
+    getLocalWeather(),
+    supabase
+      .from("businesses")
+      .select("created_at")
+      .gte("created_at", since30)
+      .limit(1000),
+    supabase
+      .from("ra_review_requests")
+      .select("created_at")
+      .gte("created_at", since14)
+      .limit(2000),
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "clicked"),
+    supabase.from("wa_leads").select("id", { count: "exact", head: true }),
+    supabase
+      .from("aa_conversations")
+      .select("id", { count: "exact", head: true }),
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase
+      .from("wa_leads")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase
+      .from("aa_messages")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday),
+    supabase.from("business_products").select("products(name)"),
+  ]);
+
+  // Product adoption — businesses per product, counted from the join table.
+  const adoption = new Map<string, number>();
+  for (const row of adoptionRows ?? []) {
+    const name = (row.products as unknown as { name: string } | null)?.name;
+    if (name) adoption.set(name, (adoption.get(name) ?? 0) + 1);
+  }
+  const adoptionList = [...adoption.entries()].sort((a, b) => b[1] - a[1]);
+  const maxAdoption = Math.max(1, ...adoptionList.map(([, n]) => n));
+
+  const clickRate =
+    (requestsSent ?? 0) > 0
+      ? `${Math.round(((clicked ?? 0) / (requestsSent ?? 1)) * 100)}%`
+      : "—";
 
   const today = new Date().toLocaleDateString("en-IE", {
     weekday: "long",
@@ -109,7 +163,12 @@ export default async function AdminHome() {
                 ` · ${weather.emoji} ${weather.tempC}°C ${weather.label} in ${weather.city}`}
             </p>
             <h1>{greetingForNow()} — platform overview</h1>
-            <p>Signed in as {user.email}</p>
+            <p>
+              Today: {requestsToday ?? 0} review request{(requestsToday ?? 0) === 1 ? "" : "s"} ·{" "}
+              {leadsToday ?? 0} lead{(leadsToday ?? 0) === 1 ? "" : "s"} ·{" "}
+              {aiMessagesToday ?? 0} AI message{(aiMessagesToday ?? 0) === 1 ? "" : "s"} —
+              signed in as {user.email}
+            </p>
           </div>
           <Link href="/admin/customers" className="btn btn-primary">
             <Plus size={15} /> New customer
@@ -153,6 +212,27 @@ export default async function AdminHome() {
           value={requestsSent ?? 0}
           icon={<Send />}
           accent="#7C3AED"
+          hint={`${clickRate} click rate`}
+        />
+        <StatCard
+          label="Review clicks"
+          value={clicked ?? 0}
+          icon={<MousePointerClick />}
+          accent="#22D3EE"
+          hint="platform-wide"
+        />
+        <StatCard
+          label="Website leads"
+          value={totalLeads ?? 0}
+          icon={<Users />}
+          accent="#0891B2"
+          hint="platform-wide"
+        />
+        <StatCard
+          label="AI conversations"
+          value={totalConversations ?? 0}
+          icon={<MessageSquare />}
+          accent="#3B82F6"
           hint="platform-wide"
         />
       </div>
@@ -197,6 +277,53 @@ export default async function AdminHome() {
           <h2 className="panel-title">
             <span>
               <span className="sys-index">03 /</span>
+              Product adoption
+            </span>
+            <Link href="/admin/modules">Modules →</Link>
+          </h2>
+          {adoptionList.length === 0 ? (
+            <p className="empty-state">No products assigned yet.</p>
+          ) : (
+            <ul className="adoption-list">
+              {adoptionList.map(([name, n]) => (
+                <li key={name}>
+                  <span className="adoption-label">
+                    <Boxes size={13} /> {name}
+                  </span>
+                  <span className="adoption-bar">
+                    <span style={{ width: `${Math.round((n / maxAdoption) * 100)}%` }} />
+                  </span>
+                  <span className="adoption-count">{n}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">04 /</span>
+              Platform engagement
+            </span>
+          </h2>
+          <DonutChart
+            centerLabel="events"
+            emptyText="No activity yet."
+            segments={[
+              { label: "Review requests", count: requestsSent ?? 0, color: "var(--chart-1)" },
+              { label: "Leads", count: totalLeads ?? 0, color: "var(--chart-3)" },
+              { label: "AI conversations", count: totalConversations ?? 0, color: "var(--chart-2)" },
+            ]}
+          />
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="panel panel-block">
+          <h2 className="panel-title">
+            <span>
+              <span className="sys-index">05 /</span>
               Newest customers
             </span>
             <Link href="/admin/customers">View all →</Link>
@@ -249,7 +376,7 @@ export default async function AdminHome() {
         <div className="panel panel-block">
           <h2 className="panel-title">
             <span>
-              <span className="sys-index">04 /</span>
+              <span className="sys-index">06 /</span>
               Recent admin activity
             </span>
           </h2>

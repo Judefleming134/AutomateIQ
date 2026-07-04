@@ -1,7 +1,15 @@
 import { notFound } from "next/navigation";
-import { KeyRound, FileText } from "lucide-react";
+import {
+  KeyRound,
+  FileText,
+  Send,
+  MousePointerClick,
+  Users,
+  MessageSquare,
+} from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { StatCard } from "@/components/portal/stat-card";
 import {
   setBusinessStatus,
   softDeleteBusiness,
@@ -56,6 +64,62 @@ export default async function AdminCustomerDetailPage({
 
   const enabledProductIds = new Set((enabled ?? []).map((e) => e.product_id));
 
+  // Usage snapshot + setup state for this business — service-role queries,
+  // explicitly scoped by business_id.
+  const [
+    { count: requests },
+    { count: clicked },
+    { count: leads },
+    { count: conversations },
+    { data: waPage },
+    { data: assistant },
+  ] = await Promise.all([
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", id)
+      .in("status", ["sent", "reminded", "clicked"]),
+    supabase
+      .from("ra_review_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", id)
+      .eq("status", "clicked"),
+    supabase
+      .from("wa_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", id),
+    supabase
+      .from("aa_conversations")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", id),
+    supabase
+      .from("wa_pages")
+      .select("published")
+      .eq("business_id", id)
+      .maybeSingle(),
+    supabase
+      .from("aa_assistants")
+      .select("knowledge")
+      .eq("business_id", id)
+      .maybeSingle(),
+  ]);
+
+  const clickRate =
+    (requests ?? 0) > 0
+      ? `${Math.round(((clicked ?? 0) / (requests ?? 1)) * 100)}%`
+      : "—";
+
+  const setupChecks = [
+    {
+      label: "Google review link",
+      ok: Boolean(business.google_review_link),
+    },
+    { label: "AI Assistant knowledge", ok: Boolean(assistant?.knowledge) },
+    { label: "Website page published", ok: Boolean(waPage?.published) },
+    { label: "First review request sent", ok: (requests ?? 0) > 0 },
+    { label: "First lead captured", ok: (leads ?? 0) > 0 },
+  ];
+
   // useActionState requires action: (prevState, formData) => result — these
   // capture `id` (and, per-item, the loop variable) via closure.
   async function suspend(_p: unknown, _f: FormData) {
@@ -100,6 +164,45 @@ export default async function AdminCustomerDetailPage({
             </SubmitButton>
           </ActionForm>
         </div>
+      </div>
+
+      <div className="stat-grid">
+        <StatCard
+          label="Review requests"
+          value={requests ?? 0}
+          icon={<Send />}
+          accent="#7C3AED"
+        />
+        <StatCard
+          label="Review clicks"
+          value={clicked ?? 0}
+          icon={<MousePointerClick />}
+          accent="#22D3EE"
+          hint={`${clickRate} click rate`}
+        />
+        <StatCard
+          label="Leads"
+          value={leads ?? 0}
+          icon={<Users />}
+          accent="#0891B2"
+        />
+        <StatCard
+          label="AI conversations"
+          value={conversations ?? 0}
+          icon={<MessageSquare />}
+          accent="#3B82F6"
+        />
+      </div>
+
+      <div className="panel panel-block" style={{ marginBottom: 26 }}>
+        <h2 className="panel-title">Setup progress</h2>
+        <ul className="health-list health-list-row">
+          {setupChecks.map((c) => (
+            <li key={c.label} className={c.ok ? "is-done" : ""}>
+              <span>{c.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="grid-2">
