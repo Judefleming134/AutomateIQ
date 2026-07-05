@@ -14,6 +14,7 @@ export function ActionForm({
   action,
   children,
   className,
+  style,
 }: {
   action: (
     prevState: ActionResult,
@@ -21,11 +22,12 @@ export function ActionForm({
   ) => Promise<ActionResult>;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
   return (
-    <form action={formAction} className={className}>
+    <form action={formAction} className={className} style={style}>
       {children}
       {state?.error && <p className="login-error">{state.error}</p>}
       {state?.ok && !pending && (

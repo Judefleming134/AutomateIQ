@@ -75,7 +75,14 @@ the thin agents are being rebuilt into full workflows. **Run
   to `qa_quotes` (status, customer_email, view_token, sent/viewed/decided
   timestamps). Public routes `/q/[token]` + `/api/q/[token]` need no auth
   (token-scoped, service-role), like the review click route.
-- CRM, Content, and Speed-to-Lead depth follow in the same series.
+- **CRM Agent → real CRM (shipped).** No longer a search list: `0008`
+  adds `crm_contacts` (pipeline stage new→won, source), `crm_activities`
+  (per-contact timeline), and `crm_tasks` (follow-ups with due dates).
+  "Import from agents" pulls review customers + website leads + quote
+  recipients into the CRM (deduped by email, each with a logged source
+  activity). Contact detail (`/portal/crm-agent/[id]`) shows the full
+  timeline, note logging, stage changes, and tasks.
+- Content and Speed-to-Lead depth follow in the same series.
 
 ### V7 (2026-07-05): architecture hardening + commercial review
 

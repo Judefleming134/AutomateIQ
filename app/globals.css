@@ -1856,6 +1856,72 @@ table.data-table {
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+/* CRM — pipeline, contacts, timeline, tasks */
+.crm-pipeline { display: flex; flex-direction: column; gap: 16px; }
+.crm-stage-count {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+.crm-contact-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.crm-contact-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.crm-contact-list li:last-child { border-bottom: none; }
+.crm-contact-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-decoration: none;
+}
+.crm-contact-name { font-size: 13.5px; font-weight: 600; color: var(--heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crm-contact-sub { font-size: 11.5px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stage-select {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  color: var(--body);
+  cursor: pointer;
+  font-family: inherit;
+}
+.stage-select.stage-won { color: #34d399; border-color: rgba(52,211,153,0.45); }
+.stage-select.stage-lost { color: #f87171; }
+.stage-select.stage-qualified { color: var(--chart-5); }
+.stage-select.stage-contacted { color: var(--chart-2); }
+
+.crm-task-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.crm-task-list li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; }
+.crm-task-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; color: var(--heading); }
+.crm-task-meta { font-size: 11px; color: var(--faint); }
+
+.crm-timeline { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.crm-timeline li {
+  display: flex;
+  gap: 11px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.crm-timeline li:last-child { border-bottom: none; }
+.crm-timeline-icon { flex: none; font-size: 13px; width: 20px; text-align: center; opacity: 0.8; }
+.crm-timeline-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.crm-timeline-body > span:first-child { font-size: 13.5px; color: var(--body); line-height: 1.5; }
+.crm-timeline li.is-note .crm-timeline-body > span:first-child { color: var(--heading); }
+.crm-timeline-time { font-size: 11px; color: var(--faint); font-family: var(--mono); }
+
 /* Quote pipeline status badges (portal) */
 .quote-badge {
   flex: none;

@@ -19,16 +19,17 @@ export const crmAgentModule: AgentModule = {
   version: "1.0",
   category: "operations",
   description:
-    "Every customer and lead in one place — merged from all your agents, searchable and always current.",
+    "A real CRM that fills itself: contacts imported from every agent, a pipeline from new to won, a full activity timeline, and follow-up tasks.",
   iconName: "contact",
   accent: "#3B82F6",
   href: "/portal/crm-agent",
   availability: "live",
   capabilities: [
-    "Unified contact list",
-    "Review customers + website leads merged",
-    "Instant search",
-    "Engagement at a glance",
+    "Pipeline stages (new → won)",
+    "Auto-imported from every agent",
+    "Full activity timeline per contact",
+    "Follow-up tasks with due dates",
+    "Unified search across all sources",
   ],
   tools: [
     {
