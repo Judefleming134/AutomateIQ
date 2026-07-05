@@ -5,7 +5,11 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAction } from "@/lib/audit";
+import { isMissingTableError } from "@/lib/db/errors";
 import { DOCUMENTATION_LIBRARY } from "@/lib/documentation/library";
+
+const NEEDS_MIGRATION =
+  "The documentation tables aren't set up yet. Run supabase/manual_update_0009.sql in the Supabase SQL Editor, then try again.";
 
 type Result = { ok?: boolean; error?: string } | undefined;
 
@@ -46,7 +50,7 @@ export async function seedLibrary(): Promise<Result> {
     .from("doc_documents")
     .upsert(rows, { onConflict: "slug", ignoreDuplicates: false });
 
-  if (error) return { error: error.message };
+  if (error) return { error: isMissingTableError(error) ? NEEDS_MIGRATION : error.message };
 
   await logAdminAction({
     actorId: admin.id,

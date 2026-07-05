@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Plus, Library, Users2, ExternalLink } from "lucide-react";
+import { Plus, Library, Users2, ExternalLink, AlertTriangle } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { DocIcon } from "@/components/documentation/doc-icon";
+import { isMissingTableError } from "@/lib/db/errors";
 import { seedLibrary, createDocument } from "./actions";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
@@ -17,7 +18,7 @@ export default async function AdminDocumentationPage() {
   await requireAdmin();
   const supabase = createAdminClient();
 
-  const [{ data: docs }, { count: groupCount }, { data: assignRows }] =
+  const [{ data: docs, error: docsError }, { count: groupCount }, { data: assignRows }] =
     await Promise.all([
       supabase
         .from("doc_documents")
@@ -27,6 +28,35 @@ export default async function AdminDocumentationPage() {
       supabase.from("doc_groups").select("id", { count: "exact", head: true }),
       supabase.from("doc_assignments").select("document_id"),
     ]);
+
+  // The documentation tables ship in migration 0009. If it hasn't been run in
+  // the Supabase SQL Editor yet, show a clear setup step rather than a raw
+  // schema-cache error or a misleading empty state.
+  if (docsError && isMissingTableError(docsError)) {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>Documentation</h1>
+            <p>One quick database step is needed before you can use this.</p>
+          </div>
+        </div>
+        <div className="panel panel-block">
+          <div className="doc-seed-cta">
+            <AlertTriangle size={22} />
+            <div>
+              <strong>Database update required</strong>
+              <p>
+                Run <code>supabase/manual_update_0009.sql</code> in the Supabase SQL Editor
+                (one paste, safe to re-run). It creates the documentation tables. Refresh this
+                page afterwards and you&apos;ll be able to load the starter library.
+              </p>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   const all = docs ?? [];
   const assignCounts = new Map<string, number>();
