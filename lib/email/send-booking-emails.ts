@@ -2,6 +2,7 @@ import "server-only";
 import { getResendClient, getFromAddress } from "./resend";
 import { StrategySessionEmail } from "./templates/strategy-session";
 import { formatSlot, BOOKING_CONFIG } from "@/lib/booking/slots";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type Booking = {
   id: string;
@@ -14,20 +15,54 @@ type Booking = {
   slot_at: string;
 };
 
-/**
- * Owner notification address. Set BOOKING_NOTIFY_EMAIL to the inbox that
- * should be alerted the moment a session is booked. Falls back to
- * RESEND_FROM_EMAIL's address so notifications still arrive somewhere sensible
- * before it's configured.
- */
-function ownerNotifyAddress(): string | null {
-  if (process.env.BOOKING_NOTIFY_EMAIL) return process.env.BOOKING_NOTIFY_EMAIL;
+function fromAddressInbox(): string | null {
   const from = process.env.RESEND_FROM_EMAIL;
-  if (from) {
-    const m = /<([^>]+)>/.exec(from);
-    return m ? m[1] : from;
+  if (!from) return null;
+  const m = /<([^>]+)>/.exec(from);
+  return m ? m[1] : from;
+}
+
+/**
+ * Who to alert when a session is booked. Resolves, in order, and de-duplicates:
+ *   1. BOOKING_NOTIFY_EMAIL (optional override; comma-separated allowed)
+ *   2. every platform admin's login email, read from the DB via the
+ *      service-role client — so notifications work with ZERO configuration
+ *      (the owner is simply notified at the address they log into /admin with)
+ *   3. the RESEND_FROM_EMAIL address, as a last resort
+ * Best-effort: any lookup failure just falls through to the next source.
+ */
+async function ownerNotifyRecipients(): Promise<string[]> {
+  const recipients = new Set<string>();
+
+  const override = process.env.BOOKING_NOTIFY_EMAIL;
+  if (override) {
+    for (const e of override.split(",")) {
+      const t = e.trim();
+      if (t) recipients.add(t);
+    }
   }
-  return null;
+
+  try {
+    const supabase = createAdminClient();
+    const { data: admins } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin");
+    for (const a of admins ?? []) {
+      const { data } = await supabase.auth.admin.getUserById(a.id);
+      const email = data?.user?.email;
+      if (email) recipients.add(email);
+    }
+  } catch (err) {
+    console.error("Could not resolve admin emails for booking notification:", err);
+  }
+
+  if (recipients.size === 0) {
+    const fallback = fromAddressInbox();
+    if (fallback) recipients.add(fallback);
+  }
+
+  return [...recipients];
 }
 
 /** Confirmation to the visitor. `confirmed` = owner-approved vs. just received. */
@@ -57,11 +92,13 @@ export async function sendBookingConfirmation(booking: Booking, confirmed = fals
   return result;
 }
 
-/** Immediate alert to the owner with the full booking details. */
+/** Immediate alert to the owner(s) with the full booking details. */
 export async function sendOwnerNotification(booking: Booking) {
-  const to = ownerNotifyAddress();
-  if (!to) {
-    console.error("No BOOKING_NOTIFY_EMAIL / RESEND_FROM_EMAIL set — owner not notified.");
+  const to = await ownerNotifyRecipients();
+  if (to.length === 0) {
+    console.error(
+      "No booking notification recipients (no admin account email, BOOKING_NOTIFY_EMAIL, or RESEND_FROM_EMAIL) — owner not notified."
+    );
     return;
   }
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie";
