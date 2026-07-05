@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,15 @@ import {
   CONTENT_TYPES,
   type ContentType,
 } from "@/lib/content-agent/generate-core";
+import { buildCampaignCore } from "@/lib/content-agent/campaign-core";
+
+async function ctx() {
+  const { profile } = await requireSession();
+  const businessId = profile.business_id!;
+  const enabled = await requireProductEnabled(businessId, "content-agent");
+  const supabase = await createClient();
+  return { businessId, enabled, supabase };
+}
 
 const inputSchema = z.object({
   contentType: z.enum(
@@ -27,10 +37,7 @@ export async function generateContent(
   topic: string,
   notes: string
 ): Promise<GenerateResult> {
-  const { profile } = await requireSession();
-  const businessId = profile.business_id!;
-
-  const enabled = await requireProductEnabled(businessId, "content-agent");
+  const { businessId, enabled, supabase } = await ctx();
   if (!enabled) {
     return { ok: false, error: "Content Agent is not enabled for your account." };
   }
@@ -40,7 +47,6 @@ export async function generateContent(
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
 
-  const supabase = await createClient();
   return generateContentCore(
     supabase,
     businessId,
@@ -48,4 +54,70 @@ export async function generateContent(
     parsed.data.topic,
     parsed.data.notes
   );
+}
+
+const campaignSchema = z.object({
+  name: z.string().trim().min(2, "Name your campaign").max(160),
+  goal: z.string().trim().max(500).optional(),
+  theme: z.string().trim().min(3, "Describe the campaign theme").max(300),
+});
+
+export type CampaignResult =
+  | { ok: true; created: number }
+  | { ok: false; error: string };
+
+/**
+ * One-click multi-channel campaign: generates a blog, social posts and an
+ * email in the business's voice and schedules them across the next week.
+ */
+export async function buildCampaign(
+  name: string,
+  goal: string,
+  theme: string
+): Promise<CampaignResult> {
+  const { businessId, enabled, supabase } = await ctx();
+  if (!enabled) return { ok: false, error: "Content Agent is not enabled." };
+
+  const parsed = campaignSchema.safeParse({ name, goal: goal || undefined, theme });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const res = await buildCampaignCore(
+    supabase,
+    businessId,
+    parsed.data.name,
+    parsed.data.goal ?? "",
+    parsed.data.theme
+  );
+  if (!res.ok) return res;
+  revalidatePath("/portal/content-agent");
+  return { ok: true, created: res.created };
+}
+
+export async function scheduleContent(id: string, date: string) {
+  const { enabled, supabase } = await ctx();
+  if (!enabled) return { ok: false as const, error: "Not enabled." };
+  const { error } = await supabase
+    .from("ca_content")
+    .update({
+      status: date ? "scheduled" : "draft",
+      scheduled_for: date || null,
+    })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/portal/content-agent");
+  return { ok: true as const };
+}
+
+export async function markPublished(id: string) {
+  const { enabled, supabase } = await ctx();
+  if (!enabled) return { ok: false as const, error: "Not enabled." };
+  const { error } = await supabase
+    .from("ca_content")
+    .update({ status: "published", published_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false as const, error: error.message };
+  revalidatePath("/portal/content-agent");
+  return { ok: true as const };
 }

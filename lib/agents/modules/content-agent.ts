@@ -22,18 +22,17 @@ export const contentAgentModule: AgentModule = {
   version: "1.0",
   category: "content",
   description:
-    "AI-written blogs, social posts, emails and ad copy — in your brand voice, saved to your content library.",
+    "A content operation: plan a campaign, generate a week of on-brand blogs, social posts and emails in one click, schedule them on a calendar and publish.",
   iconName: "pen-line",
   accent: "#EC4899",
   href: "/portal/content-agent",
   availability: "live",
   capabilities: [
-    "Blog posts",
-    "Social media posts",
-    "Marketing emails",
-    "Ad copy",
-    "Brand-voice aware",
-    "Content library",
+    "One-click multi-channel campaigns",
+    "Blogs, social, emails & ad copy",
+    "Editorial calendar & scheduling",
+    "Draft → scheduled → published pipeline",
+    "Brand-voice aware (from Settings)",
   ],
   tools: [
     {

@@ -98,3 +98,36 @@ create policy "members manage their own crm tasks"
   on crm_tasks for all
   using (is_active_tenant_member(business_id))
   with check (is_active_tenant_member(business_id));
+
+-- Content Agent — campaigns + editorial calendar ----------------------------
+create table if not exists ca_campaigns (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses (id) on delete cascade,
+  name text not null,
+  goal text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists ca_campaigns_business_idx
+  on ca_campaigns (business_id, created_at desc);
+
+alter table ca_campaigns enable row level security;
+drop policy if exists "members manage their own campaigns" on ca_campaigns;
+create policy "members manage their own campaigns"
+  on ca_campaigns for all
+  using (is_active_tenant_member(business_id))
+  with check (is_active_tenant_member(business_id));
+
+-- Editorial workflow columns on the existing content table.
+alter table ca_content add column if not exists status text not null default 'draft';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'ca_content_status_check') then
+    alter table ca_content add constraint ca_content_status_check
+      check (status in ('draft', 'scheduled', 'published'));
+  end if;
+end $$;
+alter table ca_content add column if not exists scheduled_for date;
+alter table ca_content add column if not exists published_at timestamptz;
+alter table ca_content add column if not exists campaign_id uuid
+  references ca_campaigns (id) on delete set null;
+create index if not exists ca_content_schedule_idx
+  on ca_content (business_id, status, scheduled_for);

@@ -1856,6 +1856,18 @@ table.data-table {
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+/* Content Agent — schedule control */
+.content-schedule-input {
+  font-size: 11.5px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  color: var(--body);
+  font-family: inherit;
+  color-scheme: dark;
+}
+
 /* CRM — pipeline, contacts, timeline, tasks */
 .crm-pipeline { display: flex; flex-direction: column; gap: 16px; }
 .crm-stage-count {
