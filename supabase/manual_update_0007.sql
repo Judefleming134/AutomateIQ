@@ -68,6 +68,30 @@ create policy "members manage their own quotes"
   with check (is_active_tenant_member(business_id));
 
 -- Speed-to-Lead Agent (stl_) --------------------------------------------------
+create table if not exists stl_settings (
+  business_id uuid primary key references businesses (id) on delete cascade,
+  enabled boolean not null default true,
+  subject text not null default 'Thanks {{name}} — we''ve got your enquiry',
+  reply_template text not null default
+    'Hi {{name}},
+
+Thanks for getting in touch with {{business}} — your message just landed with us and it''s already in front of the team.
+
+We''ll come back to you personally as soon as possible, usually within the hour during working hours.
+
+Talk soon,
+{{business}}',
+  updated_at timestamptz not null default now()
+);
+
+alter table stl_settings enable row level security;
+
+drop policy if exists "members manage their own speed-to-lead settings" on stl_settings;
+create policy "members manage their own speed-to-lead settings"
+  on stl_settings for all
+  using (is_active_tenant_member(business_id))
+  with check (is_active_tenant_member(business_id));
+
 create table if not exists stl_replies (
   id uuid primary key default gen_random_uuid(),
   business_id uuid not null references businesses (id) on delete cascade,

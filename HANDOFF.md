@@ -61,6 +61,20 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### V7 (2026-07-05): architecture hardening + commercial review
+
+- **Read `docs/COMMERCIAL_REVIEW.md`** — full per-agent viability scores,
+  pricing model, and go-to-market sell order. **Read `docs/AGENTS.md`** for
+  the architecture + "how to add an agent" checklist.
+- LLM config centralised in `lib/ai/config.ts` (one place to upgrade the
+  model). Product auth guard standardised (`guardProduct`). Dead-code sweep
+  found nothing to remove.
+- **`manual_update_0007.sql` was extended** with an `stl_settings` table so
+  Speed-to-Lead's reply email is now customer-editable (subject + message
+  with `{{name}}`/`{{business}}` placeholders + on/off toggle). If you
+  already ran 0007 before this change, just run it again — it's idempotent
+  and will add the new table.
+
 ### Third overnight update (2026-07-04, V5): four new live agents
 
 Content Agent, Instant Quote Agent, CRM Agent and Speed-to-Lead Agent are

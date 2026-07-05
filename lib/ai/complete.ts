@@ -1,32 +1,40 @@
 import "server-only";
 
+import {
+  ANTHROPIC_MESSAGES_URL,
+  ANTHROPIC_VERSION,
+  CLAUDE_MODEL,
+  geminiGenerateUrl,
+  GEMINI_THINKING_OFF,
+  resolveProvider,
+} from "@/lib/ai/config";
+
 /**
  * Plain-text LLM completion shared by generative agents (Content Agent,
- * Instant Quote Agent). Same provider strategy as the AI Assistant:
- * Claude when ANTHROPIC_API_KEY is set, Gemini free tier as fallback.
- * Throws on failure — callers surface a friendly message.
+ * Instant Quote Agent). Provider selection and model IDs come from
+ * lib/ai/config. Throws on failure — callers surface a friendly message:
+ *   - "NO_PROVIDER"  → no API key configured
+ *   - "EMPTY_OUTPUT" → model returned nothing (retryable)
+ *   - "HTTP <status>"→ upstream error
  */
 export async function aiComplete(
   system: string,
   prompt: string,
   maxTokens = 2048
 ): Promise<string> {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!anthropicKey && !geminiKey) {
-    throw new Error("NO_PROVIDER");
-  }
+  const provider = resolveProvider();
+  if (provider.kind === "none") throw new Error("NO_PROVIDER");
 
-  if (anthropicKey) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+  if (provider.kind === "anthropic") {
+    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: "POST",
       headers: {
-        "x-api-key": anthropicKey,
-        "anthropic-version": "2023-06-01",
+        "x-api-key": provider.apiKey,
+        "anthropic-version": ANTHROPIC_VERSION,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
+        model: CLAUDE_MODEL,
         max_tokens: maxTokens,
         system,
         messages: [{ role: "user", content: prompt }],
@@ -40,38 +48,30 @@ export async function aiComplete(
     const data = (await res.json()) as {
       content: { type: string; text?: string }[];
     };
-    return (
+    const text =
       data.content
         ?.filter((b) => b.type === "text")
         .map((b) => b.text)
-        .join("") || ""
-    );
+        .join("") || "";
+    if (!text.trim()) throw new Error("EMPTY_OUTPUT");
+    return text;
   }
 
-  const res = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": geminiKey!,
-        "content-type": "application/json",
+  const res = await fetch(geminiGenerateUrl(), {
+    method: "POST",
+    headers: {
+      "x-goog-api-key": provider.apiKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        thinkingConfig: GEMINI_THINKING_OFF,
+        maxOutputTokens: maxTokens,
       },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          // Gemini 2.5 Flash "thinks" by default, and those thinking
-          // tokens are billed against maxOutputTokens — leaving thinking on
-          // with a tight budget makes the model return an empty response
-          // (finishReason: MAX_TOKENS, no text). These are fast,
-          // deterministic generation tasks, so turn thinking off and give
-          // the output real headroom.
-          thinkingConfig: { thinkingBudget: 0 },
-          maxOutputTokens: maxTokens,
-        },
-      }),
-    }
-  );
+    }),
+  });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     console.error("aiComplete Gemini error:", res.status, detail.slice(0, 300));
@@ -84,8 +84,7 @@ export async function aiComplete(
     }[];
   };
   const text =
-    data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ||
-    "";
+    data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") || "";
   if (!text.trim()) {
     console.error(
       "aiComplete Gemini empty output, finishReason:",

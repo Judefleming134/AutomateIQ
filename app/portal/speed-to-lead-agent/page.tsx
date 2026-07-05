@@ -2,15 +2,22 @@ import { Zap, CalendarDays } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
+import { ActionForm } from "@/components/admin/action-form";
+import { SubmitButton } from "@/components/admin/submit-button";
+import {
+  DEFAULT_STL_SUBJECT,
+  DEFAULT_STL_TEMPLATE,
+} from "@/lib/speed-to-lead/template";
+import { updateSpeedToLeadSettings } from "./actions";
 
 export default async function SpeedToLeadAgentPage() {
-  await requireSession();
+  const { profile } = await requireSession();
   const supabase = await createClient();
 
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
   // RLS-scoped; reads empty until manual_update_0007.sql is run.
-  const [{ count: total }, { count: thisWeek }, { data: replies }] =
+  const [{ count: total }, { count: thisWeek }, { data: replies }, { data: settings }] =
     await Promise.all([
       supabase.from("stl_replies").select("id", { count: "exact", head: true }),
       supabase
@@ -22,7 +29,14 @@ export default async function SpeedToLeadAgentPage() {
         .select("id, sent_to, created_at, wa_leads(name)")
         .order("created_at", { ascending: false })
         .limit(25),
+      supabase
+        .from("stl_settings")
+        .select("enabled, subject, reply_template")
+        .eq("business_id", profile.business_id!)
+        .maybeSingle(),
     ]);
+
+  const isOn = settings?.enabled !== false;
 
   return (
     <>
@@ -34,8 +48,11 @@ export default async function SpeedToLeadAgentPage() {
             while your competitors are still checking their inbox.
           </p>
         </div>
-        <span className="badge badge-green" style={{ alignSelf: "center" }}>
-          <Zap size={11} /> Active
+        <span
+          className={`badge ${isOn ? "badge-green" : "badge-gray"}`}
+          style={{ alignSelf: "center" }}
+        >
+          <Zap size={11} /> {isOn ? "Active" : "Paused"}
         </span>
       </div>
 
@@ -136,6 +153,55 @@ export default async function SpeedToLeadAgentPage() {
           </ol>
         </div>
       </div>
+
+      <h2 className="section-title">Your instant reply</h2>
+      <ActionForm action={updateSpeedToLeadSettings} className="panel form-card">
+        <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--body)", maxWidth: "70ch" }}>
+          This is the email every new lead receives within seconds. Use{" "}
+          <code style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{"{{name}}"}</code>{" "}
+          for the lead&apos;s name and{" "}
+          <code style={{ fontFamily: "var(--mono)", fontSize: 12 }}>{"{{business}}"}</code>{" "}
+          for your business name — they&apos;re filled in automatically.
+        </p>
+        <div
+          className="field"
+          style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+        >
+          <input
+            id="enabled"
+            type="checkbox"
+            name="enabled"
+            defaultChecked={isOn}
+            style={{ width: 16, height: 16 }}
+          />
+          <label htmlFor="enabled" style={{ margin: 0 }}>
+            Send instant replies automatically
+          </label>
+        </div>
+        <div className="field">
+          <label htmlFor="subject">Subject line</label>
+          <input
+            id="subject"
+            type="text"
+            name="subject"
+            defaultValue={settings?.subject ?? DEFAULT_STL_SUBJECT}
+            required
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="replyTemplate">Message</label>
+          <textarea
+            id="replyTemplate"
+            name="replyTemplate"
+            rows={10}
+            defaultValue={settings?.reply_template ?? DEFAULT_STL_TEMPLATE}
+            required
+          />
+        </div>
+        <div className="form-actions">
+          <SubmitButton pendingText="Saving…">Save reply</SubmitButton>
+        </div>
+      </ActionForm>
     </>
   );
 }

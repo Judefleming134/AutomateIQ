@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import {
+  renderTemplate,
+  DEFAULT_STL_SUBJECT,
+  DEFAULT_STL_TEMPLATE,
+} from "@/lib/speed-to-lead/template";
 
 const leadSchema = z.object({
   slug: z.string().trim().min(1),
@@ -65,25 +70,25 @@ export async function POST(request: NextRequest) {
         .eq("products.key", "speed-to-lead-agent")
         .maybeSingle();
 
-      if (stlEnabled) {
+      // Per-business config: custom template + on/off toggle. Missing row
+      // (settings never edited, or 0007 not yet run) → defaults + enabled.
+      const { data: stlSettings } = await supabase
+        .from("stl_settings")
+        .select("enabled, subject, reply_template")
+        .eq("business_id", page.business_id)
+        .maybeSingle();
+
+      if (stlEnabled && stlSettings?.enabled !== false) {
         const business = page.businesses as unknown as { name: string } | null;
         const businessName = business?.name ?? "the team";
+        const vars = { name, business: businessName };
         const resend = getResendClient();
         const result = await resend.emails.send(
           {
             from: getFromAddress(),
             to: contact,
-            subject: `Thanks ${name} — we've got your enquiry`,
-            text: [
-              `Hi ${name},`,
-              ``,
-              `Thanks for getting in touch with ${businessName} — your message just landed with us and it's already in front of the team.`,
-              ``,
-              `We'll come back to you personally as soon as possible, usually within the hour during working hours.`,
-              ``,
-              `Talk soon,`,
-              businessName,
-            ].join("\n"),
+            subject: renderTemplate(stlSettings?.subject ?? DEFAULT_STL_SUBJECT, vars),
+            text: renderTemplate(stlSettings?.reply_template ?? DEFAULT_STL_TEMPLATE, vars),
           },
           { idempotencyKey: `stl-${lead.id}` }
         );

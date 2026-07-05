@@ -13,6 +13,15 @@ import {
   type DiscoveredTool,
 } from "@/lib/agents/registry";
 import type { AgentToolContext } from "@/lib/agents/types";
+import {
+  ANTHROPIC_MESSAGES_URL,
+  ANTHROPIC_VERSION,
+  CLAUDE_MODEL,
+  geminiGenerateUrl,
+  GEMINI_THINKING_OFF,
+  NO_PROVIDER_MESSAGE,
+  resolveProvider,
+} from "@/lib/ai/config";
 import { ACTION_PREFIX, type AssistantAction } from "./shared";
 
 const knowledgeSchema = z.object({
@@ -93,16 +102,10 @@ export async function sendAssistantMessage(
     return { ok: false, error: "Invalid message." };
   }
 
-  // Provider selection: Claude when ANTHROPIC_API_KEY is set, otherwise
-  // Gemini's free tier as a fallback (GEMINI_API_KEY).
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!anthropicKey && !geminiKey) {
-    return {
-      ok: false,
-      error:
-        "The assistant isn't connected yet — add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel.",
-    };
+  // Provider selection is centralised in lib/ai/config.
+  const provider = resolveProvider();
+  if (provider.kind === "none") {
+    return { ok: false, error: NO_PROVIDER_MESSAGE };
   }
 
   const supabase = await createClient();
@@ -201,9 +204,10 @@ export async function sendAssistantMessage(
 
   let reply: string;
   try {
-    reply = anthropicKey
-      ? await runClaude(anthropicKey, system, turns, tools, ctx, actions)
-      : await runGemini(geminiKey!, system, turns, tools, ctx, actions);
+    reply =
+      provider.kind === "anthropic"
+        ? await runClaude(provider.apiKey, system, turns, tools, ctx, actions)
+        : await runGemini(provider.apiKey, system, turns, tools, ctx, actions);
   } catch (err) {
     console.error("Assistant API call failed:", err);
     const message = err instanceof Error ? err.message : "";
@@ -281,15 +285,15 @@ async function runClaude(
   }));
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": ANTHROPIC_VERSION,
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-5",
+        model: CLAUDE_MODEL,
         // Enough headroom that a tool_use block's input JSON can't truncate
         // mid-generation.
         max_tokens: 2048,
@@ -370,30 +374,27 @@ async function runGemini(
   }));
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "x-goog-api-key": apiKey,
-          "content-type": "application/json",
+    const res = await fetch(geminiGenerateUrl(), {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": apiKey,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents,
+        ...(functionDeclarations.length > 0
+          ? { tools: [{ functionDeclarations }] }
+          : {}),
+        // Thinking off + real headroom: Gemini 2.5 Flash bills thinking
+        // tokens against maxOutputTokens, so a tight budget with thinking
+        // on can return an empty reply (finishReason MAX_TOKENS).
+        generationConfig: {
+          thinkingConfig: GEMINI_THINKING_OFF,
+          maxOutputTokens: 2048,
         },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents,
-          ...(functionDeclarations.length > 0
-            ? { tools: [{ functionDeclarations }] }
-            : {}),
-          // Thinking off + real headroom: Gemini 2.5 Flash bills thinking
-          // tokens against maxOutputTokens, so a tight budget with thinking
-          // on can return an empty reply (finishReason MAX_TOKENS).
-          generationConfig: {
-            thinkingConfig: { thinkingBudget: 0 },
-            maxOutputTokens: 2048,
-          },
-        }),
-      }
-    );
+      }),
+    });
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
