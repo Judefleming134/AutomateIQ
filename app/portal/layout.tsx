@@ -7,6 +7,7 @@ import {
   Sparkles,
   Boxes,
   FolderKanban,
+  BookOpen,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +58,7 @@ export default async function PortalLayout({
         { href: "/portal/products", label: "Products", icon: <Boxes /> },
         { href: "/portal/analytics", label: "Analytics", icon: <BarChart3 /> },
         { href: "/portal/projects", label: "Projects", icon: <FolderKanban /> },
+        { href: "/portal/documentation", label: "Documentation", icon: <BookOpen /> },
       ],
     },
     {

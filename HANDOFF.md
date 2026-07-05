@@ -61,6 +61,44 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Phase 2 (2026-07-05): Enterprise Documentation Management System
+
+A full, data-driven documentation platform with database-enforced access.
+**One setup step: run `supabase/manual_update_0009.sql` in the Supabase SQL
+Editor** (after 0008; idempotent). It creates `doc_documents`, `doc_versions`,
+`doc_groups`, `doc_group_members`, `doc_assignments`, `doc_group_assignments`,
+plus the `doc_visible_to_member()` visibility function and the customer-read
+RLS policy.
+
+What it does:
+
+- **Customer Documentation Centre** (`/portal/documentation`) — a branded,
+  searchable library grouped by category, with a premium document viewer
+  (branded cover page, reading-progress bar, scrollspy table of contents,
+  callouts, tables, checklists, code — all rendered from Markdown with no
+  `dangerouslySetInnerHTML`). Customers see **only** the documents assigned to
+  them.
+- **Admin console** (`/admin/documentation`) — create/edit/delete documents,
+  publish / unpublish / archive, per-publish version history with restore,
+  assign to individual customers or to groups, a global "visible to all"
+  toggle, customer-group management (`/admin/documentation/groups`), and a
+  live customer preview (`/admin/documentation/[id]/preview`).
+- **Starter library** — a "Load starter library" button seeds 16 professional
+  documents (welcome pack, onboarding guide, SOW, technical checklist,
+  timeline, change-request form, handover, training manual, user guide, FAQ,
+  support guide, maintenance SLA, incident-response, security/GDPR, AI-usage
+  policy) from `lib/documentation/library.ts`. Data-driven: admins edit every
+  one before publishing; re-running refreshes content without touching
+  status/assignments.
+
+Security: access is enforced by RLS, never the frontend. Verified with a
+tenant-isolation test (`/tmp/pgv5/dms_isolation_test.sql`): customer A sees
+only its assigned + global docs and never customer B's; drafts are invisible;
+suspended businesses see nothing; and the assignment/group join tables are
+deny-all to the authenticated role (admin reaches them only via the
+service-role client). Nothing is published or assigned until the admin does
+so — loading the library leaves every doc a private draft.
+
 ### V8 (2026-07-05): agents deepened into complete business apps
 
 Per the "every agent must be a substantial, end-to-end product" directive,
