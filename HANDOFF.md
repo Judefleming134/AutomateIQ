@@ -61,6 +61,43 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Phase 3 (2026-07-05): AI Strategy Session booking + SEO
+
+A premium public conversion page and end-to-end booking system. **Setup:
+run `supabase/manual_update_0010.sql` in the Supabase SQL Editor** (after
+0009; idempotent). Creates `strategy_bookings` with a partial unique index
+that DB-enforces no double-booking of an active slot.
+
+- **Public page** (`/book`, linked from the marketing site's nav, hero and
+  footer — all additive, nothing removed) — a full value-first landing page:
+  hero, "not a sales call" explainer, What We'll Cover (9), Who It's For,
+  Why AutomateIQ, six FAQs, and only then the booking calendar. Built in the
+  platform's dark/blue system so it reads as part of the site.
+- **Booking calendar** — pick a day + time (Mon–Fri, 09:00–17:00 Irish time,
+  30-min slots, ~3 weeks ahead, ≥24h lead), enter name / company / email /
+  phone (optional) / business type / message. Taken slots are hidden and the
+  DB rejects a race for the same slot.
+- **On submit** — saved to Supabase, an instant branded confirmation emails
+  the visitor, and an owner notification with full details fires immediately.
+- **Admin** (`/admin/bookings`) — upcoming + past lists; approve (sends the
+  confirmed email), reschedule (re-notifies; clash-protected), cancel (frees
+  the slot), mark completed.
+- **SEO** (all additive) — Open Graph + Twitter + canonical + Organization/
+  WebSite JSON-LD added to the marketing `<head>`; the `/book` page ships its
+  own metadata + Service JSON-LD; `app/robots.ts` → `/robots.txt` and
+  `app/sitemap.ts` → `/sitemap.xml` (home, /book, agents, legal pages;
+  app/api/portal/admin disallowed) — ready for Search Console.
+
+**New env var:** set **`BOOKING_NOTIFY_EMAIL`** in Vercel to the inbox that
+should receive an alert the moment a session is booked. If unset it falls back
+to the `RESEND_FROM_EMAIL` address so alerts still land somewhere. No other new
+variables. Verified: `next build` green; DB tests confirm double-booking is
+rejected, a cancelled slot frees and can be rebooked, the `updated_at` trigger
+fires, and `strategy_bookings` is deny-all to the authenticated role (public
+create + admin manage go through the service-role client). Nothing on the
+existing marketing site was removed — all sections, the lead form and the chat
+widget are unchanged; the booking links are additive.
+
 ### Phase 2 (2026-07-05): Enterprise Documentation Management System
 
 A full, data-driven documentation platform with database-enforced access.
