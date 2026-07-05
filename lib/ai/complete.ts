@@ -59,7 +59,16 @@ export async function aiComplete(
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: maxTokens },
+        generationConfig: {
+          // Gemini 2.5 Flash "thinks" by default, and those thinking
+          // tokens are billed against maxOutputTokens — leaving thinking on
+          // with a tight budget makes the model return an empty response
+          // (finishReason: MAX_TOKENS, no text). These are fast,
+          // deterministic generation tasks, so turn thinking off and give
+          // the output real headroom.
+          thinkingConfig: { thinkingBudget: 0 },
+          maxOutputTokens: maxTokens,
+        },
       }),
     }
   );
@@ -69,10 +78,20 @@ export async function aiComplete(
     throw new Error(`HTTP ${res.status}`);
   }
   const data = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
+    candidates?: {
+      content?: { parts?: { text?: string }[] };
+      finishReason?: string;
+    }[];
   };
-  return (
+  const text =
     data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ||
-    ""
-  );
+    "";
+  if (!text.trim()) {
+    console.error(
+      "aiComplete Gemini empty output, finishReason:",
+      data.candidates?.[0]?.finishReason
+    );
+    throw new Error("EMPTY_OUTPUT");
+  }
+  return text;
 }

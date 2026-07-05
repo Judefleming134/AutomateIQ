@@ -1,23 +1,29 @@
-import { KeyRound, Plug, Bell, ShieldCheck } from "lucide-react";
+import { KeyRound, Plug, Bell, ShieldCheck, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { updateBusinessSettings } from "@/app/portal/review-agent/settings/actions";
-import { changePassword } from "./actions";
+import { changePassword, updateBusinessKnowledge } from "./actions";
 
 export default async function SettingsPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: business }, { data: userRes }] = await Promise.all([
-    supabase
-      .from("businesses")
-      .select("name, google_review_link, logo_url, email_signature")
-      .eq("id", profile.business_id!)
-      .single(),
-    supabase.auth.getUser(),
-  ]);
+  const [{ data: business }, { data: userRes }, { data: knowledge }] =
+    await Promise.all([
+      supabase
+        .from("businesses")
+        .select("name, google_review_link, logo_url, email_signature")
+        .eq("id", profile.business_id!)
+        .single(),
+      supabase.auth.getUser(),
+      supabase
+        .from("aa_assistants")
+        .select("knowledge, tone")
+        .eq("business_id", profile.business_id!)
+        .maybeSingle(),
+    ]);
 
   return (
     <>
@@ -119,6 +125,47 @@ export default async function SettingsPage() {
             </div>
           </ActionForm>
         </div>
+      </div>
+
+      <div className="panel form-card" style={{ marginBottom: 26 }}>
+        <h2 className="panel-title" style={{ marginBottom: 6 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={15} /> Business knowledge &amp; brand voice
+          </span>
+        </h2>
+        <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--body)", maxWidth: "70ch" }}>
+          The single source of truth your AI agents use to sound like you —
+          services, prices, hours, service area, policies, and the tone you
+          want. Your AI Assistant and Content Agent both read this, so the
+          more detail here, the better everything they produce.
+        </p>
+        <ActionForm action={updateBusinessKnowledge}>
+          <div className="field">
+            <label htmlFor="knowledge">What your agents should know</label>
+            <textarea
+              id="knowledge"
+              name="knowledge"
+              rows={8}
+              placeholder={
+                "We're a plumbing company covering north Dublin.\nCall-out fee: €80. Hourly rate: €95.\nOpen Mon-Sat 8am-6pm, emergency service 24/7.\nWe don't do commercial jobs.\n..."
+              }
+              defaultValue={knowledge?.knowledge ?? ""}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="tone">Brand voice / tone</label>
+            <input
+              id="tone"
+              type="text"
+              name="tone"
+              placeholder="friendly and professional"
+              defaultValue={knowledge?.tone ?? "friendly and professional"}
+            />
+          </div>
+          <div className="form-actions">
+            <SubmitButton pendingText="Saving…">Save knowledge</SubmitButton>
+          </div>
+        </ActionForm>
       </div>
 
       <div className="grid-2">

@@ -68,9 +68,11 @@ export default async function ContentAgentPage() {
             <li>
               <h3>Your voice</h3>
               <p>
-                It uses the tone and business knowledge from your AI
-                Assistant settings — the more detail there, the better the
-                copy.
+                It writes in the tone and business knowledge you set under{" "}
+                <a href="/portal/settings" style={{ color: "var(--ac2)" }}>
+                  Settings → Business knowledge
+                </a>{" "}
+                — the more detail there, the better the copy.
               </p>
             </li>
             <li>

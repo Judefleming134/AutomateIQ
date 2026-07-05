@@ -384,7 +384,13 @@ async function runGemini(
           ...(functionDeclarations.length > 0
             ? { tools: [{ functionDeclarations }] }
             : {}),
-          generationConfig: { maxOutputTokens: 1024 },
+          // Thinking off + real headroom: Gemini 2.5 Flash bills thinking
+          // tokens against maxOutputTokens, so a tight budget with thinking
+          // on can return an empty reply (finishReason MAX_TOKENS).
+          generationConfig: {
+            thinkingConfig: { thinkingBudget: 0 },
+            maxOutputTokens: 2048,
+          },
         }),
       }
     );

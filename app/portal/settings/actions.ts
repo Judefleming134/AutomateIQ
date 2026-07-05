@@ -36,3 +36,51 @@ export async function changePassword(
 
   return { ok: true };
 }
+
+const knowledgeSchema = z.object({
+  knowledge: z.string().trim().max(8000, "Keep the knowledge under 8000 characters"),
+  tone: z.string().trim().max(120),
+});
+
+/**
+ * Platform-level business knowledge & brand voice. Stored in aa_assistants
+ * but gated on session ONLY (not the ai-assistant product) — every agent
+ * that writes in the business's voice (Content Agent, AI Assistant) reads
+ * this, so any customer must be able to set it regardless of which agents
+ * they own. RLS still scopes the row to the caller's own business.
+ */
+export async function updateBusinessKnowledge(
+  _prevState: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+) {
+  const { profile } = await requireSession();
+  const businessId = profile.business_id!;
+
+  const parsed = knowledgeSchema.safeParse({
+    knowledge: formData.get("knowledge") ?? "",
+    tone: formData.get("tone") || "friendly and professional",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("aa_assistants").upsert(
+    {
+      business_id: businessId,
+      knowledge: parsed.data.knowledge,
+      tone: parsed.data.tone,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id" }
+  );
+
+  if (error) {
+    if (error.code === "42P01") {
+      return { error: "Database update required — run supabase/manual_update_0005.sql (see HANDOFF.md)." };
+    }
+    return { error: error.message };
+  }
+
+  return { ok: true };
+}

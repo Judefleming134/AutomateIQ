@@ -1,4 +1,13 @@
-import { Send, Users, MessageSquare, Zap, MousePointerClick, TrendingUp } from "lucide-react";
+import {
+  Send,
+  Users,
+  MessageSquare,
+  Zap,
+  MousePointerClick,
+  TrendingUp,
+  PenLine,
+  Calculator,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
@@ -24,6 +33,9 @@ export default async function AnalyticsPage() {
     { count: conversations },
     { count: aiMessages },
     { count: automations },
+    { count: contentPieces },
+    { count: quotes },
+    { count: instantReplies },
     { data: requestRows },
     { data: leadRows },
     { data: msgRows },
@@ -43,6 +55,9 @@ export default async function AnalyticsPage() {
       .from("ra_review_requests")
       .select("id", { count: "exact", head: true })
       .not("reminder_sent_at", "is", null),
+    supabase.from("ca_content").select("id", { count: "exact", head: true }),
+    supabase.from("qa_quotes").select("id", { count: "exact", head: true }),
+    supabase.from("stl_replies").select("id", { count: "exact", head: true }),
     supabase.from("ra_review_requests").select("created_at").gte("created_at", since).limit(2000),
     supabase.from("wa_leads").select("created_at").gte("created_at", since).limit(2000),
     supabase.from("aa_messages").select("created_at").gte("created_at", since).limit(2000),
@@ -59,8 +74,8 @@ export default async function AnalyticsPage() {
         <div>
           <h1>Analytics</h1>
           <p>
-            One view across every module — reviews, leads, AI usage and
-            automation activity. Revenue tracking arrives with billing.
+            One view across every agent — reviews, leads, AI usage, content,
+            quotes and automations. Revenue tracking arrives with billing.
           </p>
         </div>
       </div>
@@ -72,6 +87,9 @@ export default async function AnalyticsPage() {
         <StatCard label="Website leads" value={leads ?? 0} icon={<Users />} accent="#0891B2" hint="all time" />
         <StatCard label="AI messages" value={aiMessages ?? 0} icon={<MessageSquare />} accent="#3B82F6" hint={`${conversations ?? 0} conversations`} />
         <StatCard label="Automations" value={automations ?? 0} icon={<Zap />} accent="#059669" hint="auto follow-ups" />
+        <StatCard label="Content written" value={contentPieces ?? 0} icon={<PenLine />} accent="#EC4899" hint="all time" />
+        <StatCard label="Quotes created" value={quotes ?? 0} icon={<Calculator />} accent="#EA580C" hint="all time" />
+        <StatCard label="Instant lead replies" value={instantReplies ?? 0} icon={<Zap />} accent="#F59E0B" hint="under 60s each" />
       </div>
 
       <div className="grid-2">
@@ -118,7 +136,9 @@ export default async function AnalyticsPage() {
               { label: "Review requests", count: requests ?? 0, color: "var(--chart-1)" },
               { label: "Leads", count: leads ?? 0, color: "var(--chart-3)" },
               { label: "AI conversations", count: conversations ?? 0, color: "var(--chart-2)" },
-              { label: "Automations", count: automations ?? 0, color: "var(--chart-4)" },
+              { label: "Content pieces", count: contentPieces ?? 0, color: "#EC4899" },
+              { label: "Quotes", count: quotes ?? 0, color: "#EA580C" },
+              { label: "Automations", count: (automations ?? 0) + (instantReplies ?? 0), color: "var(--chart-4)" },
             ]}
           />
         </div>
