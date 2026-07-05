@@ -12,6 +12,7 @@ export type CreateQuoteResult =
       total: string;
       notes: string;
       saved: boolean;
+      quoteId: string | null;
     }
   | { ok: false; error: string };
 
@@ -24,7 +25,8 @@ export async function createQuoteCore(
   supabase: SupabaseClient,
   businessId: string,
   customerName: string,
-  jobDescription: string
+  jobDescription: string,
+  customerEmail?: string
 ): Promise<CreateQuoteResult> {
   const [{ data: business }, { data: settings }] = await Promise.all([
     supabase.from("businesses").select("name").eq("id", businessId).single(),
@@ -97,16 +99,22 @@ export async function createQuoteCore(
     return { ok: false, error: "Couldn't build a quote from that description — add more detail and try again." };
   }
 
-  const { error: saveError } = await supabase.from("qa_quotes").insert({
-    business_id: businessId,
-    customer_name: customerName.slice(0, 120),
-    job_description: jobDescription.slice(0, 2000),
-    quote_lines: lines,
-    total,
-    notes,
-  });
+  const { data: inserted, error: saveError } = await supabase
+    .from("qa_quotes")
+    .insert({
+      business_id: businessId,
+      customer_name: customerName.slice(0, 120),
+      customer_email: customerEmail?.slice(0, 200) || null,
+      job_description: jobDescription.slice(0, 2000),
+      quote_lines: lines,
+      total,
+      notes,
+      status: "draft",
+    })
+    .select("id")
+    .single();
 
-  return { ok: true, lines, total, notes, saved: !saveError };
+  return { ok: true, lines, total, notes, saved: !saveError, quoteId: inserted?.id ?? null };
 }
 
 export function formatQuoteText(

@@ -2,22 +2,26 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calculator, Copy, Check } from "lucide-react";
-import { createQuote } from "./actions";
+import { Calculator, Copy, Check, Send } from "lucide-react";
+import { createQuote, sendQuote } from "./actions";
 import type { QuoteLine } from "@/lib/quote-agent/create-core";
 
 export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
   const router = useRouter();
   const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
+    quoteId: string | null;
     lines: QuoteLine[];
     total: string;
     notes: string;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sendState, setSendState] = useState<"idle" | "sending" | "sent">("idle");
+  const [sendError, setSendError] = useState<string | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -25,14 +29,39 @@ export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
     setPending(true);
     setError(null);
     setResult(null);
+    setSendState("idle");
+    setSendError(null);
 
-    const res = await createQuote(customerName.trim(), jobDescription.trim());
+    const res = await createQuote(
+      customerName.trim(),
+      jobDescription.trim(),
+      customerEmail.trim() || undefined
+    );
     setPending(false);
     if (res.ok) {
-      setResult({ lines: res.lines, total: res.total, notes: res.notes });
+      setResult({
+        quoteId: res.quoteId,
+        lines: res.lines,
+        total: res.total,
+        notes: res.notes,
+      });
       router.refresh();
     } else {
       setError(res.error);
+    }
+  }
+
+  async function handleSend() {
+    if (!result?.quoteId || sendState === "sending") return;
+    setSendState("sending");
+    setSendError(null);
+    const res = await sendQuote(result.quoteId, customerEmail.trim() || undefined);
+    if (res.ok) {
+      setSendState("sent");
+      router.refresh();
+    } else {
+      setSendState("idle");
+      setSendError(res.error);
     }
   }
 
@@ -77,6 +106,16 @@ export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
             value={customerName}
             onChange={(e) => setCustomerName(e.target.value)}
             required
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="quoteEmail">Customer email (to send the quote)</label>
+          <input
+            id="quoteEmail"
+            type="email"
+            placeholder="optional — add it to email the quote for online acceptance"
+            value={customerEmail}
+            onChange={(e) => setCustomerEmail(e.target.value)}
           />
         </div>
         <div className="field">
@@ -134,6 +173,33 @@ export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
             <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--body)" }}>
               {result.notes}
             </p>
+          )}
+
+          {/* Quote-to-close: send the branded quote for online acceptance */}
+          {result.quoteId && (
+            <div style={{ marginTop: 14, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+              {sendState === "sent" ? (
+                <p style={{ margin: 0, fontSize: 13, color: "var(--green, #34D399)" }}>
+                  ✓ Sent — your customer can now view and accept it online.
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={handleSend}
+                    disabled={sendState === "sending"}
+                  >
+                    <Send size={14} />
+                    {sendState === "sending" ? "Sending…" : "Send to customer"}
+                  </button>
+                  <span style={{ marginLeft: 10, fontSize: 12, color: "var(--faint)" }}>
+                    Emails a branded quote they can accept online.
+                  </span>
+                </>
+              )}
+              {sendError && <p className="login-error">{sendError}</p>}
+            </div>
           )}
         </div>
       )}

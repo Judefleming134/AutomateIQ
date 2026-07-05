@@ -1,34 +1,57 @@
-import { Calculator, FileText } from "lucide-react";
+import { Calculator, FileText, TrendingUp, BadgeEuro } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { QuoteGenerator } from "./generator";
+import { QuoteRow } from "./quote-row";
 import { savePriceGuide } from "./actions";
 import type { QuoteLine } from "@/lib/quote-agent/create-core";
+
+// Best-effort numeric parse of a "€1,240" / "1240" style total for value sums.
+function parseMoney(total: string | null): number {
+  if (!total) return 0;
+  const n = parseFloat(total.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
 
 export default async function InstantQuoteAgentPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  // RLS-scoped; reads empty until manual_update_0007.sql is run.
-  const [{ data: settings }, { data: quotes }, { count: total }] =
-    await Promise.all([
-      supabase
-        .from("qa_settings")
-        .select("price_guide")
-        .eq("business_id", profile.business_id!)
-        .maybeSingle(),
-      supabase
-        .from("qa_quotes")
-        .select("id, customer_name, job_description, quote_lines, total, notes, created_at")
-        .order("created_at", { ascending: false })
-        .limit(15),
-      supabase.from("qa_quotes").select("id", { count: "exact", head: true }),
-    ]);
+  const [{ data: settings }, { data: quotes }] = await Promise.all([
+    supabase
+      .from("qa_settings")
+      .select("price_guide")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle(),
+    supabase
+      .from("qa_quotes")
+      .select(
+        "id, customer_name, customer_email, job_description, quote_lines, total, notes, status, sent_at, viewed_at, decided_at, created_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
   const hasPriceGuide = Boolean(settings?.price_guide?.trim());
+  const all = quotes ?? [];
+
+  // Pipeline metrics — a real sales dashboard, not just a count.
+  const accepted = all.filter((q) => q.status === "accepted");
+  const live = all.filter((q) => ["sent", "viewed"].includes(q.status ?? ""));
+  const decided = all.filter((q) =>
+    ["accepted", "declined"].includes(q.status ?? "")
+  );
+  const acceptanceRate =
+    decided.length > 0
+      ? `${Math.round((accepted.length / decided.length) * 100)}%`
+      : "—";
+  const wonValue = accepted.reduce((s, q) => s + parseMoney(q.total), 0);
+  const openValue = live.reduce((s, q) => s + parseMoney(q.total), 0);
+  const euro = (n: number) =>
+    n > 0 ? `€${n.toLocaleString("en-IE", { maximumFractionDigits: 0 })}` : "—";
 
   return (
     <>
@@ -36,19 +59,33 @@ export default async function InstantQuoteAgentPage() {
         <div>
           <h1>Instant Quote Agent</h1>
           <p>
-            A job description in, an itemised quote out — priced strictly
-            from your own price guide.
+            Price a job in seconds, send a branded quote your customer can
+            accept online, and watch it move from sent to won.
           </p>
         </div>
       </div>
 
       <div className="stat-grid">
         <StatCard
-          label="Quotes created"
-          value={total ?? 0}
+          label="Won value"
+          value={euro(wonValue)}
+          icon={<BadgeEuro />}
+          accent="#34D399"
+          hint={`${accepted.length} accepted`}
+        />
+        <StatCard
+          label="Open value"
+          value={euro(openValue)}
+          icon={<TrendingUp />}
+          accent="#3B82F6"
+          hint={`${live.length} awaiting decision`}
+        />
+        <StatCard
+          label="Acceptance rate"
+          value={acceptanceRate}
           icon={<Calculator />}
-          accent="#EA580C"
-          hint="all time"
+          accent="#7C3AED"
+          hint={`${decided.length} decided`}
         />
         <StatCard
           label="Price guide"
@@ -88,8 +125,8 @@ export default async function InstantQuoteAgentPage() {
         </ActionForm>
       </div>
 
-      <h2 className="section-title">Quote history</h2>
-      {(quotes ?? []).length === 0 ? (
+      <h2 className="section-title">Quote pipeline</h2>
+      {all.length === 0 ? (
         <div className="panel panel-block">
           <p className="empty-state">
             No quotes yet — create your first one above.
@@ -97,48 +134,22 @@ export default async function InstantQuoteAgentPage() {
         </div>
       ) : (
         <div className="content-library">
-          {(quotes ?? []).map((quote) => {
-            const lines = (quote.quote_lines as QuoteLine[]) ?? [];
-            return (
-              <details key={quote.id} className="panel content-item">
-                <summary>
-                  <span className="badge badge-blue">
-                    {quote.total || "quote"}
-                  </span>
-                  <span className="content-topic">
-                    {quote.customer_name} — {quote.job_description.slice(0, 80)}
-                  </span>
-                  <span className="feed-time">
-                    {new Date(quote.created_at).toLocaleDateString("en-IE", {
-                      day: "numeric",
-                      month: "short",
-                    })}
-                  </span>
-                </summary>
-                <table className="quote-table">
-                  <tbody>
-                    {lines.map((l, i) => (
-                      <tr key={i}>
-                        <td>{l.item}</td>
-                        <td>{l.price}</td>
-                      </tr>
-                    ))}
-                    {quote.total && (
-                      <tr className="quote-total">
-                        <td>Total</td>
-                        <td>{quote.total}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {quote.notes && (
-                  <p style={{ margin: "10px 0 0", fontSize: 12.5, color: "var(--body)" }}>
-                    {quote.notes}
-                  </p>
-                )}
-              </details>
-            );
-          })}
+          {all.map((quote) => (
+            <QuoteRow
+              key={quote.id}
+              quote={{
+                id: quote.id,
+                customerName: quote.customer_name,
+                customerEmail: quote.customer_email,
+                jobDescription: quote.job_description,
+                lines: (quote.quote_lines as QuoteLine[]) ?? [],
+                total: quote.total,
+                notes: quote.notes,
+                status: quote.status ?? "draft",
+                createdAt: quote.created_at,
+              }}
+            />
+          ))}
         </div>
       )}
     </>

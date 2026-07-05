@@ -1856,6 +1856,93 @@ table.data-table {
   border-color: rgba(59, 130, 246, 0.5);
 }
 
+/* Quote pipeline status badges (portal) */
+.quote-badge {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 999px;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  color: var(--body);
+}
+.quote-badge-draft { color: #9ca3af; }
+.quote-badge-sent { color: var(--chart-2); border-color: rgba(59,130,246,0.4); }
+.quote-badge-viewed { color: var(--chart-5); border-color: rgba(234,88,12,0.4); }
+.quote-badge-accepted { color: #34d399; border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.1); }
+.quote-badge-declined { color: #f87171; border-color: rgba(220,38,38,0.4); }
+
+/* Public quote page (/q/[token]) — standalone, no portal shell */
+.quote-public {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px 60px;
+  background: var(--bg, #0b0f17);
+}
+.quote-doc {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg1, #101013);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 34px 32px;
+}
+.quote-doc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.quote-logo { max-height: 40px; max-width: 180px; }
+.quote-biz { font-size: 17px; font-weight: 700; color: var(--heading); }
+.quote-status {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--body);
+}
+.quote-status-accepted { color: #34d399; border-color: rgba(52,211,153,0.45); }
+.quote-status-declined { color: #f87171; }
+.quote-doc h1 { font-size: 22px; margin: 0 0 6px; color: var(--heading); }
+.quote-job { margin: 0 0 20px; font-size: 14px; color: var(--body); line-height: 1.6; }
+.quote-doc-table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-bottom: 16px; }
+.quote-doc-table td { padding: 11px 0; border-bottom: 1px solid var(--line); color: var(--body); }
+.quote-doc-table td:last-child { text-align: right; font-family: var(--mono); color: var(--heading); white-space: nowrap; padding-left: 16px; }
+.quote-doc-total td { border-bottom: none; font-weight: 700; color: var(--heading); font-size: 16px; padding-top: 14px; }
+.quote-notes { font-size: 13px; color: var(--body); margin: 0 0 8px; }
+.quote-valid { font-size: 12px; color: var(--faint); margin: 0 0 20px; }
+.quote-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0 8px; }
+.quote-accept { flex: 1 1 auto; }
+.quote-decided {
+  margin: 20px 0 8px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.quote-decided-accepted { background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.4); color: #34d399; }
+.quote-decided-declined { background: rgba(255,255,255,0.03); border: 1px solid var(--line); color: var(--body); }
+.quote-doc-foot {
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--body);
+  white-space: pre-line;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quote-powered { font-size: 11px; color: var(--faint); letter-spacing: 0.03em; }
+
 /* Route-level loading skeletons */
 .skeleton {
   position: relative;

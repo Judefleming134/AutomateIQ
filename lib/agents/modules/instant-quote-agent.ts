@@ -15,16 +15,17 @@ export const instantQuoteAgentModule: AgentModule = {
   version: "1.0",
   category: "sales",
   description:
-    "Turns a job description into a priced, itemised quote in seconds — using only your own price guide.",
+    "Quote-to-close for trades: price a job from your own guide, send a branded quote the customer accepts online, and track it from sent to won.",
   iconName: "calculator",
   accent: "#EA580C",
   href: "/portal/instant-quote-agent",
   availability: "live",
   capabilities: [
-    "Itemised quotations",
-    "Your prices only — never invented",
-    "Quote history",
-    "Uncovered work flagged for confirmation",
+    "Itemised quotations from your price guide",
+    "Branded quote your customer accepts online",
+    "Send, view, accept & decline tracking",
+    "Won / open pipeline value + acceptance rate",
+    "Automatic accept/decline notifications",
   ],
   tools: [
     {

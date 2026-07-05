@@ -61,6 +61,22 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### V8 (2026-07-05): agents deepened into complete business apps
+
+Per the "every agent must be a substantial, end-to-end product" directive,
+the thin agents are being rebuilt into full workflows. **Run
+`supabase/manual_update_0008.sql`** (after 0007; idempotent) for these.
+
+- **Instant Quote Agent → quote-to-close lifecycle (shipped).** A quote is
+  now a live deal: create → **send a branded quote by email** → the customer
+  opens a public page (`/q/<token>`), which marks it *viewed* → they
+  **Accept or Decline online** → the business is notified and the pipeline
+  shows won/open value + acceptance rate. `0008` adds the lifecycle columns
+  to `qa_quotes` (status, customer_email, view_token, sent/viewed/decided
+  timestamps). Public routes `/q/[token]` + `/api/q/[token]` need no auth
+  (token-scoped, service-role), like the review click route.
+- CRM, Content, and Speed-to-Lead depth follow in the same series.
+
 ### V7 (2026-07-05): architecture hardening + commercial review
 
 - **Read `docs/COMMERCIAL_REVIEW.md`** — full per-agent viability scores,
