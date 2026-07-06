@@ -227,6 +227,7 @@ export default async function BookPage() {
           <Link href="/">Home</Link>
           <Link href="/agents.html">Agents</Link>
           <Link href="/privacy.html">Privacy</Link>
+          <a href="https://www.instagram.com/auto__mateiq/" target="_blank" rel="noopener">Instagram</a>
         </nav>
       </footer>
 
