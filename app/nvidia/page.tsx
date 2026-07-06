@@ -122,6 +122,7 @@ export default function NvidiaPage() {
           <Link href="/">Home</Link>
           <Link href="/systems">Systems</Link>
           <Link href="/book">Book a call</Link>
+          <a href="https://www.instagram.com/auto__mateiq/" target="_blank" rel="noopener">Instagram</a>
         </nav>
       </footer>
     </div>
