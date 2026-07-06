@@ -168,6 +168,10 @@ export default async function GrowthDashboardPage() {
                 <label htmlFor="qr-instagram">Instagram URL</label>
                 <input id="qr-instagram" name="instagram_url" maxLength={500} style={{ width: "100%" }} />
               </div>
+              <div style={{ flex: "1 1 200px" }}>
+                <label htmlFor="qr-facebook">Facebook URL</label>
+                <input id="qr-facebook" name="facebook_url" maxLength={500} style={{ width: "100%" }} />
+              </div>
               <div style={{ flex: "1 1 180px" }}>
                 <label htmlFor="qr-email">Email</label>
                 <input id="qr-email" name="email" type="email" maxLength={300} style={{ width: "100%" }} />

@@ -17,7 +17,7 @@ const campaignSchema = z.object({
     .transform((v) => v || null)
     .nullable()
     .optional(),
-  channel: z.enum(["linkedin", "instagram", "email", "sms", "multi"]),
+  channel: z.enum(["linkedin", "instagram", "facebook", "email", "sms", "call", "multi"]),
   industry: z.string().trim().max(200).transform((v) => v || null).nullable().optional(),
   service: z.string().trim().max(200).transform((v) => v || null).nullable().optional(),
   location: z.string().trim().max(200).transform((v) => v || null).nullable().optional(),

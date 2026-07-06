@@ -114,21 +114,23 @@ export default async function GrowthSettingsPage() {
               </p>
             </div>
             <div>
-              <strong>LinkedIn &amp; Instagram</strong> —{" "}
+              <strong>LinkedIn, Instagram &amp; Facebook</strong> —{" "}
               <span className="badge badge-orange">Assisted</span>
               <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>
-                Neither platform offers an approved API for cold DMs, and
-                unofficial automation risks account bans — so the Growth Engine
-                drafts the message, you copy-send it in the app, then mark it
-                sent. Tracking and analytics stay complete.
+                None of these platforms offers an approved API for cold DMs,
+                and unofficial automation risks account bans — so the Growth
+                Engine drafts the message, you copy-send it in the app, then
+                mark it sent. Tracking and analytics stay complete.
               </p>
             </div>
             <div>
-              <strong>SMS</strong> — <span className="badge badge-orange">Assisted</span>
+              <strong>SMS &amp; phone calls</strong> —{" "}
+              <span className="badge badge-orange">Assisted</span>
               <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>
-                Drafts are sized for SMS; send from your phone and mark sent.
-                A provider integration (e.g. Twilio) can be added later without
-                changing the workflow.
+                SMS drafts are sized for texting; the call channel generates a
+                full call script (opener, the ask, objection responses,
+                voicemail version) from the research. Send/dial from your
+                phone, then mark it sent so the CRM tracks it.
               </p>
             </div>
             <div>

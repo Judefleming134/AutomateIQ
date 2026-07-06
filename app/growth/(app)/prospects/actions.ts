@@ -45,6 +45,7 @@ const prospectSchema = z.object({
   phone: optional(50),
   linkedin_url: optional(500),
   instagram_url: optional(500),
+  facebook_url: optional(500),
   notes: optional(4000),
   campaign_id: z
     .string()
@@ -71,6 +72,7 @@ const PROSPECT_FIELD_KEYS = [
   "phone",
   "linkedin_url",
   "instagram_url",
+  "facebook_url",
   "notes",
   "campaign_id",
 ];
@@ -179,6 +181,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
         phone: cell("phone"),
         linkedin_url: cell("linkedin_url"),
         instagram_url: cell("instagram_url"),
+        facebook_url: cell("facebook_url"),
         notes: cell("notes"),
         campaign_id: campaignId,
         created_by: member.id,
@@ -356,6 +359,7 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   const draftFor: Record<string, { subject: string | null; body: string }> = {
     linkedin: { subject: null, body: result.drafts.linkedin },
     instagram: { subject: null, body: result.drafts.instagram },
+    facebook: { subject: null, body: result.drafts.facebook },
     email: { subject: result.drafts.email.subject, body: result.drafts.email.body },
     sms: { subject: null, body: result.drafts.sms },
   };
@@ -459,6 +463,7 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
       phone: String(formData.get("phone") ?? "").trim().slice(0, 50) || null,
       linkedin_url: String(formData.get("linkedin_url") ?? "").trim().slice(0, 500) || null,
       instagram_url: String(formData.get("instagram_url") ?? "").trim().slice(0, 500) || null,
+      facebook_url: String(formData.get("facebook_url") ?? "").trim().slice(0, 500) || null,
       status: "researching",
       source: "quick-research",
       created_by: member.id,

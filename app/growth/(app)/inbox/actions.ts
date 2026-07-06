@@ -70,7 +70,10 @@ async function recordOutreachSent(
   await admin.from("ge_activities").insert({
     prospect_id: prospect.id,
     type: channel,
-    content: `Outreach sent via ${channel} by ${memberName} — follow-up scheduled in 3 days`,
+    content:
+      channel === "call"
+        ? `Call made by ${memberName} — follow-up scheduled in 3 days`
+        : `Outreach sent via ${channel} by ${memberName} — follow-up scheduled in 3 days`,
     created_by: memberId,
   });
 }

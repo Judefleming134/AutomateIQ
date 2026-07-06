@@ -15,7 +15,7 @@ import { addProspect, importProspects, quickResearch } from "./actions";
 export const maxDuration = 60;
 
 const CSV_HINT =
-  "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,notes";
+  "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,facebook_url,notes";
 
 export default async function ProspectsPage({
   searchParams,
@@ -211,6 +211,8 @@ export default async function ProspectsPage({
               <input id="np-linkedin" name="linkedin_url" maxLength={500} placeholder="https://linkedin.com/in/…" />
               <label htmlFor="np-instagram">Instagram URL</label>
               <input id="np-instagram" name="instagram_url" maxLength={500} placeholder="https://instagram.com/…" />
+              <label htmlFor="np-facebook">Facebook URL</label>
+              <input id="np-facebook" name="facebook_url" maxLength={500} placeholder="https://facebook.com/…" />
               <label htmlFor="np-campaign">Campaign</label>
               <select id="np-campaign" name="campaign_id" defaultValue="">
                 <option value="">No campaign</option>
