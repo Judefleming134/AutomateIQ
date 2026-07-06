@@ -378,3 +378,108 @@ export async function deleteDelivery(id: string): Promise<Result> {
   revalidatePath("/portal/logistics/deliveries");
   return { ok: true };
 }
+
+// --- Live tracking settings + self-running simulation ----------------------
+/** Turn the self-running live simulation on/off for this business. */
+export async function toggleLiveSim(): Promise<Result> {
+  const c = await ctx();
+  if (!c) return { error: "Not enabled." };
+  const { data: existing } = await c.supabase
+    .from("log_settings")
+    .select("live_sim")
+    .eq("business_id", c.businessId)
+    .maybeSingle();
+  const next = !(existing?.live_sim ?? false);
+  const { error } = await c.supabase
+    .from("log_settings")
+    .upsert({ business_id: c.businessId, live_sim: next, updated_at: new Date().toISOString() }, { onConflict: "business_id" });
+  if (error) return fail(error);
+  revalidatePath("/portal/logistics");
+  return { ok: true };
+}
+
+/** Rotate the GPS ingest token (invalidates any provider using the old one). */
+export async function regenerateIngestToken(): Promise<Result> {
+  const c = await ctx();
+  if (!c) return { error: "Not enabled." };
+  const token = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random()}`).replace(/-/g, "");
+  const { error } = await c.supabase
+    .from("log_settings")
+    .upsert({ business_id: c.businessId, ingest_token: token, updated_at: new Date().toISOString() }, { onConflict: "business_id" });
+  if (error) return fail(error);
+  revalidatePath("/portal/logistics");
+  return { ok: true };
+}
+
+/**
+ * One-click demo fleet so the Control Centre is alive immediately: two depots,
+ * drivers, simulated vehicles, an active route and deliveries across Ireland,
+ * with live tracking switched on. Only runs on an empty account so it never
+ * duplicates real data.
+ */
+export async function loadDemoFleet(): Promise<Result> {
+  const c = await ctx();
+  if (!c) return { error: "Not enabled." };
+  const { supabase, businessId } = c;
+
+  const [{ count: whCount }, { count: vCount }] = await Promise.all([
+    supabase.from("log_warehouses").select("id", { count: "exact", head: true }),
+    supabase.from("log_vehicles").select("id", { count: "exact", head: true }),
+  ]);
+  if ((whCount ?? 0) > 0 || (vCount ?? 0) > 0) {
+    return { error: "Demo data only loads on an empty account — you already have logistics data." };
+  }
+
+  try {
+    const { data: whs, error: whErr } = await supabase.from("log_warehouses").insert([
+      { business_id: businessId, name: "Dublin Depot", address: "Dublin, Ireland", lat: 53.3498, lng: -6.2603, wh_type: "distribution", capacity: 1000, current_utilisation: 640, status: "active" },
+      { business_id: businessId, name: "Cork Depot", address: "Cork, Ireland", lat: 51.8985, lng: -8.4756, wh_type: "distribution", capacity: 800, current_utilisation: 300, status: "active" },
+    ]).select("id, name, lat, lng");
+    if (whErr) return fail(whErr);
+    const dublin = whs?.find((w) => w.name === "Dublin Depot");
+    const cork = whs?.find((w) => w.name === "Cork Depot");
+
+    const { data: drivers } = await supabase.from("log_drivers").insert([
+      { business_id: businessId, name: "Aoife Byrne", phone: "+353 87 000 0001", status: "active" },
+      { business_id: businessId, name: "Cian Murphy", phone: "+353 87 000 0002", status: "active" },
+      { business_id: businessId, name: "Niamh Kelly", phone: "+353 87 000 0003", status: "active" },
+    ]).select("id, name");
+
+    const { data: vehicles } = await supabase.from("log_vehicles").insert([
+      { business_id: businessId, registration: "12-D-3456", name: "Truck 12", vtype: "truck", capacity: 20, driver_id: drivers?.[0]?.id ?? null, status: "active", gps_provider: "simulated", gps_status: "live", last_lat: 53.35, last_lng: -6.26, last_seen_at: new Date().toISOString() },
+      { business_id: businessId, registration: "14-C-7788", name: "Van 4", vtype: "van", capacity: 6, driver_id: drivers?.[1]?.id ?? null, status: "active", gps_provider: "simulated", gps_status: "live", last_lat: 51.9, last_lng: -8.47, last_seen_at: new Date().toISOString() },
+      { business_id: businessId, registration: "15-D-1122", name: "Lorry 7", vtype: "lorry", capacity: 30, driver_id: drivers?.[2]?.id ?? null, status: "active", gps_provider: "simulated", gps_status: "live", last_lat: 53.28, last_lng: -6.18, last_seen_at: new Date().toISOString() },
+      { business_id: businessId, registration: "13-L-9090", name: "Van 9", vtype: "van", capacity: 6, status: "idle", gps_provider: "simulated", gps_status: "manual", last_lat: 52.66, last_lng: -8.63, last_seen_at: new Date().toISOString() },
+    ]).select("id, registration");
+
+    if (dublin && cork) {
+      await supabase.from("log_routes").insert({
+        business_id: businessId, name: "Dublin → Cork trunk", start_warehouse_id: dublin.id,
+        end_address: "Cork, Ireland", end_lat: cork.lat, end_lng: cork.lng,
+        vehicle_id: vehicles?.[0]?.id ?? null, driver_id: drivers?.[0]?.id ?? null,
+        status: "active", distance_km: 220,
+      });
+    }
+
+    await supabase.from("log_deliveries").insert([
+      { business_id: businessId, customer_name: "Galway Retail Ltd", address: "Galway, Ireland", lat: 53.2707, lng: -9.0568, status: "in_transit", driver_id: drivers?.[0]?.id ?? null },
+      { business_id: businessId, customer_name: "Limerick Supplies", address: "Limerick, Ireland", lat: 52.6638, lng: -8.6267, status: "scheduled", driver_id: drivers?.[2]?.id ?? null },
+      { business_id: businessId, customer_name: "Waterford Foods", address: "Waterford, Ireland", lat: 52.2593, lng: -7.1101, status: "delayed" },
+      { business_id: businessId, customer_name: "Kilkenny Stores", address: "Kilkenny, Ireland", lat: 52.6541, lng: -7.2448, status: "delivered", driver_id: drivers?.[1]?.id ?? null },
+    ]);
+
+    // Switch live tracking on so it starts moving immediately.
+    await supabase.from("log_settings").upsert(
+      { business_id: businessId, live_sim: true, updated_at: new Date().toISOString() },
+      { onConflict: "business_id" }
+    );
+  } catch (err) {
+    return fail(err);
+  }
+
+  revalidatePath("/portal/logistics");
+  revalidatePath("/portal/logistics/fleet");
+  revalidatePath("/portal/logistics/warehouses");
+  revalidatePath("/portal/logistics/deliveries");
+  return { ok: true };
+}

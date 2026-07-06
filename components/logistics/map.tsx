@@ -81,6 +81,7 @@ export function LogisticsMap({
   const mapRef = useRef<any>(null);
   const layerRef = useRef<{ road: any; satellite: any } | null>(null);
   const overlayRef = useRef<any>(null);
+  const didFitRef = useRef(false);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [satellite, setSatellite] = useState(false);
   const [query, setQuery] = useState("");
@@ -150,14 +151,15 @@ export function LogisticsMap({
     group.addTo(map);
     overlayRef.current = group;
 
-    // Fit to content when we have any, unless an explicit centre was given.
-    if (!center) {
+    // Fit to content once (not on every live position update, which would
+    // keep yanking the view as vehicles move). An explicit centre skips fit.
+    if (!center && !didFitRef.current) {
       const pts: [number, number][] = [
         ...markers.filter((m) => typeof m.lat === "number").map((m) => [m.lat, m.lng] as [number, number]),
         ...routes.flatMap((r) => r.points),
       ];
-      if (pts.length === 1) map.setView(pts[0], mini ? 12 : 12);
-      else if (pts.length > 1) map.fitBounds(pts, { padding: [30, 30], maxZoom: mini ? 13 : 14 });
+      if (pts.length === 1) { map.setView(pts[0], mini ? 12 : 12); didFitRef.current = true; }
+      else if (pts.length > 1) { map.fitBounds(pts, { padding: [30, 30], maxZoom: mini ? 13 : 14 }); didFitRef.current = true; }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers, routes, status]);

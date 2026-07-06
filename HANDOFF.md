@@ -101,6 +101,26 @@ default osm), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_GOOGLE_MAPS_KEY`. With
 none set it runs on free OpenStreetMap tiles. No new AI key (reuses the
 existing one for logistics tools).
 
+**Self-running live tracking (also run `supabase/manual_update_0014.sql`,
+idempotent).** Adds `log_settings` (per-business `ingest_token` + `live_sim`
+flag, RLS). The Control Centre now works on its own with zero hardware:
+- **Turn on live tracking** → the platform self-drives every simulated vehicle
+  (any without a real GPS provider) along its route on each poll
+  (`lib/logistics/sim.ts`). The map is a live client component
+  (`components/logistics/live-fleet-map.tsx`) polling `POST
+  /api/logistics/positions` every 4s; the map fits once and then just moves the
+  markers.
+- **Load demo fleet** (one click on an empty account) seeds two depots,
+  vehicles, an active Dublin→Cork route and deliveries across Ireland with live
+  tracking on — so it's visibly alive immediately.
+- **GPS ingest plug-in** for real providers later: `POST /api/logistics/gps`,
+  authenticated by the per-business ingest token (Bearer / `x-ingest-token` /
+  `?token=`), body `{ registration|vehicle_id, lat, lng, provider? }`. The
+  token maps to exactly one business (no body `business_id` is trusted), updates
+  the matching vehicle to `gps_status='live'`. The owner sees the endpoint +
+  their token on the Control Centre and can rotate it. Real-provider vehicles
+  are never touched by the simulator, so live and simulated fleets coexist.
+
 Verified: `tsc` + `next build` green; a tenant-isolation test confirms one
 business can't read or write another's logistics data; migration idempotent.
 Existing pages, agents, the AI Assistant, bookings, documentation and the
