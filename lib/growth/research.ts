@@ -202,7 +202,7 @@ export async function runCompanyResearch(
     .filter(Boolean)
     .join("\n");
 
-  const raw = await aiComplete(system, prompt, 8000);
+  const raw = await aiComplete(system, prompt, 8000, { json: true });
   const parsed = extractJson(raw);
   if (!parsed) throw new Error("BAD_JSON");
 

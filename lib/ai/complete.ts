@@ -16,11 +16,17 @@ import {
  *   - "NO_PROVIDER"  → no API key configured
  *   - "EMPTY_OUTPUT" → model returned nothing (retryable)
  *   - "HTTP <status>"→ upstream error
+ *
+ * Pass { json: true } when the prompt demands a JSON object back: on Gemini
+ * this switches the response to native JSON mode (far more reliable than
+ * prompting alone); Claude follows the prompt instruction, so it's a no-op
+ * there. Callers still parse defensively either way.
  */
 export async function aiComplete(
   system: string,
   prompt: string,
-  maxTokens = 2048
+  maxTokens = 2048,
+  opts: { json?: boolean } = {}
 ): Promise<string> {
   const provider = resolveProvider();
   if (provider.kind === "none") throw new Error("NO_PROVIDER");
@@ -69,6 +75,7 @@ export async function aiComplete(
       generationConfig: {
         thinkingConfig: GEMINI_THINKING_OFF,
         maxOutputTokens: maxTokens,
+        ...(opts.json ? { responseMimeType: "application/json" } : {}),
       },
     }),
   });
