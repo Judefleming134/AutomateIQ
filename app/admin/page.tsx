@@ -9,9 +9,17 @@ import {
   MessageSquare,
   MousePointerClick,
   Boxes,
+  PenLine,
+  Calculator,
+  Contact,
+  Instagram,
+  Truck,
+  CalendarClock,
+  Zap,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeAgentUsage } from "@/lib/analytics/usage";
 import { getLocalWeather, greetingForNow } from "@/lib/weather";
 import { StatCard } from "@/components/portal/stat-card";
 import { RunRemindersButton } from "@/components/admin/run-reminders-button";
@@ -34,6 +42,21 @@ const AUDIT_LABELS: Record<string, string> = {
   "module.delete": "Deleted custom module",
   "document.upload": "Uploaded document",
   "document.delete": "Deleted document",
+  "doc.create": "Created document",
+  "doc.publish": "Published document",
+  "doc.seed_library": "Loaded document library",
+  "doc.assign_businesses": "Assigned document",
+  "doc.assign_groups": "Assigned document to group",
+  "doc.delete": "Deleted document",
+  "booking.approve": "Approved a booking",
+  "booking.reschedule": "Rescheduled a booking",
+  "booking.cancel": "Cancelled a booking",
+  "booking.complete": "Completed a booking",
+  "system.create": "Created business system",
+  "system.assign": "Assigned system to org",
+  "system.assignment_status": "Updated system status",
+  "system.dev_status": "Updated system dev status",
+  "system.unassign": "Removed system from org",
 };
 
 export default async function AdminHome() {
@@ -147,6 +170,23 @@ export default async function AdminHome() {
       .limit(2000),
   ]);
 
+  // Platform-wide usage across every agent + system (admin client = all
+  // tenants) — the same shared calculator the customer Analytics page uses.
+  const platform = await computeAgentUsage(supabase);
+
+  // Upcoming strategy-session bookings (guarded: 0 until 0010 is run).
+  let upcomingBookings = 0;
+  try {
+    const { count } = await supabase
+      .from("strategy_bookings")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["pending", "confirmed", "rescheduled"])
+      .gte("slot_at", new Date().toISOString());
+    upcomingBookings = count ?? 0;
+  } catch {
+    /* table not present yet */
+  }
+
   // Product adoption — businesses per product, counted from the join table.
   const adoption = new Map<string, number>();
   for (const row of adoptionRows ?? []) {
@@ -251,6 +291,17 @@ export default async function AdminHome() {
           accent="#3B82F6"
           hint="platform-wide"
         />
+      </div>
+
+      <h2 className="section-title">Agents &amp; systems — platform totals</h2>
+      <div className="stat-grid">
+        <StatCard label="Content written" value={platform.contentPieces} icon={<PenLine />} accent="#EC4899" hint="all agents" />
+        <StatCard label="Quotes created" value={platform.quotes} icon={<Calculator />} accent="#EA580C" hint={`${platform.quotesAccepted} accepted`} />
+        <StatCard label="Instant lead replies" value={platform.instantReplies} icon={<Zap />} accent="#F59E0B" hint="under 60s" />
+        <StatCard label="CRM contacts" value={platform.crmContacts} icon={<Contact />} accent="#3B82F6" hint="platform-wide" />
+        <StatCard label="Instagram DMs" value={platform.igMessages} icon={<Instagram />} accent="#E1306C" hint={`${platform.igConversations} conversations`} />
+        <StatCard label="Deliveries" value={platform.logDeliveries} icon={<Truck />} accent="#FB7185" hint={`${platform.logVehicles} vehicles`} />
+        <StatCard label="Upcoming bookings" value={upcomingBookings ?? 0} icon={<CalendarClock />} accent="#34D399" hint="strategy sessions" />
       </div>
 
       <div className="grid-2">
@@ -364,7 +415,12 @@ export default async function AdminHome() {
               { label: "Review requests", count: requestsSent ?? 0, color: "var(--chart-1)" },
               { label: "Leads", count: totalLeads ?? 0, color: "var(--chart-3)" },
               { label: "AI conversations", count: totalConversations ?? 0, color: "var(--chart-2)" },
-            ]}
+              { label: "Content pieces", count: platform.contentPieces, color: "#EC4899" },
+              { label: "Quotes", count: platform.quotes, color: "#EA580C" },
+              { label: "Instant replies", count: platform.instantReplies, color: "#F59E0B" },
+              { label: "Instagram DMs", count: platform.igMessages, color: "#E1306C" },
+              { label: "Deliveries", count: platform.logDeliveries, color: "#FB7185" },
+            ].filter((s) => s.count > 0)}
           />
         </div>
       </div>
