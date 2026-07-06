@@ -10,11 +10,13 @@ export function Sidebar({
   sections,
   isOpen,
   onNavigate,
+  signInHref = "/login",
 }: {
   brandLabel: string;
   sections: NavSection[];
   isOpen: boolean;
   onNavigate: () => void;
+  signInHref?: string;
 }) {
   const pathname = usePathname();
 
@@ -25,6 +27,9 @@ export function Sidebar({
         <img src="/logo-aiq.png" alt="AutomateIQ" className="brand-logo" />
         {brandLabel.includes("Admin") && (
           <span className="brand-admin-badge">ADMIN</span>
+        )}
+        {brandLabel.includes("Growth") && (
+          <span className="brand-admin-badge">GROWTH</span>
         )}
       </div>
 
@@ -39,7 +44,7 @@ export function Sidebar({
               // everything else so a sub-nav page still highlights its
               // parent tile (e.g. /portal/review-agent/send).
               const isActive =
-                item.href === "/portal" || item.href === "/admin"
+                item.href === "/portal" || item.href === "/admin" || item.href === "/growth"
                   ? pathname === item.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
 
@@ -73,7 +78,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-footer">
-        <SignOutButton />
+        <SignOutButton signInHref={signInHref} />
       </div>
     </aside>
   );

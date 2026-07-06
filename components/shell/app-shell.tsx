@@ -11,6 +11,7 @@ export function AppShell({
   userLabel,
   userInitial,
   sections,
+  signInHref,
   children,
 }: {
   brandLabel: string;
@@ -18,6 +19,7 @@ export function AppShell({
   userLabel: string;
   userInitial: string;
   sections: NavSection[];
+  signInHref?: string;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -31,6 +33,7 @@ export function AppShell({
         sections={sections}
         isOpen={sidebarOpen}
         onNavigate={() => setSidebarOpen(false)}
+        signInHref={signInHref}
       />
       <div
         className={`sidebar-backdrop${sidebarOpen ? " is-open" : ""}`}
