@@ -265,12 +265,15 @@ export default async function ProspectsPage({
             required
             placeholder={`company,contact_name,email\nAcme Ltd,Jane Murphy,jane@acme.ie`}
           />
-          <label htmlFor="imp-campaign">Assign all to campaign (optional)</label>
-          <select id="imp-campaign" name="campaign_id" defaultValue="">
+          <label htmlFor="imp-campaign">Campaign</label>
+          <select id="imp-campaign" name="campaign_id" defaultValue="__auto__">
+            <option value="__auto__">
+              Auto — group by the industry column (creates campaigns as needed)
+            </option>
             <option value="">No campaign</option>
             {(campaigns ?? []).map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                Assign all to: {c.name}
               </option>
             ))}
           </select>

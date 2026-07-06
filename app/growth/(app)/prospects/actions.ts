@@ -150,7 +150,11 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
 export async function importProspects(_prev: Result, formData: FormData): Promise<Result & { imported?: number; skipped?: number }> {
   const { member } = await requireGrowth();
   const csv = String(formData.get("csv") ?? "").trim();
-  const campaignId = String(formData.get("campaign_id") ?? "").trim() || null;
+  const campaignSel = String(formData.get("campaign_id") ?? "").trim();
+  // "__auto__": one mixed paste, rows grouped by their industry column —
+  // matched to an existing campaign or a new one created on the fly.
+  const autoGroup = campaignSel === "__auto__";
+  const fixedCampaignId = autoGroup ? null : campaignSel || null;
   if (!csv) return { error: "Paste CSV data first." };
 
   const rows = parseCsv(csv);
@@ -168,6 +172,52 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let imported = 0;
   let skipped = 0;
+
+  // Auto-grouping: campaign per industry value, resolved once per industry.
+  // Match order: campaign.industry (case-insensitive) → campaign name
+  // contains the industry → create a fresh active campaign named after it.
+  const campaignCache = new Map<string, string | null>();
+  async function campaignForIndustry(industryRaw: string | null): Promise<string | null> {
+    const industry = (industryRaw ?? "").trim();
+    if (!industry) return null;
+    const cacheKey = industry.toLowerCase();
+    if (campaignCache.has(cacheKey)) return campaignCache.get(cacheKey)!;
+
+    const safe = industry.replace(/[%_]/g, "");
+    let id: string | null = null;
+    const { data: byIndustry } = await admin
+      .from("ge_campaigns")
+      .select("id")
+      .ilike("industry", safe)
+      .limit(1)
+      .maybeSingle();
+    id = byIndustry?.id ?? null;
+    if (!id) {
+      const { data: byName } = await admin
+        .from("ge_campaigns")
+        .select("id")
+        .ilike("name", `%${safe}%`)
+        .limit(1)
+        .maybeSingle();
+      id = byName?.id ?? null;
+    }
+    if (!id) {
+      const title = industry.replace(/\b\w/g, (c) => c.toUpperCase());
+      const { data: created } = await admin
+        .from("ge_campaigns")
+        .insert({
+          name: title,
+          industry,
+          status: "active",
+          created_by: member.id,
+        })
+        .select("id")
+        .single();
+      id = created?.id ?? null;
+    }
+    campaignCache.set(cacheKey, id);
+    return id;
+  }
 
   for (const row of rows.slice(1)) {
     const cell = (name: string) => {
@@ -225,7 +275,9 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
         instagram_url: cell("instagram_url"),
         facebook_url: cell("facebook_url"),
         notes: cell("notes"),
-        campaign_id: campaignId,
+        campaign_id: autoGroup
+          ? await campaignForIndustry(cell("industry"))
+          : fixedCampaignId,
         created_by: member.id,
         source: "import",
       })
@@ -245,6 +297,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   }
 
   revalidatePath("/growth/prospects");
+  revalidatePath("/growth/campaigns");
   if (imported === 0) {
     return {
       error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
