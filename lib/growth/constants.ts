@@ -7,10 +7,12 @@
 export type ProspectStatus =
   | "new"
   | "researching"
+  | "research_complete"
   | "contacted"
   | "replied"
   | "qualified"
   | "meeting_booked"
+  | "proposal_sent"
   | "won"
   | "lost"
   | "do_not_contact";
@@ -21,10 +23,12 @@ export const PROSPECT_STATUS_META: Record<
 > = {
   new: { label: "New", badge: "badge-blue" },
   researching: { label: "Researching", badge: "badge-blue" },
+  research_complete: { label: "Research complete", badge: "badge-blue" },
   contacted: { label: "Contacted", badge: "badge-orange" },
   replied: { label: "Replied", badge: "badge-green" },
   qualified: { label: "Qualified", badge: "badge-green" },
   meeting_booked: { label: "Meeting booked", badge: "badge-green" },
+  proposal_sent: { label: "Proposal sent", badge: "badge-orange" },
   won: { label: "Won", badge: "badge-green" },
   lost: { label: "Lost", badge: "badge-red" },
   do_not_contact: { label: "Do not contact", badge: "badge-gray" },
@@ -81,11 +85,32 @@ export const OBJECTIVES = Object.keys(OBJECTIVE_META) as MessageObjective[];
 export const TONES = [
   "professional",
   "friendly",
-  "direct",
+  "executive",
   "consultative",
-  "casual",
+  "direct",
 ] as const;
 export type Tone = (typeof TONES)[number];
+
+/** The Message Studio's five draft types per channel. */
+export type MessagePurpose =
+  | "first"
+  | "follow_up"
+  | "second_follow_up"
+  | "meeting_confirmation"
+  | "thank_you";
+
+export const PURPOSE_META: Record<MessagePurpose, { label: string }> = {
+  first: { label: "First message" },
+  follow_up: { label: "Follow-up" },
+  second_follow_up: { label: "Second follow-up" },
+  meeting_confirmation: { label: "Meeting confirmation" },
+  thank_you: { label: "Thank-you" },
+};
+
+export const PURPOSES = Object.keys(PURPOSE_META) as MessagePurpose[];
+
+/** Message Studio transform buttons. */
+export type StudioTransform = "improve" | "rewrite" | "shorten" | "expand";
 
 export type Sentiment = "positive" | "neutral" | "negative";
 

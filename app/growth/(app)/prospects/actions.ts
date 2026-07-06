@@ -2,9 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
+import { runCompanyResearch } from "@/lib/growth/research";
+import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import {
   computeLeadScore,
   qualificationFromScore,
@@ -211,6 +214,7 @@ export async function updateProspect(_prev: Result, formData: FormData): Promise
   }
 
   const nextFollowUp = String(formData.get("next_follow_up_at") ?? "").trim() || null;
+  const assignedTo = String(formData.get("assigned_to") ?? "").trim() || null;
   const pipelineRaw = String(formData.get("pipeline_value") ?? "").trim();
   const pipelineValue = pipelineRaw ? Number(pipelineRaw) : null;
   if (pipelineValue !== null && (!Number.isFinite(pipelineValue) || pipelineValue < 0)) {
@@ -223,6 +227,7 @@ export async function updateProspect(_prev: Result, formData: FormData): Promise
     .update({
       ...parsed.data,
       next_follow_up_at: nextFollowUp,
+      assigned_to: assignedTo,
       pipeline_value: pipelineValue,
     })
     .eq("id", id);
@@ -241,8 +246,21 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
     return { error: "Invalid status." };
   }
 
+  // Stage automation: each transition does its CRM bookkeeping so nothing
+  // has to be remembered manually.
+  const update: Record<string, unknown> = { status };
+  if (status === "contacted") {
+    update.last_contact_at = new Date().toISOString();
+    update.next_follow_up_at = followUpDate(3);
+  } else if (status === "replied") {
+    // They're engaged — pull the follow-up in close.
+    update.next_follow_up_at = followUpDate(1);
+  } else if (["won", "lost", "do_not_contact"].includes(status)) {
+    update.next_follow_up_at = null; // closed — nothing left to chase
+  }
+
   const admin = createAdminClient();
-  const { error } = await admin.from("ge_prospects").update({ status }).eq("id", id);
+  const { error } = await admin.from("ge_prospects").update(update).eq("id", id);
   if (error) return { error: error.message };
 
   await admin.from("ge_activities").insert({
@@ -254,7 +272,219 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
 
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
+  revalidatePath("/growth");
   return { ok: true };
+}
+
+function followUpDate(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/**
+ * The heart of the workflow: researches the prospect's company and saves the
+ * complete package — report, solution recommendations, suggested lead score
+ * and a first-touch draft for every channel — then moves the prospect to
+ * "Research complete". Re-running replaces the report and refreshes the
+ * unsent first-touch drafts (sent messages are never touched).
+ */
+export async function researchProspect(_prev: Result, formData: FormData): Promise<Result> {
+  const { member } = await requireGrowth();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing prospect." };
+
+  const admin = createAdminClient();
+  const { data: prospect } = await admin
+    .from("ge_prospects")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (!prospect) return { error: "Prospect not found." };
+
+  let result;
+  try {
+    result = await runCompanyResearch(prospect);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "NO_PROVIDER") return { error: NO_PROVIDER_MESSAGE };
+    if (message === "BAD_JSON") {
+      return { error: "The research came back malformed — run it again." };
+    }
+    return { error: "Research failed — try again in a moment." };
+  }
+
+  const { error: researchError } = await admin.from("ge_research").upsert(
+    {
+      prospect_id: id,
+      report: result.report,
+      solutions: result.solutions,
+      website_fetched: result.websiteFetched,
+      created_by: member.id,
+    },
+    { onConflict: "prospect_id" }
+  );
+  if (researchError) return { error: researchError.message };
+
+  // Lead score: AI ratings fill in criteria nobody has rated yet; a human's
+  // existing non-zero rating always wins over the model's estimate.
+  const ratings: Partial<Record<CriterionKey, number>> = {};
+  for (const c of CRITERIA) {
+    const current = Number(prospect[c.key] ?? 0);
+    ratings[c.key] = current > 0 ? current : (result.ratings[c.key] ?? 0);
+  }
+  const settings = await loadGrowthSettings();
+  const score = computeLeadScore(ratings);
+
+  const update: Record<string, unknown> = {
+    ...ratings,
+    lead_score: score,
+    qualification_status: qualificationFromScore(
+      score,
+      settings,
+      prospect.qualification_status
+    ),
+  };
+  if (!prospect.industry && result.report.industry) {
+    update.industry = result.report.industry;
+  }
+  if (["new", "researching"].includes(prospect.status)) {
+    update.status = "research_complete";
+  }
+  await admin.from("ge_prospects").update(update).eq("id", id);
+
+  // First-touch drafts per channel: refresh existing unsent drafts in place,
+  // create the missing ones.
+  const draftFor: Record<string, { subject: string | null; body: string }> = {
+    linkedin: { subject: null, body: result.drafts.linkedin },
+    instagram: { subject: null, body: result.drafts.instagram },
+    email: { subject: result.drafts.email.subject, body: result.drafts.email.body },
+    sms: { subject: null, body: result.drafts.sms },
+  };
+  for (const [channel, draft] of Object.entries(draftFor)) {
+    if (!draft.body) continue;
+    const { data: existing } = await admin
+      .from("ge_messages")
+      .select("id")
+      .eq("prospect_id", id)
+      .eq("channel", channel)
+      .eq("purpose", "first")
+      .eq("status", "draft")
+      .maybeSingle();
+    if (existing) {
+      await admin
+        .from("ge_messages")
+        .update({ subject: draft.subject, body: draft.body, tone: "professional" })
+        .eq("id", existing.id);
+    } else {
+      await admin.from("ge_messages").insert({
+        prospect_id: id,
+        campaign_id: prospect.campaign_id,
+        channel,
+        direction: "outbound",
+        status: "draft",
+        purpose: "first",
+        tone: "professional",
+        subject: draft.subject,
+        body: draft.body,
+        created_by: member.id,
+      });
+    }
+  }
+
+  await admin.from("ge_activities").insert({
+    prospect_id: id,
+    type: "system",
+    content: `Company research completed by ${member.name} (${
+      result.websiteFetched ? "website analysed" : "website unreachable — inferred from details"
+    }) — ${result.solutions.length} solutions recommended, lead score ${score}/100, outreach drafts prepared`,
+    created_by: member.id,
+  });
+
+  revalidatePath(`/growth/prospects/${id}`);
+  revalidatePath("/growth/prospects");
+  revalidatePath("/growth");
+  return { ok: true };
+}
+
+/**
+ * The "paste a website, get a researched prospect" entry point (dashboard +
+ * prospects screen). Creates the prospect, runs the full research pipeline,
+ * then lands in the prospect workspace. If research itself fails, the
+ * prospect still exists and the workspace offers a retry with the reason.
+ */
+export async function quickResearch(_prev: Result, formData: FormData): Promise<Result> {
+  const { member } = await requireGrowth();
+
+  const website = String(formData.get("website") ?? "").trim();
+  if (!website) return { error: "Paste the company website first." };
+  const emailRaw = String(formData.get("email") ?? "").trim();
+  if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    return { error: "Invalid email." };
+  }
+
+  let company = String(formData.get("company") ?? "").trim().slice(0, 200);
+  if (!company) {
+    // Derive a starting name from the domain: "www.murphy-plumbing.ie" →
+    // "Murphy Plumbing". The research pass refines it; the user can edit.
+    try {
+      const host = new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`)
+        .hostname.replace(/^www\./, "");
+      company = host
+        .split(".")[0]
+        .split(/[-_]/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    } catch {
+      return { error: "That doesn't look like a valid website address." };
+    }
+  }
+  if (!company) return { error: "Couldn't determine a company name — enter one." };
+
+  const admin = createAdminClient();
+  if (emailRaw) {
+    const { data: existing } = await admin
+      .from("ge_prospects")
+      .select("id")
+      .ilike("email", emailRaw)
+      .maybeSingle();
+    if (existing) redirect(`/growth/prospects/${existing.id}`);
+  }
+
+  const { data: created, error } = await admin
+    .from("ge_prospects")
+    .insert({
+      company,
+      contact_name: String(formData.get("contact_name") ?? "").trim().slice(0, 200) || "Owner",
+      website,
+      email: emailRaw || null,
+      phone: String(formData.get("phone") ?? "").trim().slice(0, 50) || null,
+      linkedin_url: String(formData.get("linkedin_url") ?? "").trim().slice(0, 500) || null,
+      instagram_url: String(formData.get("instagram_url") ?? "").trim().slice(0, 500) || null,
+      status: "researching",
+      source: "quick-research",
+      created_by: member.id,
+      assigned_to: member.id,
+    })
+    .select("id")
+    .single();
+  if (error) return { error: error.message };
+
+  await admin.from("ge_activities").insert({
+    prospect_id: created.id,
+    type: "system",
+    content: `Prospect created via quick research by ${member.name}`,
+    created_by: member.id,
+  });
+
+  const researchForm = new FormData();
+  researchForm.set("id", created.id);
+  const research = await researchProspect(undefined, researchForm);
+
+  revalidatePath("/growth/prospects");
+  redirect(
+    research?.error
+      ? `/growth/prospects/${created.id}?notice=${encodeURIComponent(research.error)}`
+      : `/growth/prospects/${created.id}`
+  );
 }
 
 /**

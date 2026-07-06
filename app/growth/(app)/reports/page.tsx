@@ -25,6 +25,8 @@ export default async function ReportsPage({
   const summaryRows: [string, string | number][] = [
     ["Leads added", metrics.leadsAdded],
     ["Prospects total", metrics.prospectsTotal],
+    ["Companies researched", metrics.companiesResearched],
+    ["Proposals sent", metrics.proposalsSent],
     ["Outreach sent", metrics.outreachSent],
     ["Prospects contacted", metrics.contacted],
     ["Replies received", metrics.replies],

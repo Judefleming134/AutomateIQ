@@ -8,6 +8,9 @@ import {
   Euro,
   ThumbsUp,
   Trophy,
+  Sparkles,
+  FileText,
+  PenLine,
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -57,12 +60,15 @@ export default async function AnalyticsPage({
 
       <div className="stat-grid">
         <StatCard label="Leads added" value={metrics.leadsAdded} icon={<Users />} hint={`${metrics.prospectsTotal} total`} />
-        <StatCard label="Outreach sent" value={metrics.outreachSent} icon={<Send />} accent="var(--ac1, #8b5cf6)" hint={`${metrics.contacted} prospects reached`} />
+        <StatCard label="Companies researched" value={metrics.companiesResearched} icon={<Sparkles />} accent="var(--ac1, #8b5cf6)" />
+        <StatCard label="Outreach prepared" value={metrics.draftOutreach + metrics.queuedOutreach} icon={<PenLine />} hint={`${metrics.draftOutreach} drafts · ${metrics.queuedOutreach} queued`} />
+        <StatCard label="Messages sent" value={metrics.outreachSent} icon={<Send />} accent="var(--ac1, #8b5cf6)" hint={`${metrics.contacted} prospects reached`} />
         <StatCard label="Reply rate" value={`${metrics.replyRate}%`} icon={<MessageSquare />} accent="var(--green, #34d399)" hint={`${metrics.replies} replies`} />
         <StatCard label="Positive response rate" value={`${metrics.positiveRate}%`} icon={<ThumbsUp />} accent="var(--green, #34d399)" hint={`${metrics.positiveReplies} positive`} />
         <StatCard label="Meetings booked" value={metrics.meetingsBooked} icon={<CalendarCheck />} accent="var(--ac2)" />
+        <StatCard label="Proposals sent" value={metrics.proposalsSent} icon={<FileText />} accent="var(--orange, #fb923c)" />
         <StatCard label="Conversion rate" value={`${metrics.conversionRate}%`} icon={<TrendingUp />} hint="contacted → meeting" />
-        <StatCard label="Won" value={metrics.won} icon={<Trophy />} accent="var(--orange, #fb923c)" hint={`${metrics.qualified} qualified`} />
+        <StatCard label="Deals won" value={metrics.won} icon={<Trophy />} accent="var(--orange, #fb923c)" hint={`${metrics.qualified} qualified`} />
         <StatCard label="Pipeline value" value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`} icon={<Euro />} accent="var(--green, #34d399)" />
       </div>
 
@@ -125,6 +131,71 @@ export default async function AnalyticsPage({
                       <td>{i.sent}</td>
                       <td>{i.replies}</td>
                       <td>{i.meetings}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="grid-2" style={{ marginTop: 20 }}>
+        <section className="panel panel-block" aria-labelledby="an-solutions">
+          <h2 className="panel-title" id="an-solutions">
+            Most recommended solutions
+          </h2>
+          {metrics.topSolutions.length === 0 ? (
+            <p className="empty-state">Run company research to populate this.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Solution</th>
+                    <th>Recommended</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.topSolutions.map((s) => (
+                    <tr key={s.name}>
+                      <td>{s.name}</td>
+                      <td>{s.count}×</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="panel panel-block" aria-labelledby="an-tones">
+          <h2 className="panel-title" id="an-tones">
+            Best performing outreach style
+          </h2>
+          {metrics.toneStats.length === 0 ? (
+            <p className="empty-state">
+              Send outreach from the Message Studio to see which tone gets
+              replies.
+            </p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tone</th>
+                    <th>Sent</th>
+                    <th>Got a reply</th>
+                    <th>Reply rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.toneStats.map((t) => (
+                    <tr key={t.tone}>
+                      <td style={{ textTransform: "capitalize" }}>{t.tone}</td>
+                      <td>{t.sent}</td>
+                      <td>{t.replied}</td>
+                      <td>{t.replyRate}%</td>
                     </tr>
                   ))}
                 </tbody>
