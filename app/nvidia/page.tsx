@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Cpu, ArrowRight, ArrowLeft } from "lucide-react";
+import { NvidiaVideo } from "./nvidia-video";
 
 export const metadata: Metadata = {
   title: "Explore NVIDIA's Vision | AutomateIQ",
@@ -52,14 +53,7 @@ export default function NvidiaPage() {
           <div className="nv-phone-frame">
             <span className="nv-island" />
             <div className="nv-screen">
-              <iframe
-                src="https://www.instagram.com/reel/DZ7y_MiiqI3/embed"
-                title="NVIDIA's Vision — Instagram reel"
-                loading="lazy"
-                allow="encrypted-media; picture-in-picture; web-share"
-                allowFullScreen
-                scrolling="no"
-              />
+              <NvidiaVideo />
             </div>
           </div>
           <span className="nv-btn nv-btn-power" aria-hidden="true" />
@@ -68,7 +62,7 @@ export default function NvidiaPage() {
           <span className="nv-btn nv-btn-mute" aria-hidden="true" />
         </div>
 
-        <p className="nv-caption">Tap play to watch the reel — just like in the Instagram app.</p>
+        <p className="nv-caption">Press play to watch the presentation.</p>
       </section>
 
       {/* Bridge to AutomateIQ */}
