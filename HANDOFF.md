@@ -61,6 +61,45 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Phase 5 (2026-07-06): Custom Business Systems framework
+
+An additive showcase + module framework for the bespoke enterprise platforms
+AutomateIQ builds. **Setup: run `supabase/manual_update_0012.sql`** (after
+0011; idempotent, additive) — adds `bsys_systems` (global catalogue, readable
+by any authenticated user like `products`) and `bsys_assignments` (per-org,
+tenant-isolated RLS) and seeds the 8 showcase systems. Nothing existing was
+changed or removed.
+
+- **Marketing** — a **"View Systems"** button added inside the existing
+  "03 · What we do" section (`#services`) of `index.html` (purely additive —
+  no content moved) links to a new **`/systems`** page. That page is a premium,
+  on-brand showcase: intro, 8 interactive cards (icon, overview, benefits,
+  expandable capability list, industries), a "every solution is bespoke"
+  assurance, and a **Book Your Free AI Strategy Session** CTA → `/book`. Full
+  metadata + Service JSON-LD; added to `sitemap.ts`.
+- **Customer dashboard** — a new **Solutions** section (`/portal/solutions`,
+  added to the Workspace nav) renders the 8 systems as module cards with icon,
+  description, development status, assigned organisation, module status, a
+  Launch button (disabled until a module is active) and Coming Soon badges.
+  This is the plug-in foundation future systems slot into — each will get its
+  own dashboard/nav/AI specialist/docs/reports/APIs/analytics/settings while
+  sharing the existing AI Assistant, Supabase, auth, RLS, organisations,
+  notifications and branding.
+- **Admin** — **Business Systems** (`/admin/systems`, added to admin nav):
+  create custom system modules, track development status, assign systems to
+  organisations, and enable/disable/set module status per org. Built to scale
+  to hundreds of modules; every mutation writes to the admin audit log.
+
+Single source of truth: `lib/systems/catalog.ts` (the 8 systems' rich content),
+reused by the marketing page and to enrich the dashboard cards; the DB
+catalogue is seeded from the same keys. No new env vars. All feature lists are
+explicitly positioned as illustrative/bespoke, never fixed products.
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms the
+catalogue is readable by authenticated users while assignments stay
+per-organisation; migration idempotent. All existing pages, agents, the AI
+Assistant, bookings and documentation are untouched.
+
 ### Phase 4 (2026-07-05): Instagram DM Setter Agent
 
 A new specialist agent, fully integrated into the existing multi-agent
