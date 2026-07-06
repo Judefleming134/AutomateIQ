@@ -14,7 +14,11 @@ import {
   CRITERIA,
   type CriterionKey,
 } from "@/lib/growth/scoring";
-import { PROSPECT_STATUSES, PROSPECT_STATUS_META } from "@/lib/growth/constants";
+import {
+  CLOSED_STATUSES,
+  PROSPECT_STATUSES,
+  PROSPECT_STATUS_META,
+} from "@/lib/growth/constants";
 
 type Result = { ok?: boolean; error?: string } | undefined;
 
@@ -252,13 +256,18 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
   // Stage automation: each transition does its CRM bookkeeping so nothing
   // has to be remembered manually.
   const update: Record<string, unknown> = { status };
-  if (status === "contacted") {
+  if (status === "contacted" || status === "follow_up_sent") {
     update.last_contact_at = new Date().toISOString();
-    update.next_follow_up_at = followUpDate(3);
+    update.next_follow_up_at = followUpDate(status === "contacted" ? 3 : 4);
   } else if (status === "replied") {
     // They're engaged — pull the follow-up in close.
     update.next_follow_up_at = followUpDate(1);
-  } else if (["won", "lost", "do_not_contact"].includes(status)) {
+  } else if (status === "negotiation") {
+    update.next_follow_up_at = followUpDate(3);
+  } else if (status === "future_opportunity") {
+    // Nurture list: resurface automatically in ~3 months.
+    update.next_follow_up_at = followUpDate(90);
+  } else if ((CLOSED_STATUSES as string[]).includes(status)) {
     update.next_follow_up_at = null; // closed — nothing left to chase
   }
 

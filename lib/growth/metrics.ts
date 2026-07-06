@@ -116,7 +116,10 @@ export async function loadGrowthMetrics(
   const positiveReplies = taggedInbound.filter((m) => m.sentiment === "positive").length;
 
   const pipelineValue = allProspects
-    .filter((p) => ["qualified", "meeting_booked", "won"].includes(p.status))
+    .filter((p) =>
+      ["qualified", "meeting_booked", "proposal_in_progress", "proposal_sent",
+       "negotiation", "won"].includes(p.status)
+    )
     .reduce((sum, p) => sum + Number(p.pipeline_value ?? 0), 0);
 
   // Per-campaign funnel.

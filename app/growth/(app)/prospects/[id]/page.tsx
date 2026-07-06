@@ -190,7 +190,13 @@ export default async function ProspectWorkspacePage({
             : "sms";
 
   // The one-click happy path. Everything else lives in the Details select.
-  const quickStages: ProspectStatus[] = ["replied", "qualified", "meeting_booked", "won"];
+  const quickStages: ProspectStatus[] = [
+    "replied",
+    "qualified",
+    "meeting_booked",
+    "negotiation",
+    "won",
+  ];
 
   return (
     <>
