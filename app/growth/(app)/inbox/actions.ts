@@ -5,6 +5,7 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail } from "@/lib/growth/email";
+import { dublinDate } from "@/lib/growth/dates";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
@@ -60,9 +61,7 @@ async function recordOutreachSent(
     .eq("id", messageId);
   const bump: Record<string, unknown> = {
     last_contact_at: new Date().toISOString(),
-    next_follow_up_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10),
+    next_follow_up_at: dublinDate(3),
   };
   // First outreach → Contacted; chasing an unanswered prospect (or sending
   // an explicit follow-up draft) → Follow-up sent. Later stages (replied,

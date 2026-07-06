@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
+import { dublinDate } from "@/lib/growth/dates";
 import { runCompanyResearch } from "@/lib/growth/research";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import {
@@ -413,7 +414,7 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
 }
 
 function followUpDate(days: number): string {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return dublinDate(days);
 }
 
 /**

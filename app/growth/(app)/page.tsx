@@ -22,6 +22,7 @@ import {
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { dublinDate, dublinHour } from "@/lib/growth/dates";
 import { quickResearch } from "./prospects/actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -77,7 +78,7 @@ export default async function GrowthDashboardPage() {
   const { member } = await requireGrowth();
   const admin = createAdminClient();
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dublinDate();
   const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
 
   const [
@@ -129,7 +130,7 @@ export default async function GrowthDashboardPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Good {new Date().getHours() < 12 ? "morning" : "afternoon"}, {member.name.split(" ")[0]}</h1>
+          <h1>Good {dublinHour() < 12 ? "morning" : "afternoon"}, {member.name.split(" ")[0]}</h1>
           <p>Today&apos;s priorities first — then research the next company.</p>
         </div>
       </div>

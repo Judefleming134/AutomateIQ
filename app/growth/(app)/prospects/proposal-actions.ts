@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateProposalMarkdown } from "@/lib/growth/proposal";
 import { sanitizeRecommendations } from "@/lib/growth/solutions";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
+import { dublinDate } from "@/lib/growth/dates";
 import type { ResearchReport } from "@/lib/growth/research";
 
 type Result = { ok?: boolean; error?: string } | undefined;
@@ -158,9 +159,7 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
       .update({
         status: "proposal_sent",
         // Chase the proposal if there's no word within a week.
-        next_follow_up_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10),
+        next_follow_up_at: dublinDate(7),
       })
       .eq("id", proposal.prospect_id);
   }
