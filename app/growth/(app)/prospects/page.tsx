@@ -10,6 +10,7 @@ import {
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { ResearchQueue } from "@/components/growth/research-queue";
+import { CsvFileField } from "@/components/growth/csv-file-field";
 import { addProspect, importProspects, quickResearch } from "./actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -253,18 +254,13 @@ export default async function ProspectsPage({
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>⇪ Import from CSV</summary>
         <ActionForm action={importProspects} className="form-card" style={{ border: 0, background: "none", padding: "12px 0 0" }}>
           <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
-            Paste CSV with a header row. Recognised columns (any order):{" "}
-            <code style={{ fontSize: 12 }}>{CSV_HINT}</code>. Rows with an email
-            that already exists are skipped.
+            Drop a .csv file (Google Sheets: File → Download → .csv) or paste
+            rows straight from the sheet. Keep the header row. Recognised
+            columns (any order): <code style={{ fontSize: 12 }}>{CSV_HINT}</code>.
+            Rows need a company + at least one contact method; duplicate emails
+            are skipped.
           </p>
-          <label htmlFor="imp-csv">CSV data</label>
-          <textarea
-            id="imp-csv"
-            name="csv"
-            rows={6}
-            required
-            placeholder={`company,contact_name,email\nAcme Ltd,Jane Murphy,jane@acme.ie`}
-          />
+          <CsvFileField />
           <label htmlFor="imp-campaign">Campaign</label>
           <select id="imp-campaign" name="campaign_id" defaultValue="__auto__">
             <option value="__auto__">
