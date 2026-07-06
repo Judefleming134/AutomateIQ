@@ -62,6 +62,19 @@ export default async function GrowthLayout({
       signInHref="/growth/login"
     >
       {children}
+      <p
+        style={{
+          marginTop: 32,
+          paddingTop: 16,
+          borderTop: "1px solid var(--line, rgba(255,255,255,.08))",
+          fontSize: 12,
+          color: "var(--faint)",
+          textAlign: "center",
+        }}
+      >
+        Need help with anything? Contact us at{" "}
+        <a href="mailto:hello@automateiq.ie">hello@automateiq.ie</a>
+      </p>
     </AppShell>
   );
 }

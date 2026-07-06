@@ -351,9 +351,9 @@ export function MessageComposer({
       </div>
       {channel !== "email" && (
         <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 8 }}>
-          {CHANNEL_META[channel].label} has no official sending API here — copy
-          the text, send it in the app, then mark it sent so tracking stays
-          accurate.
+          {channel === "call"
+            ? "Use the text as your call script, make the call yourself, then mark it sent so tracking stays accurate."
+            : `${CHANNEL_META[channel].label} has no official sending API here — copy the text, send it in the app, then mark it sent so tracking stays accurate.`}
         </p>
       )}
     </div>

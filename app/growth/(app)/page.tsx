@@ -17,7 +17,11 @@ import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
-import { PROSPECT_STATUS_META, type ProspectStatus } from "@/lib/growth/constants";
+import {
+  CLOSED_STATUSES,
+  PROSPECT_STATUS_META,
+  type ProspectStatus,
+} from "@/lib/growth/constants";
 import { quickResearch } from "./prospects/actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -74,7 +78,7 @@ export default async function GrowthDashboardPage() {
   const admin = createAdminClient();
 
   const today = new Date().toISOString().slice(0, 10);
-  const activeFilter = '("won","lost","do_not_contact")';
+  const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
 
   const [
     metrics,
@@ -102,7 +106,7 @@ export default async function GrowthDashboardPage() {
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
-      .in("status", ["replied", "qualified", "meeting_booked", "proposal_sent"])
+      .in("status", ["replied", "qualified", "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation"])
       .order("lead_score", { ascending: false })
       .limit(8),
     admin
@@ -167,6 +171,10 @@ export default async function GrowthDashboardPage() {
               <div style={{ flex: "1 1 200px" }}>
                 <label htmlFor="qr-instagram">Instagram URL</label>
                 <input id="qr-instagram" name="instagram_url" maxLength={500} style={{ width: "100%" }} />
+              </div>
+              <div style={{ flex: "1 1 200px" }}>
+                <label htmlFor="qr-facebook">Facebook URL</label>
+                <input id="qr-facebook" name="facebook_url" maxLength={500} style={{ width: "100%" }} />
               </div>
               <div style={{ flex: "1 1 180px" }}>
                 <label htmlFor="qr-email">Email</label>

@@ -80,6 +80,12 @@ export default function GrowthLoginForm() {
       <button type="submit" disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </button>
+      <p style={{ fontSize: 12, color: "var(--faint, #6f6f7a)", marginTop: 14, textAlign: "center" }}>
+        Need help? Contact us at{" "}
+        <a href="mailto:hello@automateiq.ie" style={{ color: "var(--ac2, #3b82f6)" }}>
+          hello@automateiq.ie
+        </a>
+      </p>
     </form>
   );
 }

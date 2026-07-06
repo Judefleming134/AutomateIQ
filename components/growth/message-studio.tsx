@@ -134,7 +134,9 @@ export function MessageStudio({
           text:
             mode === "send_email"
               ? "Email sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days."
-              : "Recorded as sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days.",
+              : channel === "call"
+                ? "Call logged ✓ — prospect moved to Contacted, follow-up scheduled in 3 days."
+                : "Recorded as sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days.",
         });
         setDrafts((prev) => ({ ...prev, [key(channel, purpose)]: emptyDraft }));
       }
@@ -341,7 +343,7 @@ export function MessageStudio({
           disabled={!hasText}
         >
           {copied ? <Check size={13} style={{ color: "var(--green)" }} /> : <Copy size={13} />}
-          {copied ? "Copied!" : "Copy message"}
+          {copied ? "Copied!" : channel === "call" ? "Copy script" : "Copy message"}
         </button>
         {channel === "email" ? (
           <button
@@ -359,16 +361,22 @@ export function MessageStudio({
             className="btn btn-primary btn-sm"
             onClick={() => dispatch("mark_sent")}
             disabled={anyBusy || !hasText}
-            title={`After you send it in ${CHANNEL_META[channel].label}, record it here`}
+            title={
+              channel === "call"
+                ? "After you make the call, record it here"
+                : `After you send it in ${CHANNEL_META[channel].label}, record it here`
+            }
           >
-            <CheckCheck size={13} /> Mark as sent
+            <CheckCheck size={13} /> {channel === "call" ? "Mark call made" : "Mark as sent"}
           </button>
         )}
       </div>
       <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 8 }}>
         {channel === "email"
           ? "Send email now delivers through Resend and moves the prospect to Contacted with a follow-up in 3 days."
-          : `Copy the message, send it in ${CHANNEL_META[channel].label}, then Mark as sent — the CRM moves them to Contacted and schedules your follow-up automatically.`}
+          : channel === "call"
+            ? "Generate a call script (opener, why-them, the ask, objection responses, voicemail version), make the call yourself, then Mark call made — the CRM moves them to Contacted and schedules your follow-up."
+            : `Copy the message, send it in ${CHANNEL_META[channel].label}, then Mark as sent — the CRM moves them to Contacted and schedules your follow-up automatically.`}
       </p>
     </div>
   );

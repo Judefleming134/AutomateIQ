@@ -179,14 +179,24 @@ export default async function ProspectWorkspacePage({
 
   const defaultChannel: Channel = prospect.email
     ? "email"
-    : prospect.linkedin_url
-      ? "linkedin"
-      : prospect.instagram_url
-        ? "instagram"
-        : "sms";
+    : prospect.instagram_url
+      ? "instagram"
+      : prospect.facebook_url
+        ? "facebook"
+        : prospect.linkedin_url
+          ? "linkedin"
+          : prospect.phone
+            ? "call"
+            : "sms";
 
   // The one-click happy path. Everything else lives in the Details select.
-  const quickStages: ProspectStatus[] = ["replied", "qualified", "meeting_booked", "won"];
+  const quickStages: ProspectStatus[] = [
+    "replied",
+    "qualified",
+    "meeting_booked",
+    "negotiation",
+    "won",
+  ];
 
   return (
     <>
@@ -362,6 +372,53 @@ export default async function ProspectWorkspacePage({
           </div>
 
           <div>
+            {report &&
+              (prospect.status === "meeting_booked" ||
+                (meetings ?? []).some((m) => m.status === "booked")) && (
+                <section
+                  className="panel panel-block"
+                  style={{ marginBottom: 16, borderLeft: "3px solid var(--green, #34d399)" }}
+                  aria-labelledby="prep-title"
+                >
+                  <h2 className="panel-title" id="prep-title">
+                    Strategy Session prep
+                  </h2>
+                  {(meetings ?? [])
+                    .filter((m) => m.status === "booked")
+                    .slice(0, 2)
+                    .map((m) => (
+                      <p key={m.id} style={{ fontSize: 13, margin: "0 0 8px" }}>
+                        <strong>{fmt(m.scheduled_at)}</strong> (Irish time)
+                      </p>
+                    ))}
+                  {solutions.length > 0 && (
+                    <p style={{ fontSize: 13, margin: "0 0 4px" }}>
+                      <strong>Pitch:</strong>{" "}
+                      {solutions.slice(0, 3).map((s) => s.name).join(" · ")}
+                    </p>
+                  )}
+                  {report.proposal_angle && (
+                    <p style={{ fontSize: 13, margin: "0 0 8px" }}>
+                      <strong>Angle:</strong> {report.proposal_angle}
+                    </p>
+                  )}
+                  <ListSection title="Ask on the call" items={report.discovery_questions} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                    <Link
+                      href={`/growth/prospects/${prospect.id}?tab=proposal`}
+                      className="btn btn-primary btn-sm"
+                    >
+                      Prepare the proposal →
+                    </Link>
+                    <Link
+                      href={`/growth/prospects/${prospect.id}?tab=conversation`}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Log call notes
+                    </Link>
+                  </div>
+                </section>
+              )}
             {report && (
               <section className="panel panel-block">
                 <h2 className="panel-title">Sales angle</h2>
@@ -446,9 +503,17 @@ export default async function ProspectWorkspacePage({
               <h2 className="panel-title">Contact channels</h2>
               <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
                 <div>Email: {prospect.email ?? "—"}</div>
-                <div>Phone: {prospect.phone ?? "—"}</div>
+                <div>
+                  Phone:{" "}
+                  {prospect.phone ? (
+                    <a href={`tel:${prospect.phone.replace(/[^\d+]/g, "")}`}>{prospect.phone}</a>
+                  ) : (
+                    "—"
+                  )}
+                </div>
                 <div style={{ wordBreak: "break-all" }}>LinkedIn: {prospect.linkedin_url ?? "—"}</div>
                 <div style={{ wordBreak: "break-all" }}>Instagram: {prospect.instagram_url ?? "—"}</div>
+                <div style={{ wordBreak: "break-all" }}>Facebook: {prospect.facebook_url ?? "—"}</div>
               </div>
             </section>
           </div>
@@ -699,6 +764,8 @@ export default async function ProspectWorkspacePage({
               <input id="ep-linkedin" name="linkedin_url" defaultValue={prospect.linkedin_url ?? ""} maxLength={500} />
               <label htmlFor="ep-instagram">Instagram URL</label>
               <input id="ep-instagram" name="instagram_url" defaultValue={prospect.instagram_url ?? ""} maxLength={500} />
+              <label htmlFor="ep-facebook">Facebook URL</label>
+              <input id="ep-facebook" name="facebook_url" defaultValue={prospect.facebook_url ?? ""} maxLength={500} />
               <label htmlFor="ep-campaign">Campaign</label>
               <select id="ep-campaign" name="campaign_id" defaultValue={prospect.campaign_id ?? ""}>
                 <option value="">No campaign</option>

@@ -70,6 +70,32 @@ without one.
   numbers.
 - Long AI actions run under `export const maxDuration = 60` on the routes
   that host them (dashboard, prospects list, prospect workspace).
+- **Pipeline statuses (run `supabase/manual_update_0018.sql` after 0017)** —
+  the pipeline is now the complete outbound ladder: new → researching →
+  research_complete → **outreach_ready** → contacted → **follow_up_sent** →
+  replied → qualified → meeting_booked → **proposal_in_progress** →
+  proposal_sent → **negotiation** → won / lost / **future_opportunity** /
+  do_not_contact / **archived** (bold = added; nothing renamed). Automations:
+  sending to an already-contacted prospect (or sending a follow-up-purpose
+  draft) sets follow_up_sent; generating a proposal sets
+  proposal_in_progress; future_opportunity self-schedules a 90-day
+  re-engagement reminder; archived behaves like the other closed stages
+  (reminders cleared, hidden from priority lists — `CLOSED_STATUSES` in
+  constants is the single source of truth). Pipeline value now counts
+  qualified → negotiation stages (fixes proposal_sent being excluded).
+  "Follow-up due" is intentionally NOT a status — it's the derived
+  next_follow_up_at ≤ today state the dashboard already surfaces.
+- **Channels update (run `supabase/manual_update_0017.sql` after 0016)** —
+  built for the owner's actual outbound motion (DM-ing and cold-calling
+  local trades): **Facebook** is a full channel (prospect `facebook_url`,
+  research auto-draft, studio tab, templates, campaigns, activity log) and
+  **Phone call** is a channel whose "draft" is a complete research-grounded
+  call script (opener, why-them, the ask, top-3 objection responses,
+  voicemail version) with "Mark call made" doing the same CRM automation as
+  sending. Phone numbers are click-to-call (`tel:`) links. When a meeting
+  is booked, the Research tab shows a **Strategy Session prep** panel
+  (meeting time, what to pitch, angle, discovery questions, straight into
+  the Proposal Studio).
 
 Verified: 0014 applied twice cleanly to scratch Postgres 16 on top of 0013
 (new statuses accepted); `next build` green; production-server smoke test —
