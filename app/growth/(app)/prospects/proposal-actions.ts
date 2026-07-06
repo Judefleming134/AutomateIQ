@@ -74,6 +74,18 @@ export async function generateProposal(_prev: Result, formData: FormData): Promi
   });
   if (error) return { error: error.message };
 
+  // Working on a proposal is a pipeline stage of its own — but never
+  // regress a prospect whose proposal already went out (or who's closed).
+  if (
+    !["proposal_in_progress", "proposal_sent", "negotiation", "won", "lost",
+      "do_not_contact", "archived"].includes(prospect.status)
+  ) {
+    await admin
+      .from("ge_prospects")
+      .update({ status: "proposal_in_progress" })
+      .eq("id", prospectId);
+  }
+
   await admin.from("ge_activities").insert({
     prospect_id: prospectId,
     type: "system",
@@ -137,7 +149,9 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
     .maybeSingle();
   if (
     prospect &&
-    !["proposal_sent", "won", "lost", "do_not_contact"].includes(prospect.status)
+    !["proposal_sent", "negotiation", "won", "lost", "do_not_contact", "archived"].includes(
+      prospect.status
+    )
   ) {
     await admin
       .from("ge_prospects")

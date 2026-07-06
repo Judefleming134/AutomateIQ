@@ -8,15 +8,24 @@ export type ProspectStatus =
   | "new"
   | "researching"
   | "research_complete"
+  | "outreach_ready"
   | "contacted"
+  | "follow_up_sent"
   | "replied"
   | "qualified"
   | "meeting_booked"
+  | "proposal_in_progress"
   | "proposal_sent"
+  | "negotiation"
   | "won"
   | "lost"
-  | "do_not_contact";
+  | "future_opportunity"
+  | "do_not_contact"
+  | "archived";
 
+// Pipeline order. "Follow-up due" is deliberately NOT a status — it's the
+// derived state next_follow_up_at <= today, which the dashboard reminders
+// already surface; storing it would fight that automation.
 export const PROSPECT_STATUS_META: Record<
   ProspectStatus,
   { label: string; badge: string }
@@ -24,15 +33,30 @@ export const PROSPECT_STATUS_META: Record<
   new: { label: "New", badge: "badge-blue" },
   researching: { label: "Researching", badge: "badge-blue" },
   research_complete: { label: "Research complete", badge: "badge-blue" },
+  outreach_ready: { label: "Outreach ready", badge: "badge-blue" },
   contacted: { label: "Contacted", badge: "badge-orange" },
+  follow_up_sent: { label: "Follow-up sent", badge: "badge-orange" },
   replied: { label: "Replied", badge: "badge-green" },
   qualified: { label: "Qualified", badge: "badge-green" },
   meeting_booked: { label: "Meeting booked", badge: "badge-green" },
+  proposal_in_progress: { label: "Proposal in progress", badge: "badge-orange" },
   proposal_sent: { label: "Proposal sent", badge: "badge-orange" },
+  negotiation: { label: "Negotiation", badge: "badge-orange" },
   won: { label: "Won", badge: "badge-green" },
   lost: { label: "Lost", badge: "badge-red" },
+  future_opportunity: { label: "Future opportunity", badge: "badge-gray" },
   do_not_contact: { label: "Do not contact", badge: "badge-gray" },
+  archived: { label: "Archived", badge: "badge-gray" },
 };
+
+/** Stages where the prospect is out of active play (reminders cleared,
+ *  except future_opportunity which keeps its long-dated re-engagement). */
+export const CLOSED_STATUSES: ProspectStatus[] = [
+  "won",
+  "lost",
+  "do_not_contact",
+  "archived",
+];
 
 export const PROSPECT_STATUSES = Object.keys(
   PROSPECT_STATUS_META

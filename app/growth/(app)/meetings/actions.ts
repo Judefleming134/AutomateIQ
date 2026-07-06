@@ -16,7 +16,8 @@ async function markMeetingBooked(prospectId: string) {
     .maybeSingle();
   if (
     prospect &&
-    !["meeting_booked", "won", "lost", "do_not_contact"].includes(prospect.status)
+    !["meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation",
+      "won", "lost", "do_not_contact", "archived"].includes(prospect.status)
   ) {
     await admin
       .from("ge_prospects")

@@ -50,7 +50,8 @@ async function recordOutreachSent(
   messageId: string,
   channel: string,
   memberName: string,
-  memberId: string
+  memberId: string,
+  purpose?: string | null
 ) {
   const admin = createAdminClient();
   await admin
@@ -63,8 +64,22 @@ async function recordOutreachSent(
       .toISOString()
       .slice(0, 10),
   };
-  if (["new", "researching", "research_complete"].includes(prospect.status)) {
+  // First outreach → Contacted; chasing an unanswered prospect (or sending
+  // an explicit follow-up draft) → Follow-up sent. Later stages (replied,
+  // qualified, …) are never regressed by sending another message.
+  if (
+    ["new", "researching", "research_complete", "outreach_ready"].includes(
+      prospect.status
+    )
+  ) {
     bump.status = "contacted";
+  } else if (
+    ["contacted", "follow_up_sent"].includes(prospect.status) ||
+    (purpose && ["follow_up", "second_follow_up"].includes(purpose) &&
+      !["replied", "qualified", "meeting_booked", "proposal_in_progress",
+        "proposal_sent", "negotiation", "won"].includes(prospect.status))
+  ) {
+    bump.status = "follow_up_sent";
   }
   await admin.from("ge_prospects").update(bump).eq("id", prospect.id);
   await admin.from("ge_activities").insert({
@@ -227,9 +242,9 @@ export async function composeMessage(input: {
       revalidateProspect(prospect.id);
       return { ok: false, error: `Email failed: ${sent.error}` };
     }
-    await recordOutreachSent(prospect, message.id, "email", member.name, member.id);
+    await recordOutreachSent(prospect, message.id, "email", member.name, member.id, input.purpose);
   } else if (input.mode === "mark_sent") {
-    await recordOutreachSent(prospect, message.id, input.channel, member.name, member.id);
+    await recordOutreachSent(prospect, message.id, input.channel, member.name, member.id, input.purpose);
   }
 
   revalidateProspect(prospect.id);
@@ -244,7 +259,7 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
 
   const { data: message } = await admin
     .from("ge_messages")
-    .select("id, prospect_id, channel, subject, body, status, direction")
+    .select("id, prospect_id, channel, subject, body, status, direction, purpose")
     .eq("id", id)
     .maybeSingle();
   if (!message || message.direction !== "outbound") return { error: "Message not found." };
@@ -269,7 +284,7 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
     return { error: `Email failed: ${sent.error}` };
   }
 
-  await recordOutreachSent(prospect, id, "email", member.name, member.id);
+  await recordOutreachSent(prospect, id, "email", member.name, member.id, message.purpose);
   revalidateProspect(prospect.id);
   return { ok: true };
 }
@@ -282,7 +297,7 @@ export async function markMessageSent(_prev: Result, formData: FormData): Promis
 
   const { data: message } = await admin
     .from("ge_messages")
-    .select("id, prospect_id, channel, status, direction")
+    .select("id, prospect_id, channel, status, direction, purpose")
     .eq("id", id)
     .maybeSingle();
   if (!message || message.direction !== "outbound") return { error: "Message not found." };
@@ -293,7 +308,7 @@ export async function markMessageSent(_prev: Result, formData: FormData): Promis
   const prospect = await loadProspect(message.prospect_id);
   if (!prospect) return { error: "Prospect not found." };
 
-  await recordOutreachSent(prospect, id, message.channel, member.name, member.id);
+  await recordOutreachSent(prospect, id, message.channel, member.name, member.id, message.purpose);
   revalidateProspect(prospect.id);
   return { ok: true };
 }
@@ -455,7 +470,10 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
   });
   if (error) return { error: error.message };
 
-  if (["new", "researching", "contacted"].includes(prospect.status)) {
+  if (
+    ["new", "researching", "research_complete", "outreach_ready",
+     "contacted", "follow_up_sent"].includes(prospect.status)
+  ) {
     await admin.from("ge_prospects").update({ status: "replied" }).eq("id", prospect.id);
   }
 
