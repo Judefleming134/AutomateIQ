@@ -33,9 +33,21 @@ const CHANNEL_RULES: Record<Channel, string> = {
     "LinkedIn direct message. No subject line. Under 500 characters. Conversational, no heavy formatting, no links unless asked to include the booking link.",
   instagram:
     "Instagram DM. No subject line. Short (2–4 sentences), warm and informal, no corporate jargon.",
+  facebook:
+    "Facebook page message. No subject line. 2–4 sentences, plain-spoken and local in feel — you're messaging a small business's page, so sound like a person, not a marketing department.",
   email:
     "Email. MUST start with a subject line in the exact format 'SUBJECT: ...' on the first line, then a blank line, then the body. Body 80–150 words, short paragraphs, sign off as 'AutomateIQ'.",
   sms: "SMS. No subject line. Maximum 320 characters, one clear call to action, sign as AutomateIQ.",
+  call: [
+    "PHONE CALL SCRIPT to be read/spoken by the caller — not a message to send. Short spoken sentences, zero jargon.",
+    "Structure it with these labelled sections:",
+    "OPENER — 10 seconds, name + company + permission to take 30 seconds.",
+    "WHY I'M CALLING YOU — one specific, research-grounded observation about their business.",
+    "THE VALUE — one concrete thing AutomateIQ could take off their plate.",
+    "THE ASK — a free, no-obligation 30-minute AI Strategy Session.",
+    "IF THEY SAY... — the 3 most likely objections for this business, each with a one-line spoken response.",
+    "VOICEMAIL VERSION — a 25-second version to leave if no answer.",
+  ].join(" "),
 };
 
 const OBJECTIVE_RULES: Record<MessageObjective, string> = {

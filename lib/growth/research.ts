@@ -27,6 +27,7 @@ export type ResearchReport = {
 export type ChannelDrafts = {
   linkedin: string;
   instagram: string;
+  facebook: string;
   email: { subject: string; body: string };
   sms: string;
 };
@@ -190,6 +191,7 @@ export async function runCompanyResearch(
   "drafts": {
     "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject",
     "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal",
+    "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel",
     "email": { "subject": "short specific subject", "body": "80-140 word first-touch email, sign off as AutomateIQ" },
     "sms": "first-touch SMS under 320 characters, sign as AutomateIQ"
   }
@@ -234,6 +236,7 @@ export async function runCompanyResearch(
   const drafts: ChannelDrafts = {
     linkedin: asString(d.linkedin, 2000),
     instagram: asString(d.instagram, 2000),
+    facebook: asString(d.facebook, 2000),
     email: {
       subject: asString(email.subject, 200) || `A quick idea for ${prospect.company}`,
       body: asString(email.body, 4000),

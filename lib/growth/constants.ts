@@ -38,13 +38,15 @@ export const PROSPECT_STATUSES = Object.keys(
   PROSPECT_STATUS_META
 ) as ProspectStatus[];
 
-export type Channel = "linkedin" | "instagram" | "email" | "sms";
+export type Channel = "linkedin" | "instagram" | "facebook" | "email" | "sms" | "call";
 
 export const CHANNEL_META: Record<Channel, { label: string }> = {
   linkedin: { label: "LinkedIn" },
   instagram: { label: "Instagram" },
+  facebook: { label: "Facebook" },
   email: { label: "Email" },
   sms: { label: "SMS" },
+  call: { label: "Phone call" },
 };
 
 export const CHANNELS = Object.keys(CHANNEL_META) as Channel[];

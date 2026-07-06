@@ -25,21 +25,21 @@ export async function GET(request: Request) {
     const { data } = await admin
       .from("ge_prospects")
       .select(
-        "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
+        "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, facebook_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
       )
       .order("created_at", { ascending: false });
     rows = [
       [
         "company", "contact_name", "job_title", "industry", "website", "location",
-        "email", "phone", "linkedin_url", "instagram_url", "status", "lead_score",
-        "qualification_status", "pipeline_value", "source", "last_contact_at",
-        "next_follow_up_at", "created_at",
+        "email", "phone", "linkedin_url", "instagram_url", "facebook_url", "status",
+        "lead_score", "qualification_status", "pipeline_value", "source",
+        "last_contact_at", "next_follow_up_at", "created_at",
       ],
       ...(data ?? []).map((p) => [
         p.company, p.contact_name, p.job_title, p.industry, p.website, p.location,
-        p.email, p.phone, p.linkedin_url, p.instagram_url, p.status, p.lead_score,
-        p.qualification_status, p.pipeline_value, p.source, p.last_contact_at,
-        p.next_follow_up_at, p.created_at,
+        p.email, p.phone, p.linkedin_url, p.instagram_url, p.facebook_url, p.status,
+        p.lead_score, p.qualification_status, p.pipeline_value, p.source,
+        p.last_contact_at, p.next_follow_up_at, p.created_at,
       ]),
     ];
     name = "growth-prospects";

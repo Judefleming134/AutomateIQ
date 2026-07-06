@@ -70,6 +70,17 @@ without one.
   numbers.
 - Long AI actions run under `export const maxDuration = 60` on the routes
   that host them (dashboard, prospects list, prospect workspace).
+- **Channels update (run `supabase/manual_update_0017.sql` after 0016)** —
+  built for the owner's actual outbound motion (DM-ing and cold-calling
+  local trades): **Facebook** is a full channel (prospect `facebook_url`,
+  research auto-draft, studio tab, templates, campaigns, activity log) and
+  **Phone call** is a channel whose "draft" is a complete research-grounded
+  call script (opener, why-them, the ask, top-3 objection responses,
+  voicemail version) with "Mark call made" doing the same CRM automation as
+  sending. Phone numbers are click-to-call (`tel:`) links. When a meeting
+  is booked, the Research tab shows a **Strategy Session prep** panel
+  (meeting time, what to pitch, angle, discovery questions, straight into
+  the Proposal Studio).
 
 Verified: 0014 applied twice cleanly to scratch Postgres 16 on top of 0013
 (new statuses accepted); `next build` green; production-server smoke test —
