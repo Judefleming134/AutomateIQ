@@ -95,7 +95,7 @@ export default async function CustomSolutionsPage() {
             No custom modules yet
           </h3>
           <p style={{ margin: 0, fontSize: 13, color: "var(--body)" }}>
-            Get in touch to discuss what you need — hello@automateiq.ie
+            Get in touch to discuss what you need — jude@automateiq.ie
           </p>
         </div>
       )}
