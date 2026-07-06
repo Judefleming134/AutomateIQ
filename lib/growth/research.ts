@@ -160,7 +160,9 @@ export async function runCompanyResearch(
     prospect.website
       ? `- Website: ${prospect.website}`
       : "- Website: NONE — this business has no website",
-    prospect.notes ? `- Team notes: ${prospect.notes}` : "",
+    prospect.notes
+      ? `- SALESPERSON'S FIELD NOTES (first-hand observations from finding this lead — weigh these heavily and build the recommendations and outreach angle around them): ${prospect.notes}`
+      : "",
     "",
     websiteText
       ? `WEBSITE CONTENT (extracted text):\n${websiteText}`

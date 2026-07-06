@@ -33,7 +33,11 @@ const optional = (max = 300) =>
 
 const prospectSchema = z.object({
   company: z.string().trim().min(1, "Company is required.").max(200),
-  contact_name: z.string().trim().min(1, "Contact name is required.").max(200),
+  contact_name: z
+    .string()
+    .trim()
+    .max(200)
+    .transform((v) => v || "Owner"),
   job_title: optional(),
   industry: optional(),
   website: optional(),
@@ -58,6 +62,20 @@ const prospectSchema = z.object({
     .nullable()
     .optional(),
 });
+
+/** A prospect must be reachable somehow — company name alone is not a lead. */
+function hasContactMethod(p: {
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+}): boolean {
+  return Boolean(
+    p.website || p.email || p.phone || p.linkedin_url || p.instagram_url || p.facebook_url
+  );
+}
 
 function fields(formData: FormData, keys: string[]) {
   const out: Record<string, string> = {};
@@ -86,6 +104,12 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
   const parsed = prospectSchema.safeParse(fields(formData, PROSPECT_FIELD_KEYS));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  if (!hasContactMethod(parsed.data)) {
+    return {
+      error:
+        "Add at least one way to contact them — website, email, phone, or a social profile.",
+    };
   }
 
   const admin = createAdminClient();
@@ -136,8 +160,8 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
 
   const header = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
   const col = (name: string) => header.indexOf(name);
-  if (col("company") === -1 || col("contact_name") === -1) {
-    return { error: "CSV must include 'company' and 'contact_name' columns." };
+  if (col("company") === -1) {
+    return { error: "CSV must include a 'company' column." };
   }
 
   const admin = createAdminClient();
@@ -151,13 +175,27 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       return i === -1 ? null : row[i]?.trim() || null;
     };
     const company = cell("company");
-    const contactName = cell("contact_name");
-    if (!company || !contactName) {
+    if (!company) {
       skipped++;
       continue;
     }
     const email = cell("email");
     if (email && !emailRe.test(email)) {
+      skipped++;
+      continue;
+    }
+    // A lead must be reachable: company alone (no website/email/phone/social)
+    // is not actionable, so the row is skipped rather than imported.
+    if (
+      !hasContactMethod({
+        website: cell("website"),
+        email,
+        phone: cell("phone"),
+        linkedin_url: cell("linkedin_url"),
+        instagram_url: cell("instagram_url"),
+        facebook_url: cell("facebook_url"),
+      })
+    ) {
       skipped++;
       continue;
     }
@@ -176,7 +214,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       .from("ge_prospects")
       .insert({
         company,
-        contact_name: contactName,
+        contact_name: cell("contact_name") ?? "Owner",
         job_title: cell("job_title"),
         industry: cell("industry"),
         website: cell("website"),
@@ -207,7 +245,26 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   }
 
   revalidatePath("/growth/prospects");
+  if (imported === 0) {
+    return {
+      error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
+    };
+  }
   return { ok: true, imported, skipped };
+}
+
+/**
+ * One prospect's research, callable from the client-side "Research all"
+ * queue — each call is its own request, so each gets the route's full
+ * execution window instead of one action trying to research 60 companies.
+ */
+export async function researchOne(
+  prospectId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const fd = new FormData();
+  fd.set("id", prospectId);
+  const result = await researchProspect(undefined, fd);
+  return result?.error ? { ok: false, error: result.error } : { ok: true };
 }
 
 export async function updateProspect(_prev: Result, formData: FormData): Promise<Result> {

@@ -195,6 +195,11 @@ export async function draftStudioMessage(
   ];
   if (prospect.industry) lines.push(`- Industry: ${prospect.industry}`);
   if (prospect.location) lines.push(`- Location: ${prospect.location}`);
+  if (prospect.notes) {
+    lines.push(
+      `- Salesperson's field notes (weigh heavily — first-hand observations): ${prospect.notes}`
+    );
+  }
   const context = researchContext(report);
   if (context) lines.push("", context);
   if (params.purpose === "meeting_confirmation" || params.purpose === "thank_you") {

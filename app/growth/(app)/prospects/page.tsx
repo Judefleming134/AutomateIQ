@@ -9,6 +9,7 @@ import {
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { ResearchQueue } from "@/components/growth/research-queue";
 import { addProspect, importProspects, quickResearch } from "./actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -49,14 +50,28 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", industry);
   if (campaign) query = query.eq("campaign_id", campaign);
 
-  const [{ data: prospects }, { data: campaigns }, { data: industriesRaw }, { data: team }] =
-    await Promise.all([
-      query,
-      admin.from("ge_campaigns").select("id, name").order("name"),
-      admin.from("ge_prospects").select("industry").not("industry", "is", null),
-      admin.from("ge_team_members").select("id, name"),
-    ]);
+  const [
+    { data: prospects },
+    { data: campaigns },
+    { data: industriesRaw },
+    { data: team },
+    { data: allProspects },
+    { data: researched },
+  ] = await Promise.all([
+    query,
+    admin.from("ge_campaigns").select("id, name").order("name"),
+    admin.from("ge_prospects").select("industry").not("industry", "is", null),
+    admin.from("ge_team_members").select("id, name"),
+    admin
+      .from("ge_prospects")
+      .select("id, company")
+      .not("status", "in", '("won","lost","do_not_contact","archived")')
+      .order("created_at", { ascending: false }),
+    admin.from("ge_research").select("prospect_id"),
+  ]);
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
+  const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
+  const unresearched = (allProspects ?? []).filter((p) => !researchedIds.has(p.id));
 
   const industries = [
     ...new Set((industriesRaw ?? []).map((r) => r.industry?.trim()).filter(Boolean)),
@@ -79,6 +94,8 @@ export default async function ProspectsPage({
           <Download size={14} /> Export CSV
         </a>
       </div>
+
+      <ResearchQueue pending={unresearched} />
 
       <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
