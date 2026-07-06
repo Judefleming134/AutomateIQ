@@ -227,6 +227,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
 .hero2-content::after{width:4px;height:4px;right:24%;top:52%;background:rgba(255,255,255,.7);box-shadow:0 0 10px 2px rgba(255,255,255,.35);animation-duration:11s;animation-delay:-3s}
 @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
 @media(max-width:760px){.hero2-content::before,.hero2-content::after{display:none}}
+.hero-tag-caret{display:none;width:7px;height:12px;margin-left:2px;background:var(--ac2);opacity:.9;animation:tagblink .8s steps(1) infinite}.hero2-tag.typing .hero-tag-caret{display:inline-block}@keyframes tagblink{50%{opacity:0}}@media(prefers-reduced-motion:reduce){.hero-tag-caret{display:none!important}}
 .hero2-tag .dot{width:7px;height:7px;border-radius:50%;background:var(--ac2);box-shadow:0 0 12px var(--ac2),0 0 0 4px var(--ac-dim)}
 .hero2 .hero-cta{margin-top:36px;display:flex;gap:13px;justify-content:center;flex-wrap:wrap}
 .scrollcue2{margin-top:54px;font:10px var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--faint);animation:bob 2.2s ease-in-out infinite;transition:opacity .5s ease;display:inline-flex;flex-direction:column;align-items:center;gap:8px}
@@ -554,7 +555,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
  <div class="hero2-pin"><div class="hero2-bg"></div><div class="hero2-scrim"></div><div class="hero-glow"></div><div class="hero-beams"><span></span><span></span></div><canvas class="hero-particles"></canvas></div>
  <div class="hero2-content">
   <div class="hero2-block">
-   <div class="hero2-tag seq-in"><span class="dot"></span> AutomateIQ · AI operating system</div>
+   <div class="hero2-tag seq-in"><span class="dot"></span> <span id="hero-tag-text">AutomateIQ · AI operating system</span><span class="hero-tag-caret" aria-hidden="true"></span></div>
    <div class="scrollcue2">scroll &darr;</div>
   </div>
   <div class="hero2-block">
@@ -1497,7 +1498,24 @@ var isTouch=window.matchMedia('(hover: none), (pointer: coarse)').matches;
  var tag=document.querySelector('.hero2-tag.seq-in');
  if(reduceMotion)return;
  if(pin)requestAnimationFrame(function(){pin.classList.add('in');});
- if(tag)setTimeout(function(){tag.classList.add('in');},60);
+ var typed=false;
+ try{typed=sessionStorage.getItem('aiq-tag-typed')==='1';}catch(e){}
+ var txtEl=document.getElementById('hero-tag-text');
+ if(tag&&txtEl&&!typed){
+  var full=txtEl.textContent;
+  txtEl.textContent='';
+  tag.classList.add('typing');
+  setTimeout(function(){tag.classList.add('in');},60);
+  var i=0;
+  setTimeout(function step(){
+   i++;
+   txtEl.textContent=full.slice(0,i);
+   if(i<full.length){setTimeout(step,full.charAt(i-1)===' '?70:34+Math.random()*40);}
+   else{tag.classList.remove('typing');try{sessionStorage.setItem('aiq-tag-typed','1');}catch(e){}}
+  },420);
+ }else if(tag){
+  setTimeout(function(){tag.classList.add('in');},60);
+ }
 })();
 
 (function(){
