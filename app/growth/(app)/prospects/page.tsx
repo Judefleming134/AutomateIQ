@@ -87,11 +87,11 @@ export default async function ProspectsPage({
         <ActionForm action={quickResearch} style={{ marginTop: 10 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: "2 1 240px" }}>
-              <label htmlFor="pqr-website">Company website *</label>
-              <input id="pqr-website" name="website" required placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
+              <label htmlFor="pqr-website">Company website (or leave blank)</label>
+              <input id="pqr-website" name="website" placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 170px" }}>
-              <label htmlFor="pqr-company">Company (optional)</label>
+              <label htmlFor="pqr-company">Company (required if no website)</label>
               <input id="pqr-company" name="company" maxLength={200} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 170px" }}>
