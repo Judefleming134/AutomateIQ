@@ -55,7 +55,7 @@ export async function fetchWebsiteText(rawUrl: string): Promise<string | null> {
 
     const res = await fetch(parsed.toString(), {
       redirect: "follow",
-      signal: AbortSignal.timeout(12000),
+      signal: AbortSignal.timeout(8000),
       headers: {
         // Some SME sites block requests with no UA at all.
         "user-agent":
