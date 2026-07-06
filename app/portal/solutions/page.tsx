@@ -1,9 +1,23 @@
+import Link from "next/link";
 import { Layers, Rocket, Lock, Sparkles } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { getEnabledProductKeys } from "@/lib/agents/registry";
 import { isMissingTableError } from "@/lib/db/errors";
 import { SystemIcon } from "@/lib/systems/icons";
 import { getSystemByKey } from "@/lib/systems/catalog";
+
+/**
+ * Business Systems that are live and reachable in the portal map to their
+ * entitlement product + route. When the product is enabled the Solutions card
+ * becomes a real Launch link into the running system.
+ */
+const SYSTEM_LAUNCH: Record<string, { productKey: string; route: string }> = {
+  "ai-logistics-control-centre": {
+    productKey: "logistics-control-centre",
+    route: "/portal/logistics",
+  },
+};
 
 const DEV_STATUS: Record<string, string> = {
   planned: "Planned",
@@ -21,7 +35,7 @@ export default async function SolutionsPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: business }, { data: systems, error: systemsError }, { data: assignments }] =
+  const [{ data: business }, { data: systems, error: systemsError }, { data: assignments }, enabledKeys] =
     await Promise.all([
       supabase.from("businesses").select("name").eq("id", profile.business_id!).maybeSingle(),
       supabase
@@ -29,6 +43,7 @@ export default async function SolutionsPage() {
         .select("id, key, name, description, icon, dev_status, sort_order")
         .order("sort_order", { ascending: true }),
       supabase.from("bsys_assignments").select("system_id, module_status, notes"),
+      getEnabledProductKeys(supabase),
     ]);
 
   const needsMigration = systemsError && isMissingTableError(systemsError);
@@ -74,9 +89,13 @@ export default async function SolutionsPage() {
               const meta = getSystemByKey(s.key);
               const accent = meta?.accent ?? "#3B82F6";
               const assignment = assignmentBySystem.get(s.id);
-              const moduleStatus = assignment?.module_status ?? "coming_soon";
+              // A system is live for this business when its entitlement product
+              // is enabled (the real gate), or an admin set its module active.
+              const launch = SYSTEM_LAUNCH[s.key];
+              const productLive = launch ? enabledKeys.has(launch.productKey) : false;
+              const moduleStatus = productLive ? "active" : assignment?.module_status ?? "coming_soon";
               const status = MODULE_STATUS[moduleStatus] ?? MODULE_STATUS.coming_soon;
-              const launchable = moduleStatus === "active";
+              const launchable = moduleStatus === "active" && Boolean(launch);
               return (
                 <div
                   key={s.id}
@@ -107,10 +126,10 @@ export default async function SolutionsPage() {
                     </div>
                   </dl>
 
-                  {launchable ? (
-                    <button type="button" className="btn btn-primary btn-sm sol-launch">
+                  {launchable && launch ? (
+                    <Link href={launch.route} className="btn btn-primary btn-sm sol-launch">
                       <Rocket size={13} /> Launch
-                    </button>
+                    </Link>
                   ) : (
                     <button type="button" className="btn btn-secondary btn-sm sol-launch" disabled>
                       Launch

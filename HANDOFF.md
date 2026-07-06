@@ -61,6 +61,51 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Phase 6 (2026-07-06): AI Logistics Control Centre (first live Business System)
+
+The first bespoke Business System, built as a specialist AI agent inside the
+existing ecosystem. **Setup: run `supabase/manual_update_0013.sql`** (after
+0012; idempotent, additive). It adds the `log_*` tables (drivers, warehouses,
+vehicles, routes, route_stops, deliveries) with `is_active_tenant_member` RLS,
+registers the `logistics-control-centre` product, and marks the matching
+Business System available. Nothing existing was changed.
+
+- **Access** — gated by the existing product-entitlement system: enable
+  **AI Logistics Control Centre** in **Admin → customer → Products**. The
+  Solutions card (`/portal/solutions`) then flips to a live **Launch** button
+  into `/portal/logistics`.
+- **Control Centre** (`/portal/logistics`) with sub-nav: **Control Centre**
+  (KPIs + live map), **Fleet** (vehicles + drivers, per-vehicle mini-map,
+  manual GPS location updates, status), **Warehouses** (CRUD + capacity bars +
+  mini-maps), **Routes** (warehouse → stops → destination, auto distance, map
+  path), **Deliveries** (scheduled → in-transit → delivered/delayed/failed).
+- **Map engine** — `components/logistics/map.tsx` uses Leaflet loaded from CDN
+  (no npm dependency) with a **provider abstraction** (`lib/logistics/
+  map-config.ts`): OpenStreetMap by default, Mapbox or Google via
+  `NEXT_PUBLIC_MAP_PROVIDER` + token — swappable without a rebuild. Real
+  roads/towns/cities/labels, zoom/pan, location search (Nominatim), satellite
+  toggle (Esri/provider), fullscreen, coloured markers, route polylines, and
+  reusable `MiniMap` on profiles. Addresses are geocoded server-side on save.
+- **AI integration** — `lib/agents/modules/logistics-agent.ts` is registered
+  in the agent registry (live), so the AI Assistant discovers its tools and
+  answers "where is Truck 12?", "show delayed deliveries", "which warehouse is
+  busiest?", "which driver is most efficient?", "which routes should be
+  optimised?". KPIs are computed once in `lib/logistics/core.ts` and shared by
+  the dashboard and the assistant.
+- **GPS-ready** — vehicles carry a `gps_provider` (Samsara/Geotab/Verizon/
+  Teltonika/Traccar/custom) and manual location updates for vehicles without a
+  live feed; live-feed ingestion is the documented next integration.
+
+**New env vars (all optional):** `NEXT_PUBLIC_MAP_PROVIDER` (osm|mapbox|google,
+default osm), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_GOOGLE_MAPS_KEY`. With
+none set it runs on free OpenStreetMap tiles. No new AI key (reuses the
+existing one for logistics tools).
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms one
+business can't read or write another's logistics data; migration idempotent.
+Existing pages, agents, the AI Assistant, bookings, documentation and the
+Business Systems framework are untouched.
+
 ### Phase 5 (2026-07-06): Custom Business Systems framework
 
 An additive showcase + module framework for the bespoke enterprise platforms
