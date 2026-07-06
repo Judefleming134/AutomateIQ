@@ -1,11 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-
-/** General-enquiries inbox that website contact submissions are delivered to. */
-const ENQUIRIES_EMAIL = "hello@automateiq.ie";
 
 /**
  * Public marketing-site lead capture (see public/index.html's #access
@@ -55,25 +53,61 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Best-effort delivery to the enquiries inbox — the lead is already stored,
-  // so an email failure must never fail the request.
+  // Both emails are best-effort — the lead is already stored, so an email
+  // failure must never fail the request.
   if (process.env.RESEND_API_KEY) {
+    const resend = getResendClient();
+
+    // 1. Confirmation to the visitor, so requesting access visibly worked.
     try {
-      const resend = getResendClient();
       const result = await resend.emails.send({
         from: getFromAddress(),
-        to: process.env.LEAD_NOTIFY_EMAIL || ENQUIRIES_EMAIL,
-        subject: "New early-access enquiry — automateiq.ie",
+        to: email,
+        subject: "Your AutomateIQ access request is in",
         text: [
-          "A new enquiry just came in from the automateiq.ie website:",
+          "Thanks for your interest in AutomateIQ.",
           "",
-          `Email: ${email}`,
+          "We've received your access request and a real person will be in touch shortly to get you set up.",
           "",
-          "It's also stored in the platform's leads list.",
+          "Want to skip the queue? Book a free 30-minute AI Strategy Session and we'll map out exactly where AI and automation can save your business the most time:",
+          "https://automateiq.ie/book",
+          "",
+          "Talk soon,",
+          "AutomateIQ",
+          "automateiq.ie",
         ].join("\n"),
       });
       if (result.error) {
-        console.error("Lead enquiry notification rejected:", result.error);
+        console.error("Lead confirmation email rejected:", result.error);
+      }
+    } catch (err) {
+      console.error("Lead confirmation email failed:", err);
+    }
+
+    // 2. Internal alert. LEAD_NOTIFY_EMAIL wins when set; otherwise the same
+    // always-reachable recipients as booking alerts (admin login emails →
+    // sender address), so an unconfigured alias can't swallow leads.
+    try {
+      const override = process.env.LEAD_NOTIFY_EMAIL;
+      const recipients = override
+        ? override.split(",").map((e) => e.trim()).filter(Boolean)
+        : await ownerNotifyRecipients();
+      if (recipients.length > 0) {
+        const result = await resend.emails.send({
+          from: getFromAddress(),
+          to: recipients,
+          subject: "New early-access enquiry — automateiq.ie",
+          text: [
+            "A new enquiry just came in from the automateiq.ie website:",
+            "",
+            `Email: ${email}`,
+            "",
+            "It's also stored in the platform's leads list.",
+          ].join("\n"),
+        });
+        if (result.error) {
+          console.error("Lead enquiry notification rejected:", result.error);
+        }
       }
     } catch (err) {
       console.error("Lead enquiry notification failed:", err);
