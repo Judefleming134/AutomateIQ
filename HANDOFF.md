@@ -70,7 +70,7 @@ without one.
   numbers.
 - Long AI actions run under `export const maxDuration = 60` on the routes
   that host them (dashboard, prospects list, prospect workspace).
-- **Channels update (run `supabase/manual_update_0015.sql` after 0014)** —
+- **Channels update (run `supabase/manual_update_0017.sql` after 0016)** —
   built for the owner's actual outbound motion (DM-ing and cold-calling
   local trades): **Facebook** is a full channel (prospect `facebook_url`,
   research auto-draft, studio tab, templates, campaigns, activity log) and
@@ -209,6 +209,71 @@ GEMINI_API_KEY and BOOKING_NOTIFY_EMAIL if present.
 3. **Suspension check**: suspend the test customer, confirm immediate
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
+
+### Phase 7 (2026-07-06): AI Logistics Control Centre (first live Business System)
+
+The first bespoke Business System, built as a specialist AI agent inside the
+existing ecosystem. **Setup: run `supabase/manual_update_0015.sql`** (after
+0012; idempotent, additive). It adds the `log_*` tables (drivers, warehouses,
+vehicles, routes, route_stops, deliveries) with `is_active_tenant_member` RLS,
+registers the `logistics-control-centre` product, and marks the matching
+Business System available. Nothing existing was changed.
+
+- **Access** — gated by the existing product-entitlement system: enable
+  **AI Logistics Control Centre** in **Admin → customer → Products**. The
+  Solutions card (`/portal/solutions`) then flips to a live **Launch** button
+  into `/portal/logistics`.
+- **Control Centre** (`/portal/logistics`) with sub-nav: **Control Centre**
+  (KPIs + live map), **Fleet** (vehicles + drivers, per-vehicle mini-map,
+  manual GPS location updates, status), **Warehouses** (CRUD + capacity bars +
+  mini-maps), **Routes** (warehouse → stops → destination, auto distance, map
+  path), **Deliveries** (scheduled → in-transit → delivered/delayed/failed).
+- **Map engine** — `components/logistics/map.tsx` uses Leaflet loaded from CDN
+  (no npm dependency) with a **provider abstraction** (`lib/logistics/
+  map-config.ts`): OpenStreetMap by default, Mapbox or Google via
+  `NEXT_PUBLIC_MAP_PROVIDER` + token — swappable without a rebuild. Real
+  roads/towns/cities/labels, zoom/pan, location search (Nominatim), satellite
+  toggle (Esri/provider), fullscreen, coloured markers, route polylines, and
+  reusable `MiniMap` on profiles. Addresses are geocoded server-side on save.
+- **AI integration** — `lib/agents/modules/logistics-agent.ts` is registered
+  in the agent registry (live), so the AI Assistant discovers its tools and
+  answers "where is Truck 12?", "show delayed deliveries", "which warehouse is
+  busiest?", "which driver is most efficient?", "which routes should be
+  optimised?". KPIs are computed once in `lib/logistics/core.ts` and shared by
+  the dashboard and the assistant.
+- **GPS-ready** — vehicles carry a `gps_provider` (Samsara/Geotab/Verizon/
+  Teltonika/Traccar/custom) and manual location updates for vehicles without a
+  live feed; live-feed ingestion is the documented next integration.
+
+**New env vars (all optional):** `NEXT_PUBLIC_MAP_PROVIDER` (osm|mapbox|google,
+default osm), `NEXT_PUBLIC_MAPBOX_TOKEN`, `NEXT_PUBLIC_GOOGLE_MAPS_KEY`. With
+none set it runs on free OpenStreetMap tiles. No new AI key (reuses the
+existing one for logistics tools).
+
+**Self-running live tracking (also run `supabase/manual_update_0016.sql`,
+idempotent).** Adds `log_settings` (per-business `ingest_token` + `live_sim`
+flag, RLS). The Control Centre now works on its own with zero hardware:
+- **Turn on live tracking** → the platform self-drives every simulated vehicle
+  (any without a real GPS provider) along its route on each poll
+  (`lib/logistics/sim.ts`). The map is a live client component
+  (`components/logistics/live-fleet-map.tsx`) polling `POST
+  /api/logistics/positions` every 4s; the map fits once and then just moves the
+  markers.
+- **Load demo fleet** (one click on an empty account) seeds two depots,
+  vehicles, an active Dublin→Cork route and deliveries across Ireland with live
+  tracking on — so it's visibly alive immediately.
+- **GPS ingest plug-in** for real providers later: `POST /api/logistics/gps`,
+  authenticated by the per-business ingest token (Bearer / `x-ingest-token` /
+  `?token=`), body `{ registration|vehicle_id, lat, lng, provider? }`. The
+  token maps to exactly one business (no body `business_id` is trusted), updates
+  the matching vehicle to `gps_status='live'`. The owner sees the endpoint +
+  their token on the Control Centre and can rotate it. Real-provider vehicles
+  are never touched by the simulator, so live and simulated fleets coexist.
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms one
+business can't read or write another's logistics data; migration idempotent.
+Existing pages, agents, the AI Assistant, bookings, documentation and the
+Business Systems framework are untouched.
 
 ### Phase 5 (2026-07-06): Custom Business Systems framework
 

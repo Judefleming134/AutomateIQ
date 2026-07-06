@@ -1,13 +1,8 @@
 -- =============================================================================
--- 0015 — Growth Engine: Facebook channel + phone-call scripts
+-- AutomateIQ manual update 0017 — Growth Engine: Facebook channel + call scripts
 --
--- The owner's real workflow is DM-ing local trades on Instagram, Facebook
--- and LinkedIn and cold-calling them personally. This adds:
---   - 'facebook' as a full outreach channel (prospect URL, messages,
---     templates, campaigns, activity log)
---   - 'call' as a channel: a "message" on the call channel is the prepared
---     call script; marking it sent records that the call was made.
--- Additive to 0014; run after it. Fully idempotent.
+-- Run in the Supabase SQL Editor (after 0016). Fully idempotent — safe to
+-- re-run. Identical to supabase/migrations/0017_growth_engine_channels.sql.
 -- =============================================================================
 
 alter table ge_prospects add column if not exists facebook_url text;

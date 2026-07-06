@@ -16,6 +16,7 @@ import {
   Calendar,
   LifeBuoy,
   Instagram,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ const PRODUCT_ICONS: Record<string, LucideIcon> = {
   calendar: Calendar,
   "life-buoy": LifeBuoy,
   instagram: Instagram,
+  truck: Truck,
 };
 
 export function ProductIcon({ name, size = 18 }: { name: string; size?: number }) {

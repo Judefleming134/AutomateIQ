@@ -4719,3 +4719,411 @@ table.data-table {
 .sol-launch {
   width: 100%;
 }
+
+/* ==========================================================================
+   AI Logistics Control Centre
+   ========================================================================== */
+.log-kpi-grid { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1100px) { .log-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .log-kpi-grid { grid-template-columns: 1fr; } }
+
+/* Map */
+.log-map {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+}
+.log-map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+.log-map-mini .log-map-canvas { border-radius: var(--radius); }
+.log-map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-direction: column;
+  color: var(--faint);
+  font-size: 13px;
+  background: var(--bg2);
+  padding: 16px;
+  text-align: center;
+}
+.log-map-fallback ul { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12px; color: var(--body); }
+.log-map-fallback li { padding: 2px 0; }
+.log-map-tools {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 500;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.log-map-tools > * { pointer-events: auto; }
+.log-map-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 180px;
+  max-width: 360px;
+  padding: 8px 12px;
+  background: rgba(16, 16, 19, 0.92);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius-sm);
+  color: var(--faint);
+  backdrop-filter: blur(8px);
+}
+.log-map-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--heading);
+  font-size: 13px;
+  font-family: inherit;
+}
+.log-map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(16, 16, 19, 0.92);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius-sm);
+  color: var(--heading);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+.log-map-btn:hover { border-color: var(--ac2); }
+.log-minimap-expand {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(16, 16, 19, 0.9);
+  border: 1px solid var(--line-bright);
+  color: var(--heading);
+  cursor: pointer;
+}
+.log-minimap-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+/* Leaflet marker dot (divIcon) */
+.log-marker-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Entity cards (warehouses, vehicles) */
+.log-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.log-entity-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.log-entity-card .log-map { border: none; border-bottom: 1px solid var(--line); border-radius: 0; }
+.log-entity-body { padding: 16px 18px; }
+.log-entity-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.log-entity-icon {
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: var(--panel-glass); border: 1px solid var(--line);
+}
+.log-entity-head strong { display: block; color: var(--heading); font-size: 14.5px; }
+.log-entity-sub { font-size: 12px; color: var(--faint); }
+.log-mini-meta { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
+.log-mini-meta > div { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.log-mini-meta dt { color: var(--faint); margin: 0; }
+.log-mini-meta dd { color: var(--heading); margin: 0; text-align: right; }
+.log-capbar { height: 6px; border-radius: 999px; background: var(--bg2); overflow: hidden; }
+.log-capbar span { display: block; height: 100%; border-radius: 999px; }
+
+/* Quick links on the overview */
+.log-quicklinks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+.log-quicklink {
+  display: flex; align-items: center; gap: 10px; padding: 16px 18px; text-decoration: none;
+  color: var(--heading); font-weight: 600; font-size: 13.5px; border-radius: var(--radius);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.log-quicklink svg { color: var(--ac2); }
+.log-quicklink:hover { border-color: var(--line-bright); background: var(--panel-glass-hover); }
+@media (max-width: 780px) { .log-quicklinks { grid-template-columns: repeat(2, 1fr); } }
+
+/* Routes */
+.log-route-list { display: flex; flex-direction: column; gap: 16px; }
+.log-route-card { display: grid; grid-template-columns: 300px minmax(0, 1fr); padding: 0; overflow: hidden; }
+.log-route-map .log-map { border: none; border-right: 1px solid var(--line); border-radius: 0; height: 100%; }
+.log-route-body { padding: 18px 20px; }
+.log-stop-list { list-style: none; margin: 4px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.log-stop-list li { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--body); }
+.log-stop-list svg { color: var(--cyan); flex-shrink: 0; }
+@media (max-width: 720px) {
+  .log-route-card { grid-template-columns: 1fr; }
+  .log-route-map .log-map { border-right: none; border-bottom: 1px solid var(--line); }
+}
+/* Leaflet controls above our panels */
+.leaflet-top, .leaflet-bottom { z-index: 400 !important; }
+
+/* Logistics — GPS ingest panel */
+.log-ingest { display: flex; flex-direction: column; gap: 5px; }
+.log-ingest-label {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--faint);
+}
+.log-ingest code {
+  display: block; font-family: var(--mono); font-size: 12px; color: #d9e2f0;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 8px 10px; word-break: break-all;
+}
+.log-ingest-token { color: var(--green) !important; }
+.log-ingest-note { margin: 8px 0 0; font-size: 11.5px; color: var(--faint); line-height: 1.5; }
+.log-ingest-note code { display: inline; padding: 1px 5px; font-size: 11px; }
+
+/* ==========================================================================
+   NVIDIA's Vision — iPhone-style video presentation (/nvidia)
+   ========================================================================== */
+.nv-hero { padding-bottom: 20px; }
+.nv-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0 24px;
+  overflow: hidden;
+}
+.nv-ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.nv-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.5;
+  animation: nv-float 14s ease-in-out infinite;
+}
+.nv-orb-a { width: 340px; height: 340px; left: 8%; top: 6%; background: radial-gradient(circle, rgba(59,130,246,0.5), transparent 68%); }
+.nv-orb-b { width: 300px; height: 300px; right: 8%; bottom: 4%; background: radial-gradient(circle, rgba(124,58,237,0.42), transparent 68%); animation-delay: -6s; }
+.nv-glow {
+  position: absolute; left: 50%; top: 50%; width: 380px; height: 380px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(118,185,0,0.16), transparent 62%);
+  filter: blur(50px);
+}
+@keyframes nv-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-22px) scale(1.06); }
+}
+
+/* Phone */
+.nv-phone {
+  position: relative;
+  z-index: 1;
+  width: min(340px, 82vw);
+  aspect-ratio: 9 / 19.3;
+  animation: nv-phone-float 7s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes nv-phone-float {
+  0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+  50% { transform: translateY(-12px) rotate(0.6deg); }
+}
+.nv-phone-frame {
+  position: relative;
+  height: 100%;
+  border-radius: 52px;
+  padding: 11px;
+  background:
+    linear-gradient(150deg, #3a3a40, #1a1a1e 34%, #0c0c0e 70%, #26262b);
+  box-shadow:
+    0 2px 3px rgba(255, 255, 255, 0.14) inset,
+    0 -2px 6px rgba(0, 0, 0, 0.6) inset,
+    0 42px 90px -30px rgba(0, 0, 0, 0.85),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 70px rgba(59, 130, 246, 0.18);
+}
+/* Titanium rim highlight */
+.nv-phone-frame::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 46px;
+  padding: 1px;
+  background: linear-gradient(160deg, rgba(255,255,255,0.28), rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.14));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.nv-screen {
+  position: relative;
+  height: 100%;
+  border-radius: 42px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 2px #050506;
+}
+/* Native full-bleed video — clean, no third-party chrome */
+.nv-video-wrap { position: absolute; inset: 0; }
+.nv-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+  display: block;
+}
+.nv-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  padding-left: 4px;
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(20, 22, 28, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 40px rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+  z-index: 4;
+}
+.nv-play:hover { transform: translate(-50%, -50%) scale(1.08); background: rgba(59, 130, 246, 0.55); }
+/* Instagram embed — fallback only, until a self-hosted MP4 is added */
+.nv-embed {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 118%;
+  border: 0;
+  background: #000;
+}
+.nv-island {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 26px;
+  background: #000;
+  border-radius: 999px;
+  z-index: 3;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+/* Side buttons */
+.nv-btn { position: absolute; background: linear-gradient(180deg, #303036, #17171b); border-radius: 3px; z-index: 2; }
+.nv-btn-power { right: -3px; top: 30%; width: 3px; height: 62px; }
+.nv-btn-vol-up { left: -3px; top: 25%; width: 3px; height: 44px; }
+.nv-btn-vol-dn { left: -3px; top: 34%; width: 3px; height: 44px; }
+.nv-btn-mute { left: -3px; top: 17%; width: 3px; height: 26px; }
+.nv-caption {
+  position: relative;
+  z-index: 1;
+  margin: 22px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+}
+.nv-bridge { border-top: none; padding-top: 12px; }
+
+/* AI Operating System block */
+.nv-os { max-width: 920px; margin: 0 auto; text-align: center; padding: 40px 34px 34px; }
+.nv-os-kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ac2);
+  margin: 0 0 12px;
+}
+.nv-os h2 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.1; margin: 0 auto 14px; max-width: 16ch; }
+.nv-os-lead {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--body);
+  max-width: 60ch;
+  margin: 0 auto 34px;
+}
+.nv-os-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  text-align: left;
+  margin: 0 auto 34px;
+}
+.nv-os-point {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.3s, background 0.3s, transform 0.3s;
+}
+.nv-os-point:hover {
+  border-color: var(--ac-line);
+  background: rgba(59, 130, 246, 0.05);
+  transform: translateY(-2px);
+}
+.nv-os-i {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--ac2);
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid var(--ac-line);
+}
+.nv-os-point h3 { font-size: 15.5px; margin: 2px 0 5px; color: var(--heading); line-height: 1.25; }
+.nv-os-point p { font-size: 13.5px; line-height: 1.5; color: var(--body); margin: 0; }
+.nv-os-cta { margin-top: 4px; padding: 13px 28px; }
+.nv-os-note {
+  margin: 20px auto 0;
+  max-width: 62ch;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--faint);
+}
+@media (max-width: 720px) {
+  .nv-os { padding: 30px 20px 26px; }
+  .nv-os-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nv-phone, .nv-orb { animation: none; }
+  .nv-os-point:hover { transform: none; }
+}
