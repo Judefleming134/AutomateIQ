@@ -731,6 +731,38 @@ export async function completeTask(_prev: Result, formData: FormData): Promise<R
   return { ok: true };
 }
 
+/**
+ * Bulk table actions: archive keeps the record + history but clears it out
+ * of every working list; delete removes the prospect and (via FK cascade)
+ * all research, messages, activities, tasks and meetings — owners only.
+ */
+export async function bulkProspectAction(_prev: Result, formData: FormData): Promise<Result> {
+  const { member } = await requireGrowth();
+  const intent = String(formData.get("intent") ?? "");
+  const ids = formData.getAll("ids").map(String).filter(Boolean).slice(0, 500);
+  if (ids.length === 0) return { error: "Tick at least one prospect first." };
+
+  const admin = createAdminClient();
+
+  if (intent === "delete") {
+    if (member.role !== "owner") return { error: "Only owners can delete prospects." };
+    const { error } = await admin.from("ge_prospects").delete().in("id", ids);
+    if (error) return { error: error.message };
+  } else if (intent === "archive") {
+    const { error } = await admin
+      .from("ge_prospects")
+      .update({ status: "archived", next_follow_up_at: null })
+      .in("id", ids);
+    if (error) return { error: error.message };
+  } else {
+    return { error: "Unknown action." };
+  }
+
+  revalidatePath("/growth/prospects");
+  revalidatePath("/growth");
+  return { ok: true };
+}
+
 export async function deleteProspect(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
   if (member.role !== "owner") {
