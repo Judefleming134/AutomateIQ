@@ -1,6 +1,13 @@
 import "server-only";
 import { aiComplete } from "@/lib/ai/complete";
-import type { Channel, MessageObjective, Tone } from "@/lib/growth/constants";
+import type {
+  Channel,
+  MessageObjective,
+  MessagePurpose,
+  StudioTransform,
+  Tone,
+} from "@/lib/growth/constants";
+import type { ResearchReport } from "@/lib/growth/research";
 
 export type ProspectContext = {
   company: string;
@@ -94,6 +101,103 @@ export async function draftOutreach(
       return { subject: match[1].trim(), body: match[2].trim() };
     }
     // Model skipped the SUBJECT line — keep the text, supply a fallback.
+    return { subject: `A quick idea for ${prospect.company}`, body: raw };
+  }
+  return { subject: null, body: raw };
+}
+
+const PURPOSE_RULES: Record<MessagePurpose, string> = {
+  first:
+    "First touch. Open with something genuinely specific from the research, connect it to ONE concrete way AutomateIQ could help, close with a soft, low-pressure question.",
+  follow_up:
+    "First follow-up after no reply. Brief, add one NEW angle or piece of value from the research (don't repeat the first message), easy to answer.",
+  second_follow_up:
+    "Second and final follow-up. Very short, gracious, zero pressure — leave the door open and make clear you won't keep chasing.",
+  meeting_confirmation:
+    "They're ready to book. Warmly confirm, give them the booking link with one line on what the free AI Strategy Session covers.",
+  thank_you:
+    "Thank them after a meeting or positive exchange. Reference the conversation genuinely, confirm the agreed next step.",
+};
+
+const TRANSFORM_RULES: Record<StudioTransform, string> = {
+  improve:
+    "Improve this draft: tighter, more specific, more likely to get a reply. Keep the same structure, length and intent.",
+  rewrite:
+    "Rewrite this draft from scratch with a different opening and angle, same objective and roughly the same length.",
+  shorten: "Cut this draft to roughly half its length without losing the core point or the call to action.",
+  expand:
+    "Expand this draft with one extra sentence or two of relevant, research-grounded substance. Never pad.",
+};
+
+function researchContext(report: ResearchReport | null): string {
+  if (!report?.overview) return "";
+  return [
+    "COMPANY RESEARCH (use this — it's what makes the message personal):",
+    `- Overview: ${report.overview}`,
+    report.services.length ? `- Services: ${report.services.join("; ")}` : "",
+    report.manual_processes.length
+      ? `- Likely manual processes: ${report.manual_processes.join("; ")}`
+      : "",
+    report.ai_opportunities.length
+      ? `- AI opportunities: ${report.ai_opportunities.join("; ")}`
+      : "",
+    report.proposal_angle ? `- Strongest angle: ${report.proposal_angle}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * Message Studio drafting: purpose-driven generation and one-click
+ * transforms (improve / rewrite / shorten / expand), grounded in the saved
+ * company research. Output is always an editable draft — never sent by AI.
+ */
+export async function draftStudioMessage(
+  prospect: ProspectContext,
+  report: ResearchReport | null,
+  params: {
+    channel: Channel;
+    purpose: MessagePurpose;
+    tone: Tone;
+    currentText?: string;
+    transform?: StudioTransform;
+  },
+  bookingUrl: string
+): Promise<{ subject: string | null; body: string }> {
+  const system = [
+    "You are the senior sales development writer for AutomateIQ, an Irish AI-automation agency (automateiq.ie) whose goal is booking free 30-minute AI Strategy Sessions.",
+    "Hard rules: be truthful — never invent statistics, client names, mutual connections or specifics not in the data provided. Write like one busy professional to another: no hype, no 'I hope this finds you well'.",
+    "Output ONLY the message itself — no preamble, options or commentary.",
+  ].join("\n");
+
+  const lines = [
+    `CHANNEL: ${CHANNEL_RULES[params.channel]}`,
+    params.transform && params.currentText
+      ? `TASK: ${TRANSFORM_RULES[params.transform]}`
+      : `TASK (${params.purpose.replace(/_/g, " ")}): ${PURPOSE_RULES[params.purpose]}`,
+    `TONE: ${params.tone}`,
+    "",
+    "PROSPECT:",
+    `- Contact: ${prospect.contact_name}${prospect.job_title ? `, ${prospect.job_title}` : ""}`,
+    `- Company: ${prospect.company}`,
+  ];
+  if (prospect.industry) lines.push(`- Industry: ${prospect.industry}`);
+  if (prospect.location) lines.push(`- Location: ${prospect.location}`);
+  const context = researchContext(report);
+  if (context) lines.push("", context);
+  if (params.purpose === "meeting_confirmation" || params.purpose === "thank_you") {
+    lines.push("", `BOOKING LINK (free AI Strategy Session): ${bookingUrl}`);
+  }
+  if (params.transform && params.currentText) {
+    lines.push("", "CURRENT DRAFT:", params.currentText.slice(0, 6000));
+  }
+  lines.push("", "Write the message now.");
+
+  const raw = (await aiComplete(system, lines.join("\n"), 1500)).trim();
+
+  if (params.channel === "email") {
+    const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);
+    if (match) return { subject: match[1].trim(), body: match[2].trim() };
     return { subject: `A quick idea for ${prospect.company}`, body: raw };
   }
   return { subject: null, body: raw };

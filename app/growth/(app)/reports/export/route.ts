@@ -96,6 +96,8 @@ export async function GET(request: Request) {
       ["reply_rate_pct", metrics.replyRate],
       ["positive_response_rate_pct", metrics.positiveRate],
       ["meetings_booked", metrics.meetingsBooked],
+      ["companies_researched", metrics.companiesResearched],
+      ["proposals_sent", metrics.proposalsSent],
       ["conversion_rate_pct", metrics.conversionRate],
       ["qualified_leads", metrics.qualified],
       ["deals_won", metrics.won],
