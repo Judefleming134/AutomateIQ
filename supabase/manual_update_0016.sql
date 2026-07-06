@@ -1,5 +1,5 @@
 -- =============================================================================
--- AutomateIQ manual update 0014 — Logistics live tracking + GPS ingest
+-- AutomateIQ manual update 0016 — Logistics live tracking + GPS ingest
 --
 -- Makes the Logistics Control Centre self-running: a per-business live
 -- simulation flag drives vehicle movement on the map now, while a per-business

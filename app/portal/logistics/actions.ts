@@ -12,7 +12,7 @@ type Result = { ok?: boolean; error?: string } | undefined;
 
 const PRODUCT = "logistics-control-centre";
 const NEEDS_MIGRATION =
-  "Database update required — run supabase/manual_update_0013.sql in the Supabase SQL Editor, then try again.";
+  "Database update required — run supabase/manual_update_0015.sql in the Supabase SQL Editor, then try again.";
 
 async function ctx() {
   const { profile } = await requireSession();

@@ -1,10 +1,19 @@
 -- =============================================================================
--- AutomateIQ manual update 0013 — Growth Engine (internal sales workspace)
+-- 0011 — AutomateIQ Growth Engine
 --
--- Run in the Supabase SQL Editor (after 0012). Fully idempotent — safe to
--- re-run. Identical to supabase/migrations/0013_growth_engine.sql.
+-- A standalone INTERNAL sales & marketing workspace (LinkedIn / Instagram /
+-- Email / SMS outreach → qualified leads → booked AI Strategy Sessions).
+-- It lives at /growth with its own login and team list, and shares nothing
+-- with the customer platform except infrastructure (Supabase Auth, Resend).
+-- No customer-facing table references any ge_ table and vice versa; the only
+-- read across the boundary is the meetings sync, which READS strategy_bookings
+-- to match booked Strategy Sessions to prospects.
+--
+-- Security model: every ge_ table is RLS-enabled with NO policies (deny-all
+-- to the anon/authenticated roles). All access goes through service-role
+-- server actions gated by requireGrowth() — the same trust boundary the
+-- /admin console already uses.
 -- =============================================================================
-
 
 -- ---------------------------------------------------------------------------
 -- Team — who may use the Growth Engine. Platform admins are auto-provisioned

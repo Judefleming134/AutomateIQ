@@ -1,0 +1,116 @@
+import { requireGrowth } from "@/lib/growth/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { toCsv } from "@/lib/growth/csv";
+
+/**
+ * CSV downloads for the Reporting screen. requireGrowth() is the boundary —
+ * anyone else is redirected before a byte of data is read.
+ */
+export async function GET(request: Request) {
+  await requireGrowth();
+  const admin = createAdminClient();
+
+  const url = new URL(request.url);
+  const type = url.searchParams.get("type") ?? "summary";
+  const days = [7, 30, 90].includes(Number(url.searchParams.get("days")))
+    ? Number(url.searchParams.get("days"))
+    : 30;
+  const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+  let rows: (string | number | null)[][];
+  let name: string;
+
+  if (type === "prospects") {
+    const { data } = await admin
+      .from("ge_prospects")
+      .select(
+        "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
+      )
+      .order("created_at", { ascending: false });
+    rows = [
+      [
+        "company", "contact_name", "job_title", "industry", "website", "location",
+        "email", "phone", "linkedin_url", "instagram_url", "status", "lead_score",
+        "qualification_status", "pipeline_value", "source", "last_contact_at",
+        "next_follow_up_at", "created_at",
+      ],
+      ...(data ?? []).map((p) => [
+        p.company, p.contact_name, p.job_title, p.industry, p.website, p.location,
+        p.email, p.phone, p.linkedin_url, p.instagram_url, p.status, p.lead_score,
+        p.qualification_status, p.pipeline_value, p.source, p.last_contact_at,
+        p.next_follow_up_at, p.created_at,
+      ]),
+    ];
+    name = "growth-prospects";
+  } else if (type === "messages") {
+    const { data } = await admin
+      .from("ge_messages")
+      .select(
+        "created_at, sent_at, channel, direction, status, sentiment, subject, body, ge_prospects(company, contact_name)"
+      )
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false });
+    rows = [
+      ["created_at", "sent_at", "company", "contact", "channel", "direction", "status", "sentiment", "subject", "body"],
+      ...(data ?? []).map((m) => {
+        const p = m.ge_prospects as unknown as { company: string; contact_name: string } | null;
+        return [
+          m.created_at, m.sent_at, p?.company ?? "", p?.contact_name ?? "",
+          m.channel, m.direction, m.status, m.sentiment, m.subject, m.body,
+        ];
+      }),
+    ];
+    name = `growth-messages-${days}d`;
+  } else if (type === "meetings") {
+    const { data } = await admin
+      .from("ge_meetings")
+      .select("scheduled_at, status, notes, created_at, ge_prospects(company, contact_name, email)")
+      .gte("created_at", sinceIso)
+      .order("scheduled_at", { ascending: false });
+    rows = [
+      ["scheduled_at", "status", "company", "contact", "email", "notes", "recorded_at"],
+      ...(data ?? []).map((m) => {
+        const p = m.ge_prospects as unknown as {
+          company: string;
+          contact_name: string;
+          email: string | null;
+        } | null;
+        return [
+          m.scheduled_at, m.status, p?.company ?? "", p?.contact_name ?? "",
+          p?.email ?? "", m.notes, m.created_at,
+        ];
+      }),
+    ];
+    name = `growth-meetings-${days}d`;
+  } else {
+    const metrics = await loadGrowthMetrics(admin, days);
+    rows = [
+      ["metric", "value"],
+      [`window_days`, days],
+      ["leads_added", metrics.leadsAdded],
+      ["prospects_total", metrics.prospectsTotal],
+      ["outreach_sent", metrics.outreachSent],
+      ["prospects_contacted", metrics.contacted],
+      ["replies", metrics.replies],
+      ["reply_rate_pct", metrics.replyRate],
+      ["positive_response_rate_pct", metrics.positiveRate],
+      ["meetings_booked", metrics.meetingsBooked],
+      ["conversion_rate_pct", metrics.conversionRate],
+      ["qualified_leads", metrics.qualified],
+      ["deals_won", metrics.won],
+      ["pipeline_value_eur", Math.round(metrics.pipelineValue)],
+      ["outreach_queued", metrics.queuedOutreach],
+      ["outreach_drafts", metrics.draftOutreach],
+    ];
+    name = `growth-summary-${days}d`;
+  }
+
+  const stamp = new Date().toISOString().slice(0, 10);
+  return new Response(toCsv(rows), {
+    headers: {
+      "content-type": "text/csv; charset=utf-8",
+      "content-disposition": `attachment; filename="${name}-${stamp}.csv"`,
+    },
+  });
+}

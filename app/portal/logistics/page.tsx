@@ -46,7 +46,7 @@ export default async function LogisticsOverviewPage() {
             <div>
               <strong>Database update required</strong>
               <p>
-                Run <code>supabase/manual_update_0013.sql</code> in the Supabase SQL Editor (one
+                Run <code>supabase/manual_update_0015.sql</code> in the Supabase SQL Editor (one
                 paste, safe to re-run), then refresh this page.
               </p>
             </div>
@@ -189,7 +189,7 @@ export default async function LogisticsOverviewPage() {
               </>
             ) : (
               <p className="log-ingest-note" style={{ marginTop: 10 }}>
-                Run <code>supabase/manual_update_0014.sql</code> to enable live tracking + GPS ingest.
+                Run <code>supabase/manual_update_0016.sql</code> to enable live tracking + GPS ingest.
               </p>
             )}
           </div>

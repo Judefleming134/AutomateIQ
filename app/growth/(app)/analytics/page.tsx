@@ -1,0 +1,178 @@
+import Link from "next/link";
+import {
+  Users,
+  Send,
+  MessageSquare,
+  CalendarCheck,
+  TrendingUp,
+  Euro,
+  ThumbsUp,
+  Trophy,
+} from "lucide-react";
+import { requireGrowth } from "@/lib/growth/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { StatCard } from "@/components/portal/stat-card";
+import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
+
+const WINDOWS = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: null, label: "All time" },
+] as const;
+
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ days?: string }>;
+}) {
+  await requireGrowth();
+  const params = await searchParams;
+  const days =
+    params.days === "all" ? null : [7, 30, 90].includes(Number(params.days)) ? Number(params.days) : 30;
+
+  const admin = createAdminClient();
+  const metrics = await loadGrowthMetrics(admin, days);
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1>Analytics</h1>
+          <p>Outreach performance across every channel and campaign.</p>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {WINDOWS.map((w) => (
+            <Link
+              key={w.label}
+              href={`/growth/analytics?days=${w.days ?? "all"}`}
+              className={`btn btn-sm ${days === w.days ? "btn-primary" : "btn-secondary"}`}
+            >
+              {w.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="stat-grid">
+        <StatCard label="Leads added" value={metrics.leadsAdded} icon={<Users />} hint={`${metrics.prospectsTotal} total`} />
+        <StatCard label="Outreach sent" value={metrics.outreachSent} icon={<Send />} accent="var(--ac1, #8b5cf6)" hint={`${metrics.contacted} prospects reached`} />
+        <StatCard label="Reply rate" value={`${metrics.replyRate}%`} icon={<MessageSquare />} accent="var(--green, #34d399)" hint={`${metrics.replies} replies`} />
+        <StatCard label="Positive response rate" value={`${metrics.positiveRate}%`} icon={<ThumbsUp />} accent="var(--green, #34d399)" hint={`${metrics.positiveReplies} positive`} />
+        <StatCard label="Meetings booked" value={metrics.meetingsBooked} icon={<CalendarCheck />} accent="var(--ac2)" />
+        <StatCard label="Conversion rate" value={`${metrics.conversionRate}%`} icon={<TrendingUp />} hint="contacted → meeting" />
+        <StatCard label="Won" value={metrics.won} icon={<Trophy />} accent="var(--orange, #fb923c)" hint={`${metrics.qualified} qualified`} />
+        <StatCard label="Pipeline value" value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`} icon={<Euro />} accent="var(--green, #34d399)" />
+      </div>
+
+      <div className="grid-2" style={{ marginTop: 24 }}>
+        <section className="panel panel-block" aria-labelledby="an-channels">
+          <h2 className="panel-title" id="an-channels">
+            Outreach by channel
+          </h2>
+          {metrics.outreachSent === 0 ? (
+            <p className="empty-state">No outreach sent in this window.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Channel</th>
+                    <th>Sent</th>
+                    <th>Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(metrics.outreachByChannel)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([channel, count]) => (
+                      <tr key={channel}>
+                        <td>{CHANNEL_META[channel as Channel]?.label ?? channel}</td>
+                        <td>{count}</td>
+                        <td>{Math.round((count / metrics.outreachSent) * 100)}%</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="panel panel-block" aria-labelledby="an-industries">
+          <h2 className="panel-title" id="an-industries">
+            Top-performing industries
+          </h2>
+          {metrics.topIndustries.length === 0 ? (
+            <p className="empty-state">No prospect data yet.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Industry</th>
+                    <th>Prospects</th>
+                    <th>Sent</th>
+                    <th>Replies</th>
+                    <th>Meetings</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {metrics.topIndustries.slice(0, 10).map((i) => (
+                    <tr key={i.industry}>
+                      <td>{i.industry}</td>
+                      <td>{i.prospects}</td>
+                      <td>{i.sent}</td>
+                      <td>{i.replies}</td>
+                      <td>{i.meetings}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <section className="panel panel-block" style={{ marginTop: 20 }} aria-labelledby="an-campaigns">
+        <h2 className="panel-title" id="an-campaigns">
+          Top-performing campaigns <Link href="/growth/campaigns">Manage →</Link>
+        </h2>
+        {metrics.topCampaigns.length === 0 ? (
+          <p className="empty-state">No campaign activity yet.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign</th>
+                  <th>Prospects</th>
+                  <th>Sent</th>
+                  <th>Replies</th>
+                  <th>Reply rate</th>
+                  <th>Qualified</th>
+                  <th>Meetings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metrics.topCampaigns.map((c) => (
+                  <tr key={c.id}>
+                    <td>
+                      <Link href={`/growth/campaigns/${c.id}`}>{c.name}</Link>
+                    </td>
+                    <td>{c.prospects}</td>
+                    <td>{c.sent}</td>
+                    <td>{c.replies}</td>
+                    <td>{c.sent > 0 ? Math.round((c.replies / c.sent) * 100) : 0}%</td>
+                    <td>{c.qualified}</td>
+                    <td>{c.meetings}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
