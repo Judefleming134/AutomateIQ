@@ -1,19 +1,19 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Cpu, ArrowRight, ArrowLeft } from "lucide-react";
+import { Cpu, ArrowRight, ArrowLeft, Layers, Network, Plug, Boxes, BrainCircuit, TrendingUp } from "lucide-react";
 import { NvidiaVideo } from "./nvidia-video";
 
 export const metadata: Metadata = {
-  title: "Explore NVIDIA's Vision | AutomateIQ",
+  title: "The AI Operating System | AutomateIQ",
   description:
-    "NVIDIA's vision for the AI era — accelerated computing reshaping every industry. Watch the presentation and see how AutomateIQ puts that same intelligence to work in your business.",
+    "NVIDIA's Jensen Huang describes a future where AI becomes the operating system of business — one layer coordinating specialised AI agents. It's exactly what AutomateIQ has built.",
   alternates: { canonical: "https://automateiq.ie/nvidia" },
   openGraph: {
     type: "website",
     url: "https://automateiq.ie/nvidia",
-    title: "Explore NVIDIA's Vision | AutomateIQ",
+    title: "The AI Operating System | AutomateIQ",
     description:
-      "NVIDIA's vision for the AI era — and how AutomateIQ puts that intelligence to work in your business.",
+      "The future is an AI Operating System coordinating specialised AI agents — and AutomateIQ has already built it.",
     siteName: "AutomateIQ",
   },
 };
@@ -32,12 +32,12 @@ export default function NvidiaPage() {
       </header>
 
       <section className="book-hero nv-hero">
-        <p className="book-kicker"><Cpu size={14} /> NVIDIA&apos;s Vision</p>
+        <p className="book-kicker"><Cpu size={14} /> The AI Operating System</p>
         <h1>The AI era, in their own words</h1>
         <p className="book-hero-sub">
-          NVIDIA is powering a new industrial revolution — accelerated computing and AI reshaping
-          every industry on earth. Watch the presentation below, then see how AutomateIQ puts that
-          same intelligence to work inside your business.
+          NVIDIA&apos;s Jensen Huang lays out where business is heading: AI becoming the operating
+          system of the enterprise — one intelligent layer coordinating specialised agents across an
+          entire operation. Press play, then see how AutomateIQ has already built exactly that.
         </p>
       </section>
 
@@ -65,18 +65,50 @@ export default function NvidiaPage() {
         <p className="nv-caption">Press play to watch the presentation.</p>
       </section>
 
-      {/* Bridge to AutomateIQ */}
+      {/* Bridge to AutomateIQ — the AI Operating System */}
       <section className="book-section nv-bridge">
-        <div className="sys-bespoke panel">
-          <h2>From vision to your business</h2>
-          <p>
-            The same AI shift NVIDIA describes is what AutomateIQ builds around your operation —
-            specialist AI agents and bespoke enterprise systems that do real work, on one connected
-            platform. Book a free strategy session and we&apos;ll map exactly where it fits.
+        <div className="nv-os panel">
+          <p className="nv-os-kicker">The same vision — already built</p>
+          <h2>The future of business is an AI Operating System</h2>
+          <p className="nv-os-lead">
+            One intelligent layer coordinating specialised AI agents across your whole operation.
+            That&apos;s the shift being described — and it&apos;s what AutomateIQ has already built.
           </p>
-          <Link href="/book" className="btn btn-primary" style={{ marginTop: 18, padding: "13px 28px" }}>
+
+          <div className="nv-os-grid">
+            <div className="nv-os-point">
+              <span className="nv-os-i"><Layers size={18} /></span>
+              <div><h3>One operating layer</h3><p>Specialised AI agents orchestrated through a single intelligent operating system.</p></div>
+            </div>
+            <div className="nv-os-point">
+              <span className="nv-os-i"><Network size={18} /></span>
+              <div><h3>A coordinated workforce</h3><p>Each agent handles its speciality; the OS coordinates them so nothing works in isolation.</p></div>
+            </div>
+            <div className="nv-os-point">
+              <span className="nv-os-i"><Plug size={18} /></span>
+              <div><h3>Integrates, never replaces</h3><p>We connect to your existing software, APIs and enterprise tools instead of ripping them out.</p></div>
+            </div>
+            <div className="nv-os-point">
+              <span className="nv-os-i"><Boxes size={18} /></span>
+              <div><h3>Bespoke, not one-size-fits-all</h3><p>Every system is designed around your workflows, processes and objectives.</p></div>
+            </div>
+            <div className="nv-os-point">
+              <span className="nv-os-i"><BrainCircuit size={18} /></span>
+              <div><h3>Leading models, our orchestration</h3><p>The best modern large language models, combined with our own workflows and operating system.</p></div>
+            </div>
+            <div className="nv-os-point">
+              <span className="nv-os-i"><TrendingUp size={18} /></span>
+              <div><h3>Evolves with you</h3><p>Continuously adapts and optimises for virtually any industry or business.</p></div>
+            </div>
+          </div>
+
+          <Link href="/book" className="btn btn-primary nv-os-cta">
             Book Your Free AI Strategy Session <ArrowRight size={16} />
           </Link>
+          <p className="nv-os-note">
+            AutomateIQ is independent and not affiliated with, sponsored by, or endorsed by NVIDIA.
+            The presentation reflects NVIDIA&apos;s own view of the AI era.
+          </p>
         </div>
       </section>
 
