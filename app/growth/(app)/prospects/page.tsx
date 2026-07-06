@@ -11,6 +11,7 @@ import {
 } from "@/lib/growth/constants";
 import { ResearchQueue } from "@/components/growth/research-queue";
 import { CsvFileField } from "@/components/growth/csv-file-field";
+import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -19,12 +20,19 @@ export const maxDuration = 60;
 const CSV_HINT =
   "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,facebook_url,notes";
 
+const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last" }> = {
+  newest: { column: "created_at", ascending: false },
+  score: { column: "lead_score", ascending: false },
+  follow_up: { column: "next_follow_up_at", ascending: true, nulls: "last" },
+  company: { column: "company", ascending: true },
+};
+
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string }>;
 }) {
-  await requireGrowth();
+  const { member } = await requireGrowth();
   const params = await searchParams;
   const admin = createAdminClient();
 
@@ -35,12 +43,14 @@ export default async function ProspectsPage({
   const industry = (params.industry ?? "").trim();
   const campaign = (params.campaign ?? "").trim();
 
+  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "newest";
+  const sort = SORTS[sortKey];
   let query = admin
     .from("ge_prospects")
     .select(
       "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to"
     )
-    .order("created_at", { ascending: false })
+    .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
     .limit(500);
   if (q) {
     query = query.or(
@@ -187,6 +197,17 @@ export default async function ProspectsPage({
             ))}
           </select>
         </div>
+        <div style={{ flex: "1 1 130px" }}>
+          <label htmlFor="pf-sort" style={{ fontSize: 12, color: "var(--faint)" }}>
+            Sort by
+          </label>
+          <select id="pf-sort" name="sort" defaultValue={sortKey} style={{ width: "100%" }}>
+            <option value="newest">Newest first</option>
+            <option value="score">Lead score</option>
+            <option value="follow_up">Next follow-up</option>
+            <option value="company">Company A–Z</option>
+          </select>
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="submit" className="btn btn-secondary">
             Apply
@@ -286,11 +307,18 @@ export default async function ProspectsPage({
           </p>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Prospect</th>
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <BulkActions isOwner={member.role === "owner"} />
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 34 }}>
+                    <SelectAll />
+                  </th>
+                  <th>Prospect</th>
                 <th>Title</th>
                 <th>Industry</th>
                 <th>Location</th>
@@ -306,6 +334,15 @@ export default async function ProspectsPage({
                 const meta = PROSPECT_STATUS_META[p.status as ProspectStatus];
                 return (
                   <tr key={p.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        name="ids"
+                        value={p.id}
+                        form="prospect-bulk"
+                        aria-label={`Select ${p.company}`}
+                      />
+                    </td>
                     <td>
                       <Link href={`/growth/prospects/${p.id}`}>
                         <strong>{p.company}</strong>
@@ -332,7 +369,8 @@ export default async function ProspectsPage({
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </>
   );
