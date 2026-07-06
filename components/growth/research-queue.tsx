@@ -16,11 +16,18 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * between calls to stay inside free-tier AI rate limits, and one automatic
  * retry per company before moving on. The tab must stay open while it runs.
  */
+/** Two researches in flight at once: each call spends most of its life
+ *  waiting on the website + the model, so pairing them roughly halves the
+ *  batch without straining free-tier AI rate limits. */
+const CONCURRENCY = 2;
+/** Observed per-company wall time (fetch + model + pacing), for the ETA. */
+const SECONDS_PER_COMPANY = 40;
+
 export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
-  const [current, setCurrent] = useState<string | null>(null);
+  const [active, setActive] = useState<string[]>([]);
   const [failures, setFailures] = useState<string[]>([]);
   const [finished, setFinished] = useState(false);
 
@@ -31,32 +38,54 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
     setDone(0);
 
     const failed: string[] = [];
-    for (let i = 0; i < pending.length; i++) {
-      const p = pending[i];
-      setCurrent(p.company);
+    const inFlight = new Set<string>();
+    let nextIndex = 0;
+    let completed = 0;
 
-      let result = await researchOne(p.id).catch(() => ({
-        ok: false as const,
-        error: "Network hiccup",
-      }));
-      if (!result.ok) {
-        // One retry after a breather — free-tier rate limits recover fast.
-        await sleep(8000);
-        result = await researchOne(p.id).catch(() => ({
+    const worker = async (stagger: number) => {
+      await sleep(stagger);
+      for (;;) {
+        const i = nextIndex++;
+        if (i >= pending.length) return;
+        const p = pending[i];
+        inFlight.add(p.company);
+        setActive([...inFlight]);
+
+        let result = await researchOne(p.id).catch(() => ({
           ok: false as const,
           error: "Network hiccup",
         }));
-      }
-      if (!result.ok) {
-        failed.push(`${p.company} — ${result.error}`);
-        setFailures([...failed]);
-      }
-      setDone(i + 1);
-      // Gentle pacing between companies.
-      if (i < pending.length - 1) await sleep(3000);
-    }
+        if (!result.ok) {
+          // One retry after a breather — free-tier rate limits recover fast.
+          await sleep(8000);
+          result = await researchOne(p.id).catch(() => ({
+            ok: false as const,
+            error: "Network hiccup",
+          }));
+        }
+        if (!result.ok) {
+          failed.push(`${p.company} — ${result.error}`);
+          setFailures([...failed]);
+        }
 
-    setCurrent(null);
+        inFlight.delete(p.company);
+        completed++;
+        setActive([...inFlight]);
+        setDone(completed);
+        // Live update: the table's statuses, scores and dots refresh as each
+        // company lands, not just at the end of the batch.
+        router.refresh();
+        await sleep(1500);
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, pending.length) }, (_, w) =>
+        worker(w * 4000)
+      )
+    );
+
+    setActive([]);
     setRunning(false);
     setFinished(true);
     router.refresh();
@@ -78,8 +107,9 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
               Research them all in one go — reports, solution recommendations,
               lead scores and outreach drafts for every one. Roughly{" "}
-              {Math.ceil((pending.length * 45) / 60)} min for the batch; keep
-              this tab open while it runs.
+              {Math.ceil((pending.length * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)}{" "}
+              min for the batch (two at a time); keep this tab open while it
+              runs.
             </p>
           </div>
           <button type="button" className="btn btn-primary" onClick={start}>
@@ -91,9 +121,17 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
       {running && (
         <div>
           <strong>
-            Researching {done + (current ? 1 : 0)}/{pending.length}
-            {current ? ` — ${current}…` : "…"}
+            Researching {done}/{pending.length}
+            {active.length > 0 ? ` — working on ${active.join(" + ")}…` : "…"}
           </strong>
+          <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: 8 }}>
+            ≈{" "}
+            {Math.max(
+              1,
+              Math.ceil(((pending.length - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
+            )}{" "}
+            min left
+          </span>
           <div
             style={{
               marginTop: 8,
