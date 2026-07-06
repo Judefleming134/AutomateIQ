@@ -17,6 +17,65 @@ Everything is merged to `main` (PR #3) and **live in production**.
 
 ## Exactly where things stand right now
 
+### Phase 7 (2026-07-06): Growth Engine V2 — the full sales workflow
+
+The Growth Engine is now built around ONE workflow: paste a website →
+AI researches the company → report + solution recommendations + lead score
++ outreach drafts, all saved → copy/send → Mark as sent (auto follow-up) →
+replied → qualified → meeting → proposal → won. **Setup: run
+`supabase/manual_update_0014.sql`** (after 0013; idempotent — verified to
+run twice on Postgres 16). Requires an AI key (`ANTHROPIC_API_KEY` or
+`GEMINI_API_KEY`) for research/drafting/proposals; everything else works
+without one.
+
+- **Company research** (`lib/growth/research.ts`) — fetches and reads the
+  prospect's website server-side (graceful when unreachable: the report is
+  hedged and labelled), then ONE model call returns structured JSON: full
+  report (overview, industry, services, business model, size estimate,
+  operational observations, manual processes, inefficiencies, AI
+  opportunities, conversation starters, discovery questions, proposal angle,
+  next action), 3–6 solution recommendations from the catalogue in
+  `lib/growth/solutions.ts` (why + complexity + ILLUSTRATIVE benefits),
+  suggested 0–3 qualification ratings (human ratings always win), and a
+  first-touch draft for all four channels. Saved to `ge_research`
+  (one living row per prospect), drafts to `ge_messages`, status →
+  `research_complete`. Quick-research forms on the dashboard and prospects
+  screen create-and-research from just a URL.
+- **Prospect workspace** — tabbed: Research / Message Studio / Conversation
+  / Proposal / Details, with a one-click stage bar (Reply received,
+  Qualified, Meeting booked, Won). Stage transitions do their own CRM
+  bookkeeping: contacted sets last-contact + follow-up in 3 days, replied
+  pulls follow-up to tomorrow, closed stages clear it.
+- **Message Studio** (`components/growth/message-studio.tsx`) — channel
+  tabs × five purposes (first / follow-up / second follow-up / meeting
+  confirmation / thank-you) × five tones (professional / friendly /
+  executive / consultative / direct), grounded in the research; Improve /
+  Rewrite / Shorten / Expand transforms; Copy, Save template, Save draft;
+  email sends via Resend, other channels copy → Mark as sent. Marking sent
+  moves the prospect to Contacted and schedules the follow-up automatically.
+  Nothing is ever sent by the AI.
+- **Proposal Studio** (Proposal tab) — generates a Markdown proposal from
+  research + solutions + meeting/call notes (placeholders instead of
+  invented facts), edit in place, print-ready download at
+  `/growth/proposals/[id]/download`, Mark proposal sent → status
+  `proposal_sent` + follow-up in 7 days. Table: `ge_proposals`.
+- **Dashboard = daily priorities** — quick research form, today's
+  follow-ups, overdue, hot prospects, upcoming meetings, recently contacted,
+  30-day KPIs. Every row opens the prospect.
+- **Analytics v2** — adds companies researched, outreach prepared, proposals
+  sent, most-recommended solutions and best-performing outreach style
+  (reply rate per tone, from the new `ge_messages.tone` column). Statuses
+  gained `research_complete` and `proposal_sent`; prospects gained
+  `assigned_to` (Details tab + list column); exports include the new
+  numbers.
+- Long AI actions run under `export const maxDuration = 60` on the routes
+  that host them (dashboard, prospects list, prospect workspace).
+
+Verified: 0014 applied twice cleanly to scratch Postgres 16 on top of 0013
+(new statuses accepted); `next build` green; production-server smoke test —
+all /growth routes (incl. the new proposals download) still redirect
+unauthenticated users to /growth/login.
+
 ### Phase 6 (2026-07-06): AutomateIQ Growth Engine (`/growth`)
 
 A **standalone internal sales & marketing workspace** for turning outbound

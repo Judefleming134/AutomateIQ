@@ -20,8 +20,14 @@ export type GrowthMetrics = {
   won: number;
   queuedOutreach: number;
   draftOutreach: number;
+  companiesResearched: number;
+  proposalsSent: number;
   topCampaigns: CampaignPerf[];
   topIndustries: IndustryPerf[];
+  /** How often each catalogue solution was recommended by research. */
+  topSolutions: { name: string; count: number }[];
+  /** Reply performance per outreach tone ("best performing style"). */
+  toneStats: { tone: string; sent: number; replied: number; replyRate: number }[];
 };
 
 export type CampaignPerf = {
@@ -64,17 +70,25 @@ export async function loadGrowthMetrics(
     ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
-  const [{ data: prospects }, { data: messages }, { data: meetings }, { data: campaigns }] =
-    await Promise.all([
-      admin
-        .from("ge_prospects")
-        .select("id, status, industry, campaign_id, pipeline_value, qualification_status, created_at"),
-      admin
-        .from("ge_messages")
-        .select("prospect_id, campaign_id, channel, direction, status, sentiment, created_at"),
-      admin.from("ge_meetings").select("prospect_id, status, created_at"),
-      admin.from("ge_campaigns").select("id, name, status"),
-    ]);
+  const [
+    { data: prospects },
+    { data: messages },
+    { data: meetings },
+    { data: campaigns },
+    { data: research },
+    { data: proposals },
+  ] = await Promise.all([
+    admin
+      .from("ge_prospects")
+      .select("id, status, industry, campaign_id, pipeline_value, qualification_status, created_at"),
+    admin
+      .from("ge_messages")
+      .select("prospect_id, campaign_id, channel, direction, status, sentiment, tone, created_at, sent_at"),
+    admin.from("ge_meetings").select("prospect_id, status, created_at"),
+    admin.from("ge_campaigns").select("id, name, status"),
+    admin.from("ge_research").select("solutions, created_at"),
+    admin.from("ge_proposals").select("status, updated_at"),
+  ]);
 
   const allProspects = prospects ?? [];
   const allMessages = messages ?? [];
@@ -158,6 +172,37 @@ export async function loadGrowthMetrics(
   for (const m of inbound) industryPerf(industryOf(m.prospect_id)).replies += 1;
   for (const m of wMeetings) industryPerf(industryOf(m.prospect_id)).meetings += 1;
 
+  // Most-recommended solutions across all research runs.
+  const solutionCounts = new Map<string, number>();
+  for (const r of research ?? []) {
+    if (!Array.isArray(r.solutions)) continue;
+    for (const s of r.solutions as { name?: string }[]) {
+      if (!s?.name) continue;
+      solutionCounts.set(s.name, (solutionCounts.get(s.name) ?? 0) + 1);
+    }
+  }
+
+  // Best-performing outreach style: a tone's send "converted" if the
+  // prospect sent anything back after that message went out.
+  const inboundByProspect = new Map<string, string[]>();
+  for (const m of allMessages) {
+    if (m.direction !== "inbound") continue;
+    const list = inboundByProspect.get(m.prospect_id) ?? [];
+    list.push(m.created_at);
+    inboundByProspect.set(m.prospect_id, list);
+  }
+  const toneAgg = new Map<string, { sent: number; replied: number }>();
+  for (const m of sent) {
+    if (!m.tone) continue;
+    const agg = toneAgg.get(m.tone) ?? { sent: 0, replied: 0 };
+    agg.sent += 1;
+    const sentAt = m.sent_at ?? m.created_at;
+    if ((inboundByProspect.get(m.prospect_id) ?? []).some((at) => at > sentAt)) {
+      agg.replied += 1;
+    }
+    toneAgg.set(m.tone, agg);
+  }
+
   const rank = <T extends { meetings: number; replies: number; sent: number }>(
     items: T[]
   ) =>
@@ -195,7 +240,23 @@ export async function loadGrowthMetrics(
     draftOutreach: allMessages.filter(
       (m) => m.direction === "outbound" && m.status === "draft"
     ).length,
+    companiesResearched: (research ?? []).filter((r) => inWindow(r.created_at)).length,
+    proposalsSent: (proposals ?? []).filter(
+      (p) => p.status === "sent" && inWindow(p.updated_at)
+    ).length,
     topCampaigns: rank([...perfByCampaign.values()].filter((c) => c.prospects > 0)),
     topIndustries: rank([...perfByIndustry.values()]),
+    topSolutions: [...solutionCounts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10),
+    toneStats: [...toneAgg.entries()]
+      .map(([tone, agg]) => ({
+        tone,
+        sent: agg.sent,
+        replied: agg.replied,
+        replyRate: pct(agg.replied, agg.sent),
+      }))
+      .sort((a, b) => b.replyRate - a.replyRate || b.sent - a.sent),
   };
 }

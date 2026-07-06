@@ -3,15 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { draftOutreach } from "@/lib/growth/ai";
+import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail } from "@/lib/growth/email";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
+import type { ResearchReport } from "@/lib/growth/research";
 import {
   CHANNELS,
   OBJECTIVES,
+  PURPOSES,
   TONES,
   type Channel,
   type MessageObjective,
+  type MessagePurpose,
+  type StudioTransform,
   type Tone,
 } from "@/lib/growth/constants";
 
@@ -35,7 +39,12 @@ async function loadProspect(prospectId: string) {
   return data;
 }
 
-/** Marks outreach as having gone out: message row + prospect bookkeeping. */
+/**
+ * Marks outreach as having gone out: message row + prospect bookkeeping +
+ * the automatic follow-up. Sending moves new/researched prospects to
+ * "Contacted" and schedules a follow-up reminder 3 days out, so the
+ * dashboard chases the reply without anyone having to remember to.
+ */
 async function recordOutreachSent(
   prospect: { id: string; status: string },
   messageId: string,
@@ -48,13 +57,20 @@ async function recordOutreachSent(
     .from("ge_messages")
     .update({ status: "sent", sent_at: new Date().toISOString() })
     .eq("id", messageId);
-  const bump: Record<string, unknown> = { last_contact_at: new Date().toISOString() };
-  if (["new", "researching"].includes(prospect.status)) bump.status = "contacted";
+  const bump: Record<string, unknown> = {
+    last_contact_at: new Date().toISOString(),
+    next_follow_up_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
+  };
+  if (["new", "researching", "research_complete"].includes(prospect.status)) {
+    bump.status = "contacted";
+  }
   await admin.from("ge_prospects").update(bump).eq("id", prospect.id);
   await admin.from("ge_activities").insert({
     prospect_id: prospect.id,
     type: channel,
-    content: `Outreach sent via ${channel} by ${memberName}`,
+    content: `Outreach sent via ${channel} by ${memberName} — follow-up scheduled in 3 days`,
     created_by: memberId,
   });
 }
@@ -122,6 +138,10 @@ export async function composeMessage(input: {
   body: string;
   mode: "draft" | "queue" | "send_email" | "mark_sent";
   scheduledAt?: string | null;
+  purpose?: MessagePurpose;
+  tone?: Tone;
+  /** Update this existing draft row instead of creating a new message. */
+  messageId?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const { member } = await requireGrowth();
   if (!CHANNELS.includes(input.channel)) {
@@ -147,22 +167,51 @@ export async function composeMessage(input: {
       ? (input.subject ?? "").trim() || `A quick idea for ${prospect.company}`
       : null;
 
-  const { data: message, error } = await admin
-    .from("ge_messages")
-    .insert({
-      prospect_id: prospect.id,
-      campaign_id: prospect.campaign_id,
-      channel: input.channel,
-      direction: "outbound",
-      status: input.mode === "queue" ? "queued" : "draft",
-      subject,
-      body: body.slice(0, 10000),
-      scheduled_at: input.mode === "queue" ? input.scheduledAt || null : null,
-      created_by: member.id,
-    })
-    .select("id")
-    .single();
-  if (error) return { ok: false, error: error.message };
+  const row = {
+    prospect_id: prospect.id,
+    campaign_id: prospect.campaign_id,
+    channel: input.channel,
+    direction: "outbound" as const,
+    status: input.mode === "queue" ? "queued" : "draft",
+    subject,
+    body: body.slice(0, 10000),
+    scheduled_at: input.mode === "queue" ? input.scheduledAt || null : null,
+    purpose: input.purpose && PURPOSES.includes(input.purpose) ? input.purpose : null,
+    tone: input.tone && TONES.includes(input.tone) ? input.tone : null,
+    created_by: member.id,
+  };
+
+  let message: { id: string };
+  if (input.messageId) {
+    // Studio flow: the row already exists as a draft — update it in place so
+    // the same draft doesn't multiply every time it's edited or sent.
+    const { data: existing } = await admin
+      .from("ge_messages")
+      .select("id, status, direction")
+      .eq("id", input.messageId)
+      .eq("prospect_id", prospect.id)
+      .maybeSingle();
+    if (!existing || existing.direction !== "outbound") {
+      return { ok: false, error: "Draft not found." };
+    }
+    if (!["draft", "queued", "failed"].includes(existing.status)) {
+      return { ok: false, error: "That message was already sent." };
+    }
+    const { error } = await admin
+      .from("ge_messages")
+      .update(row)
+      .eq("id", input.messageId);
+    if (error) return { ok: false, error: error.message };
+    message = { id: input.messageId };
+  } else {
+    const { data: created, error } = await admin
+      .from("ge_messages")
+      .insert(row)
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    message = created;
+  }
 
   if (input.mode === "send_email") {
     const sent = await sendOutreachEmail({
@@ -263,6 +312,113 @@ export async function deleteMessage(_prev: Result, formData: FormData): Promise<
 
   await admin.from("ge_messages").delete().eq("id", id);
   revalidateProspect(message.prospect_id);
+  return { ok: true };
+}
+
+/**
+ * Message Studio drafting: generates or transforms (improve / rewrite /
+ * shorten / expand) a draft grounded in the saved company research. Returns
+ * text for the editable studio box — stores and sends nothing itself.
+ */
+export async function studioDraft(input: {
+  prospectId: string;
+  channel: Channel;
+  purpose: MessagePurpose;
+  tone: Tone;
+  currentText?: string;
+  transform?: StudioTransform;
+}): Promise<
+  | { ok: true; subject: string | null; body: string }
+  | { ok: false; error: string }
+> {
+  await requireGrowth();
+  if (
+    !CHANNELS.includes(input.channel) ||
+    !PURPOSES.includes(input.purpose) ||
+    !TONES.includes(input.tone) ||
+    (input.transform &&
+      !["improve", "rewrite", "shorten", "expand"].includes(input.transform))
+  ) {
+    return { ok: false, error: "Invalid draft options." };
+  }
+  if (input.transform && !input.currentText?.trim()) {
+    return { ok: false, error: "Write or generate a draft first." };
+  }
+
+  const prospect = await loadProspect(input.prospectId);
+  if (!prospect) return { ok: false, error: "Prospect not found." };
+
+  const admin = createAdminClient();
+  const { data: research } = await admin
+    .from("ge_research")
+    .select("report")
+    .eq("prospect_id", input.prospectId)
+    .maybeSingle();
+
+  const settings = await loadGrowthSettings();
+  try {
+    const draft = await draftStudioMessage(
+      prospect,
+      (research?.report as ResearchReport | undefined) ?? null,
+      {
+        channel: input.channel,
+        purpose: input.purpose,
+        tone: input.tone,
+        currentText: input.currentText?.slice(0, 6000),
+        transform: input.transform,
+      },
+      settings.bookingUrl
+    );
+    return { ok: true, ...draft };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "NO_PROVIDER") return { ok: false, error: NO_PROVIDER_MESSAGE };
+    return { ok: false, error: "Drafting failed — try again in a moment." };
+  }
+}
+
+/** Saves the current studio draft as a reusable template (Settings → Templates). */
+export async function saveStudioTemplate(input: {
+  name: string;
+  channel: Channel;
+  purpose: MessagePurpose;
+  subject?: string | null;
+  body: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireGrowth();
+  const name = input.name.trim().slice(0, 200);
+  const body = input.body.trim().slice(0, 10000);
+  if (!name || !body) return { ok: false, error: "Template needs a name and a body." };
+  if (!CHANNELS.includes(input.channel) || !PURPOSES.includes(input.purpose)) {
+    return { ok: false, error: "Invalid template options." };
+  }
+
+  // Studio purposes → the template categories the DB already knows.
+  const category: Record<MessagePurpose, string> = {
+    first: "initial",
+    follow_up: "follow_up",
+    second_follow_up: "follow_up",
+    meeting_confirmation: "confirmation",
+    thank_you: "reply",
+  };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("ge_templates").insert({
+    name,
+    channel: input.channel,
+    category: category[input.purpose],
+    subject: input.subject?.trim().slice(0, 300) || null,
+    body,
+  });
+  if (error) {
+    return {
+      ok: false,
+      error: error.message.includes("duplicate")
+        ? "A template with that name already exists."
+        : error.message,
+    };
+  }
+  revalidatePath("/growth/settings");
   return { ok: true };
 }
 

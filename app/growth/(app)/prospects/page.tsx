@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Download, Sparkles } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
@@ -8,7 +9,10 @@ import {
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
-import { addProspect, importProspects } from "./actions";
+import { addProspect, importProspects, quickResearch } from "./actions";
+
+// Quick research runs a full AI research pass inside this route's actions.
+export const maxDuration = 60;
 
 const CSV_HINT =
   "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,notes";
@@ -32,7 +36,7 @@ export default async function ProspectsPage({
   let query = admin
     .from("ge_prospects")
     .select(
-      "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id"
+      "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -45,12 +49,14 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", industry);
   if (campaign) query = query.eq("campaign_id", campaign);
 
-  const [{ data: prospects }, { data: campaigns }, { data: industriesRaw }] =
+  const [{ data: prospects }, { data: campaigns }, { data: industriesRaw }, { data: team }] =
     await Promise.all([
       query,
       admin.from("ge_campaigns").select("id, name").order("name"),
       admin.from("ge_prospects").select("industry").not("industry", "is", null),
+      admin.from("ge_team_members").select("id, name"),
     ]);
+  const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
 
   const industries = [
     ...new Set((industriesRaw ?? []).map((r) => r.industry?.trim()).filter(Boolean)),
@@ -69,7 +75,41 @@ export default async function ProspectsPage({
             search, filter, add manually or import in bulk.
           </p>
         </div>
+        <a href="/growth/reports/export?type=prospects" className="btn btn-secondary">
+          <Download size={14} /> Export CSV
+        </a>
       </div>
+
+      <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          ✦ Research a company (paste a website)
+        </summary>
+        <ActionForm action={quickResearch} style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ flex: "2 1 240px" }}>
+              <label htmlFor="pqr-website">Company website *</label>
+              <input id="pqr-website" name="website" required placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
+            </div>
+            <div style={{ flex: "1 1 170px" }}>
+              <label htmlFor="pqr-company">Company (optional)</label>
+              <input id="pqr-company" name="company" maxLength={200} style={{ width: "100%" }} />
+            </div>
+            <div style={{ flex: "1 1 170px" }}>
+              <label htmlFor="pqr-contact">Contact (optional)</label>
+              <input id="pqr-contact" name="contact_name" maxLength={200} style={{ width: "100%" }} />
+            </div>
+            <div style={{ flex: "1 1 170px" }}>
+              <label htmlFor="pqr-email">Email (optional)</label>
+              <input id="pqr-email" name="email" type="email" maxLength={300} style={{ width: "100%" }} />
+            </div>
+          </div>
+          <div className="form-actions">
+            <SubmitButton pendingText="Researching (30–60s)…">
+              <Sparkles size={14} /> Create &amp; research
+            </SubmitButton>
+          </div>
+        </ActionForm>
+      </details>
 
       <form
         method="get"
@@ -238,6 +278,7 @@ export default async function ProspectsPage({
                 <th>Location</th>
                 <th>Status</th>
                 <th>Score</th>
+                <th>Assigned</th>
                 <th>Last contact</th>
                 <th>Next follow-up</th>
               </tr>
@@ -265,6 +306,7 @@ export default async function ProspectsPage({
                       </span>
                     </td>
                     <td>{p.lead_score > 0 ? `${p.lead_score}` : "—"}</td>
+                    <td>{p.assigned_to ? (teamById.get(p.assigned_to) ?? "—") : "—"}</td>
                     <td>{p.last_contact_at ? p.last_contact_at.slice(0, 10) : "—"}</td>
                     <td>{p.next_follow_up_at ?? "—"}</td>
                   </tr>
