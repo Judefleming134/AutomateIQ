@@ -157,12 +157,18 @@ export async function runCompanyResearch(
       : `- Contact: ${prospect.contact_name}${prospect.job_title ? `, ${prospect.job_title}` : ""}`,
     prospect.industry ? `- Industry (as recorded): ${prospect.industry}` : "",
     prospect.location ? `- Location: ${prospect.location}` : "",
-    prospect.website ? `- Website: ${prospect.website}` : "- Website: none provided",
-    prospect.notes ? `- Team notes: ${prospect.notes}` : "",
+    prospect.website
+      ? `- Website: ${prospect.website}`
+      : "- Website: NONE — this business has no website",
+    prospect.notes
+      ? `- SALESPERSON'S FIELD NOTES (first-hand observations from finding this lead — weigh these heavily and build the recommendations and outreach angle around them): ${prospect.notes}`
+      : "",
     "",
     websiteText
       ? `WEBSITE CONTENT (extracted text):\n${websiteText}`
-      : "WEBSITE CONTENT: could not be retrieved — analyse from the details above plus what is typical for this kind of business, and hedge accordingly.",
+      : prospect.website
+        ? "WEBSITE CONTENT: could not be retrieved — analyse from the details above plus what is typical for this kind of business, and hedge accordingly."
+        : "WEBSITE CONTENT: this business has NO WEBSITE. Treat that as a primary finding, not a data gap: they are likely invisible on Google, losing after-hours and comparison-shopping enquiries to competitors who do show up. The 'website-lead-capture' solution should almost certainly lead your recommendations, and the outreach drafts should be built around that angle. Analyse the rest from the details above plus what is typical for this kind of business, hedging accordingly.",
     "",
     "AUTOMATEIQ SOLUTION CATALOGUE (recommend ONLY from these keys):",
     catalog,

@@ -9,6 +9,9 @@ import {
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { ResearchQueue } from "@/components/growth/research-queue";
+import { CsvFileField } from "@/components/growth/csv-file-field";
+import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -17,12 +20,19 @@ export const maxDuration = 60;
 const CSV_HINT =
   "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,facebook_url,notes";
 
+const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last" }> = {
+  newest: { column: "created_at", ascending: false },
+  score: { column: "lead_score", ascending: false },
+  follow_up: { column: "next_follow_up_at", ascending: true, nulls: "last" },
+  company: { column: "company", ascending: true },
+};
+
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string }>;
 }) {
-  await requireGrowth();
+  const { member } = await requireGrowth();
   const params = await searchParams;
   const admin = createAdminClient();
 
@@ -33,12 +43,14 @@ export default async function ProspectsPage({
   const industry = (params.industry ?? "").trim();
   const campaign = (params.campaign ?? "").trim();
 
+  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "newest";
+  const sort = SORTS[sortKey];
   let query = admin
     .from("ge_prospects")
     .select(
       "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to"
     )
-    .order("created_at", { ascending: false })
+    .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
     .limit(500);
   if (q) {
     query = query.or(
@@ -49,14 +61,28 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", industry);
   if (campaign) query = query.eq("campaign_id", campaign);
 
-  const [{ data: prospects }, { data: campaigns }, { data: industriesRaw }, { data: team }] =
-    await Promise.all([
-      query,
-      admin.from("ge_campaigns").select("id, name").order("name"),
-      admin.from("ge_prospects").select("industry").not("industry", "is", null),
-      admin.from("ge_team_members").select("id, name"),
-    ]);
+  const [
+    { data: prospects },
+    { data: campaigns },
+    { data: industriesRaw },
+    { data: team },
+    { data: allProspects },
+    { data: researched },
+  ] = await Promise.all([
+    query,
+    admin.from("ge_campaigns").select("id, name").order("name"),
+    admin.from("ge_prospects").select("industry").not("industry", "is", null),
+    admin.from("ge_team_members").select("id, name"),
+    admin
+      .from("ge_prospects")
+      .select("id, company")
+      .not("status", "in", '("won","lost","do_not_contact","archived")')
+      .order("created_at", { ascending: false }),
+    admin.from("ge_research").select("prospect_id"),
+  ]);
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
+  const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
+  const unresearched = (allProspects ?? []).filter((p) => !researchedIds.has(p.id));
 
   const industries = [
     ...new Set((industriesRaw ?? []).map((r) => r.industry?.trim()).filter(Boolean)),
@@ -80,6 +106,8 @@ export default async function ProspectsPage({
         </a>
       </div>
 
+      <ResearchQueue pending={unresearched} />
+
       <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
           ✦ Research a company (paste a website)
@@ -87,11 +115,11 @@ export default async function ProspectsPage({
         <ActionForm action={quickResearch} style={{ marginTop: 10 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: "2 1 240px" }}>
-              <label htmlFor="pqr-website">Company website *</label>
-              <input id="pqr-website" name="website" required placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
+              <label htmlFor="pqr-website">Company website (or leave blank)</label>
+              <input id="pqr-website" name="website" placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 170px" }}>
-              <label htmlFor="pqr-company">Company (optional)</label>
+              <label htmlFor="pqr-company">Company (required if no website)</label>
               <input id="pqr-company" name="company" maxLength={200} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 170px" }}>
@@ -169,6 +197,17 @@ export default async function ProspectsPage({
             ))}
           </select>
         </div>
+        <div style={{ flex: "1 1 130px" }}>
+          <label htmlFor="pf-sort" style={{ fontSize: 12, color: "var(--faint)" }}>
+            Sort by
+          </label>
+          <select id="pf-sort" name="sort" defaultValue={sortKey} style={{ width: "100%" }}>
+            <option value="newest">Newest first</option>
+            <option value="score">Lead score</option>
+            <option value="follow_up">Next follow-up</option>
+            <option value="company">Company A–Z</option>
+          </select>
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="submit" className="btn btn-secondary">
             Apply
@@ -236,24 +275,22 @@ export default async function ProspectsPage({
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>⇪ Import from CSV</summary>
         <ActionForm action={importProspects} className="form-card" style={{ border: 0, background: "none", padding: "12px 0 0" }}>
           <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
-            Paste CSV with a header row. Recognised columns (any order):{" "}
-            <code style={{ fontSize: 12 }}>{CSV_HINT}</code>. Rows with an email
-            that already exists are skipped.
+            Drop a .csv file (Google Sheets: File → Download → .csv) or paste
+            rows straight from the sheet. Keep the header row. Recognised
+            columns (any order): <code style={{ fontSize: 12 }}>{CSV_HINT}</code>.
+            Rows need a company + at least one contact method; duplicate emails
+            are skipped.
           </p>
-          <label htmlFor="imp-csv">CSV data</label>
-          <textarea
-            id="imp-csv"
-            name="csv"
-            rows={6}
-            required
-            placeholder={`company,contact_name,email\nAcme Ltd,Jane Murphy,jane@acme.ie`}
-          />
-          <label htmlFor="imp-campaign">Assign all to campaign (optional)</label>
-          <select id="imp-campaign" name="campaign_id" defaultValue="">
+          <CsvFileField />
+          <label htmlFor="imp-campaign">Campaign</label>
+          <select id="imp-campaign" name="campaign_id" defaultValue="__auto__">
+            <option value="__auto__">
+              Auto — group by the industry column (creates campaigns as needed)
+            </option>
             <option value="">No campaign</option>
             {(campaigns ?? []).map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}
+                Assign all to: {c.name}
               </option>
             ))}
           </select>
@@ -270,11 +307,18 @@ export default async function ProspectsPage({
           </p>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Prospect</th>
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <BulkActions isOwner={member.role === "owner"} />
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 34 }}>
+                    <SelectAll />
+                  </th>
+                  <th>Prospect</th>
                 <th>Title</th>
                 <th>Industry</th>
                 <th>Location</th>
@@ -290,6 +334,15 @@ export default async function ProspectsPage({
                 const meta = PROSPECT_STATUS_META[p.status as ProspectStatus];
                 return (
                   <tr key={p.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        name="ids"
+                        value={p.id}
+                        form="prospect-bulk"
+                        aria-label={`Select ${p.company}`}
+                      />
+                    </td>
                     <td>
                       <Link href={`/growth/prospects/${p.id}`}>
                         <strong>{p.company}</strong>
@@ -316,7 +369,8 @@ export default async function ProspectsPage({
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </>
   );

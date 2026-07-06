@@ -33,7 +33,11 @@ const optional = (max = 300) =>
 
 const prospectSchema = z.object({
   company: z.string().trim().min(1, "Company is required.").max(200),
-  contact_name: z.string().trim().min(1, "Contact name is required.").max(200),
+  contact_name: z
+    .string()
+    .trim()
+    .max(200)
+    .transform((v) => v || "Owner"),
   job_title: optional(),
   industry: optional(),
   website: optional(),
@@ -58,6 +62,20 @@ const prospectSchema = z.object({
     .nullable()
     .optional(),
 });
+
+/** A prospect must be reachable somehow — company name alone is not a lead. */
+function hasContactMethod(p: {
+  website?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  linkedin_url?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+}): boolean {
+  return Boolean(
+    p.website || p.email || p.phone || p.linkedin_url || p.instagram_url || p.facebook_url
+  );
+}
 
 function fields(formData: FormData, keys: string[]) {
   const out: Record<string, string> = {};
@@ -86,6 +104,12 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
   const parsed = prospectSchema.safeParse(fields(formData, PROSPECT_FIELD_KEYS));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+  if (!hasContactMethod(parsed.data)) {
+    return {
+      error:
+        "Add at least one way to contact them — website, email, phone, or a social profile.",
+    };
   }
 
   const admin = createAdminClient();
@@ -126,7 +150,11 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
 export async function importProspects(_prev: Result, formData: FormData): Promise<Result & { imported?: number; skipped?: number }> {
   const { member } = await requireGrowth();
   const csv = String(formData.get("csv") ?? "").trim();
-  const campaignId = String(formData.get("campaign_id") ?? "").trim() || null;
+  const campaignSel = String(formData.get("campaign_id") ?? "").trim();
+  // "__auto__": one mixed paste, rows grouped by their industry column —
+  // matched to an existing campaign or a new one created on the fly.
+  const autoGroup = campaignSel === "__auto__";
+  const fixedCampaignId = autoGroup ? null : campaignSel || null;
   if (!csv) return { error: "Paste CSV data first." };
 
   const rows = parseCsv(csv);
@@ -136,8 +164,8 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
 
   const header = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
   const col = (name: string) => header.indexOf(name);
-  if (col("company") === -1 || col("contact_name") === -1) {
-    return { error: "CSV must include 'company' and 'contact_name' columns." };
+  if (col("company") === -1) {
+    return { error: "CSV must include a 'company' column." };
   }
 
   const admin = createAdminClient();
@@ -145,14 +173,59 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   let imported = 0;
   let skipped = 0;
 
+  // Auto-grouping: campaign per industry value, resolved once per industry.
+  // Match order: campaign.industry (case-insensitive) → campaign name
+  // contains the industry → create a fresh active campaign named after it.
+  const campaignCache = new Map<string, string | null>();
+  async function campaignForIndustry(industryRaw: string | null): Promise<string | null> {
+    const industry = (industryRaw ?? "").trim();
+    if (!industry) return null;
+    const cacheKey = industry.toLowerCase();
+    if (campaignCache.has(cacheKey)) return campaignCache.get(cacheKey)!;
+
+    const safe = industry.replace(/[%_]/g, "");
+    let id: string | null = null;
+    const { data: byIndustry } = await admin
+      .from("ge_campaigns")
+      .select("id")
+      .ilike("industry", safe)
+      .limit(1)
+      .maybeSingle();
+    id = byIndustry?.id ?? null;
+    if (!id) {
+      const { data: byName } = await admin
+        .from("ge_campaigns")
+        .select("id")
+        .ilike("name", `%${safe}%`)
+        .limit(1)
+        .maybeSingle();
+      id = byName?.id ?? null;
+    }
+    if (!id) {
+      const title = industry.replace(/\b\w/g, (c) => c.toUpperCase());
+      const { data: created } = await admin
+        .from("ge_campaigns")
+        .insert({
+          name: title,
+          industry,
+          status: "active",
+          created_by: member.id,
+        })
+        .select("id")
+        .single();
+      id = created?.id ?? null;
+    }
+    campaignCache.set(cacheKey, id);
+    return id;
+  }
+
   for (const row of rows.slice(1)) {
     const cell = (name: string) => {
       const i = col(name);
       return i === -1 ? null : row[i]?.trim() || null;
     };
     const company = cell("company");
-    const contactName = cell("contact_name");
-    if (!company || !contactName) {
+    if (!company) {
       skipped++;
       continue;
     }
@@ -161,6 +234,24 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       skipped++;
       continue;
     }
+    // A lead must be reachable: company alone (no website/email/phone/social)
+    // is not actionable, so the row is skipped rather than imported.
+    if (
+      !hasContactMethod({
+        website: cell("website"),
+        email,
+        phone: cell("phone"),
+        linkedin_url: cell("linkedin_url"),
+        instagram_url: cell("instagram_url"),
+        facebook_url: cell("facebook_url"),
+      })
+    ) {
+      skipped++;
+      continue;
+    }
+    // Dedupe: by email when present, otherwise by company name — so
+    // importing the same sheet twice (or overlapping sheets) never creates
+    // duplicate prospects.
     if (email) {
       const { data: existing } = await admin
         .from("ge_prospects")
@@ -171,12 +262,23 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
         skipped++;
         continue;
       }
+    } else {
+      const { data: existing } = await admin
+        .from("ge_prospects")
+        .select("id")
+        .ilike("company", company.replace(/[%_]/g, ""))
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        skipped++;
+        continue;
+      }
     }
     const { data: created, error } = await admin
       .from("ge_prospects")
       .insert({
         company,
-        contact_name: contactName,
+        contact_name: cell("contact_name") ?? "Owner",
         job_title: cell("job_title"),
         industry: cell("industry"),
         website: cell("website"),
@@ -187,7 +289,9 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
         instagram_url: cell("instagram_url"),
         facebook_url: cell("facebook_url"),
         notes: cell("notes"),
-        campaign_id: campaignId,
+        campaign_id: autoGroup
+          ? await campaignForIndustry(cell("industry"))
+          : fixedCampaignId,
         created_by: member.id,
         source: "import",
       })
@@ -207,7 +311,27 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   }
 
   revalidatePath("/growth/prospects");
+  revalidatePath("/growth/campaigns");
+  if (imported === 0) {
+    return {
+      error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
+    };
+  }
   return { ok: true, imported, skipped };
+}
+
+/**
+ * One prospect's research, callable from the client-side "Research all"
+ * queue — each call is its own request, so each gets the route's full
+ * execution window instead of one action trying to research 60 companies.
+ */
+export async function researchOne(
+  prospectId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const fd = new FormData();
+  fd.set("id", prospectId);
+  const result = await researchProspect(undefined, fd);
+  return result?.error ? { ok: false, error: result.error } : { ok: true };
 }
 
 export async function updateProspect(_prev: Result, formData: FormData): Promise<Result> {
@@ -427,15 +551,16 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
 export async function quickResearch(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
 
+  // Website is optional: no-website businesses are prime prospects for the
+  // Website with Lead Capture pitch. Without one we just need the name.
   const website = String(formData.get("website") ?? "").trim();
-  if (!website) return { error: "Paste the company website first." };
   const emailRaw = String(formData.get("email") ?? "").trim();
   if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     return { error: "Invalid email." };
   }
 
   let company = String(formData.get("company") ?? "").trim().slice(0, 200);
-  if (!company) {
+  if (!company && website) {
     // Derive a starting name from the domain: "www.murphy-plumbing.ie" →
     // "Murphy Plumbing". The research pass refines it; the user can edit.
     try {
@@ -450,7 +575,9 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
       return { error: "That doesn't look like a valid website address." };
     }
   }
-  if (!company) return { error: "Couldn't determine a company name — enter one." };
+  if (!company) {
+    return { error: "Enter the company website, or the company name if they don't have one." };
+  }
 
   const admin = createAdminClient();
   if (emailRaw) {
@@ -467,7 +594,7 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
     .insert({
       company,
       contact_name: String(formData.get("contact_name") ?? "").trim().slice(0, 200) || "Owner",
-      website,
+      website: website || null,
       email: emailRaw || null,
       phone: String(formData.get("phone") ?? "").trim().slice(0, 50) || null,
       linkedin_url: String(formData.get("linkedin_url") ?? "").trim().slice(0, 500) || null,
@@ -601,6 +728,38 @@ export async function completeTask(_prev: Result, formData: FormData): Promise<R
 
   revalidatePath("/growth");
   revalidatePath("/growth/prospects");
+  return { ok: true };
+}
+
+/**
+ * Bulk table actions: archive keeps the record + history but clears it out
+ * of every working list; delete removes the prospect and (via FK cascade)
+ * all research, messages, activities, tasks and meetings — owners only.
+ */
+export async function bulkProspectAction(_prev: Result, formData: FormData): Promise<Result> {
+  const { member } = await requireGrowth();
+  const intent = String(formData.get("intent") ?? "");
+  const ids = formData.getAll("ids").map(String).filter(Boolean).slice(0, 500);
+  if (ids.length === 0) return { error: "Tick at least one prospect first." };
+
+  const admin = createAdminClient();
+
+  if (intent === "delete") {
+    if (member.role !== "owner") return { error: "Only owners can delete prospects." };
+    const { error } = await admin.from("ge_prospects").delete().in("id", ids);
+    if (error) return { error: error.message };
+  } else if (intent === "archive") {
+    const { error } = await admin
+      .from("ge_prospects")
+      .update({ status: "archived", next_follow_up_at: null })
+      .in("id", ids);
+    if (error) return { error: error.message };
+  } else {
+    return { error: "Unknown action." };
+  }
+
+  revalidatePath("/growth/prospects");
+  revalidatePath("/growth");
   return { ok: true };
 }
 

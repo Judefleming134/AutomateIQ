@@ -6,6 +6,13 @@
  */
 
 export function parseCsv(text: string): string[][] {
+  // Copying cells straight out of Google Sheets / Excel produces
+  // TAB-separated lines, not commas — detect that from the first line so a
+  // direct spreadsheet paste just works alongside real CSV files.
+  const firstNewline = text.search(/\r?\n/);
+  const firstLine = firstNewline === -1 ? text : text.slice(0, firstNewline);
+  const delimiter = firstLine.includes("\t") ? "\t" : ",";
+
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";
@@ -26,7 +33,7 @@ export function parseCsv(text: string): string[][] {
       }
     } else if (ch === '"') {
       inQuotes = true;
-    } else if (ch === ",") {
+    } else if (ch === delimiter) {
       row.push(field);
       field = "";
     } else if (ch === "\n" || ch === "\r") {

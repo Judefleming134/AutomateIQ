@@ -69,6 +69,12 @@ export const SOLUTION_CATALOG: Solution[] = [
       "Route planning, dispatch, delivery tracking and exception alerts for transport and distribution operations.",
   },
   {
+    key: "website-lead-capture",
+    name: "Website with Lead Capture",
+    blurb:
+      "A professional website with built-in lead capture and instant enquiry alerts — for businesses with no site (or a dead one) who are invisible on Google and losing after-hours enquiries to competitors.",
+  },
+  {
     key: "review-agent",
     name: "Review Agent",
     blurb:
