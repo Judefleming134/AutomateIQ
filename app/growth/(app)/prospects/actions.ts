@@ -249,11 +249,25 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       skipped++;
       continue;
     }
+    // Dedupe: by email when present, otherwise by company name — so
+    // importing the same sheet twice (or overlapping sheets) never creates
+    // duplicate prospects.
     if (email) {
       const { data: existing } = await admin
         .from("ge_prospects")
         .select("id")
         .ilike("email", email)
+        .maybeSingle();
+      if (existing) {
+        skipped++;
+        continue;
+      }
+    } else {
+      const { data: existing } = await admin
+        .from("ge_prospects")
+        .select("id")
+        .ilike("company", company.replace(/[%_]/g, ""))
+        .limit(1)
         .maybeSingle();
       if (existing) {
         skipped++;
