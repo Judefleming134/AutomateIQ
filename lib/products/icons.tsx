@@ -15,6 +15,7 @@ import {
   Banknote,
   Calendar,
   LifeBuoy,
+  Instagram,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ const PRODUCT_ICONS: Record<string, LucideIcon> = {
   banknote: Banknote,
   calendar: Calendar,
   "life-buoy": LifeBuoy,
+  instagram: Instagram,
 };
 
 export function ProductIcon({ name, size = 18 }: { name: string; size?: number }) {

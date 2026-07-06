@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, Box, BookOpen, CalendarClock } from "lucide-react";
+import { LayoutDashboard, Users, Box, BookOpen, CalendarClock, Layers } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
@@ -20,6 +20,7 @@ export default async function AdminLayout({
         { href: "/admin/customers", label: "Customers", icon: <Users /> },
         { href: "/admin/bookings", label: "Bookings", icon: <CalendarClock /> },
         { href: "/admin/documentation", label: "Documentation", icon: <BookOpen /> },
+        { href: "/admin/systems", label: "Business Systems", icon: <Layers /> },
         { href: "/admin/modules", label: "Custom modules", icon: <Box /> },
       ],
     },

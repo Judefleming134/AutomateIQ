@@ -17,7 +17,7 @@ Everything is merged to `main` (PR #3) and **live in production**.
 
 ## Exactly where things stand right now
 
-### Phase 4 (2026-07-06): AutomateIQ Growth Engine (`/growth`)
+### Phase 6 (2026-07-06): AutomateIQ Growth Engine (`/growth`)
 
 A **standalone internal sales & marketing workspace** for turning outbound
 prospects into booked AI Strategy Sessions. It is deliberately NOT part of
@@ -25,8 +25,8 @@ the customer platform: no links to or from `/portal` or `/admin`, its own
 login screen, its own team list, its own `ge_*` tables. It shares only
 infrastructure — Supabase Auth, Resend, the design system CSS.
 
-**One setup step: run `supabase/manual_update_0011.sql` in the Supabase SQL
-Editor** (after 0010; idempotent — verified to run twice cleanly). Then open
+**One setup step: run `supabase/manual_update_0013.sql` in the Supabase SQL
+Editor** (after 0012; idempotent — verified to run twice cleanly). Then open
 `automateiq.ie/growth` and sign in with the platform admin account — platform
 admins are auto-provisioned as Growth Engine owners on first visit, so there
 is no bootstrap step to forget. Add further team members (who never gain
@@ -88,7 +88,7 @@ gated by `requireGrowth()` (lib/growth/auth.ts) — the same trust boundary as
 of looping them through /portal. Owner-only: settings, team, deletes.
 
 Verified: `next build` green (all 12 /growth routes compile);
-`manual_update_0011.sql` applied twice to a scratch Postgres 16 cleanly;
+`manual_update_0013.sql` applied twice to a scratch Postgres 16 cleanly;
 scoring/CSV/template logic unit-checked; production server smoke-tested —
 `/growth/login` 200, unauthenticated `/growth`, `/growth/prospects` and the
 CSV export route all 307 → `/growth/login`, and the marketing site, `/login`,
@@ -139,6 +139,88 @@ GEMINI_API_KEY and BOOKING_NOTIFY_EMAIL if present.
 3. **Suspension check**: suspend the test customer, confirm immediate
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
+
+### Phase 5 (2026-07-06): Custom Business Systems framework
+
+An additive showcase + module framework for the bespoke enterprise platforms
+AutomateIQ builds. **Setup: run `supabase/manual_update_0012.sql`** (after
+0011; idempotent, additive) — adds `bsys_systems` (global catalogue, readable
+by any authenticated user like `products`) and `bsys_assignments` (per-org,
+tenant-isolated RLS) and seeds the 8 showcase systems. Nothing existing was
+changed or removed.
+
+- **Marketing** — a **"View Systems"** button added inside the existing
+  "03 · What we do" section (`#services`) of `index.html` (purely additive —
+  no content moved) links to a new **`/systems`** page. That page is a premium,
+  on-brand showcase: intro, 8 interactive cards (icon, overview, benefits,
+  expandable capability list, industries), a "every solution is bespoke"
+  assurance, and a **Book Your Free AI Strategy Session** CTA → `/book`. Full
+  metadata + Service JSON-LD; added to `sitemap.ts`.
+- **Customer dashboard** — a new **Solutions** section (`/portal/solutions`,
+  added to the Workspace nav) renders the 8 systems as module cards with icon,
+  description, development status, assigned organisation, module status, a
+  Launch button (disabled until a module is active) and Coming Soon badges.
+  This is the plug-in foundation future systems slot into — each will get its
+  own dashboard/nav/AI specialist/docs/reports/APIs/analytics/settings while
+  sharing the existing AI Assistant, Supabase, auth, RLS, organisations,
+  notifications and branding.
+- **Admin** — **Business Systems** (`/admin/systems`, added to admin nav):
+  create custom system modules, track development status, assign systems to
+  organisations, and enable/disable/set module status per org. Built to scale
+  to hundreds of modules; every mutation writes to the admin audit log.
+
+Single source of truth: `lib/systems/catalog.ts` (the 8 systems' rich content),
+reused by the marketing page and to enrich the dashboard cards; the DB
+catalogue is seeded from the same keys. No new env vars. All feature lists are
+explicitly positioned as illustrative/bespoke, never fixed products.
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms the
+catalogue is readable by authenticated users while assignments stay
+per-organisation; migration idempotent. All existing pages, agents, the AI
+Assistant, bookings and documentation are untouched.
+
+### Phase 4 (2026-07-05): Instagram DM Setter Agent
+
+A new specialist agent, fully integrated into the existing multi-agent
+ecosystem — NOT a standalone chatbot. **Setup: run
+`supabase/manual_update_0011.sql`** in the Supabase SQL Editor (after 0010;
+idempotent, additive). It adds `ig_settings`, `ig_conversations`, `ig_messages`
+(RLS via the existing `is_active_tenant_member()`) and registers the
+`instagram-dm-setter` product. Nothing existing was changed or removed.
+
+How it integrates (reuse, not duplication):
+- **Shared intelligence** — the setter's replies come from `lib/instagram/
+  setter-core.ts`, which composes its system prompt from the SAME
+  `aa_assistants` knowledge + tone the AI Assistant uses and calls the SAME
+  `lib/ai/complete` path. It is the AI Assistant's mind, pointed at Instagram.
+- **Registered agent** — `lib/agents/modules/instagram-dm-setter.ts` is added
+  to the agent registry, so the AI Assistant automatically discovers it, lists
+  it as an installed specialist, and can delegate via its tools:
+  `list_instagram_conversations`, `read_instagram_conversation`,
+  `draft_instagram_reply`, `instagram_setter_stats`. (One import + one array
+  entry in `registry.ts` — the assistant/shell/nav were untouched.)
+- **Shared booking + CRM** — the setter drives leads to the existing `/book`
+  booking system (per-business booking link, default `/book`); conversations
+  and the AI Assistant tools reuse the platform's data + RLS.
+- **Webhook** `app/api/ig/webhook/route.ts` — GET does Meta verification
+  (`INSTAGRAM_VERIFY_TOKEN`), POST routes each inbound DM to the right business
+  by IG account id (service role), runs the shared pipeline, and sends the
+  reply via the Graph API using that business's stored Page token.
+- **Portal** `/portal/instagram-dm-setter` — connect Instagram (account id +
+  Page token), set persona/greeting/booking link, toggle auto-reply, view
+  conversations, and a **live simulator** to test the setter end-to-end
+  (store → AI reply → store) with no Meta connection required. Appears
+  automatically in `/portal/products` (agents never add sidebar entries).
+
+**New env var:** `INSTAGRAM_VERIFY_TOKEN` — any string you choose; enter the
+same value in the Meta app's webhook config (used only for GET verification).
+Per-business Page tokens live in `ig_settings`, not env. The setter's replies
+use the existing `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` (no new AI key).
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms one
+business can't read or write another's Instagram data; migration is idempotent.
+Existing agents, the AI Assistant orchestrator, bookings and documentation are
+untouched and continue to work.
 
 ### Phase 3 (2026-07-05): AI Strategy Session booking + SEO
 

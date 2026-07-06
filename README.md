@@ -33,7 +33,7 @@ marketing site.
   reporting and settings. Own login (`/growth/login`), own team list
   (`ge_team_members`), own deny-all-RLS `ge_*` tables — it shares only
   infrastructure (Supabase Auth, Resend, the design system). Setup: run
-  `supabase/manual_update_0011.sql`. Full details in `HANDOFF.md`.
+  `supabase/manual_update_0013.sql`. Full details in `HANDOFF.md`.
 
 ## Tech stack
 

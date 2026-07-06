@@ -8,6 +8,7 @@ import {
   Boxes,
   FolderKanban,
   BookOpen,
+  Layers,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
@@ -56,6 +57,7 @@ export default async function PortalLayout({
           disabled: !enabledKeys.has("ai-assistant"),
         },
         { href: "/portal/products", label: "Products", icon: <Boxes /> },
+        { href: "/portal/solutions", label: "Solutions", icon: <Layers /> },
         { href: "/portal/analytics", label: "Analytics", icon: <BarChart3 /> },
         { href: "/portal/projects", label: "Projects", icon: <FolderKanban /> },
         { href: "/portal/documentation", label: "Documentation", icon: <BookOpen /> },
