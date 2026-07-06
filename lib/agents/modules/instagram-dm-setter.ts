@@ -34,7 +34,10 @@ export const instagramDmSetterModule: AgentModule = {
   iconName: "instagram",
   accent: "#E1306C",
   href: "/portal/instagram-dm-setter",
-  availability: "live",
+  // Shown as "Coming soon" until the Instagram/Facebook account is connected.
+  // To go live: change this to "live" and redeploy — everything else (page,
+  // webhook, tools, migration 0011) is already in place and ready.
+  availability: "coming_soon",
   capabilities: [
     "Replies to Instagram DMs in your brand voice",
     "Shares the AI Assistant's business knowledge & memory",
