@@ -19,7 +19,7 @@ export function BookingWidget({ days }: { days: BookingDay[] }) {
       <div className="panel panel-block book-empty">
         <p>
           There are no open slots in the next few weeks right now. Please email{" "}
-          <a href="mailto:hello@automateiq.ie">hello@automateiq.ie</a> and we&apos;ll find a time.
+          <a href="mailto:jude@automateiq.ie">jude@automateiq.ie</a> and we&apos;ll find a time.
         </p>
       </div>
     );

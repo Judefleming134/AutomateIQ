@@ -157,7 +157,7 @@ export default async function ProductsPage() {
                 <p>{m.description}</p>
                 <span className="product-meta">
                   <a
-                    href={`mailto:hello@automateiq.ie?subject=Enable ${m.name}`}
+                    href={`mailto:jude@automateiq.ie?subject=Enable ${m.name}`}
                     className="badge badge-blue"
                     style={{ textDecoration: "none" }}
                   >

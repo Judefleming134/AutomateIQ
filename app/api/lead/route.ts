@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getResendClient, getFromAddress } from "@/lib/email/resend";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/** General-enquiries inbox that website contact submissions are delivered to. */
+const ENQUIRIES_EMAIL = "hello@automateiq.ie";
 
 /**
  * Public marketing-site lead capture (see public/index.html's #access
@@ -49,6 +53,31 @@ export async function POST(request: NextRequest) {
       { error: "Store failed", detail: error.message },
       { status: 502 }
     );
+  }
+
+  // Best-effort delivery to the enquiries inbox — the lead is already stored,
+  // so an email failure must never fail the request.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = getResendClient();
+      const result = await resend.emails.send({
+        from: getFromAddress(),
+        to: process.env.LEAD_NOTIFY_EMAIL || ENQUIRIES_EMAIL,
+        subject: "New early-access enquiry — automateiq.ie",
+        text: [
+          "A new enquiry just came in from the automateiq.ie website:",
+          "",
+          `Email: ${email}`,
+          "",
+          "It's also stored in the platform's leads list.",
+        ].join("\n"),
+      });
+      if (result.error) {
+        console.error("Lead enquiry notification rejected:", result.error);
+      }
+    } catch (err) {
+      console.error("Lead enquiry notification failed:", err);
+    }
   }
 
   return NextResponse.json({ ok: true });

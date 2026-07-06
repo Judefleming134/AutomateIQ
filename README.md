@@ -141,6 +141,7 @@ contain placeholder values for local testing.
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key — bypasses RLS. Used only in `lib/supabase/admin.ts` (admin console) and `app/api/lead/route.ts` (public lead capture, which legitimately needs elevated insert access). Never expose this to the browser. |
 | `RESEND_API_KEY` | Resend API key for sending review-request/reminder emails. |
 | `RESEND_FROM_EMAIL` | The "From" address for outgoing emails, e.g. `AutomateIQ <hello@automateiq.ie>`. Falls back to Resend's sandbox address if unset — set this once the sending domain is verified with Resend. |
+| `LEAD_NOTIFY_EMAIL` | Optional. Inbox that website early-access form submissions are delivered to. Defaults to `hello@automateiq.ie` (general enquiries). |
 | `NEXT_PUBLIC_SITE_URL` | The deployed site's base URL (e.g. `https://automateiq.ie`), used to build the click-tracking links (`/api/r/[token]`) embedded in emails. |
 | `CRON_SECRET` | Bearer-token secret the cron dispatcher (`/api/cron/dispatch`) checks on every request. Vercel Cron sends this automatically once configured; pick any long random value. |
 | `SETUP_SECRET` | One-time secret for `/api/setup/bootstrap-admin`, which creates the very first admin account. Pick any long random value; you can rotate/remove it after the first admin exists (the endpoint also permanently refuses to run a second time regardless). |
