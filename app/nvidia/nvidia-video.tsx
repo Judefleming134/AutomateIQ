@@ -43,7 +43,10 @@ export function NvidiaVideo() {
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
       >
+        {/* Prefers a self-hosted file if one is ever added, then the reel
+            resolved from Instagram's public metadata. */}
         <source src="/nvidia-reel.mp4" type="video/mp4" />
+        <source src="/api/nvidia/video" type="video/mp4" />
       </video>
 
       {!playing && (
