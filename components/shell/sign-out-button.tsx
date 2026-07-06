@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+export function SignOutButton({ signInHref = "/login" }: { signInHref?: string }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
@@ -13,7 +13,7 @@ export function SignOutButton() {
     setPending(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace(signInHref);
     router.refresh();
   }
 

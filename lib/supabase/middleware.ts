@@ -41,9 +41,19 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAppRoute = path.startsWith("/portal") || path.startsWith("/admin");
+  // The Growth Engine (internal sales workspace at /growth) has its own
+  // login screen — unauthenticated visitors go there, never to the
+  // customer /login. requireGrowth() re-checks membership on every action.
+  const isGrowthRoute = path.startsWith("/growth") && path !== "/growth/login";
 
   if (isAppRoute && !user) {
     const redirectUrl = new URL("/login", request.url);
+    redirectUrl.searchParams.set("next", path);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  if (isGrowthRoute && !user) {
+    const redirectUrl = new URL("/growth/login", request.url);
     redirectUrl.searchParams.set("next", path);
     return NextResponse.redirect(redirectUrl);
   }

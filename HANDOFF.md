@@ -17,6 +17,85 @@ Everything is merged to `main` (PR #3) and **live in production**.
 
 ## Exactly where things stand right now
 
+### Phase 6 (2026-07-06): AutomateIQ Growth Engine (`/growth`)
+
+A **standalone internal sales & marketing workspace** for turning outbound
+prospects into booked AI Strategy Sessions. It is deliberately NOT part of
+the customer platform: no links to or from `/portal` or `/admin`, its own
+login screen, its own team list, its own `ge_*` tables. It shares only
+infrastructure — Supabase Auth, Resend, the design system CSS.
+
+**One setup step: run `supabase/manual_update_0013.sql` in the Supabase SQL
+Editor** (after 0012; idempotent — verified to run twice cleanly). Then open
+`automateiq.ie/growth` and sign in with the platform admin account — platform
+admins are auto-provisioned as Growth Engine owners on first visit, so there
+is no bootstrap step to forget. Add further team members (who never gain
+customer-platform access — they get profiles.role='growth') in Settings →
+Team.
+
+What's in it:
+
+- **Dashboard** (`/growth`) — 30-day KPIs (leads added, outreach sent, reply
+  rate, positive-response rate, meetings booked, conversion, qualified,
+  pipeline €), follow-ups due, open tasks, top campaigns, recent prospects.
+- **Prospect database** (`/growth/prospects`) — search + status/industry/
+  campaign filters, manual add, CSV bulk import (deduped by email), and a
+  full prospect page: profile editing, pipeline status, notes/calls/meetings
+  timeline, tasks with due dates, and per-prospect messaging.
+- **AI message generator** — drafts personalised outreach per channel/
+  objective (initial, follow-up, re-engagement, booking confirmation, reply)
+  /tone using the platform's existing LLM config (`lib/ai`), grounded ONLY
+  in the prospect's stored data (instructed never to invent specifics).
+  **Nothing sends without a human reviewing the editable draft.** Templates
+  (5 seeded, editable in Settings) support `{{placeholders}}`.
+- **Channel model** — Email sends directly through Resend (queue, schedule,
+  one-click send). LinkedIn / Instagram / SMS are assisted: no approved
+  cold-DM APIs exist, so the engine drafts → you copy-send in the app →
+  mark sent; tracking stays complete. This posture is explained in
+  Settings → Integrations.
+- **Conversation inbox** (`/growth/inbox`) — every thread across channels,
+  replies-awaiting-you first; log inbound replies with sentiment (feeds the
+  positive-response metric); AI-drafted replies; plus the outreach queue
+  view (send/mark-sent/delete).
+- **Campaigns** (`/growth/campaigns`) — organised by industry/service/
+  location/audience with per-campaign funnel: drafts → queued → sent →
+  replies → qualified → meetings.
+- **Lead qualification** — six 0–3 criteria (company size, industry fit,
+  budget, decision-maker, pain points, timeline) → 0–100 score → status via
+  thresholds editable in Settings (changing thresholds re-derives every
+  prospect's status; manual disqualification always sticks).
+- **Meetings & booking** (`/growth/meetings`) — records meetings, and
+  **integrates with the existing public /book system read-only**: "Sync
+  bookings" matches `strategy_bookings` rows to prospects by email and
+  creates `ge_meetings` (idempotent via unique index on
+  strategy_booking_id). Admins are notified of Growth-Engine-recorded
+  meetings via the same recipient logic as public booking alerts
+  (`ownerNotifyRecipients`, now exported).
+- **Analytics** (`/growth/analytics`) — 7/30/90-day/all-time windows;
+  channel mix, top industries, top campaigns. All numbers come from ONE
+  shared calculator (`lib/growth/metrics.ts`) so no screen can disagree.
+- **Reports** (`/growth/reports`) — period summary + CSV exports (summary,
+  full prospect DB, messages, meetings) via a guarded route handler.
+- **Settings** (`/growth/settings`) — booking URL, qualification thresholds,
+  template CRUD, team management (invite by email; suspend/remove),
+  integration status.
+
+Security: every `ge_*` table is RLS-enabled with **no policies** (deny-all
+to anon/authenticated); ALL access goes through service-role server actions
+gated by `requireGrowth()` (lib/growth/auth.ts) — the same trust boundary as
+/admin. The proxy matcher now includes `/growth/:path*` (UX redirect only);
+`requireAdmin` learned to bounce role='growth' accounts to /growth instead
+of looping them through /portal. Owner-only: settings, team, deletes.
+
+Verified: `next build` green (all 12 /growth routes compile);
+`manual_update_0013.sql` applied twice to a scratch Postgres 16 cleanly;
+scoring/CSV/template logic unit-checked; production server smoke-tested —
+`/growth/login` 200, unauthenticated `/growth`, `/growth/prospects` and the
+CSV export route all 307 → `/growth/login`, and the marketing site, `/login`,
+`/book`, `/portal` redirects and robots.txt (now disallowing /growth) are
+unchanged. No new env vars — it reuses RESEND_*, ANTHROPIC_API_KEY /
+GEMINI_API_KEY and BOOKING_NOTIFY_EMAIL if present.
+
 ### Done and verified
 - All code deployed; `automateiq.ie/login`, `/setup` etc. resolve correctly.
   (This required `"framework": "nextjs"` in `vercel.json` — the Vercel

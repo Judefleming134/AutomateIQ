@@ -26,7 +26,11 @@ export async function requireAdmin() {
     .single();
 
   if (profile?.role !== "admin") {
-    redirect("/portal");
+    // Growth Engine team accounts (role 'growth', no business_id) belong at
+    // /growth — sending them to /portal would bounce them straight back
+    // here forever (requireSession redirects business-less accounts to
+    // /admin).
+    redirect(profile?.role === "growth" ? "/growth" : "/portal");
   }
 
   return user;

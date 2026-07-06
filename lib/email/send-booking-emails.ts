@@ -31,7 +31,7 @@ function fromAddressInbox(): string | null {
  *   3. the RESEND_FROM_EMAIL address, as a last resort
  * Best-effort: any lookup failure just falls through to the next source.
  */
-async function ownerNotifyRecipients(): Promise<string[]> {
+export async function ownerNotifyRecipients(): Promise<string[]> {
   const recipients = new Set<string>();
 
   const override = process.env.BOOKING_NOTIFY_EMAIL;

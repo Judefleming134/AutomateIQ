@@ -25,6 +25,15 @@ marketing site.
   Three more product slots (Website Agent, AI Assistant, Custom Solutions)
   exist as placeholders/framework, ready to become real products later
   without changing the shell around them.
+- **`/growth` — the AutomateIQ Growth Engine** — a standalone INTERNAL sales
+  & marketing workspace (not part of the customer platform, no links either
+  way): prospect database, multi-channel outreach (LinkedIn / Instagram /
+  Email / SMS), AI message generator, conversation inbox, lead qualification
+  scoring, campaign manager, meetings + booking-page sync, analytics,
+  reporting and settings. Own login (`/growth/login`), own team list
+  (`ge_team_members`), own deny-all-RLS `ge_*` tables — it shares only
+  infrastructure (Supabase Auth, Resend, the design system). Setup: run
+  `supabase/manual_update_0013.sql`. Full details in `HANDOFF.md`.
 
 ## Tech stack
 
