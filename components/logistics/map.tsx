@@ -8,6 +8,7 @@ import {
   DEFAULT_ZOOM,
   MARKER_COLORS,
 } from "@/lib/logistics/map-config";
+import { fetchRoadGeometry } from "@/lib/logistics/routing";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -19,7 +20,8 @@ export type MapMarker = {
   label: string;
   sub?: string;
 };
-export type MapRoute = { id: string; points: [number, number][]; color?: string };
+// `snap` (default true) follows real roads via routing; set false for a straight line.
+export type MapRoute = { id: string; points: [number, number][]; color?: string; snap?: boolean };
 
 // --- Leaflet CDN loader (one engine for the main map + every mini-map) ------
 let leafletPromise: Promise<any> | null = null;
@@ -86,6 +88,34 @@ export function LogisticsMap({
   const [satellite, setSatellite] = useState(false);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  // Cache of road-snapped geometry keyed by route id, so the exact-roads path is
+  // resolved once — not refetched on every live vehicle poll.
+  const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][]>>({});
+
+  // A stable signature of the routes so this effect only re-runs when a route's
+  // waypoints actually change (not when vehicle markers move every few seconds).
+  const routesSig = routes
+    .map((r) => `${r.id}:${r.points.map((p) => p.join(",")).join(";")}`)
+    .join("|");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      const resolved: Record<string, [number, number][]> = {};
+      await Promise.all(
+        routes.map(async (r) => {
+          if (r.snap === false || r.points.length < 2) return;
+          const geo = await fetchRoadGeometry(r.points, controller.signal);
+          if (geo) resolved[r.id] = geo;
+        })
+      );
+      if (!controller.signal.aborted && Object.keys(resolved).length > 0) {
+        setRoadRoutes((prev) => ({ ...prev, ...resolved }));
+      }
+    })();
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routesSig]);
 
   // Init the map once.
   useEffect(() => {
@@ -145,8 +175,11 @@ export function LogisticsMap({
       group.addLayer(marker);
     }
     for (const r of routes) {
-      if (r.points.length < 2) continue;
-      group.addLayer(L.polyline(r.points, { color: r.color ?? "#3B82F6", weight: 3, opacity: 0.8 }));
+      // Prefer the road-snapped path when it's resolved; fall back to the
+      // straight line so a route always renders even before/without routing.
+      const line = roadRoutes[r.id] ?? r.points;
+      if (line.length < 2) continue;
+      group.addLayer(L.polyline(line, { color: r.color ?? "#3B82F6", weight: 4, opacity: 0.85, lineJoin: "round" }));
     }
     group.addTo(map);
     overlayRef.current = group;
@@ -156,13 +189,13 @@ export function LogisticsMap({
     if (!center && !didFitRef.current) {
       const pts: [number, number][] = [
         ...markers.filter((m) => typeof m.lat === "number").map((m) => [m.lat, m.lng] as [number, number]),
-        ...routes.flatMap((r) => r.points),
+        ...routes.flatMap((r) => roadRoutes[r.id] ?? r.points),
       ];
       if (pts.length === 1) { map.setView(pts[0], mini ? 12 : 12); didFitRef.current = true; }
       else if (pts.length > 1) { map.fitBounds(pts, { padding: [30, 30], maxZoom: mini ? 13 : 14 }); didFitRef.current = true; }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [markers, routes, status]);
+  }, [markers, routes, status, roadRoutes]);
 
   function toggleSatellite() {
     const map = mapRef.current;

@@ -5,9 +5,20 @@ import type { AgentModule } from "@/lib/agents/types";
 import { computeKpis } from "@/lib/logistics/core";
 
 const vehicleQuery = z.object({ query: z.string().trim().min(1).max(120) });
+const optionalName = z.object({ name: z.string().trim().max(120).optional() });
 
 function sanitizeIlike(q: string) {
   return q.replace(/[,()%]/g, " ").trim();
+}
+
+function describeLocation(v: {
+  last_lat: number | null;
+  last_lng: number | null;
+  last_seen_at: string | null;
+}): string {
+  return typeof v.last_lat === "number" && typeof v.last_lng === "number"
+    ? `at ${v.last_lat.toFixed(4)}, ${v.last_lng.toFixed(4)} (last seen ${v.last_seen_at ? new Date(v.last_seen_at).toLocaleString("en-IE") : "unknown"})`
+    : "has no recorded location yet";
 }
 
 /**
@@ -29,11 +40,11 @@ export const logisticsAgentModule: AgentModule = {
   href: "/portal/logistics",
   availability: "live",
   capabilities: [
-    "Live fleet & delivery map",
+    "Live fleet & delivery map with real road routing",
     "Warehouses, vehicles, drivers, routes & deliveries",
     "Fleet, warehouse, driver & business KPIs",
     "GPS-provider ready (Samsara, Geotab, Traccar…)",
-    "The AI Assistant answers 'where is Truck 12?' and more",
+    "Ask the AI Assistant: 'where is Aoife?', 'how full is Dublin Depot?', 'where is Truck 12?'",
   ],
   tools: [
     {
@@ -47,21 +58,107 @@ export const logisticsAgentModule: AgentModule = {
       },
       execute: async (ctx, input) => {
         const parsed = vehicleQuery.safeParse(input);
-        if (!parsed.success) return "Error: give me a vehicle registration or name.";
+        if (!parsed.success) return "Error: give me a vehicle registration, name or driver.";
         const q = sanitizeIlike(parsed.data.query);
-        const { data } = await ctx.supabase
+        const select =
+          "registration, name, status, gps_status, last_lat, last_lng, last_seen_at, log_drivers(name)";
+        // Match by registration or vehicle name first.
+        let { data } = await ctx.supabase
           .from("log_vehicles")
-          .select("registration, name, status, gps_status, last_lat, last_lng, last_seen_at, log_drivers(name)")
+          .select(select)
           .or(`registration.ilike.%${q}%,name.ilike.%${q}%`)
           .limit(1)
           .maybeSingle();
-        if (!data) return `No vehicle matching "${q}".`;
+        // Fall back to the driver's name — people often ask "where is Aoife?".
+        if (!data) {
+          const { data: driverRow } = await ctx.supabase
+            .from("log_drivers")
+            .select("id")
+            .ilike("name", `%${q}%`)
+            .limit(1)
+            .maybeSingle();
+          if (driverRow?.id) {
+            const res = await ctx.supabase
+              .from("log_vehicles")
+              .select(select)
+              .eq("driver_id", driverRow.id)
+              .limit(1)
+              .maybeSingle();
+            data = res.data;
+          }
+        }
+        if (!data) return `No vehicle or driver matching "${q}".`;
         const driver = data.log_drivers as unknown as { name: string } | null;
-        const loc =
-          typeof data.last_lat === "number"
-            ? `at ${data.last_lat.toFixed(4)}, ${data.last_lng?.toFixed(4)} (last seen ${data.last_seen_at ? new Date(data.last_seen_at).toLocaleString("en-IE") : "unknown"})`
-            : "has no recorded location yet";
-        return `${data.name || data.registration} (${data.registration}) is ${data.status}, GPS ${data.gps_status}, driver ${driver?.name ?? "unassigned"} — ${loc}.`;
+        return `${data.name || data.registration} (${data.registration}) is ${data.status}, GPS ${data.gps_status}, driver ${driver?.name ?? "unassigned"} — ${describeLocation(data)}.`;
+      },
+    },
+    {
+      name: "locate_driver",
+      description:
+        "Find where a driver is right now by their name — returns the vehicle they're assigned to and its last known location. Use for 'where is Aoife?' or 'locate driver X'.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string", description: "Driver name (or part of it)." } },
+        required: ["query"],
+      },
+      execute: async (ctx, input) => {
+        const parsed = vehicleQuery.safeParse(input);
+        if (!parsed.success) return "Error: give me a driver's name.";
+        const q = sanitizeIlike(parsed.data.query);
+        const { data: driver } = await ctx.supabase
+          .from("log_drivers")
+          .select("id, name, phone, status")
+          .ilike("name", `%${q}%`)
+          .limit(1)
+          .maybeSingle();
+        if (!driver) return `No driver matching "${q}".`;
+        const [{ data: vehicle }, { count: activeDeliveries }] = await Promise.all([
+          ctx.supabase
+            .from("log_vehicles")
+            .select("registration, name, status, gps_status, last_lat, last_lng, last_seen_at")
+            .eq("driver_id", driver.id)
+            .limit(1)
+            .maybeSingle(),
+          ctx.supabase
+            .from("log_deliveries")
+            .select("id", { count: "exact", head: true })
+            .eq("driver_id", driver.id)
+            .in("status", ["scheduled", "in_transit"]),
+        ]);
+        const load = `${activeDeliveries ?? 0} active ${activeDeliveries === 1 ? "delivery" : "deliveries"}`;
+        if (!vehicle) {
+          return `${driver.name} (${driver.status}) has no vehicle assigned right now — ${load}.`;
+        }
+        return `${driver.name} is driving ${vehicle.name || vehicle.registration} (${vehicle.registration}, ${vehicle.status}, GPS ${vehicle.gps_status}) — ${describeLocation(vehicle)}. ${load}.`;
+      },
+    },
+    {
+      name: "warehouse_capacity",
+      description:
+        "Report warehouse capacity and utilisation — for one named warehouse, or all of them. Use for 'what's the capacity of Dublin Depot?' or 'how full are the warehouses?'.",
+      inputSchema: {
+        type: "object",
+        properties: { name: { type: "string", description: "Optional warehouse name; omit for all." } },
+      },
+      execute: async (ctx, input) => {
+        const parsed = optionalName.safeParse(input ?? {});
+        const name = parsed.success && parsed.data.name ? sanitizeIlike(parsed.data.name) : null;
+        let query = ctx.supabase
+          .from("log_warehouses")
+          .select("name, address, capacity, current_utilisation, wh_type");
+        if (name) query = query.ilike("name", `%${name}%`);
+        const { data } = await query;
+        if (!data || data.length === 0) {
+          return name ? `No warehouse matching "${name}".` : "No warehouses set up yet.";
+        }
+        const lines = data.map((w) => {
+          const cap = Number(w.capacity) || 0;
+          const used = Number(w.current_utilisation) || 0;
+          const pct = cap > 0 ? Math.round((used / cap) * 100) : 0;
+          const free = Math.max(cap - used, 0);
+          return `${w.name}${w.address ? ` (${w.address})` : ""}: ${used}/${cap} used — ${pct}% full, ${free} free.`;
+        });
+        return lines.join("\n");
       },
     },
     {

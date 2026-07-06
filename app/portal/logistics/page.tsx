@@ -56,13 +56,14 @@ export default async function LogisticsOverviewPage() {
     );
   }
 
-  const [kpis, { data: warehouses }, { data: vehicles }, { data: deliveries }, { data: routes }, { data: settings }] =
+  const [kpis, { data: warehouses }, { data: vehicles }, { data: deliveries }, { data: routes }, { data: routeStops }, { data: settings }] =
     await Promise.all([
       computeKpis(supabase),
       supabase.from("log_warehouses").select("id, name, lat, lng, address"),
       supabase.from("log_vehicles").select("id, registration, name, status, last_lat, last_lng, gps_status"),
       supabase.from("log_deliveries").select("id, customer_name, status, lat, lng, address").limit(200),
       supabase.from("log_routes").select("id, name, status, start_warehouse_id, end_lat, end_lng").eq("status", "active"),
+      supabase.from("log_route_stops").select("route_id, seq, lat, lng").order("seq", { ascending: true }),
       supabase.from("log_settings").select("live_sim, ingest_token").eq("business_id", profile.business_id!).maybeSingle(),
     ]);
 
@@ -82,11 +83,24 @@ export default async function LogisticsOverviewPage() {
   const warehouseCoord = new Map(
     (warehouses ?? []).filter((w) => typeof w.lat === "number").map((w) => [w.id, [w.lat!, w.lng!] as [number, number]])
   );
+  // Waypoints per route (ordered stops with a location), so the drawn path
+  // threads through each stop on real roads, not just start → end.
+  const stopsByRoute = new Map<string, [number, number][]>();
+  for (const s of routeStops ?? []) {
+    if (typeof s.lat !== "number" || typeof s.lng !== "number") continue;
+    const arr = stopsByRoute.get(s.route_id) ?? [];
+    arr.push([s.lat, s.lng]);
+    stopsByRoute.set(s.route_id, arr);
+  }
   const routeLines: MapRoute[] = [];
   for (const r of routes ?? []) {
     const start = r.start_warehouse_id ? warehouseCoord.get(r.start_warehouse_id) : undefined;
-    if (start && typeof r.end_lat === "number") {
-      routeLines.push({ id: `r-${r.id}`, points: [start, [r.end_lat, r.end_lng!]], color: "#22D3EE" });
+    const stops = stopsByRoute.get(r.id) ?? [];
+    const end: [number, number] | undefined =
+      typeof r.end_lat === "number" ? [r.end_lat, r.end_lng!] : undefined;
+    const points = [start, ...stops, end].filter((p): p is [number, number] => Array.isArray(p));
+    if (points.length >= 2) {
+      routeLines.push({ id: `r-${r.id}`, points, color: "#22D3EE" });
     }
   }
 
