@@ -427,15 +427,16 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
 export async function quickResearch(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
 
+  // Website is optional: no-website businesses are prime prospects for the
+  // Website with Lead Capture pitch. Without one we just need the name.
   const website = String(formData.get("website") ?? "").trim();
-  if (!website) return { error: "Paste the company website first." };
   const emailRaw = String(formData.get("email") ?? "").trim();
   if (emailRaw && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
     return { error: "Invalid email." };
   }
 
   let company = String(formData.get("company") ?? "").trim().slice(0, 200);
-  if (!company) {
+  if (!company && website) {
     // Derive a starting name from the domain: "www.murphy-plumbing.ie" →
     // "Murphy Plumbing". The research pass refines it; the user can edit.
     try {
@@ -450,7 +451,9 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
       return { error: "That doesn't look like a valid website address." };
     }
   }
-  if (!company) return { error: "Couldn't determine a company name — enter one." };
+  if (!company) {
+    return { error: "Enter the company website, or the company name if they don't have one." };
+  }
 
   const admin = createAdminClient();
   if (emailRaw) {
@@ -467,7 +470,7 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
     .insert({
       company,
       contact_name: String(formData.get("contact_name") ?? "").trim().slice(0, 200) || "Owner",
-      website,
+      website: website || null,
       email: emailRaw || null,
       phone: String(formData.get("phone") ?? "").trim().slice(0, 50) || null,
       linkedin_url: String(formData.get("linkedin_url") ?? "").trim().slice(0, 500) || null,

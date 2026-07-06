@@ -142,16 +142,18 @@ export default async function GrowthDashboardPage() {
         <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
           Paste a website. The AI writes the company report, spots the pain
           points, recommends solutions, scores the lead and drafts outreach
-          for every channel — then opens the prospect workspace.
+          for every channel — then opens the prospect workspace. No website?
+          Just give the company name — the engine treats a missing website as
+          the pitch (Website with Lead Capture).
         </p>
         <ActionForm action={quickResearch}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: "2 1 260px" }}>
-              <label htmlFor="qr-website">Company website *</label>
-              <input id="qr-website" name="website" required placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
+              <label htmlFor="qr-website">Company website (or leave blank)</label>
+              <input id="qr-website" name="website" placeholder="https://…" maxLength={300} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 180px" }}>
-              <label htmlFor="qr-company">Company name (optional)</label>
+              <label htmlFor="qr-company">Company name (required if no website)</label>
               <input id="qr-company" name="company" maxLength={200} style={{ width: "100%" }} />
             </div>
             <div style={{ flex: "1 1 180px" }}>
