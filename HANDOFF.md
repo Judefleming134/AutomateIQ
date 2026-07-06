@@ -61,6 +61,49 @@ Everything is merged to `main` (PR #3) and **live in production**.
    portal lockout.
 4. **Optional cleanup**: rotate `SETUP_SECRET`; delete the test customer.
 
+### Phase 4 (2026-07-05): Instagram DM Setter Agent
+
+A new specialist agent, fully integrated into the existing multi-agent
+ecosystem — NOT a standalone chatbot. **Setup: run
+`supabase/manual_update_0011.sql`** in the Supabase SQL Editor (after 0010;
+idempotent, additive). It adds `ig_settings`, `ig_conversations`, `ig_messages`
+(RLS via the existing `is_active_tenant_member()`) and registers the
+`instagram-dm-setter` product. Nothing existing was changed or removed.
+
+How it integrates (reuse, not duplication):
+- **Shared intelligence** — the setter's replies come from `lib/instagram/
+  setter-core.ts`, which composes its system prompt from the SAME
+  `aa_assistants` knowledge + tone the AI Assistant uses and calls the SAME
+  `lib/ai/complete` path. It is the AI Assistant's mind, pointed at Instagram.
+- **Registered agent** — `lib/agents/modules/instagram-dm-setter.ts` is added
+  to the agent registry, so the AI Assistant automatically discovers it, lists
+  it as an installed specialist, and can delegate via its tools:
+  `list_instagram_conversations`, `read_instagram_conversation`,
+  `draft_instagram_reply`, `instagram_setter_stats`. (One import + one array
+  entry in `registry.ts` — the assistant/shell/nav were untouched.)
+- **Shared booking + CRM** — the setter drives leads to the existing `/book`
+  booking system (per-business booking link, default `/book`); conversations
+  and the AI Assistant tools reuse the platform's data + RLS.
+- **Webhook** `app/api/ig/webhook/route.ts` — GET does Meta verification
+  (`INSTAGRAM_VERIFY_TOKEN`), POST routes each inbound DM to the right business
+  by IG account id (service role), runs the shared pipeline, and sends the
+  reply via the Graph API using that business's stored Page token.
+- **Portal** `/portal/instagram-dm-setter` — connect Instagram (account id +
+  Page token), set persona/greeting/booking link, toggle auto-reply, view
+  conversations, and a **live simulator** to test the setter end-to-end
+  (store → AI reply → store) with no Meta connection required. Appears
+  automatically in `/portal/products` (agents never add sidebar entries).
+
+**New env var:** `INSTAGRAM_VERIFY_TOKEN` — any string you choose; enter the
+same value in the Meta app's webhook config (used only for GET verification).
+Per-business Page tokens live in `ig_settings`, not env. The setter's replies
+use the existing `ANTHROPIC_API_KEY`/`GEMINI_API_KEY` (no new AI key).
+
+Verified: `tsc` + `next build` green; a tenant-isolation test confirms one
+business can't read or write another's Instagram data; migration is idempotent.
+Existing agents, the AI Assistant orchestrator, bookings and documentation are
+untouched and continue to work.
+
 ### Phase 3 (2026-07-05): AI Strategy Session booking + SEO
 
 A premium public conversion page and end-to-end booking system. **Setup:
