@@ -73,29 +73,32 @@ type Inputs = {
   toolCount: number;
 };
 
+// Everything starts at its neutral minimum so the page opens with (almost)
+// nothing pre-filled — the estimate builds live as the visitor's own numbers
+// go up, instead of landing on a canned figure.
 const DEFAULTS: Inputs = {
   industry: "trades",
-  teamSize: 6,
-  jobValue: 850,
-  enquiries: 15,
-  missedCalls: 8,
-  responseMins: 120,
-  adminHours: 20,
-  hourlyCost: 28,
-  quotesPerWeek: 8,
-  minsPerQuote: 35,
-  chasingHours: 3,
-  reviewCount: 24,
+  teamSize: 1,
+  jobValue: 50,
+  enquiries: 1,
+  missedCalls: 0,
+  responseMins: 5,
+  adminHours: 0,
+  hourlyCost: 15,
+  quotesPerWeek: 0,
+  minsPerQuote: 10,
+  chasingHours: 0,
+  reviewCount: 0,
   vehicles: 0,
-  tracking: "sheets",
-  doubleEntry: "sometimes",
-  afterHours: "voicemail",
-  quoteFollowUp: "sometimes",
-  marketing: "occasional",
-  socialDms: "slow",
-  noShows: 3,
-  ownerEvenings: 6,
-  toolCount: 5,
+  tracking: "crm",
+  doubleEntry: "rare",
+  afterHours: "oncall",
+  quoteFollowUp: "always",
+  marketing: "regular",
+  socialDms: "ontop",
+  noShows: 0,
+  ownerEvenings: 0,
+  toolCount: 1,
 };
 
 type Lever = { key: string; label: string; sub: string; value: number; accent: string };
@@ -142,15 +145,17 @@ function compute(i: Inputs, detailed: boolean): Result {
   const quoting = quoteHoursWeek * perYear * 0.7 * hourly + quotes * perYear * 0.04 * job;
   push("quotes", "Instant Quote Agent", "Quoting time recovered + faster wins", quoting, "#EA580C");
 
-  const adminHours = detailed ? i.adminHours : Math.min(4 + i.teamSize * 1.5, 35);
+  // Quick-tier baselines scale from zero with the business profile, so a
+  // fresh page (all minimums) reads ~€0 and grows as the numbers do.
+  const adminHours = detailed ? i.adminHours : Math.min((i.teamSize - 1) * 2, 35);
   const admin = adminHours * perYear * 0.5 * hourly;
   push("assistant", "AI Assistant + CRM", "Routine admin off your team's plate", admin, "#3B82F6");
 
-  const chase = detailed ? i.chasingHours : i.teamSize > 3 ? 2 : 1;
+  const chase = detailed ? i.chasingHours : i.teamSize > 3 ? 2 : i.teamSize > 1 ? 1 : 0;
   const chasing = chase * perYear * 0.6 * hourly;
   push("collections", "Automated follow-ups", "Invoice chasing handled for you", chasing, "#34D399");
 
-  const content = 2.5 * perYear * 0.7 * hourly;
+  const content = Math.min(i.enquiries * 0.25, 2.5) * perYear * 0.7 * hourly;
   push("content", "Content Agent", "Campaigns written in your voice", content, "#EC4899");
 
   const fleet = detailed ? i.vehicles : i.industry === "logistics" ? Math.round(i.teamSize * 0.6) : 0;
