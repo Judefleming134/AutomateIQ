@@ -23,6 +23,15 @@ export default async function GrowthSettingsPage() {
   const isOwner = member.role === "owner";
   const admin = createAdminClient();
 
+  const ai = process.env.ANTHROPIC_API_KEY
+    ? { label: "Claude (Anthropic)", badge: "badge-green",
+        note: "Research and drafting run on Claude — no daily free-tier quota, batches run at full speed." }
+    : process.env.GEMINI_API_KEY
+      ? { label: "Gemini (free tier)", badge: "badge-orange",
+          note: "Free tier has a daily request cap that resets 8am Irish time. Add an ANTHROPIC_API_KEY in Vercel to remove it." }
+      : { label: "Not connected", badge: "badge-red",
+          note: "Add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel to enable research and drafting." };
+
   const [settings, { data: templates }, { data: team }] = await Promise.all([
     loadGrowthSettings(),
     admin
@@ -108,6 +117,10 @@ export default async function GrowthSettingsPage() {
             Channel integrations
           </h2>
           <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
+            <div>
+              <strong>AI engine</strong> — <span className={`badge ${ai.badge}`}>{ai.label}</span>
+              <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>{ai.note}</p>
+            </div>
             <div>
               <strong>Email</strong> — <span className="badge badge-green">Connected</span>
               <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>
