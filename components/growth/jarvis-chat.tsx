@@ -1,8 +1,37 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
-import { Send, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Mic, Send, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { askJarvis, type JarvisTurn } from "@/app/growth/(app)/jarvis/actions";
+
+/** Minimal typing for the (webkit-prefixed) Web Speech recognition API. */
+type SpeechRec = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((e: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getRecognitionCtor(): (new () => SpeechRec) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: new () => SpeechRec;
+    webkitSpeechRecognition?: new () => SpeechRec;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+function speak(text: string) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05;
+  window.speechSynthesis.speak(u);
+}
 
 const STARTERS = [
   "Who should I contact first today and why?",
@@ -22,6 +51,44 @@ export function JarvisChat() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [voiceOn, setVoiceOn] = useState(true);
+  const voiceOnRef = useRef(voiceOn);
+  voiceOnRef.current = voiceOn;
+  const [listening, setListening] = useState(false);
+  const [canListen, setCanListen] = useState(false);
+  const recRef = useRef<SpeechRec | null>(null);
+
+  // Feature-detect after mount (SSR has no window).
+  useEffect(() => {
+    setCanListen(getRecognitionCtor() !== null);
+    return () => {
+      if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+      recRef.current?.stop();
+    };
+  }, []);
+
+  function toggleMic() {
+    if (listening) {
+      recRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const Ctor = getRecognitionCtor();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    rec.lang = "en-IE";
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      const transcript = e.results[0]?.[0]?.transcript?.trim();
+      if (transcript) ask(transcript);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    rec.start();
+  }
 
   function ask(raw: string) {
     const question = raw.trim();
@@ -37,6 +104,7 @@ export function JarvisChat() {
       }));
       if (res.ok) {
         setTurns((t) => [...t, { role: "jarvis", text: res.answer }]);
+        if (voiceOnRef.current) speak(res.answer);
       } else {
         setError(res.error);
         // Put the failed question back so one tap retries it.
@@ -51,13 +119,29 @@ export function JarvisChat() {
 
   return (
     <section className="panel panel-block" aria-label="Talk to Jarvis">
-      <h2 className="panel-title">
-        <Sparkles size={16} style={{ verticalAlign: "-3px" }} /> Talk to Jarvis
+      <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ flex: 1 }}>
+          <Sparkles size={16} style={{ verticalAlign: "-3px" }} /> Talk to Jarvis
+        </span>
+        <button
+          type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            if (voiceOn && typeof window !== "undefined")
+              window.speechSynthesis?.cancel();
+            setVoiceOn(!voiceOn);
+          }}
+          title={voiceOn ? "Jarvis speaks its answers — tap to mute" : "Muted — tap so Jarvis speaks"}
+        >
+          {voiceOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          {voiceOn ? " Voice on" : " Muted"}
+        </button>
       </h2>
       <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
         Ask anything about your pipeline — Jarvis pulls the live numbers every
-        time it answers. It advises and preps; sending is still your finger on
-        the button.
+        time it answers, and reads the answer out loud.
+        {canListen ? " Tap the mic and just talk to it." : ""} It advises and
+        preps; sending is still your finger on the button.
       </p>
 
       {turns.length === 0 && (
@@ -136,12 +220,24 @@ export function JarvisChat() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask Jarvis…"
+          placeholder={listening ? "Listening…" : "Ask Jarvis…"}
           aria-label="Ask Jarvis"
           maxLength={2000}
           style={{ flex: 1, margin: 0 }}
           disabled={pending}
         />
+        {canListen && (
+          <button
+            type="button"
+            className={`btn ${listening ? "btn-primary" : "btn-secondary"}`}
+            onClick={toggleMic}
+            disabled={pending}
+            aria-label={listening ? "Stop listening" : "Speak to Jarvis"}
+            title={listening ? "Listening — tap to stop" : "Speak to Jarvis"}
+          >
+            <Mic size={14} />
+          </button>
+        )}
         <button type="submit" className="btn btn-primary" disabled={pending || !input.trim()}>
           <Send size={14} /> {pending ? "Thinking…" : "Ask"}
         </button>
