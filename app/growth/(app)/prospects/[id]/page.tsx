@@ -17,6 +17,7 @@ import { CRITERIA } from "@/lib/growth/scoring";
 import { COMPLEXITY_META, sanitizeRecommendations } from "@/lib/growth/solutions";
 import { formatPrice, buildQuote, formatEuro, FOUNDING_OFFER } from "@/lib/growth/pricing";
 import { markdownToHtml } from "@/lib/growth/markdown";
+import { dublinDate } from "@/lib/growth/dates";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
   PROSPECT_STATUSES,
@@ -265,6 +266,50 @@ export default async function ProspectWorkspacePage({
           </span>
         )}
       </div>
+
+      {/* Next best move: one status-driven instruction so the workspace
+          always answers "what do I do with this prospect right now?" */}
+      {(() => {
+        const today = dublinDate();
+        const overdue =
+          prospect.next_follow_up_at && prospect.next_follow_up_at <= today;
+        const base = `/growth/prospects/${prospect.id}`;
+        const nba: Partial<Record<string, { msg: string; cta: string; href: string }>> = {
+          new: { msg: "Not researched yet — one click gets the report, score, quote and drafts.", cta: "Run research", href: `${base}?tab=research` },
+          researching: { msg: "Research is underway — check back for the report and drafts.", cta: "Open research", href: `${base}?tab=research` },
+          research_complete: { msg: "Researched with drafts ready — nothing sent yet.", cta: "Send the first touch", href: `${base}?tab=studio` },
+          outreach_ready: { msg: "Drafts approved and waiting — get the first touch out.", cta: "Send the first touch", href: `${base}?tab=studio` },
+          contacted: overdue
+            ? { msg: `Follow-up was due ${prospect.next_follow_up_at} — chase the reply today.`, cta: "Send the follow-up", href: `${base}?tab=studio` }
+            : { msg: `First touch sent — reply window open (follow-up scheduled ${prospect.next_follow_up_at ?? "soon"}).`, cta: "Prep the follow-up", href: `${base}?tab=studio` },
+          follow_up_sent: overdue
+            ? { msg: `Second chase was due ${prospect.next_follow_up_at} — one more touch or a call.`, cta: "Send the next touch", href: `${base}?tab=studio` }
+            : { msg: "Follow-up sent — give it a beat, then consider a call.", cta: "Open the call script", href: `${base}?tab=studio` },
+          replied: { msg: "They replied — answer today while it's warm and steer to the Strategy Session.", cta: "Open the conversation", href: `${base}?tab=conversation` },
+          qualified: { msg: "Qualified — the only next move is a booked AI Strategy Session.", cta: "Compose the booking message", href: `${base}?tab=studio` },
+          meeting_booked: { msg: "Session booked — walk in prepared: report, angle, quote.", cta: "Review session prep", href: `${base}?tab=research` },
+          proposal_in_progress: { msg: "Proposal in progress — finish and send while momentum holds.", cta: "Open Proposal Studio", href: `${base}?tab=proposal` },
+          proposal_sent: { msg: "Proposal with them — nudge for a decision before it cools.", cta: "Send the nudge", href: `${base}?tab=studio` },
+          negotiation: { msg: "Negotiation — hold the price book; the founding offer is the closer.", cta: "Open the conversation", href: `${base}?tab=conversation` },
+          won: { msg: "Won 🎉 — deliver brilliantly, then ask for the review and a referral.", cta: "Log next steps", href: `${base}?tab=details` },
+        };
+        const action = nba[prospect.status];
+        if (!action) return null;
+        return (
+          <div
+            className="panel panel-block"
+            style={{ marginBottom: 14, borderLeft: "3px solid var(--green, #34d399)", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
+            aria-label="Next best move"
+          >
+            <div style={{ flex: "1 1 280px", fontSize: 14 }}>
+              <strong>Next best move:</strong> {action.msg}
+            </div>
+            <Link href={action.href} className="btn btn-primary btn-sm">
+              {action.cta} →
+            </Link>
+          </div>
+        );
+      })()}
 
       <nav role="tablist" aria-label="Prospect workspace" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {TABS.map((t) => (
