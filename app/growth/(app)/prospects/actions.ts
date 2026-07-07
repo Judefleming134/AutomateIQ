@@ -613,7 +613,9 @@ export async function harvestOne(
   if (Object.keys(update).length > 0) {
     const { error } = await admin.from("ge_prospects").update(update).eq("id", id);
     if (error) return { ok: false, error: error.message };
-    revalidatePath(`/growth/prospects/${id}`);
+    // No revalidate here on purpose: the sweep runs this in a loop, and a
+    // page refresh per hit makes the driving component's list shrink mid-run
+    // (progress read 64/40). The queue does one refresh when it finishes.
   }
   return {
     ok: true,
