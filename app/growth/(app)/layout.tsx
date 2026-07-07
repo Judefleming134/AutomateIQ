@@ -6,6 +6,7 @@ import {
   Inbox,
   CalendarClock,
   BarChart3,
+  Bot,
   FileText,
   Settings,
 } from "lucide-react";
@@ -31,6 +32,7 @@ export default async function GrowthLayout({
     {
       items: [
         { href: "/growth", label: "Dashboard", icon: <LayoutDashboard /> },
+        { href: "/growth/jarvis", label: "Jarvis", icon: <Bot /> },
         { href: "/growth/prospects", label: "Prospects", icon: <Users /> },
         { href: "/growth/campaigns", label: "Campaigns", icon: <Megaphone /> },
         { href: "/growth/inbox", label: "Inbox", icon: <Inbox /> },
