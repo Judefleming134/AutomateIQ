@@ -174,11 +174,14 @@ export async function draftStudioMessage(
     currentText?: string;
     transform?: StudioTransform;
   },
-  bookingUrl: string
+  bookingUrl: string,
+  /** Price-book lines — the ONLY money figures the model may ever use. */
+  pricing: string[] = []
 ): Promise<{ subject: string | null; body: string }> {
   const system = [
     "You are the senior sales development writer for AutomateIQ, an Irish AI-automation agency (automateiq.ie) whose goal is booking free 30-minute AI Strategy Sessions.",
     "Hard rules: be truthful — never invent statistics, client names, mutual connections or specifics not in the data provided. Write like one busy professional to another: no hype, no 'I hope this finds you well'.",
+    "MONEY: if PRICING lines are provided they are the only figures you may use, framed as founding-customer rates. Bring price up ONLY when the task calls for it (answering a price question, a call script's objection section) — cold first messages never lead with price.",
     "Output ONLY the message itself — no preamble, options or commentary.",
   ].join("\n");
 
@@ -202,6 +205,9 @@ export async function draftStudioMessage(
   }
   const context = researchContext(report);
   if (context) lines.push("", context);
+  if (pricing.length > 0) {
+    lines.push("", "PRICING (founding-customer rates — the only figures permitted):", ...pricing);
+  }
   if (params.purpose === "meeting_confirmation" || params.purpose === "thank_you") {
     lines.push("", `BOOKING LINK (free AI Strategy Session): ${bookingUrl}`);
   }

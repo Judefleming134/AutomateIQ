@@ -7,6 +7,7 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
 import { dublinDate } from "@/lib/growth/dates";
+import { estimatedFirstYearValue } from "@/lib/growth/pricing";
 import { runCompanyResearch } from "@/lib/growth/research";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import {
@@ -482,6 +483,12 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   };
   if (!prospect.industry && result.report.industry) {
     update.industry = result.report.industry;
+  }
+  // Ground pipeline € in the price book: conservative first-year value of
+  // the top recommendations. Never overwrites a figure a human entered.
+  if (prospect.pipeline_value == null && result.solutions.length > 0) {
+    const estimate = estimatedFirstYearValue(result.solutions.map((s) => s.key));
+    if (estimate > 0) update.pipeline_value = estimate;
   }
   if (["new", "researching"].includes(prospect.status)) {
     update.status = "research_complete";

@@ -15,6 +15,7 @@ import { CopyButton } from "@/components/portal/copy-button";
 import { MessageStudio, type StudioDraftRow } from "@/components/growth/message-studio";
 import { CRITERIA } from "@/lib/growth/scoring";
 import { COMPLEXITY_META, sanitizeRecommendations } from "@/lib/growth/solutions";
+import { formatPrice } from "@/lib/growth/pricing";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
   PROSPECT_STATUSES,
@@ -358,12 +359,20 @@ export default async function ProspectWorkspacePage({
                               Illustrative benefits: {s.benefits}
                             </p>
                           )}
+                          {formatPrice(s.key) && (
+                            <p style={{ fontSize: 13, margin: "6px 0 0", color: "var(--green, #34d399)" }}>
+                              If they ask: <strong>{formatPrice(s.key)}</strong>{" "}
+                              <span style={{ color: "var(--faint)" }}>(founding-customer rate)</span>
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
                     <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 10 }}>
                       Operational improvements shown are illustrative estimates
-                      for this type of business, not guarantees.
+                      for this type of business, not guarantees. Prices come
+                      from the price book (Settings) — the AI never invents
+                      figures.
                     </p>
                   </section>
                 )}

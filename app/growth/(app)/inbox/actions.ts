@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail } from "@/lib/growth/email";
 import { dublinDate } from "@/lib/growth/dates";
+import { pricingLines } from "@/lib/growth/pricing";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
@@ -368,11 +369,16 @@ export async function studioDraft(input: {
   const admin = createAdminClient();
   const { data: research } = await admin
     .from("ge_research")
-    .select("report")
+    .select("report, solutions")
     .eq("prospect_id", input.prospectId)
     .maybeSingle();
 
   const settings = await loadGrowthSettings();
+  const solutionKeys = Array.isArray(research?.solutions)
+    ? (research!.solutions as { key?: string }[])
+        .map((s) => s.key)
+        .filter((k): k is string => Boolean(k))
+    : [];
   try {
     const draft = await draftStudioMessage(
       prospect,
@@ -384,7 +390,8 @@ export async function studioDraft(input: {
         currentText: input.currentText?.slice(0, 6000),
         transform: input.transform,
       },
-      settings.bookingUrl
+      settings.bookingUrl,
+      pricingLines(solutionKeys)
     );
     return { ok: true, ...draft };
   } catch (err) {

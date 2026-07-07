@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { CHANNELS, CHANNEL_META, OBJECTIVE_META, type MessageObjective } from "@/lib/growth/constants";
+import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
+import { formatPrice } from "@/lib/growth/pricing";
 import {
   saveGrowthSettings,
   saveTemplate,
@@ -144,6 +146,37 @@ export default async function GrowthSettingsPage() {
           </div>
         </section>
       </div>
+
+      <section className="panel panel-block" style={{ marginTop: 20 }} aria-labelledby="st-pricing">
+        <h2 className="panel-title" id="st-pricing">
+          Price book — founding-customer rates
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
+          The single source of every figure the engine shows or writes:
+          recommendation cards, proposals, and any &quot;how much?&quot;
+          answer the AI drafts. The AI can never invent a price — it only
+          quotes this table. To change the numbers, ask Claude (they live in
+          one file: <code style={{ fontSize: 12 }}>lib/growth/pricing.ts</code>).
+        </p>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Solution</th>
+                <th>Founding rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SOLUTION_CATALOG.filter((s) => formatPrice(s.key)).map((s) => (
+                <tr key={s.key}>
+                  <td>{s.name}</td>
+                  <td style={{ whiteSpace: "nowrap" }}>{formatPrice(s.key)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="panel panel-block" style={{ marginTop: 20 }} aria-labelledby="st-templates">
         <h2 className="panel-title" id="st-templates">

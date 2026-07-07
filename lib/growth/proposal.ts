@@ -3,6 +3,7 @@ import { aiComplete } from "@/lib/ai/complete";
 import type { ProspectContext } from "@/lib/growth/ai";
 import type { ResearchReport } from "@/lib/growth/research";
 import type { SolutionRecommendation } from "@/lib/growth/solutions";
+import { pricingLines } from "@/lib/growth/pricing";
 
 /**
  * Drafts a client-ready proposal in Markdown from everything the CRM knows:
@@ -22,7 +23,8 @@ export async function generateProposalMarkdown(
     "Audience: the business owner. Voice: clear, confident, jargon-free, professional.",
     "HARD RULES:",
     "- Ground everything in the provided research and notes. Never invent client names, revenue figures or specifics. Where a detail must be confirmed, write it as a bracketed placeholder like [confirm current call volume].",
-    "- All operational-benefit statements are ILLUSTRATIVE estimates, clearly framed as such — never guarantees. Do not fabricate prices; pricing is discussed separately unless notes state figures.",
+    "- All operational-benefit statements are ILLUSTRATIVE estimates, clearly framed as such — never guarantees.",
+    "- PRICING: use ONLY the founding-customer rates in the PRICE BOOK lines below — never any other figure. Present them as an 'Investment' line per recommended solution, framed as founding-customer rates locked for the first year and subject to final scope. If no price book lines are provided, do not mention money at all.",
     "Output ONLY the proposal as clean Markdown. Use ## for section headings.",
   ].join("\n");
 
@@ -66,6 +68,12 @@ export async function generateProposalMarkdown(
           .map((s) => `- ${s.name} (${s.complexity} complexity): ${s.why} Illustrative benefits: ${s.benefits}`)
           .join("\n")}`
       : "RECOMMENDED SOLUTIONS: none saved — propose the most plausible AutomateIQ fits, hedged.",
+    "",
+    solutions.length
+      ? `PRICE BOOK (the only money figures permitted):\n${pricingLines(
+          solutions.map((s) => s.key)
+        ).join("\n")}`
+      : "",
     "",
     meetingNotes.length
       ? `MEETING / CALL NOTES (weigh these heavily — they reflect the actual conversation):\n${meetingNotes
