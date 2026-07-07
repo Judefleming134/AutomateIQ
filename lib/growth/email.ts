@@ -20,6 +20,23 @@ function bodyToHtml(body: string): string {
 }
 
 /**
+ * Cold outreach sends from Jude personally — replies land in jude@'s Gmail
+ * where he works them, and a named human sender opens far better than a
+ * brand. Overridable via GROWTH_FROM_EMAIL without a deploy. Falls back to
+ * the platform-wide sender only if the domain isn't verified yet.
+ */
+function outreachFromAddress(): string {
+  const configured = process.env.GROWTH_FROM_EMAIL;
+  if (configured) return configured;
+  // Sending as jude@ requires the verified automateiq.ie domain in Resend;
+  // RESEND_FROM_EMAIL being an automateiq.ie address signals that.
+  if ((process.env.RESEND_FROM_EMAIL ?? "").includes("automateiq.ie")) {
+    return "Jude at AutomateIQ <jude@automateiq.ie>";
+  }
+  return getFromAddress();
+}
+
+/**
  * Sends an outreach email through Resend (the one channel with a first-class
  * official sending API in this stack). Returns an error string instead of
  * throwing so callers can mark the message row 'failed' with a reason.
@@ -32,9 +49,10 @@ export async function sendOutreachEmail(params: {
   try {
     const resend = getResendClient();
     const { error } = await resend.emails.send({
-      from: getFromAddress(),
+      from: outreachFromAddress(),
       to: params.to,
       subject: params.subject,
+      replyTo: "jude@automateiq.ie",
       text: params.body,
       html: bodyToHtml(params.body),
     });

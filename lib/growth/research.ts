@@ -334,7 +334,7 @@ export async function runCompanyResearch(
     "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject",
     "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal",
     "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel",
-    "email": { "subject": "short specific subject", "body": "80-140 word first-touch email, sign off as AutomateIQ" },
+    "email": { "subject": "cold-email subject built for opens: 3-6 words, under 40 chars, lowercase except proper nouns, naming ONE specific thing about THIS business (missed calls / reviews / no website / their trade + area) — reads like a note from someone they know, never salesy; no exclamation marks, no 'free/offer/deal'", "body": "80-140 word first-touch email, sign off as Jude, AutomateIQ" },
     "sms": "first-touch SMS under 320 characters, sign as AutomateIQ"
   }
 }`,
@@ -387,7 +387,7 @@ export async function runCompanyResearch(
     instagram: asString(d.instagram, 2000),
     facebook: asString(d.facebook, 2000),
     email: {
-      subject: asString(email.subject, 200) || `A quick idea for ${prospect.company}`,
+      subject: asString(email.subject, 200) || `question about ${prospect.company}`,
       body: asString(email.body, 4000),
     },
     sms: asString(d.sms, 400),

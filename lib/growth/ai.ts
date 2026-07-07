@@ -36,7 +36,7 @@ const CHANNEL_RULES: Record<Channel, string> = {
   facebook:
     "Facebook page message. No subject line. 2–4 sentences, plain-spoken and local in feel — you're messaging a small business's page, so sound like a person, not a marketing department.",
   email:
-    "Email. MUST start with a subject line in the exact format 'SUBJECT: ...' on the first line, then a blank line, then the body. Body 80–150 words, short paragraphs, sign off as 'AutomateIQ'.",
+    "Email. MUST start with a subject line in the exact format 'SUBJECT: ...' on the first line, then a blank line, then the body. SUBJECT RULES (open rate is everything): 3–6 words, under 40 characters, lowercase except proper nouns, name ONE specific thing about THIS business (their missed calls, their reviews, their trade + area, having no website) — it must read like a note from someone they know, never like marketing. Banned in subjects: exclamation marks, 'free', 'offer', 'deal', 'opportunity', 'boost', ALL-CAPS words. Good shapes: 'your after-hours calls', 'question about {company}', '{trade} enquiries in {area}', 'your Google reviews'. Body 80–150 words, short paragraphs, sign off as 'Jude, AutomateIQ'.",
   sms: "SMS. No subject line. Maximum 320 characters, one clear call to action, sign as AutomateIQ.",
   call: [
     "PHONE CALL SCRIPT to be read/spoken by the caller — not a message to send. Short spoken sentences, zero jargon.",
@@ -116,7 +116,7 @@ export async function draftOutreach(
       return { subject: match[1].trim(), body: match[2].trim() };
     }
     // Model skipped the SUBJECT line — keep the text, supply a fallback.
-    return { subject: `A quick idea for ${prospect.company}`, body: raw };
+    return { subject: `question about ${prospect.company}`, body: raw };
   }
   return { subject: null, body: raw };
 }
@@ -227,7 +227,7 @@ export async function draftStudioMessage(
   if (params.channel === "email") {
     const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);
     if (match) return { subject: match[1].trim(), body: match[2].trim() };
-    return { subject: `A quick idea for ${prospect.company}`, body: raw };
+    return { subject: `question about ${prospect.company}`, body: raw };
   }
   return { subject: null, body: raw };
 }
