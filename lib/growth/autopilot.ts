@@ -68,7 +68,7 @@ export async function listAutopilotCandidates(
       company: p.company,
       contactName: p.contact_name,
       email: p.email,
-      subject: d.subject || `A quick idea for ${p.company}`,
+      subject: d.subject || `question about ${p.company}`,
       body: d.body,
       leadScore: p.lead_score ?? 0,
       industry: p.industry,
@@ -109,7 +109,7 @@ export async function sendAutopilotEmail(params: {
 
   const sent = await sendOutreachEmail({
     to: prospect.email,
-    subject: message.subject || `A quick idea for ${prospect.company}`,
+    subject: message.subject || `question about ${prospect.company}`,
     body: message.body,
   });
   if (!sent.ok) {

@@ -137,7 +137,7 @@ export async function composeMessage(input: {
   const admin = createAdminClient();
   const subject =
     input.channel === "email"
-      ? (input.subject ?? "").trim() || `A quick idea for ${prospect.company}`
+      ? (input.subject ?? "").trim() || `question about ${prospect.company}`
       : null;
 
   const row = {
@@ -230,7 +230,7 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
 
   const sent = await sendOutreachEmail({
     to: prospect.email,
-    subject: message.subject || `A quick idea for ${prospect.company}`,
+    subject: message.subject || `question about ${prospect.company}`,
     body: message.body,
   });
   if (!sent.ok) {
