@@ -34,7 +34,8 @@ function pickBritishVoice(): SpeechSynthesisVoice | null {
   const gb = voices.filter((v) => v.lang?.toLowerCase().replace("_", "-").startsWith("en-gb"));
   return (
     gb.find((v) => /daniel|arthur/i.test(v.name)) ??
-    gb.find((v) => /oliver|brian|george|male/i.test(v.name)) ??
+    // \bmale\b so "Female" voices don't match on the trailing "male".
+    gb.find((v) => /oliver|brian|george|\bmale\b/i.test(v.name)) ??
     gb[0] ??
     null
   );
