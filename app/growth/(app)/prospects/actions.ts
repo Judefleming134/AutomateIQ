@@ -447,7 +447,22 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     if (message === "BAD_JSON") {
       return { error: "The research came back malformed — run it again." };
     }
-    return { error: "Research failed — try again in a moment." };
+    // Make throttling distinguishable so the batch queue can pace itself
+    // and the user sees the true reason, not a generic shrug.
+    if (message.startsWith("HTTP 429")) {
+      const daily = /perday|per_day|per day|daily|quota/i.test(message);
+      return {
+        error: daily
+          ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily; adding ANTHROPIC_API_KEY in Vercel removes the cap."
+          : "AI rate limit — pausing a minute fixes this.",
+      };
+    }
+    if (/^HTTP 5\d\d/.test(message)) {
+      return { error: "AI service briefly overloaded — retry in a minute." };
+    }
+    return {
+      error: `Research failed${message.startsWith("HTTP") ? ` (${message.slice(0, 80)})` : ""} — try again in a moment.`,
+    };
   }
 
   const { error: researchError } = await admin.from("ge_research").upsert(

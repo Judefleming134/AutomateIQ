@@ -49,7 +49,7 @@ export async function aiComplete(
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error("aiComplete Anthropic error:", res.status, detail.slice(0, 300));
-      throw new Error(`HTTP ${res.status}`);
+      throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)}`);
     }
     const data = (await res.json()) as {
       content: { type: string; text?: string }[];
@@ -82,7 +82,7 @@ export async function aiComplete(
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     console.error("aiComplete Gemini error:", res.status, detail.slice(0, 300));
-    throw new Error(`HTTP ${res.status}`);
+    throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)}`);
   }
   const data = (await res.json()) as {
     candidates?: {

@@ -137,6 +137,12 @@ export async function draftGrowthMessage(input: {
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "NO_PROVIDER") return { ok: false, error: NO_PROVIDER_MESSAGE };
+    if (message.startsWith("HTTP 429")) {
+      return { ok: false, error: "AI rate limit — wait a minute and try again." };
+    }
+    if (/^HTTP 5\d\d/.test(message)) {
+      return { ok: false, error: "AI service briefly overloaded — try again in a minute." };
+    }
     return { ok: false, error: "Drafting failed — try again in a moment." };
   }
 }
@@ -397,6 +403,12 @@ export async function studioDraft(input: {
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "NO_PROVIDER") return { ok: false, error: NO_PROVIDER_MESSAGE };
+    if (message.startsWith("HTTP 429")) {
+      return { ok: false, error: "AI rate limit — wait a minute and try again." };
+    }
+    if (/^HTTP 5\d\d/.test(message)) {
+      return { ok: false, error: "AI service briefly overloaded — try again in a minute." };
+    }
     return { ok: false, error: "Drafting failed — try again in a moment." };
   }
 }

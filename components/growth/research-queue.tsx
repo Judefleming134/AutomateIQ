@@ -30,64 +30,97 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
   const [active, setActive] = useState<string[]>([]);
   const [failures, setFailures] = useState<string[]>([]);
   const [finished, setFinished] = useState(false);
+  const [pauseNote, setPauseNote] = useState<string | null>(null);
+  const [stopReason, setStopReason] = useState<string | null>(null);
 
   async function start() {
     setRunning(true);
     setFinished(false);
     setFailures([]);
     setDone(0);
+    setStopReason(null);
+    setPauseNote(null);
 
     const failed: string[] = [];
     const inFlight = new Set<string>();
     let nextIndex = 0;
     let completed = 0;
+    let stopped: string | null = null;
+    // After the first rate-limit sighting, drop to one-at-a-time — hammering
+    // a throttled API with two workers just doubles the failures.
+    let throttled = false;
 
-    const worker = async (stagger: number) => {
+    const worker = async (stagger: number, workerIndex: number) => {
       await sleep(stagger);
       for (;;) {
+        if (stopped) return;
+        if (throttled && workerIndex > 0) return; // collapse to serial
         const i = nextIndex++;
         if (i >= pending.length) return;
         const p = pending[i];
         inFlight.add(p.company);
         setActive([...inFlight]);
 
-        let result = await researchOne(p.id).catch(() => ({
-          ok: false as const,
-          error: "Network hiccup",
-        }));
-        if (!result.ok) {
-          // One retry after a breather — free-tier rate limits recover fast.
-          await sleep(8000);
-          result = await researchOne(p.id).catch(() => ({
+        const tryOnce = () =>
+          researchOne(p.id).catch(() => ({
             ok: false as const,
             error: "Network hiccup",
           }));
+
+        let result = await tryOnce();
+        let tries = 1;
+        while (!result.ok && tries < 4 && !stopped) {
+          const msg = result.error;
+          if (/DAILY AI QUOTA/i.test(msg)) {
+            stopped = msg;
+            break;
+          }
+          const isThrottle = /rate limit|overloaded|429|quota/i.test(msg);
+          if (isThrottle) throttled = true;
+          const wait = isThrottle ? 65000 : 8000;
+          setPauseNote(
+            isThrottle
+              ? `AI rate limit — paused ${Math.round(wait / 1000)}s, then retrying ${p.company} (attempt ${tries + 1}/4)…`
+              : `Retrying ${p.company} (attempt ${tries + 1}/4)…`
+          );
+          await sleep(wait);
+          setPauseNote(null);
+          result = await tryOnce();
+          tries++;
         }
-        if (!result.ok) {
+
+        if (!result.ok && !stopped) {
           failed.push(`${p.company} — ${result.error}`);
           setFailures([...failed]);
         }
+        if (result.ok) {
+          // Success clears the throttle flag so speed recovers.
+          throttled = false;
+        }
 
         inFlight.delete(p.company);
-        completed++;
+        if (result.ok || !stopped) completed++;
         setActive([...inFlight]);
         setDone(completed);
         // Live update: the table's statuses, scores and dots refresh as each
         // company lands, not just at the end of the batch.
         router.refresh();
-        await sleep(1500);
+        if (stopped) return;
+        await sleep(throttled ? 8000 : 1500);
       }
     };
 
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENCY, pending.length) }, (_, w) =>
-        worker(w * 4000)
+        worker(w * 4000, w)
       )
     );
 
     setActive([]);
+    setPauseNote(null);
     setRunning(false);
     setFinished(true);
+    if (stopped) setStopReason(stopped);
     router.refresh();
   }
 
@@ -154,20 +187,32 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
             />
           </div>
           <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
-            Keep this tab open. You can work in another tab meanwhile.
+            {pauseNote ?? "Keep this tab open. You can work in another tab meanwhile."}
           </p>
         </div>
       )}
 
       {finished && (
         <div>
-          <strong style={{ color: "var(--green, #34d399)" }}>
-            ✓ Batch finished — {pending.length - failures.length}/{pending.length} researched
-          </strong>
+          {stopReason ? (
+            <strong style={{ color: "var(--orange, #fb923c)" }}>
+              ⏸ Batch stopped after {done}/{pending.length}: {stopReason}
+            </strong>
+          ) : (
+            <strong style={{ color: "var(--green, #34d399)" }}>
+              ✓ Batch finished — {done - failures.length}/{pending.length} researched
+            </strong>
+          )}
+          {stopReason && (
+            <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
+              The remaining prospects are untouched — reload this page and the
+              button will offer them again once the quota resets.
+            </p>
+          )}
           {failures.length > 0 && (
             <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>
-              Couldn&apos;t research (open them individually and press Research
-              company):
+              Couldn&apos;t research (reload the page and run the batch again —
+              only these will be retried):
               {failures.map((f) => (
                 <div key={f}>· {f}</div>
               ))}
