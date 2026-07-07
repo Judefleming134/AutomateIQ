@@ -23,6 +23,22 @@ export async function recordOutreachSent(
     .from("ge_messages")
     .update({ status: "sent", sent_at: new Date().toISOString() })
     .eq("id", messageId);
+
+  // Multi-channel same-day outreach (LinkedIn DM + Insta DM within hours)
+  // is ONE first touch, not a follow-up — only a later send, or an explicit
+  // follow-up draft, counts as chasing.
+  const { data: fresh } = await admin
+    .from("ge_prospects")
+    .select("last_contact_at")
+    .eq("id", prospect.id)
+    .maybeSingle();
+  const lastContact = fresh?.last_contact_at
+    ? new Date(fresh.last_contact_at).getTime()
+    : 0;
+  const sameTouchWindow = Date.now() - lastContact < 20 * 60 * 60 * 1000;
+  const explicitFollowUp =
+    purpose && ["follow_up", "second_follow_up"].includes(purpose);
+
   const bump: Record<string, unknown> = {
     last_contact_at: new Date().toISOString(),
     next_follow_up_at: dublinDate(3),
@@ -37,8 +53,9 @@ export async function recordOutreachSent(
   ) {
     bump.status = "contacted";
   } else if (
-    ["contacted", "follow_up_sent"].includes(prospect.status) ||
-    (purpose && ["follow_up", "second_follow_up"].includes(purpose) &&
+    (["contacted", "follow_up_sent"].includes(prospect.status) &&
+      (explicitFollowUp || !sameTouchWindow)) ||
+    (explicitFollowUp &&
       !["replied", "qualified", "meeting_booked", "proposal_in_progress",
         "proposal_sent", "negotiation", "won"].includes(prospect.status))
   ) {
