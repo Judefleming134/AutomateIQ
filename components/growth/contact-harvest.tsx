@@ -21,18 +21,24 @@ export function ContactHarvest({
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
+  // Snapshot of the batch size taken when the run starts — the `pending`
+  // prop can shrink mid-run as found emails drop rows out of the server
+  // query, which made the live denominator wrong (e.g. "64/40").
+  const [total, setTotal] = useState(0);
   const [current, setCurrent] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
 
   if (pending.length === 0 && !summary) return null;
 
   async function start() {
+    const items = pending; // freeze the list for this run
     setRunning(true);
     setSummary(null);
     setDone(0);
+    setTotal(items.length);
     let enriched = 0;
-    for (let i = 0; i < pending.length; i++) {
-      const p = pending[i];
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i];
       setCurrent(p.company);
       const res = await harvestOne(p.id).catch(() => null);
       if (res && res.ok && !/nothing new|unreachable/.test(res.found)) enriched++;
@@ -42,7 +48,7 @@ export function ContactHarvest({
     setCurrent(null);
     setRunning(false);
     setSummary(
-      `✓ Checked ${pending.length} website${pending.length === 1 ? "" : "s"} — found new contact details for ${enriched}.`
+      `✓ Checked ${items.length} website${items.length === 1 ? "" : "s"} — found new contact details for ${enriched}.`
     );
     router.refresh();
   }
@@ -74,7 +80,7 @@ export function ContactHarvest({
       {running && (
         <div>
           <strong>
-            Checking {done}/{pending.length}
+            Checking {done}/{total}
             {current ? ` — ${current}…` : "…"}
           </strong>
           <div
@@ -87,11 +93,11 @@ export function ContactHarvest({
             }}
             role="progressbar"
             aria-valuenow={done}
-            aria-valuemax={pending.length}
+            aria-valuemax={total}
           >
             <div
               style={{
-                width: `${Math.round((done / pending.length) * 100)}%`,
+                width: `${total > 0 ? Math.round((done / total) * 100) : 0}%`,
                 height: "100%",
                 background: "var(--ac1, #8b5cf6)",
                 transition: "width .3s",
