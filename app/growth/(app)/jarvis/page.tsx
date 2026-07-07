@@ -14,6 +14,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { StatCard } from "@/components/portal/stat-card";
 import { JarvisChat } from "@/components/growth/jarvis-chat";
+import { EmailAutopilot } from "@/components/growth/email-autopilot";
+import { listAutopilotCandidates } from "@/lib/growth/autopilot";
 import { CLOSED_STATUSES } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
 
@@ -26,20 +28,33 @@ export default async function JarvisPage() {
   const today = dublinDate();
   const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
 
-  const [metrics, week, { count: dueCount }, { count: readyCount }] =
-    await Promise.all([
-      loadGrowthMetrics(admin, null),
-      loadGrowthMetrics(admin, 7),
-      admin
-        .from("ge_prospects")
-        .select("id", { count: "exact", head: true })
-        .lte("next_follow_up_at", today)
-        .not("status", "in", activeFilter),
-      admin
-        .from("ge_prospects")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["research_complete", "outreach_ready"]),
-    ]);
+  const [
+    metrics,
+    week,
+    { count: dueCount },
+    { count: readyCount },
+    candidates,
+    { count: queuedCount },
+  ] = await Promise.all([
+    loadGrowthMetrics(admin, null),
+    loadGrowthMetrics(admin, 7),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .lte("next_follow_up_at", today)
+      .not("status", "in", activeFilter),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["research_complete", "outreach_ready"]),
+    listAutopilotCandidates(25),
+    admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("status", "queued"),
+  ]);
 
   const priorities: { label: string; href: string }[] = [];
   if ((dueCount ?? 0) > 0)
@@ -99,6 +114,8 @@ export default async function JarvisPage() {
           </ul>
         </section>
       )}
+
+      <EmailAutopilot candidates={candidates} queuedCount={queuedCount ?? 0} />
 
       <JarvisChat />
 

@@ -1,7 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendAutopilotEmail } from "@/lib/growth/autopilot";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
@@ -14,6 +16,73 @@ import {
 } from "@/lib/growth/constants";
 
 export type JarvisTurn = { role: "user" | "jarvis"; text: string };
+
+type ActionResult = { ok?: boolean; error?: string } | undefined;
+
+/**
+ * Email autopilot controls. Two intents from the panel's submit buttons:
+ *   send_now — fire the ticked emails immediately, one by one, with the
+ *              same CRM bookkeeping as a manual send;
+ *   queue    — park the ticked drafts as 'queued'; the daily 8am cron run
+ *              sends them automatically.
+ */
+export async function autopilotAction(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const { member } = await requireGrowth();
+  const intent = String(formData.get("intent") ?? "");
+  const ids = formData
+    .getAll("message_id")
+    .map(String)
+    .filter(Boolean)
+    .slice(0, 25);
+  if (ids.length === 0) return { error: "Tick at least one email first." };
+
+  const admin = createAdminClient();
+
+  if (intent === "queue") {
+    const { error } = await admin
+      .from("ge_messages")
+      .update({ status: "queued" })
+      .in("id", ids)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("status", "draft");
+    if (error) return { error: error.message };
+    revalidatePath("/growth/jarvis");
+    revalidatePath("/growth/inbox");
+    return { ok: true };
+  }
+
+  if (intent !== "send_now") return { error: "Unknown action." };
+
+  let sent = 0;
+  const failures: string[] = [];
+  for (const id of ids) {
+    const res = await sendAutopilotEmail({
+      messageId: id,
+      senderName: member.name,
+      senderId: member.id,
+    });
+    if (res.ok) sent += 1;
+    else failures.push(`${res.company} (${res.error})`);
+    // Pace sends to stay inside the email provider's rate limit.
+    await new Promise((r) => setTimeout(r, 600));
+  }
+
+  revalidatePath("/growth/jarvis");
+  revalidatePath("/growth/prospects");
+  revalidatePath("/growth/inbox");
+  revalidatePath("/growth");
+
+  if (failures.length > 0) {
+    return {
+      error: `Sent ${sent} of ${ids.length}. Failed: ${failures.join("; ").slice(0, 400)}`,
+    };
+  }
+  return { ok: true };
+}
 
 export type JarvisResult =
   | { ok: true; answer: string }
