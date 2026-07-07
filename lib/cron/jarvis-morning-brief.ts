@@ -16,6 +16,18 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Dated one-off reminders Jude asks for ("remind me in the morning to…").
+ * Keyed by Dublin date; shown in that morning's brief then naturally
+ * expires. Add entries via Claude — a table is overkill until these are
+ * created from inside the app.
+ */
+const DATED_REMINDERS: Record<string, string[]> = {
+  "2026-07-08": [
+    "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
+  ],
+};
+
+/**
  * Jarvis's 8am email: what happened overnight, what's due, who to hit
  * first — the day's attack plan in the inbox before the app is opened.
  * The numbers and lists are deterministic (straight from the CRM); the
@@ -124,8 +136,13 @@ export async function sendJarvisMorningBrief(): Promise<{
     const section = (title: string, lines: string[], empty: string) =>
       `${title}\n${lines.length ? lines.join("\n") : `• ${empty}`}`;
 
+    const reminders = DATED_REMINDERS[today] ?? [];
+
     const bodyText = [
       plan,
+      reminders.length
+        ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
+        : "",
       section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
       section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
       section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
