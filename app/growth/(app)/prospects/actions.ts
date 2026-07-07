@@ -510,6 +510,17 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   if (["new", "researching"].includes(prospect.status)) {
     update.status = "research_complete";
   }
+  // Contact details harvested from the company's own website fill any blank
+  // CRM fields — a human-entered value is never overwritten.
+  for (const key of [
+    "email",
+    "phone",
+    "instagram_url",
+    "facebook_url",
+    "linkedin_url",
+  ] as const) {
+    if (!prospect[key] && result.found[key]) update[key] = result.found[key];
+  }
   await admin.from("ge_prospects").update(update).eq("id", id);
 
   // First-touch drafts per channel: refresh existing unsent drafts in place,

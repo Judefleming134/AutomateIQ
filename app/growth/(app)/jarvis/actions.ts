@@ -112,7 +112,7 @@ export async function askJarvis(
       admin
         .from("ge_prospects")
         .select(
-          "company, contact_name, status, industry, location, lead_score, pipeline_value, next_follow_up_at, last_contact_at, email, phone, notes"
+          "company, contact_name, status, industry, location, lead_score, pipeline_value, next_follow_up_at, last_contact_at, email, phone, instagram_url, facebook_url, linkedin_url, notes"
         )
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(150),
@@ -145,7 +145,14 @@ export async function askJarvis(
         p.next_follow_up_at ? `follow-up ${p.next_follow_up_at}` : null,
         p.last_contact_at ? `last contact ${p.last_contact_at.slice(0, 10)}` : "never contacted",
         Number(p.pipeline_value) > 0 ? `value €${p.pipeline_value}` : null,
-        [p.email ? "email" : null, p.phone ? "phone" : null].filter(Boolean).join("+") || "no contact method",
+        p.phone ? `☎ ${p.phone}` : null,
+        p.email ? `✉ ${p.email}` : null,
+        p.instagram_url ? `IG ${p.instagram_url}` : null,
+        p.facebook_url ? `FB ${p.facebook_url}` : null,
+        p.linkedin_url ? `LI ${p.linkedin_url}` : null,
+        !p.phone && !p.email && !p.instagram_url && !p.facebook_url && !p.linkedin_url
+          ? "no contact method on file"
+          : null,
         p.notes ? `notes: ${String(p.notes).slice(0, 120)}` : null,
       ].filter(Boolean);
       return `- ${bits.join(" | ")}`;
@@ -174,7 +181,7 @@ export async function askJarvis(
     "HARD RULES:",
     "- Ground every claim in the DATA SNAPSHOT provided. Name real companies from it. If the data doesn't answer the question, say exactly what's missing — never invent prospects, numbers or replies.",
     "- Money figures may ONLY come from the price book below. Never make up a price.",
-    "- When asked what to do, give a concrete ordered action list referencing real prospects (who to call/DM/email and why), not generic advice.",
+    "- When asked what to do, give a concrete ordered action list referencing real prospects (who to call/DM/email and why), not generic advice. Include the actual phone number / email / social link from the snapshot next to each name so Jude can act without opening another screen.",
     "- Channels: email sends from the platform; Instagram/Facebook/LinkedIn DMs and phone calls are done by Jude personally — the engine preps drafts and call scripts. Never claim to have sent anything yourself.",
     "- You cannot change data. To act, point Jude at the right place: a prospect's workspace (Research/Studio/Proposal tabs), the Prospects list, or the Inbox.",
     "",

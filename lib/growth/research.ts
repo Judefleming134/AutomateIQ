@@ -33,6 +33,15 @@ export type ChannelDrafts = {
   sms: string;
 };
 
+/** Contact details harvested from the prospect's own website. */
+export type FoundContacts = {
+  email?: string;
+  phone?: string;
+  instagram_url?: string;
+  facebook_url?: string;
+  linkedin_url?: string;
+};
+
 export type ResearchResult = {
   report: ResearchReport;
   solutions: SolutionRecommendation[];
@@ -41,15 +50,69 @@ export type ResearchResult = {
   websiteFetched: boolean;
   /** Which model produced this research, e.g. "Claude (claude-sonnet-5)". */
   engine: string;
+  /** Emails/phones/social links found on the site — fills blank CRM fields. */
+  found: FoundContacts;
 };
 
 /**
- * Fetches the prospect's website and reduces it to plain text the model can
- * read. Best-effort: any failure (site down, bot-blocked, not HTML) returns
- * null and research continues from the details we already hold — the report
- * then plainly says it's working without the site.
+ * Pulls contact details out of raw page HTML: mailto/tel links first (most
+ * reliable), then visible email addresses, plus the first Instagram /
+ * Facebook / LinkedIn profile link. SME sites almost always put these in
+ * the header or footer, so the homepage is usually enough.
  */
-export async function fetchWebsiteText(rawUrl: string): Promise<string | null> {
+function harvestContacts(html: string, siteHost: string): FoundContacts {
+  const found: FoundContacts = {};
+
+  const mailto = /href=["']mailto:([^"'?]+)/i.exec(html);
+  const emailRe = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
+  const junk = /\.(png|jpe?g|gif|webp|svg)$|wixpress|sentry|example\.|@2x|schema\.org/i;
+  let email = mailto?.[1]?.trim();
+  if (!email) {
+    const all = (html.match(emailRe) ?? []).filter((e) => !junk.test(e));
+    // Prefer an address on the company's own domain.
+    const root = siteHost.replace(/^www\./, "");
+    email = all.find((e) => e.toLowerCase().endsWith(`@${root}`)) ?? all[0];
+  }
+  if (email && emailRe.test(email) && !junk.test(email)) {
+    found.email = email.toLowerCase().slice(0, 200);
+  }
+
+  const tel = /href=["']tel:([^"']+)/i.exec(html);
+  if (tel) {
+    const phone = tel[1].replace(/[^+\d ()-]/g, "").trim();
+    if (phone.replace(/\D/g, "").length >= 7) found.phone = phone.slice(0, 40);
+  }
+
+  const social = (domain: string) => {
+    const re = new RegExp(
+      `https?://(?:www\\.)?${domain}/[A-Za-z0-9_./-]+`,
+      "gi"
+    );
+    for (const m of html.matchAll(re)) {
+      const url = m[0].replace(/[/.]+$/, "");
+      // Skip share/intent/widget links — they aren't the company profile.
+      if (/\/(sharer|share|intent|plugins|tr|badge|embed)\b/i.test(url)) continue;
+      return url.slice(0, 300);
+    }
+    return undefined;
+  };
+  found.instagram_url = social("instagram\\.com");
+  found.facebook_url = social("facebook\\.com");
+  found.linkedin_url = social("linkedin\\.com");
+
+  return found;
+}
+
+/**
+ * Fetches the prospect's website, harvests contact details from the raw
+ * HTML, and reduces the page to plain text the model can read. Best-effort:
+ * any failure (site down, bot-blocked, not HTML) returns null and research
+ * continues from the details we already hold — the report then plainly says
+ * it's working without the site.
+ */
+export async function fetchWebsiteText(
+  rawUrl: string
+): Promise<{ text: string; found: FoundContacts } | null> {
   let url = rawUrl.trim();
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
   try {
@@ -71,6 +134,7 @@ export async function fetchWebsiteText(rawUrl: string): Promise<string | null> {
     if (!type.includes("html") && !type.includes("text")) return null;
 
     const html = (await res.text()).slice(0, 500_000);
+    const found = harvestContacts(html, parsed.hostname);
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -86,7 +150,7 @@ export async function fetchWebsiteText(rawUrl: string): Promise<string | null> {
       .replace(/\s+/g, " ")
       .trim();
 
-    return text.length >= 80 ? text.slice(0, 9000) : null;
+    return text.length >= 80 ? { text: text.slice(0, 9000), found } : null;
   } catch {
     return null;
   }
@@ -194,9 +258,10 @@ function researchSchema(): Record<string, unknown> {
 export async function runCompanyResearch(
   prospect: ProspectContext & { email?: string | null; phone?: string | null }
 ): Promise<ResearchResult> {
-  const websiteText = prospect.website
+  const site = prospect.website
     ? await fetchWebsiteText(prospect.website)
     : null;
+  const websiteText = site?.text ?? null;
 
   const catalog = SOLUTION_CATALOG.map(
     (s) => `- key: ${s.key} — ${s.name}: ${s.blurb}`
@@ -335,5 +400,6 @@ export async function runCompanyResearch(
     drafts,
     websiteFetched: websiteText !== null,
     engine: activeEngineLabel(),
+    found: site?.found ?? {},
   };
 }
