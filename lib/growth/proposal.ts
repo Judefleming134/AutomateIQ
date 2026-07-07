@@ -86,5 +86,7 @@ export async function generateProposalMarkdown(
     .filter(Boolean)
     .join("\n");
 
-  return (await aiComplete(system, prompt, 4000)).trim();
+  // effort "medium": proposals deserve more thought than a DM, less than
+  // sonnet-5's deep-reasoning default.
+  return (await aiComplete(system, prompt, 4000, { effort: "medium" })).trim();
 }

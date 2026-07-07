@@ -105,7 +105,10 @@ export async function draftOutreach(
   }
   lines.push("", "Write the message now.");
 
-  const raw = (await aiComplete(system, lines.join("\n"), 1024)).trim();
+  // effort "low": short sales messages need speed, not deep reasoning.
+  const raw = (
+    await aiComplete(system, lines.join("\n"), 1024, { effort: "low" })
+  ).trim();
 
   if (params.channel === "email") {
     const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);
@@ -216,7 +219,10 @@ export async function draftStudioMessage(
   }
   lines.push("", "Write the message now.");
 
-  const raw = (await aiComplete(system, lines.join("\n"), 1500)).trim();
+  // effort "low": studio drafts/rewrites should come back in seconds.
+  const raw = (
+    await aiComplete(system, lines.join("\n"), 1500, { effort: "low" })
+  ).trim();
 
   if (params.channel === "email") {
     const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);

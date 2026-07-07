@@ -1,5 +1,6 @@
 import "server-only";
 import { aiComplete } from "@/lib/ai/complete";
+import { activeEngineLabel } from "@/lib/ai/config";
 import {
   SOLUTION_CATALOG,
   sanitizeRecommendations,
@@ -38,6 +39,8 @@ export type ResearchResult = {
   ratings: Partial<Record<CriterionKey, number>>;
   drafts: ChannelDrafts;
   websiteFetched: boolean;
+  /** Which model produced this research, e.g. "Claude (claude-sonnet-5)". */
+  engine: string;
 };
 
 /**
@@ -112,6 +115,74 @@ function extractJson(raw: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+const S = { type: "string" } as const;
+const S_ARR = { type: "array", items: S } as const;
+
+/**
+ * JSON Schema for the research package, enforced server-side on Claude via
+ * structured outputs — the model physically cannot return anything but this
+ * shape, so BAD_JSON is impossible there. Gemini ignores it (its schema
+ * dialect differs) and relies on JSON mode + the prompt's shape example.
+ */
+function researchSchema(): Record<string, unknown> {
+  const ratingProps: Record<string, unknown> = {};
+  for (const c of CRITERIA) ratingProps[c.key] = { type: "integer" };
+  return {
+    type: "object",
+    properties: {
+      report: {
+        type: "object",
+        properties: {
+          overview: S, industry: S, services: S_ARR, business_model: S,
+          company_size: S, operational_observations: S_ARR,
+          manual_processes: S_ARR, inefficiencies: S_ARR,
+          ai_opportunities: S_ARR, conversation_starters: S_ARR,
+          discovery_questions: S_ARR, proposal_angle: S, next_action: S,
+        },
+        required: [
+          "overview", "industry", "services", "business_model",
+          "company_size", "operational_observations", "manual_processes",
+          "inefficiencies", "ai_opportunities", "conversation_starters",
+          "discovery_questions", "proposal_angle", "next_action",
+        ],
+        additionalProperties: false,
+      },
+      solutions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: { key: S, why: S, complexity: S, benefits: S },
+          required: ["key", "why", "complexity", "benefits"],
+          additionalProperties: false,
+        },
+      },
+      ratings: {
+        type: "object",
+        properties: ratingProps,
+        required: Object.keys(ratingProps),
+        additionalProperties: false,
+      },
+      drafts: {
+        type: "object",
+        properties: {
+          linkedin: S, instagram: S, facebook: S,
+          email: {
+            type: "object",
+            properties: { subject: S, body: S },
+            required: ["subject", "body"],
+            additionalProperties: false,
+          },
+          sms: S,
+        },
+        required: ["linkedin", "instagram", "facebook", "email", "sms"],
+        additionalProperties: false,
+      },
+    },
+    required: ["report", "solutions", "ratings", "drafts"],
+    additionalProperties: false,
+  };
 }
 
 /**
@@ -208,7 +279,14 @@ export async function runCompanyResearch(
     .filter(Boolean)
     .join("\n");
 
-  const raw = await aiComplete(system, prompt, 8000, { json: true });
+  // effort "medium": this is grounded analysis + writing, not deep multi-step
+  // reasoning — sonnet-5's default ("high") thinks for minutes per company
+  // for no material quality gain on this task.
+  const raw = await aiComplete(system, prompt, 8000, {
+    json: true,
+    effort: "medium",
+    schema: researchSchema(),
+  });
   const parsed = extractJson(raw);
   if (!parsed) throw new Error("BAD_JSON");
 
@@ -256,5 +334,6 @@ export async function runCompanyResearch(
     ratings,
     drafts,
     websiteFetched: websiteText !== null,
+    engine: activeEngineLabel(),
   };
 }

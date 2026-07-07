@@ -20,10 +20,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  *  waiting on the website + the model, so pairing them roughly halves the
  *  batch without straining free-tier AI rate limits. */
 const CONCURRENCY = 2;
-/** Observed per-company wall time (fetch + model + pacing), for the ETA. */
-const SECONDS_PER_COMPANY = 40;
 
-export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
+export function ResearchQueue({
+  pending,
+  claude = false,
+}: {
+  pending: QueueItem[];
+  /** True when the server runs on the Anthropic key: no daily cap and no
+   *  10-requests-per-minute wall, so the queue paces itself tighter. */
+  claude?: boolean;
+}) {
+  // Observed per-company wall time (fetch + model + pacing), for the ETA.
+  const SECONDS_PER_COMPANY = claude ? 35 : 40;
+  const idleGap = claude ? 600 : 1500;
   const router = useRouter();
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
@@ -106,7 +115,7 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
         // company lands, not just at the end of the batch.
         router.refresh();
         if (stopped) return;
-        await sleep(throttled ? 8000 : 1500);
+        await sleep(throttled ? 8000 : idleGap);
       }
     };
 
@@ -143,6 +152,9 @@ export function ResearchQueue({ pending }: { pending: QueueItem[] }) {
               {Math.ceil((pending.length * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)}{" "}
               min for the batch (two at a time); keep this tab open while it
               runs.
+              {claude
+                ? " Running on Claude — no daily cap, the batch runs straight through."
+                : ""}
             </p>
           </div>
           <button type="button" className="btn btn-primary" onClick={start}>
