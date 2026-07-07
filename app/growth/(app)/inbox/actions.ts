@@ -441,7 +441,12 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
     ["new", "researching", "research_complete", "outreach_ready",
      "contacted", "follow_up_sent"].includes(prospect.status)
   ) {
-    await admin.from("ge_prospects").update({ status: "replied" }).eq("id", prospect.id);
+    // A reply resets the clock: answer within a day, not on the old
+    // +3-day chase schedule.
+    await admin
+      .from("ge_prospects")
+      .update({ status: "replied", next_follow_up_at: dublinDate(1) })
+      .eq("id", prospect.id);
   }
 
   revalidateProspect(prospect.id);
