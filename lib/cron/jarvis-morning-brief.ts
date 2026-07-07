@@ -1,0 +1,170 @@
+import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
+import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { aiComplete } from "@/lib/ai/complete";
+import { dublinDate } from "@/lib/growth/dates";
+import {
+  CLOSED_STATUSES,
+  PROSPECT_STATUS_META,
+  type ProspectStatus,
+} from "@/lib/growth/constants";
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Jarvis's 8am email: what happened overnight, what's due, who to hit
+ * first — the day's attack plan in the inbox before the app is opened.
+ * The numbers and lists are deterministic (straight from the CRM); the
+ * AI only writes the short battle-plan narrative on top, and if that
+ * call fails the brief still sends without it. Never throws: the cron
+ * dispatcher records the returned summary either way.
+ */
+export async function sendJarvisMorningBrief(): Promise<{
+  sent: boolean;
+  detail: string;
+}> {
+  try {
+    const admin = createAdminClient();
+    const today = dublinDate();
+    const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    const [
+      metrics,
+      week,
+      { data: due },
+      { data: ready },
+      { data: overnightReplies },
+      { data: meetingsToday },
+    ] = await Promise.all([
+      loadGrowthMetrics(admin, null),
+      loadGrowthMetrics(admin, 7),
+      admin
+        .from("ge_prospects")
+        .select("company, contact_name, status, lead_score, next_follow_up_at, phone")
+        .lte("next_follow_up_at", today)
+        .not("status", "in", activeFilter)
+        .order("next_follow_up_at", { ascending: true })
+        .limit(15),
+      admin
+        .from("ge_prospects")
+        .select("company, contact_name, industry, lead_score, phone, email")
+        .in("status", ["research_complete", "outreach_ready"])
+        .order("lead_score", { ascending: false })
+        .limit(10),
+      admin
+        .from("ge_messages")
+        .select("channel, body, sentiment, created_at, ge_prospects(company)")
+        .eq("direction", "inbound")
+        .gte("created_at", since24h)
+        .order("created_at", { ascending: false })
+        .limit(10),
+      admin
+        .from("ge_meetings")
+        .select("scheduled_at, ge_prospects(company)")
+        .eq("status", "booked")
+        .gte("scheduled_at", `${today}T00:00:00`)
+        .lte("scheduled_at", `${today}T23:59:59`)
+        .order("scheduled_at")
+        .limit(10),
+    ]);
+
+    const statusLabel = (s: string) =>
+      PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
+    const companyOf = (row: { ge_prospects: unknown }) =>
+      (row.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+
+    const dueLines = (due ?? []).map(
+      (p) =>
+        `• ${p.company} (${p.contact_name}) — ${statusLabel(p.status)}, score ${p.lead_score ?? 0}, due ${p.next_follow_up_at}${p.phone ? `, ${p.phone}` : ""}`
+    );
+    const readyLines = (ready ?? []).map(
+      (p) =>
+        `• ${p.company} (${p.contact_name}) — ${p.industry || "?"}, score ${p.lead_score ?? 0} — drafts ready${p.phone ? `, ${p.phone}` : ""}`
+    );
+    const replyLines = (overnightReplies ?? []).map(
+      (m) =>
+        `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
+    );
+    const meetingLines = (meetingsToday ?? []).map(
+      (m) => `• ${String(m.scheduled_at).slice(11, 16)} — ${companyOf(m)}`
+    );
+
+    // The narrative on top — best-effort, the brief never depends on it.
+    let plan = "";
+    try {
+      plan = (
+        await aiComplete(
+          [
+            "You are Jarvis, the sales copilot for AutomateIQ (Irish AI-automation agency, solo founder Jude).",
+            "Write the 4-6 sentence opening of his morning brief: direct, a little dry, zero fluff.",
+            "Reference only the companies and numbers provided. Order the morning: replies first, then due follow-ups, then fresh sends. If a day looks empty, say what to do about it (add leads, research, call).",
+          ].join("\n"),
+          [
+            `Date: ${today}`,
+            `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
+            `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings.`,
+            `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
+            `Follow-ups due (${dueLines.length}):\n${dueLines.join("\n") || "none"}`,
+            `Ready to send (${readyLines.length}):\n${readyLines.join("\n") || "none"}`,
+            `Meetings today (${meetingLines.length}):\n${meetingLines.join("\n") || "none"}`,
+          ].join("\n\n"),
+          700,
+          { effort: "low" }
+        )
+      ).trim();
+    } catch (err) {
+      console.error("Jarvis brief narrative failed (brief still sends):", err);
+    }
+
+    const section = (title: string, lines: string[], empty: string) =>
+      `${title}\n${lines.length ? lines.join("\n") : `• ${empty}`}`;
+
+    const bodyText = [
+      plan,
+      section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
+      section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
+      section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
+      section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
+      [
+        "THE NUMBERS",
+        `• Pipeline value: €${metrics.pipelineValue.toLocaleString("en-IE")}`,
+        `• Reply rate: ${metrics.replyRate}% · Meetings: ${metrics.meetingsBooked} · Won: ${metrics.won}`,
+        `• Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.leadsAdded} leads added`,
+      ].join("\n"),
+      "Open Jarvis: https://automateiq.ie/growth/jarvis",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const recipients = await ownerNotifyRecipients();
+    if (recipients.length === 0)
+      return { sent: false, detail: "no notify recipients configured" };
+
+    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;max-width:640px;white-space:pre-wrap;">${escapeHtml(bodyText)}</div>`;
+
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: getFromAddress(),
+      to: recipients,
+      subject: `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready to send`,
+      text: bodyText,
+      html,
+    });
+    if (error) return { sent: false, detail: error.message };
+    return {
+      sent: true,
+      detail: `to ${recipients.join(", ")} (${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready)`,
+    };
+  } catch (err) {
+    console.error("Jarvis morning brief failed:", err);
+    return {
+      sent: false,
+      detail: err instanceof Error ? err.message : "unknown error",
+    };
+  }
+}
