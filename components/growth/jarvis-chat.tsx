@@ -25,11 +25,30 @@ function getRecognitionCtor(): (new () => SpeechRec) | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+/** Jarvis speaks with a British accent where the device has one — on
+ *  Apple devices "Daniel"/"Arthur" is the classic Jarvis-adjacent voice. */
+let cachedVoice: SpeechSynthesisVoice | null | undefined;
+function pickBritishVoice(): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+  const gb = voices.filter((v) => v.lang?.toLowerCase().replace("_", "-").startsWith("en-gb"));
+  return (
+    gb.find((v) => /daniel|arthur/i.test(v.name)) ??
+    gb.find((v) => /oliver|brian|george|male/i.test(v.name)) ??
+    gb[0] ??
+    null
+  );
+}
+
 function speak(text: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-GB";
+  if (cachedVoice === undefined) cachedVoice = pickBritishVoice();
+  if (cachedVoice) u.voice = cachedVoice;
   u.rate = 1.05;
+  u.pitch = 0.95;
   window.speechSynthesis.speak(u);
 }
 
@@ -58,9 +77,16 @@ export function JarvisChat() {
   const [canListen, setCanListen] = useState(false);
   const recRef = useRef<SpeechRec | null>(null);
 
-  // Feature-detect after mount (SSR has no window).
+  // Feature-detect after mount (SSR has no window). Voice lists load
+  // asynchronously in most browsers — warm them and re-pick when ready.
   useEffect(() => {
     setCanListen(getRecognitionCtor() !== null);
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        cachedVoice = undefined;
+      };
+    }
     return () => {
       if (typeof window !== "undefined") window.speechSynthesis?.cancel();
       recRef.current?.stop();
