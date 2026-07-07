@@ -278,6 +278,7 @@ export async function runCompanyResearch(
     "- Never invent named clients, revenue figures, staff counts or certifications.",
     "- All operational-benefit statements are ILLUSTRATIVE estimates for this type of business, never guarantees.",
     "- Outreach drafts must read like one busy professional writing to another: specific, short, no hype, no 'I hope this finds you well'.",
+    "- SENDER IDENTITY (unbreakable): every outreach draft is written by JUDE, the founder of AutomateIQ, in the first person. Sign as 'Jude' / 'Jude, AutomateIQ' (or plain 'AutomateIQ' in short SMS). NEVER invent any other name, NEVER use placeholders like [Your Name], and NEVER give Jude a job title such as 'Business Analyst' — your analyst role above is for the report only, it must not appear in any draft.",
     "Respond with ONLY a valid JSON object — no markdown fences, no commentary.",
   ].join("\n");
 
@@ -331,9 +332,9 @@ export async function runCompanyResearch(
   ],
   "ratings": { ${ratingGuide} },
   "drafts": {
-    "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject",
-    "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal",
-    "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel",
+    "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject, from Jude",
+    "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal, sign as Jude from AutomateIQ",
+    "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel, sign as Jude from AutomateIQ",
     "email": { "subject": "cold-email subject built for opens: 3-6 words, under 40 chars, lowercase except proper nouns, naming ONE specific thing about THIS business (missed calls / reviews / no website / their trade + area) — reads like a note from someone they know, never salesy; no exclamation marks, no 'free/offer/deal'", "body": "80-140 word first-touch email, sign off as Jude, AutomateIQ" },
     "sms": "first-touch SMS under 320 characters, sign as AutomateIQ"
   }

@@ -20,6 +20,31 @@ function bodyToHtml(body: string): string {
 }
 
 /**
+ * Last-line defence for outbound text: older AI drafts sometimes contained
+ * literal placeholders ("[Your Name]") or an invented sender. The scrubber
+ * fixes what's mechanically fixable; the checker flags what isn't so the
+ * autopilot refuses to send it rather than embarrassing us.
+ */
+export function sanitizeOutreachBody(body: string): string {
+  return body
+    .replace(/\[(?:your |sender |my )?name\]/gi, "Jude")
+    .replace(/^\[(?:your |company )?(?:title|role|position)\],?\s*$/gim, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** Returns the reason a draft must NOT be auto-sent, or null if it's clean. */
+export function draftLooksBroken(body: string): string | null {
+  if (/\[[^\]\n]{2,40}\]/.test(body)) return "still contains a [placeholder]";
+  const name = /\b(?:i'?m|this is|my name is)\s+([A-Z][a-z]{1,20})\s+(?:from|at|with)\s+automate\s?iq/i.exec(body);
+  if (name && name[1].toLowerCase() !== "jude") {
+    return `signed by an invented name ("${name[1]}")`;
+  }
+  if (/business analyst/i.test(body)) return "claims a made-up job title";
+  return null;
+}
+
+/**
  * Cold outreach sends from Jude personally — replies land in jude@'s Gmail
  * where he works them, and a named human sender opens far better than a
  * brand. Overridable via GROWTH_FROM_EMAIL without a deploy. Falls back to
@@ -47,14 +72,15 @@ export async function sendOutreachEmail(params: {
   body: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    const body = sanitizeOutreachBody(params.body);
     const resend = getResendClient();
     const { error } = await resend.emails.send({
       from: outreachFromAddress(),
       to: params.to,
       subject: params.subject,
       replyTo: "jude@automateiq.ie",
-      text: params.body,
-      html: bodyToHtml(params.body),
+      text: body,
+      html: bodyToHtml(body),
     });
     if (error) return { ok: false, error: error.message };
     return { ok: true };
