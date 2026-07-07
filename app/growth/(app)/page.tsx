@@ -83,6 +83,7 @@ export default async function GrowthDashboardPage() {
 
   const [
     metrics,
+    { data: readyToSend },
     { data: dueToday },
     { data: overdue },
     { data: hot },
@@ -90,6 +91,12 @@ export default async function GrowthDashboardPage() {
     { data: upcomingMeetings },
   ] = await Promise.all([
     loadGrowthMetrics(admin, 30),
+    admin
+      .from("ge_prospects")
+      .select("id, company, contact_name, industry, lead_score, status")
+      .in("status", ["research_complete", "outreach_ready"])
+      .order("lead_score", { ascending: false })
+      .limit(50),
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
@@ -196,6 +203,56 @@ export default async function GrowthDashboardPage() {
           </div>
         </ActionForm>
       </section>
+
+      {(readyToSend ?? []).length > 0 && (
+        <section
+          className="panel panel-block"
+          style={{ marginBottom: 20, borderLeft: "3px solid var(--green, #34d399)" }}
+          aria-labelledby="rts-title"
+        >
+          <h2 className="panel-title" id="rts-title">
+            <Send size={15} style={{ verticalAlign: "-2px" }} /> Ready to send —
+            researched, drafts waiting ({(readyToSend ?? []).length})
+          </h2>
+          <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
+            Highest score first. Open → skim the report → copy the draft →
+            send → Mark as sent. ~3 minutes each.
+          </p>
+          <div className="table-wrap">
+            <table>
+              <tbody>
+                {(readyToSend ?? []).slice(0, 12).map((p) => (
+                  <tr key={p.id}>
+                    <td>
+                      <Link href={`/growth/prospects/${p.id}?tab=studio`}>
+                        <strong>{p.company}</strong>
+                      </Link>
+                      <div style={{ color: "var(--faint)", fontSize: 12 }}>{p.contact_name}</div>
+                    </td>
+                    <td style={{ fontSize: 13 }}>{p.industry ?? "—"}</td>
+                    <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{p.lead_score}/100</td>
+                    <td>
+                      <Link
+                        href={`/growth/prospects/${p.id}?tab=studio`}
+                        className="btn btn-primary btn-sm"
+                      >
+                        Open studio →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {(readyToSend ?? []).length > 12 && (
+            <p style={{ fontSize: 12, marginTop: 8 }}>
+              <Link href="/growth/prospects?status=research_complete&sort=score">
+                See all {(readyToSend ?? []).length} →
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="grid-2">
         <section className="panel panel-block" aria-labelledby="fu-today">
