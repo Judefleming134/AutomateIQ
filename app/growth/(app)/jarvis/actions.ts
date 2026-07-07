@@ -395,6 +395,7 @@ export async function askJarvis(
     "  · add_note — save a note on the prospect (value: the note text)",
     "  · set_follow_up — set the follow-up date (value: YYYY-MM-DD)",
     "- Action rules: `company` must be copied EXACTLY from the snapshot; maximum 8 actions per turn; in `reply`, say plainly what you're doing. Actual sending is never yours — queueing is as far as you go; DMs/calls/mark-sent stay with Jude in the app.",
+    "- LINKEDIN LOOKUPS: when asked who is on LinkedIn, first list prospects whose snapshot has an LI link (give the link). For promising prospects WITHOUT one, give a ready-made search link in the form https://www.linkedin.com/search/results/companies/?keywords=COMPANY%20Dublin (URL-encode spaces as %20) so Jude can check each with one tap — and say plainly that those are searches, not confirmed profiles.",
     "",
     "PRICE BOOK (founding-customer rates — the only figures permitted):",
     ...pricingLines(SOLUTION_CATALOG.map((s) => s.key)),
