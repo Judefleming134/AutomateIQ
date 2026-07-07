@@ -433,7 +433,11 @@ export async function askJarvis(
     convo ? `CONVERSATION SO FAR:\n${convo}\n` : "",
     `JUDE'S QUESTION: ${q}`,
     "",
-    "Respond as JSON: {\"reply\": \"...\", \"actions\": [...]}. The reply is plain text (no markdown headings), tight paragraphs or short dashed lists.",
+    "Respond as JSON: {\"reply\": \"...\", \"actions\": [...]}. FORMAT the reply for a NARROW phone chat window:",
+    "- One item per line, each starting with '• '. Blank line between sections.",
+    "- Per prospect: '• **Company** — key fact' on one line, then phone/email/link each on their OWN indented '• ' line below. Never cram a prospect's details into one long line.",
+    "- **bold** for company names and money figures. No markdown headings, no tables.",
+    "- Paragraphs max 2 lines. Ruthlessly short.",
   ]
     .filter(Boolean)
     .join("\n");

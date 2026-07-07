@@ -44,7 +44,12 @@ function pickBritishVoice(): SpeechSynthesisVoice | null {
 function speak(text: string) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
+  // Don't read out formatting or full URLs — nobody wants a spoken href.
+  const spoken = text
+    .replace(/https?:\/\/[^\s<>"']+/g, "(link in chat)")
+    .replace(/\*\*/g, "")
+    .replace(/^[•·-]\s*/gm, "");
+  const u = new SpeechSynthesisUtterance(spoken);
   u.lang = "en-GB";
   if (cachedVoice === undefined) cachedVoice = pickBritishVoice();
   if (cachedVoice) u.voice = cachedVoice;
@@ -53,34 +58,78 @@ function speak(text: string) {
   window.speechSynthesis.speak(u);
 }
 
-/** Renders message text with URLs as real tappable links (new tab). */
+/** Renders inline text with URLs as tappable links and **bold** honoured. */
 function TextWithLinks({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s<>"']+)/g);
   return (
     <>
       {parts.map((part, i) => {
-        if (!/^https?:\/\//.test(part)) return part;
-        // Trailing punctuation belongs to the sentence, not the URL.
-        const m = /^(.*?)([.,;:!?)]*)$/.exec(part)!;
-        return (
-          <span key={i}>
-            <a
-              href={m[1]}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "var(--ac2, #3b82f6)",
-                textDecoration: "underline",
-                wordBreak: "break-all",
-              }}
-            >
-              {m[1]}
-            </a>
-            {m[2]}
-          </span>
+        if (/^https?:\/\//.test(part)) {
+          // Trailing punctuation belongs to the sentence, not the URL.
+          const m = /^(.*?)([.,;:!?)]*)$/.exec(part)!;
+          return (
+            <span key={i}>
+              <a
+                href={m[1]}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: "var(--ac2, #3b82f6)",
+                  textDecoration: "underline",
+                  wordBreak: "break-all",
+                }}
+              >
+                {m[1]}
+              </a>
+              {m[2]}
+            </span>
+          );
+        }
+        // **bold** segments within plain text.
+        return part.split(/(\*\*[^*]+\*\*)/g).map((seg, j) =>
+          seg.startsWith("**") && seg.endsWith("**") ? (
+            <strong key={`${i}-${j}`}>{seg.slice(2, -2)}</strong>
+          ) : (
+            <span key={`${i}-${j}`}>{seg}</span>
+          )
         );
       })}
     </>
+  );
+}
+
+/**
+ * Structured rendering for Jarvis messages: bullets become properly
+ * indented list rows, blank lines become section spacing — instead of one
+ * squashed pre-wrap blob.
+ */
+function MessageBody({ text }: { text: string }) {
+  const lines = text.split("\n");
+  return (
+    <div style={{ display: "grid", gap: 2 }}>
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} style={{ height: 8 }} />;
+        const bullet = /^([•·]|-|\d+[.)])\s+(.*)$/.exec(trimmed);
+        if (bullet) {
+          return (
+            <div key={i} style={{ display: "flex", gap: 7, paddingLeft: 4 }}>
+              <span style={{ flexShrink: 0, color: "var(--faint)" }}>
+                {/^\d/.test(bullet[1]) ? bullet[1] : "•"}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <TextWithLinks text={bullet[2]} />
+              </span>
+            </div>
+          );
+        }
+        return (
+          <div key={i}>
+            <TextWithLinks text={trimmed} />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -251,7 +300,7 @@ export function JarvisChat() {
                     : "1px solid var(--line, rgba(255,255,255,.08))",
               }}
             >
-              <TextWithLinks text={t.text} />
+              {t.role === "jarvis" ? <MessageBody text={t.text} /> : t.text}
             </div>
           ))}
           {pending && (
