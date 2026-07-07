@@ -10,6 +10,7 @@ import {
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { ResearchQueue } from "@/components/growth/research-queue";
+import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
 import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
@@ -68,6 +69,7 @@ export default async function ProspectsPage({
     { data: team },
     { data: allProspects },
     { data: researched },
+    { data: missingEmail },
   ] = await Promise.all([
     query,
     admin.from("ge_campaigns").select("id, name").order("name"),
@@ -79,6 +81,14 @@ export default async function ProspectsPage({
       .not("status", "in", '("won","lost","do_not_contact","archived")')
       .order("created_at", { ascending: false }),
     admin.from("ge_research").select("prospect_id"),
+    admin
+      .from("ge_prospects")
+      .select("id, company")
+      .not("website", "is", null)
+      .is("email", null)
+      .not("status", "in", '("won","lost","do_not_contact","archived")')
+      .order("lead_score", { ascending: false, nullsFirst: false })
+      .limit(100),
   ]);
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
   const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
@@ -110,6 +120,8 @@ export default async function ProspectsPage({
         pending={unresearched}
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
       />
+
+      <ContactHarvest pending={missingEmail ?? []} />
 
       <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
