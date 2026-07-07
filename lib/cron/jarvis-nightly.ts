@@ -28,7 +28,11 @@ export async function runJarvisNightly(): Promise<{
   const admin = createAdminClient();
   const notes: string[] = [];
 
-  // ---- Job 1: contact harvest (≤12 sites, ~2s each, zero AI) ----
+  // ---- Job 1: contact harvest (≤8 sites, ~2s each, zero AI) ----
+  // Budget maths for the whole routine: 8 + 6 site reads at the 8s fetch
+  // timeout worst-case must coexist with 3 AI rewrites inside maxDuration
+  // 60 — caps are deliberately conservative; the backlog just rolls to
+  // tomorrow's run.
   let harvested = 0;
   try {
     const { data: missing } = await admin
@@ -38,7 +42,7 @@ export async function runJarvisNightly(): Promise<{
       .is("email", null)
       .not("status", "in", ACTIVE_FILTER)
       .order("lead_score", { ascending: false, nullsFirst: false })
-      .limit(12);
+      .limit(8);
     for (const p of missing ?? []) {
       const site = await fetchWebsiteText(p.website as string).catch(() => null);
       if (!site) continue;
@@ -78,7 +82,7 @@ export async function runJarvisNightly(): Promise<{
         (k) => p[k] && cleanSocialUrl(p[k]) === null
       )
     );
-    for (const p of damaged.slice(0, 8)) {
+    for (const p of damaged.slice(0, 6)) {
       const site = await fetchWebsiteText(p.website as string).catch(() => null);
       const update: Record<string, string | null> = {};
       const fixedKinds: string[] = [];
@@ -99,8 +103,8 @@ export async function runJarvisNightly(): Promise<{
         created_by: null,
       });
     }
-    if (damaged.length > 8) {
-      notes.push(`${damaged.length - 8} more dead social links queued for tomorrow's run`);
+    if (damaged.length > 6) {
+      notes.push(`${damaged.length - 6} more dead social links queued for tomorrow's run`);
     }
   } catch (err) {
     notes.push(`social-repair error: ${err instanceof Error ? err.message : "unknown"}`);
@@ -122,7 +126,7 @@ export async function runJarvisNightly(): Promise<{
     );
     if (broken.length > 0) {
       const settings = await loadGrowthSettings();
-      for (const d of broken.slice(0, 4)) {
+      for (const d of broken.slice(0, 3)) {
         const { data: prospect } = await admin
           .from("ge_prospects")
           .select("id, company, contact_name, job_title, industry, website, location, notes")
