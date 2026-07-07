@@ -1,6 +1,10 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendOutreachEmail } from "@/lib/growth/email";
+import {
+  sendOutreachEmail,
+  sanitizeOutreachBody,
+  draftLooksBroken,
+} from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
 
 /**
@@ -23,6 +27,9 @@ export type AutopilotCandidate = {
   leadScore: number;
   industry: string | null;
   queued: boolean;
+  /** Why this draft can't be auto-sent (old placeholder/invented-name
+   *  drafts) — regenerate in the Studio first. Null when clean. */
+  broken: string | null;
 };
 
 const READY_STATUSES = ["research_complete", "outreach_ready"];
@@ -62,6 +69,7 @@ export async function listAutopilotCandidates(
   for (const p of prospects ?? []) {
     const d = draftByProspect.get(p.id);
     if (!d || !p.email) continue;
+    const body = sanitizeOutreachBody(d.body);
     out.push({
       messageId: d.id,
       prospectId: p.id,
@@ -69,10 +77,11 @@ export async function listAutopilotCandidates(
       contactName: p.contact_name,
       email: p.email,
       subject: d.subject || `question about ${p.company}`,
-      body: d.body,
+      body,
       leadScore: p.lead_score ?? 0,
       industry: p.industry,
       queued: d.status === "queued",
+      broken: draftLooksBroken(body),
     });
     if (out.length >= limit) break;
   }
@@ -105,6 +114,18 @@ export async function sendAutopilotEmail(params: {
     .maybeSingle();
   if (!prospect?.email) {
     return { ok: false, company: prospect?.company ?? "unknown", error: "No email address on file." };
+  }
+
+  // Hard gate: an outdated draft (placeholder / invented sender) is left
+  // untouched as a draft — never sent, never marked failed. Regenerating it
+  // in the Studio produces a clean one under the current identity rules.
+  const broken = draftLooksBroken(sanitizeOutreachBody(message.body));
+  if (broken) {
+    return {
+      ok: false,
+      company: prospect.company,
+      error: `old draft (${broken}) — regenerate it in the Studio first`,
+    };
   }
 
   const sent = await sendOutreachEmail({

@@ -99,7 +99,7 @@ export function EmailAutopilot({
                     type="checkbox"
                     name="message_id"
                     value={c.messageId}
-                    defaultChecked={!c.queued}
+                    defaultChecked={!c.queued && !c.broken}
                     onClick={(e) => e.stopPropagation()}
                     aria-label={`Include ${c.company}`}
                   />
@@ -108,6 +108,12 @@ export function EmailAutopilot({
                     {c.contactName} · {c.industry || "—"} · score {c.leadScore}
                     {c.queued ? " · already queued" : ""}
                   </span>
+                  {c.broken && (
+                    <span style={{ fontSize: 12, color: "var(--orange, #fb923c)" }}>
+                      ⚠ old draft ({c.broken}) — regenerate in the Studio; the
+                      autopilot will refuse to send it as-is
+                    </span>
+                  )}
                   <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: "auto" }}>
                     → {c.email}
                   </span>
