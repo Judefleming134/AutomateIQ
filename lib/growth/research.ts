@@ -83,24 +83,86 @@ function harvestContacts(html: string, siteHost: string): FoundContacts {
     if (phone.replace(/\D/g, "").length >= 7) found.phone = phone.slice(0, 40);
   }
 
-  const social = (domain: string) => {
-    const re = new RegExp(
-      `https?://(?:www\\.)?${domain}/[A-Za-z0-9_./-]+`,
-      "gi"
-    );
-    for (const m of html.matchAll(re)) {
-      const url = m[0].replace(/[/.]+$/, "");
-      // Skip share/intent/widget links — they aren't the company profile.
-      if (/\/(sharer|share|intent|plugins|tr|badge|embed)\b/i.test(url)) continue;
-      return url.slice(0, 300);
-    }
-    return undefined;
-  };
-  found.instagram_url = social("instagram\\.com");
-  found.facebook_url = social("facebook\\.com");
-  found.linkedin_url = social("linkedin\\.com");
+  const socialRe =
+    /https?:\/\/(?:www\.|m\.|web\.|ie-ie\.)?(facebook\.com|instagram\.com|linkedin\.com)\/[A-Za-z0-9_.\/?=&%-]*/gi;
+  for (const m of html.matchAll(socialRe)) {
+    const cleaned = cleanSocialUrl(m[0]);
+    if (!cleaned) continue;
+    const key = m[1].toLowerCase().startsWith("facebook")
+      ? "facebook_url"
+      : m[1].toLowerCase().startsWith("instagram")
+        ? "instagram_url"
+        : "linkedin_url";
+    if (!found[key]) found[key] = cleaned;
+  }
 
   return found;
+}
+
+/**
+ * Canonicalises a candidate social link to a real profile/page URL, or
+ * returns null for site furniture. This exists because templates are full
+ * of landmines that LOOK like profile links: bare "facebook.com/" icon
+ * placeholders, old-WordPress "facebook.com/2008/fbml" namespace tags,
+ * link shims (l.php), share buttons, pixel/tr endpoints, and Instagram
+ * post links — all of which previously got harvested as "their page" and
+ * handed to Jude as dead DM targets. Also the source of truth for spotting
+ * junk already saved in the CRM (null = dead, replace or clear it).
+ */
+export function cleanSocialUrl(raw: string): string | null {
+  let u: URL;
+  try {
+    u = new URL(raw.replace(/[/.,)"']+$/, ""));
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase().replace(/^(www|m|web|ie-ie)\./, "");
+  const segs = u.pathname.split("/").filter(Boolean);
+  // Bare "facebook.com/" — a template's unfilled social icon, not a page.
+  if (segs.length === 0) return null;
+  const first = segs[0].toLowerCase();
+
+  if (host === "facebook.com") {
+    const junk = new Set([
+      "sharer", "sharer.php", "share", "share.php", "dialog", "plugins",
+      "tr", "l.php", "login", "login.php", "badge", "embed", "hashtag",
+      "2008", "fbml", "video", "watch", "events", "help", "policies",
+      "privacy", "legal", "business", "ads", "home.php", "photo",
+      "photo.php", "story.php",
+    ]);
+    if (junk.has(first)) return null;
+    if (first === "profile.php") {
+      const id = u.searchParams.get("id");
+      return id && /^\d+$/.test(id)
+        ? `https://www.facebook.com/profile.php?id=${id}`
+        : null;
+    }
+    if (["pages", "people", "groups", "pg"].includes(first)) {
+      if (segs.length < 2) return null;
+      return `https://www.facebook.com/${segs.slice(0, 3).join("/")}`;
+    }
+    // Vanity page: the handle alone is the page.
+    return `https://www.facebook.com/${segs[0]}`;
+  }
+
+  if (host === "instagram.com") {
+    const junk = new Set([
+      "p", "reel", "reels", "tv", "stories", "explore", "accounts",
+      "embed", "embed.js", "share", "directory", "developer", "about",
+      "legal", "web", "static",
+    ]);
+    if (junk.has(first)) return null;
+    const handle = segs[0].replace(/[^A-Za-z0-9._]/g, "");
+    return handle ? `https://www.instagram.com/${handle}/` : null;
+  }
+
+  if (host === "linkedin.com") {
+    if (!["company", "in", "school", "showcase"].includes(first)) return null;
+    if (segs.length < 2) return null;
+    return `https://www.linkedin.com/${segs.slice(0, 2).join("/")}/`;
+  }
+
+  return null;
 }
 
 /**

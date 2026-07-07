@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
 import { dublinDate } from "@/lib/growth/dates";
 import { estimatedFirstYearValue } from "@/lib/growth/pricing";
-import { fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
+import { cleanSocialUrl, fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import {
   computeLeadScore,
@@ -511,15 +511,20 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     update.status = "research_complete";
   }
   // Contact details harvested from the company's own website fill any blank
-  // CRM fields — a human-entered value is never overwritten.
-  for (const key of [
-    "email",
-    "phone",
-    "instagram_url",
-    "facebook_url",
-    "linkedin_url",
-  ] as const) {
+  // CRM fields — a human-entered value is never overwritten. Social links
+  // are the exception: a saved link that fails cleanSocialUrl is machine
+  // junk (bare facebook.com, fbml tags, share links), so it's replaced
+  // with a fresh find or cleared rather than left as a dead DM target.
+  for (const key of ["email", "phone"] as const) {
     if (!prospect[key] && result.found[key]) update[key] = result.found[key];
+  }
+  for (const key of ["instagram_url", "facebook_url", "linkedin_url"] as const) {
+    const existingDead = prospect[key] && cleanSocialUrl(prospect[key]) === null;
+    if ((!prospect[key] || existingDead) && result.found[key]) {
+      update[key] = result.found[key];
+    } else if (existingDead) {
+      update[key] = null;
+    }
   }
   await admin.from("ge_prospects").update(update).eq("id", id);
 
@@ -600,15 +605,16 @@ export async function harvestOne(
   const site = await fetchWebsiteText(p.website);
   if (!site) return { ok: true, found: "site unreachable" };
 
-  const update: Record<string, string> = {};
-  for (const key of [
-    "email",
-    "phone",
-    "instagram_url",
-    "facebook_url",
-    "linkedin_url",
-  ] as const) {
+  const update: Record<string, string | null> = {};
+  for (const key of ["email", "phone"] as const) {
     if (!p[key] && site.found[key]) update[key] = site.found[key];
+  }
+  // Dead saved social links (bare domains, share links, fbml tags) get
+  // replaced with a fresh find or cleared — never left as dead DM targets.
+  for (const key of ["instagram_url", "facebook_url", "linkedin_url"] as const) {
+    const existingDead = p[key] && cleanSocialUrl(p[key]) === null;
+    if ((!p[key] || existingDead) && site.found[key]) update[key] = site.found[key];
+    else if (existingDead) update[key] = null;
   }
   if (Object.keys(update).length > 0) {
     const { error } = await admin.from("ge_prospects").update(update).eq("id", id);

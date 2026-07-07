@@ -5,6 +5,7 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendAutopilotEmail } from "@/lib/growth/autopilot";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { cleanSocialUrl } from "@/lib/growth/research";
 import { studioDraft } from "../inbox/actions";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
@@ -342,6 +343,12 @@ export async function askJarvis(
 
   const prospectLines = (prospects ?? [])
     .map((p) => {
+      // Junk social links saved by the old harvester (bare facebook.com,
+      // share buttons, fbml tags) are treated as absent — Jarvis must never
+      // hand out a dead DM target.
+      const ig = p.instagram_url ? cleanSocialUrl(p.instagram_url) : null;
+      const fb = p.facebook_url ? cleanSocialUrl(p.facebook_url) : null;
+      const li = p.linkedin_url ? cleanSocialUrl(p.linkedin_url) : null;
       const bits = [
         p.company,
         statusLabel(p.status),
@@ -353,10 +360,10 @@ export async function askJarvis(
         Number(p.pipeline_value) > 0 ? `value €${p.pipeline_value}` : null,
         p.phone ? `☎ ${p.phone}` : null,
         p.email ? `✉ ${p.email}` : null,
-        p.instagram_url ? `IG ${p.instagram_url}` : null,
-        p.facebook_url ? `FB ${p.facebook_url}` : null,
-        p.linkedin_url ? `LI ${p.linkedin_url}` : null,
-        !p.phone && !p.email && !p.instagram_url && !p.facebook_url && !p.linkedin_url
+        ig ? `IG ${ig}` : null,
+        fb ? `FB ${fb}` : null,
+        li ? `LI ${li}` : null,
+        !p.phone && !p.email && !ig && !fb && !li
           ? "no contact method on file"
           : null,
         p.notes ? `notes: ${String(p.notes).slice(0, 120)}` : null,

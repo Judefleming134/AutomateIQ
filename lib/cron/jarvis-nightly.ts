@@ -1,7 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthSettings } from "@/lib/growth/auth";
-import { fetchWebsiteText } from "@/lib/growth/research";
+import { cleanSocialUrl, fetchWebsiteText } from "@/lib/growth/research";
 import { draftStudioMessage } from "@/lib/growth/ai";
 import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
@@ -59,6 +59,51 @@ export async function runJarvisNightly(): Promise<{
     }
   } catch (err) {
     notes.push(`harvest error: ${err instanceof Error ? err.message : "unknown"}`);
+  }
+
+  // ---- Job 1b: repair dead social links (≤8 sites, zero AI) ----
+  // The old harvester saved junk (bare facebook.com, fbml tags, share
+  // links). Re-read those sites with the fixed harvester; replace or clear.
+  let socialsFixed = 0;
+  try {
+    const { data: withSocials } = await admin
+      .from("ge_prospects")
+      .select("id, company, website, instagram_url, facebook_url, linkedin_url")
+      .not("website", "is", null)
+      .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
+      .not("status", "in", ACTIVE_FILTER)
+      .limit(200);
+    const damaged = (withSocials ?? []).filter((p) =>
+      (["instagram_url", "facebook_url", "linkedin_url"] as const).some(
+        (k) => p[k] && cleanSocialUrl(p[k]) === null
+      )
+    );
+    for (const p of damaged.slice(0, 8)) {
+      const site = await fetchWebsiteText(p.website as string).catch(() => null);
+      const update: Record<string, string | null> = {};
+      const fixedKinds: string[] = [];
+      for (const key of ["instagram_url", "facebook_url", "linkedin_url"] as const) {
+        if (!p[key] || cleanSocialUrl(p[key]) !== null) continue;
+        const fresh = site?.found[key] ?? null;
+        update[key] = fresh;
+        fixedKinds.push(`${key.replace("_url", "")} ${fresh ? "replaced" : "cleared"}`);
+      }
+      if (fixedKinds.length === 0) continue;
+      const { error } = await admin.from("ge_prospects").update(update).eq("id", p.id);
+      if (error) continue;
+      socialsFixed += 1;
+      await admin.from("ge_activities").insert({
+        prospect_id: p.id,
+        type: "system",
+        content: `Jarvis nightly: repaired dead social links (${fixedKinds.join(", ")})`,
+        created_by: null,
+      });
+    }
+    if (damaged.length > 8) {
+      notes.push(`${damaged.length - 8} more dead social links queued for tomorrow's run`);
+    }
+  } catch (err) {
+    notes.push(`social-repair error: ${err instanceof Error ? err.message : "unknown"}`);
   }
 
   // ---- Job 2: repair outdated email drafts (≤4 rewrites, low effort) ----
@@ -130,7 +175,11 @@ export async function runJarvisNightly(): Promise<{
   return {
     harvested,
     rewritten,
-    detail:
-      [`harvested contacts for ${harvested}`, `rewrote ${rewritten} drafts`, ...notes].join("; "),
+    detail: [
+      `harvested contacts for ${harvested}`,
+      `repaired socials on ${socialsFixed}`,
+      `rewrote ${rewritten} drafts`,
+      ...notes,
+    ].join("; "),
   };
 }
