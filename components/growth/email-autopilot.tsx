@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Mail, Rocket, Clock, RefreshCw } from "lucide-react";
 import {
   autopilotAction,
@@ -37,6 +37,12 @@ export function EmailAutopilot({
     ) => Promise<ActionResult>,
     undefined
   );
+
+  const defaultTicked = candidates.filter((c) => !c.queued && !c.broken).length;
+  // Live count of ticked boxes so the buttons say exactly what they'll do
+  // ("Queue 20 for the 8am run"). Re-syncs when the list refreshes.
+  const [ticked, setTicked] = useState(defaultTicked);
+  useEffect(() => setTicked(defaultTicked), [defaultTicked, candidates.length]);
 
   if (candidates.length === 0 && queuedCount === 0) return null;
 
@@ -136,6 +142,9 @@ export function EmailAutopilot({
                     value={c.messageId}
                     defaultChecked={!c.queued && !c.broken}
                     onClick={(e) => e.stopPropagation()}
+                    onChange={(e) =>
+                      setTicked((n) => n + (e.currentTarget.checked ? 1 : -1))
+                    }
                     aria-label={`Include ${c.company}`}
                   />
                   <strong>{c.company}</strong>
@@ -171,18 +180,21 @@ export function EmailAutopilot({
               name="intent"
               value="send_now"
               className="btn btn-primary"
-              disabled={pending}
+              disabled={pending || ticked === 0}
             >
-              <Rocket size={14} /> {pending ? "Working…" : "Send ticked now"}
+              <Rocket size={14} />{" "}
+              {pending
+                ? "Working…"
+                : `Send ${ticked} email${ticked === 1 ? "" : "s"} now`}
             </button>
             <button
               type="submit"
               name="intent"
               value="queue"
               className="btn btn-secondary"
-              disabled={pending}
+              disabled={pending || ticked === 0}
             >
-              <Clock size={14} /> Queue for the 8am run
+              <Clock size={14} /> Queue {ticked} for the 8am run
             </button>
             {state?.error && (
               <span style={{ fontSize: 12, color: "var(--red, #f87171)" }}>{state.error}</span>
