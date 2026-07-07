@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/dispatch",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/nightly",
+      "schedule": "0 21 * * *"
     }
   ]
 }

@@ -85,6 +85,20 @@ export async function sendJarvisMorningBrief(): Promise<{
         .limit(10),
     ]);
 
+    // What Jarvis's 10pm nightly routine did while Jude slept.
+    const { data: nightlyActs } = await admin
+      .from("ge_activities")
+      .select("content, ge_prospects(company)")
+      .ilike("content", "Jarvis nightly:%")
+      .gte("created_at", since24h)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const nightlyLines = (nightlyActs ?? []).map((a) => {
+      const company =
+        (a.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+      return `• ${company} — ${String(a.content).replace(/^Jarvis nightly:\s*/i, "")}`;
+    });
+
     const statusLabel = (s: string) =>
       PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
     const companyOf = (row: { ge_prospects: unknown }) =>
@@ -142,6 +156,9 @@ export async function sendJarvisMorningBrief(): Promise<{
       plan,
       reminders.length
         ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
+        : "",
+      nightlyLines.length
+        ? `🔧 JARVIS'S OVERNIGHT ROUTINE (${nightlyLines.length})\n${nightlyLines.join("\n")}`
         : "",
       section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
       section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
