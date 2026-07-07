@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Download, Sparkles } from "lucide-react";
+import { Download, Search as SearchIcon, Sparkles } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
@@ -111,6 +111,28 @@ export default async function ProspectsPage({
             search, filter, add manually or import in bulk.
           </p>
         </div>
+        <form
+          method="get"
+          role="search"
+          aria-label="Search prospects"
+          style={{ display: "flex", gap: 8, alignItems: "center", flex: "1 1 260px", maxWidth: 420 }}
+        >
+          {status && <input type="hidden" name="status" value={status} />}
+          {industry && <input type="hidden" name="industry" value={industry} />}
+          {campaign && <input type="hidden" name="campaign" value={campaign} />}
+          {params.sort && <input type="hidden" name="sort" value={params.sort} />}
+          <input
+            type="search"
+            name="q"
+            defaultValue={params.q ?? ""}
+            placeholder="Search company, contact, email…"
+            aria-label="Search prospects"
+            style={{ flex: 1, margin: 0 }}
+          />
+          <button type="submit" className="btn btn-secondary">
+            <SearchIcon size={14} /> Search
+          </button>
+        </form>
         <a href="/growth/reports/export?type=prospects" className="btn btn-secondary">
           <Download size={14} /> Export CSV
         </a>
