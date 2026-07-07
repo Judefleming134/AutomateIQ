@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendReviewReminders } from "@/lib/cron/send-review-reminders";
 import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
+import { runQueuedEmailAutopilot } from "@/lib/growth/autopilot";
 
 /**
  * Single Vercel Cron entry, dispatching to every registered task. Adding
@@ -24,10 +25,12 @@ export async function GET(request: NextRequest) {
   }
 
   const reviewReminders = await sendReviewReminders();
+  // Autopilot fires BEFORE the brief so the 8am email reports what just went out.
+  const emailAutopilot = await runQueuedEmailAutopilot();
   const jarvisBrief = await sendJarvisMorningBrief();
 
   return NextResponse.json({
     ok: true,
-    tasks: { reviewReminders, jarvisBrief },
+    tasks: { reviewReminders, emailAutopilot, jarvisBrief },
   });
 }

@@ -16,6 +16,7 @@ import { MessageStudio, type StudioDraftRow } from "@/components/growth/message-
 import { CRITERIA } from "@/lib/growth/scoring";
 import { COMPLEXITY_META, sanitizeRecommendations } from "@/lib/growth/solutions";
 import { formatPrice } from "@/lib/growth/pricing";
+import { markdownToHtml } from "@/lib/growth/markdown";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
   PROSPECT_STATUSES,
@@ -697,6 +698,18 @@ export default async function ProspectWorkspacePage({
             </ActionForm>
           </section>
 
+          {/* Readable typography for the rendered proposal — the preview is
+              the primary view; raw Markdown lives in the editor below it. */}
+          <style>{`
+            .proposal-preview { font-size: 15px; line-height: 1.8; max-width: 760px; }
+            .proposal-preview h1 { font-size: 24px; line-height: 1.3; margin: 26px 0 10px; }
+            .proposal-preview h2 { font-size: 19px; line-height: 1.35; margin: 26px 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--line, rgba(255,255,255,.1)); }
+            .proposal-preview h3 { font-size: 16px; margin: 20px 0 6px; }
+            .proposal-preview p { margin: 0 0 14px; }
+            .proposal-preview ul, .proposal-preview ol { margin: 0 0 14px; padding-left: 24px; }
+            .proposal-preview li { margin-bottom: 6px; }
+            .proposal-editor textarea { min-height: 480px; font-size: 14px; line-height: 1.7; padding: 14px; }
+          `}</style>
           {(proposals ?? []).map((p) => (
             <section className="panel panel-block" style={{ marginTop: 16 }} key={p.id}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
@@ -714,18 +727,31 @@ export default async function ProspectWorkspacePage({
                   <Download size={13} /> Open print version
                 </a>
               </div>
-              <ActionForm action={saveProposal}>
-                <input type="hidden" name="proposal_id" value={p.id} />
-                <label htmlFor={`pp-title-${p.id}`}>Title</label>
-                <input id={`pp-title-${p.id}`} name="title" defaultValue={p.title} required maxLength={300} />
-                <label htmlFor={`pp-content-${p.id}`}>Content (Markdown)</label>
-                <textarea id={`pp-content-${p.id}`} name="content" rows={18} defaultValue={p.content} required maxLength={60000} />
-                <div className="form-actions">
-                  <SubmitButton className="btn btn-secondary btn-sm" pendingText="Saving…">
-                    Save changes
-                  </SubmitButton>
-                </div>
-              </ActionForm>
+
+              <h2 style={{ fontSize: 22, margin: "6px 0 14px" }}>{p.title}</h2>
+              <div
+                className="proposal-preview"
+                // Safe: markdownToHtml escapes all input before formatting.
+                dangerouslySetInnerHTML={{ __html: markdownToHtml(p.content) }}
+              />
+
+              <details className="proposal-editor" style={{ marginTop: 18 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+                  ✏️ Edit the text
+                </summary>
+                <ActionForm action={saveProposal} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="proposal_id" value={p.id} />
+                  <label htmlFor={`pp-title-${p.id}`}>Title</label>
+                  <input id={`pp-title-${p.id}`} name="title" defaultValue={p.title} required maxLength={300} />
+                  <label htmlFor={`pp-content-${p.id}`}>Content (Markdown — ## makes a section heading, - makes a bullet)</label>
+                  <textarea id={`pp-content-${p.id}`} name="content" rows={30} defaultValue={p.content} required maxLength={60000} />
+                  <div className="form-actions">
+                    <SubmitButton className="btn btn-secondary btn-sm" pendingText="Saving…">
+                      Save changes
+                    </SubmitButton>
+                  </div>
+                </ActionForm>
+              </details>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
                 {p.status !== "sent" && (
                   <>
