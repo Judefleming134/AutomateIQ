@@ -162,7 +162,7 @@ export default async function GrowthSettingsPage() {
 
       <section className="panel panel-block" style={{ marginTop: 20 }} aria-labelledby="st-pricing">
         <h2 className="panel-title" id="st-pricing">
-          Price book — founding-customer rates
+          Price book — founding-customer rates (first 10 customers only)
         </h2>
         <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
           The single source of every figure the engine shows or writes:

@@ -15,7 +15,7 @@ import { CopyButton } from "@/components/portal/copy-button";
 import { MessageStudio, type StudioDraftRow } from "@/components/growth/message-studio";
 import { CRITERIA } from "@/lib/growth/scoring";
 import { COMPLEXITY_META, sanitizeRecommendations } from "@/lib/growth/solutions";
-import { formatPrice } from "@/lib/growth/pricing";
+import { formatPrice, buildQuote, formatEuro, FOUNDING_OFFER } from "@/lib/growth/pricing";
 import { markdownToHtml } from "@/lib/growth/markdown";
 import type { ResearchReport } from "@/lib/growth/research";
 import {
@@ -344,6 +344,47 @@ export default async function ProspectWorkspacePage({
                     </SubmitButton>
                   </ActionForm>
                 </section>
+
+                {(() => {
+                  const quote = buildQuote(solutions);
+                  if (!quote) return null;
+                  const min = quote.hasFrom ? "from " : "";
+                  return (
+                    <section
+                      className="panel panel-block"
+                      style={{ marginTop: 16, borderLeft: "3px solid var(--green, #34d399)" }}
+                      aria-label="What to quote"
+                    >
+                      <h2 className="panel-title">💶 What to quote {prospect.company}</h2>
+                      <p style={{ fontSize: 20, margin: "4px 0 2px" }}>
+                        <strong>
+                          {min}
+                          {formatEuro(quote.setupTotal)} setup
+                          {quote.monthlyTotal > 0 ? ` + ${formatEuro(quote.monthlyTotal)}/month` : ""}
+                        </strong>
+                      </p>
+                      <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 8px" }}>
+                        {quote.lines.map((l) => l.name).join(" + ")} · first-year value{" "}
+                        {min}{formatEuro(quote.firstYear)}
+                      </p>
+                      <div style={{ fontSize: 13, display: "grid", gap: 3 }}>
+                        {quote.lines.map((l) => (
+                          <div key={l.key}>
+                            · {l.name}: {formatPrice(l.key)}
+                          </div>
+                        ))}
+                      </div>
+                      <p style={{ fontSize: 13, color: "var(--green, #34d399)", margin: "10px 0 0" }}>
+                        {FOUNDING_OFFER}
+                      </p>
+                      <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
+                        Say the monthly first, setup second. If they push on the
+                        setup fee, hold the monthly and stage the setup — never
+                        discount below the price book.
+                      </p>
+                    </section>
+                  );
+                })()}
 
                 {solutions.length > 0 && (
                   <section className="panel panel-block" style={{ marginTop: 16 }}>
