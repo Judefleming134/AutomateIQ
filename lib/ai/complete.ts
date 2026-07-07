@@ -21,17 +21,34 @@ import {
  * this switches the response to native JSON mode (far more reliable than
  * prompting alone); Claude follows the prompt instruction, so it's a no-op
  * there. Callers still parse defensively either way.
+ *
+ * Claude-only tuning (ignored on Gemini):
+ *   - effort: claude-sonnet-5 runs adaptive thinking at "high" effort when
+ *     unset — deep-reasoning depth that business generations don't need and
+ *     that multiplies latency. Callers state what the task deserves: "low"
+ *     for drafts/rewrites, "medium" for research and proposals.
+ *   - schema: a JSON Schema enforced server-side via structured outputs
+ *     (output_config.format), so the response is guaranteed valid JSON in
+ *     that shape — parse failures become impossible on Claude.
  */
 export async function aiComplete(
   system: string,
   prompt: string,
   maxTokens = 2048,
-  opts: { json?: boolean } = {}
+  opts: {
+    json?: boolean;
+    effort?: "low" | "medium" | "high";
+    schema?: Record<string, unknown>;
+  } = {}
 ): Promise<string> {
   const provider = resolveProvider();
   if (provider.kind === "none") throw new Error("NO_PROVIDER");
 
   if (provider.kind === "anthropic") {
+    const outputConfig: Record<string, unknown> = {};
+    if (opts.effort) outputConfig.effort = opts.effort;
+    if (opts.schema)
+      outputConfig.format = { type: "json_schema", schema: opts.schema };
     const res = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: "POST",
       headers: {
@@ -44,6 +61,9 @@ export async function aiComplete(
         max_tokens: maxTokens,
         system,
         messages: [{ role: "user", content: prompt }],
+        ...(Object.keys(outputConfig).length
+          ? { output_config: outputConfig }
+          : {}),
       }),
     });
     if (!res.ok) {

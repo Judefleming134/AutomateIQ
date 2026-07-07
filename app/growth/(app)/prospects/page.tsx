@@ -106,7 +106,10 @@ export default async function ProspectsPage({
         </a>
       </div>
 
-      <ResearchQueue pending={unresearched} />
+      <ResearchQueue
+        pending={unresearched}
+        claude={Boolean(process.env.ANTHROPIC_API_KEY)}
+      />
 
       <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>

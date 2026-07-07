@@ -40,6 +40,14 @@ export function resolveProvider(): Provider {
   return { kind: "none" };
 }
 
+/** Human-readable name of the engine currently answering AI calls. */
+export function activeEngineLabel(): string {
+  const p = resolveProvider();
+  if (p.kind === "anthropic") return `Claude (${CLAUDE_MODEL})`;
+  if (p.kind === "gemini") return `Gemini (${GEMINI_MODEL}, free tier)`;
+  return "none";
+}
+
 /** Shared "no key configured" message so every agent says the same thing. */
 export const NO_PROVIDER_MESSAGE =
   "AI isn't connected yet — add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in your environment settings.";

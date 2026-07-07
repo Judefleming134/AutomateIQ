@@ -468,7 +468,9 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   const { error: researchError } = await admin.from("ge_research").upsert(
     {
       prospect_id: id,
-      report: result.report,
+      // engine rides inside the report jsonb so the UI can show which model
+      // produced this research without a schema change.
+      report: { ...result.report, engine: result.engine },
       solutions: result.solutions,
       website_fetched: result.websiteFetched,
       created_by: member.id,

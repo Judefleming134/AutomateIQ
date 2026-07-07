@@ -315,6 +315,9 @@ export default async function ProspectWorkspacePage({
                     {research!.website_fetched
                       ? "Website analysed."
                       : "Website could not be read — this report is inferred from the recorded details and sector norms; treat specifics with extra care."}
+                    {(report as { engine?: string }).engine
+                      ? ` Researched by ${(report as { engine?: string }).engine}.`
+                      : ""}
                   </p>
                   <p style={{ fontSize: 15 }}>{report.overview}</p>
                   <div className="table-wrap" style={{ marginTop: 10 }}>
