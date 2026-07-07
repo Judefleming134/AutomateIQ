@@ -53,6 +53,37 @@ function speak(text: string) {
   window.speechSynthesis.speak(u);
 }
 
+/** Renders message text with URLs as real tappable links (new tab). */
+function TextWithLinks({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s<>"']+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!/^https?:\/\//.test(part)) return part;
+        // Trailing punctuation belongs to the sentence, not the URL.
+        const m = /^(.*?)([.,;:!?)]*)$/.exec(part)!;
+        return (
+          <span key={i}>
+            <a
+              href={m[1]}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--ac2, #3b82f6)",
+                textDecoration: "underline",
+                wordBreak: "break-all",
+              }}
+            >
+              {m[1]}
+            </a>
+            {m[2]}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 const STARTERS = [
   "Who should I contact first today and why?",
   "Give me my plan for today, in order.",
@@ -220,7 +251,7 @@ export function JarvisChat() {
                     : "1px solid var(--line, rgba(255,255,255,.08))",
               }}
             >
-              {t.text}
+              <TextWithLinks text={t.text} />
             </div>
           ))}
           {pending && (
