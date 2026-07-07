@@ -142,9 +142,16 @@ export function EmailAutopilot({
                     value={c.messageId}
                     defaultChecked={!c.queued && !c.broken}
                     onClick={(e) => e.stopPropagation()}
-                    onChange={(e) =>
-                      setTicked((n) => n + (e.currentTarget.checked ? 1 : -1))
-                    }
+                    onChange={(e) => {
+                      // Recount from the form itself — no arithmetic to
+                      // drift, and no touching the event after dispatch
+                      // (reading it inside a deferred state updater was
+                      // crashing after rapid unticks).
+                      const form = e.currentTarget.form;
+                      if (form) {
+                        setTicked(new FormData(form).getAll("message_id").length);
+                      }
+                    }}
                     aria-label={`Include ${c.company}`}
                   />
                   <strong>{c.company}</strong>
