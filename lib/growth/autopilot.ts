@@ -4,6 +4,7 @@ import {
   sendOutreachEmail,
   sanitizeOutreachBody,
   draftLooksBroken,
+  reviewOutreachEmail,
 } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
 
@@ -116,15 +117,19 @@ export async function sendAutopilotEmail(params: {
     return { ok: false, company: prospect?.company ?? "unknown", error: "No email address on file." };
   }
 
-  // Hard gate: an outdated draft (placeholder / invented sender) is left
-  // untouched as a draft — never sent, never marked failed. Regenerating it
-  // in the Studio produces a clean one under the current identity rules.
-  const broken = draftLooksBroken(sanitizeOutreachBody(message.body));
-  if (broken) {
+  // Hard gate: the full editorial review runs on every unattended send —
+  // identity, length, subject quality, links. A held draft stays a draft
+  // (never sent, never marked failed); regenerating in the Studio produces
+  // a clean one under current rules.
+  const held = reviewOutreachEmail({
+    subject: message.subject || `question about ${prospect.company}`,
+    body: sanitizeOutreachBody(message.body),
+  });
+  if (held) {
     return {
       ok: false,
       company: prospect.company,
-      error: `old draft (${broken}) — regenerate it in the Studio first`,
+      error: `held, not sent (${held}) — fix or regenerate in the Studio`,
     };
   }
 
@@ -173,7 +178,7 @@ export async function runQueuedEmailAutopilot(): Promise<{
 
   const { data: queued } = await admin
     .from("ge_messages")
-    .select("id, scheduled_at")
+    .select("id, prospect_id, body, scheduled_at, ge_prospects(company)")
     .eq("channel", "email")
     .eq("direction", "outbound")
     .eq("status", "queued")
@@ -182,16 +187,49 @@ export async function runQueuedEmailAutopilot(): Promise<{
   const now = new Date().toISOString();
   const due = (queued ?? []).filter((m) => !m.scheduled_at || m.scheduled_at <= now);
 
+  // Cross-contamination check: an email whose body names ANOTHER company in
+  // this batch but not its own prospect is a mis-merged draft — held.
+  const companyOf = (m: (typeof due)[number]) =>
+    (m.ge_prospects as { company?: string } | null)?.company ?? "";
+  const batchCompanies = due
+    .map(companyOf)
+    .filter((c) => c.length >= 4);
+
   let sent = 0;
   const failures: string[] = [];
   for (const m of due) {
-    const res = await sendAutopilotEmail({
-      messageId: m.id,
-      senderName: `${owner.name} (Jarvis autopilot)`,
-      senderId: owner.id,
-    });
-    if (res.ok) sent += 1;
-    else failures.push(`${res.company}: ${res.error}`);
+    const own = companyOf(m);
+    const body = (m.body ?? "").toLowerCase();
+    const foreign = batchCompanies.find(
+      (c) => c !== own && body.includes(c.toLowerCase())
+    );
+    let result: { ok: boolean; company: string; error?: string };
+    if (foreign && own && !body.includes(own.toLowerCase())) {
+      result = {
+        ok: false,
+        company: own,
+        error: `held, not sent (mentions "${foreign}" instead of ${own})`,
+      };
+    } else {
+      const res = await sendAutopilotEmail({
+        messageId: m.id,
+        senderName: `${owner.name} (Jarvis autopilot)`,
+        senderId: owner.id,
+      });
+      result = res.ok ? { ok: true, company: res.company } : { ok: false, company: res.company, error: res.error };
+    }
+    if (result.ok) {
+      sent += 1;
+    } else {
+      failures.push(`${result.company}: ${result.error}`);
+      // Surface every held email in the morning brief's routine section.
+      await admin.from("ge_activities").insert({
+        prospect_id: m.prospect_id,
+        type: "system",
+        content: `Jarvis nightly: ${result.error}`,
+        created_by: null,
+      });
+    }
     await new Promise((r) => setTimeout(r, 600));
   }
   return {

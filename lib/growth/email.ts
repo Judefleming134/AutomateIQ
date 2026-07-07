@@ -33,6 +33,32 @@ export function sanitizeOutreachBody(body: string): string {
     .trim();
 }
 
+/**
+ * The full pre-send review an unattended email must pass — the same
+ * checklist a human editor would run, in code, so the 8am autopilot sends
+ * nothing that hasn't been "reviewed". Returns the hold reason or null.
+ */
+export function reviewOutreachEmail(input: {
+  subject: string;
+  body: string;
+}): string | null {
+  const broken = draftLooksBroken(input.body);
+  if (broken) return broken;
+  const words = input.body.trim().split(/\s+/).length;
+  if (words < 25) return "body suspiciously short for a first touch";
+  if (words > 350) return "body far too long for cold outreach";
+  if (input.subject.trim().length === 0) return "empty subject";
+  if (input.subject.length > 78) return "subject too long — will truncate badly";
+  if (/\bfree\b|!{2,}|100%|guarante|act now|limited time/i.test(input.subject)) {
+    return "spam-trigger subject";
+  }
+  const links = input.body.match(/https?:\/\/[^\s)>"']+/gi) ?? [];
+  if (links.some((l) => !/automateiq\.ie/i.test(l))) {
+    return "contains a link to a non-AutomateIQ site";
+  }
+  return null;
+}
+
 /** Returns the reason a draft must NOT be auto-sent, or null if it's clean. */
 export function draftLooksBroken(body: string): string | null {
   if (/\[[^\]\n]{2,40}\]/.test(body)) return "still contains a [placeholder]";
