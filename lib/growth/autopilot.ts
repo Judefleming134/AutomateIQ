@@ -178,14 +178,25 @@ export async function runQueuedEmailAutopilot(): Promise<{
 
   const { data: queued } = await admin
     .from("ge_messages")
-    .select("id, prospect_id, body, scheduled_at, ge_prospects(company)")
+    .select("id, prospect_id, body, scheduled_at, ge_prospects(company, lead_score)")
     .eq("channel", "email")
     .eq("direction", "outbound")
     .eq("status", "queued")
     .order("created_at")
     .limit(50);
   const now = new Date().toISOString();
-  const due = (queued ?? []).filter((m) => !m.scheduled_at || m.scheduled_at <= now);
+  // Cap the morning batch: keeps the whole dispatch (reminders + sends +
+  // brief) safely inside the 60s function budget and inside sensible daily
+  // volume for a young domain — anything beyond the cap simply goes
+  // tomorrow. Best lead scores send first.
+  const due = (queued ?? [])
+    .filter((m) => !m.scheduled_at || m.scheduled_at <= now)
+    .sort(
+      (a, b) =>
+        Number((b.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0) -
+        Number((a.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0)
+    )
+    .slice(0, 30);
 
   // Cross-contamination check: an email whose body names ANOTHER company in
   // this batch but not its own prospect is a mis-merged draft — held.
@@ -230,7 +241,9 @@ export async function runQueuedEmailAutopilot(): Promise<{
         created_by: null,
       });
     }
-    await new Promise((r) => setTimeout(r, 600));
+    // Pacing: stays under the email provider's 2 req/s while keeping a
+    // 30-email batch + the brief inside the function budget.
+    await new Promise((r) => setTimeout(r, 350));
   }
   return {
     sent,

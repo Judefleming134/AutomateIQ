@@ -18,16 +18,26 @@ import { runQueuedEmailAutopilot } from "@/lib/growth/autopilot";
 // default function budget.
 export const maxDuration = 60;
 
+/** One task blowing up must never take the others down with it. */
+async function isolated<T>(name: string, task: () => Promise<T>): Promise<T | { error: string }> {
+  try {
+    return await task();
+  } catch (err) {
+    console.error(`cron task ${name} threw:`, err);
+    return { error: err instanceof Error ? err.message : "unknown" };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const reviewReminders = await sendReviewReminders();
+  const reviewReminders = await isolated("reviewReminders", sendReviewReminders);
   // Autopilot fires BEFORE the brief so the 8am email reports what just went out.
-  const emailAutopilot = await runQueuedEmailAutopilot();
-  const jarvisBrief = await sendJarvisMorningBrief();
+  const emailAutopilot = await isolated("emailAutopilot", runQueuedEmailAutopilot);
+  const jarvisBrief = await isolated("jarvisBrief", sendJarvisMorningBrief);
 
   return NextResponse.json({
     ok: true,
