@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState } from "react";
-import { Mail, Rocket, Clock } from "lucide-react";
+import { Mail, Rocket, Clock, RefreshCw } from "lucide-react";
 import {
   autopilotAction,
+  regenerateFlaggedDrafts,
 } from "@/app/growth/(app)/jarvis/actions";
 import type { AutopilotCandidate } from "@/lib/growth/autopilot";
 
@@ -29,8 +30,17 @@ export function EmailAutopilot({
     ) => Promise<ActionResult>,
     undefined
   );
+  const [regenState, regenAction, regenPending] = useActionState(
+    regenerateFlaggedDrafts as (
+      prev: ActionResult,
+      formData: FormData
+    ) => Promise<ActionResult>,
+    undefined
+  );
 
   if (candidates.length === 0 && queuedCount === 0) return null;
+
+  const flagged = candidates.filter((c) => c.broken);
 
   return (
     <section
@@ -47,6 +57,31 @@ export function EmailAutopilot({
           email{queuedCount === 1 ? "" : "s"} queued — they go out
           automatically on the 8am run.
         </p>
+      )}
+
+      {flagged.length > 0 && (
+        <form
+          action={regenAction}
+          style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}
+        >
+          {flagged.slice(0, 12).map((c) => (
+            <input key={c.messageId} type="hidden" name="message_id" value={c.messageId} />
+          ))}
+          <button type="submit" className="btn btn-secondary" disabled={regenPending}>
+            <RefreshCw size={14} />{" "}
+            {regenPending
+              ? `Jarvis is rewriting ${Math.min(flagged.length, 12)} drafts…`
+              : `Fix ${Math.min(flagged.length, 12)} flagged draft${flagged.length === 1 ? "" : "s"} automatically`}
+          </button>
+          {regenState?.error && (
+            <span style={{ fontSize: 12, color: "var(--orange, #fb923c)" }}>{regenState.error}</span>
+          )}
+          {regenState?.ok && !regenPending && (
+            <span style={{ fontSize: 12, color: "var(--green, #34d399)" }}>
+              ✓ All rewritten under the new rules — review and queue
+            </span>
+          )}
+        </form>
       )}
 
       {candidates.length > 0 && (

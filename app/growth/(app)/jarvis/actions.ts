@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendAutopilotEmail } from "@/lib/growth/autopilot";
+import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { studioDraft } from "../inbox/actions";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
@@ -18,6 +20,210 @@ import {
 export type JarvisTurn = { role: "user" | "jarvis"; text: string };
 
 type ActionResult = { ok?: boolean; error?: string } | undefined;
+
+/** Structured response Jarvis returns: what to say + what to do. */
+const JARVIS_SCHEMA = {
+  type: "object",
+  properties: {
+    reply: { type: "string" },
+    actions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          type: { type: "string" },
+          company: { type: "string" },
+          value: { type: "string" },
+        },
+        required: ["type", "company", "value"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["reply", "actions"],
+  additionalProperties: false,
+} as const;
+
+type JarvisAction = { type: string; company: string; value: string };
+
+/** Finds the latest re-usable outbound email draft for a prospect. */
+async function latestEmailDraft(
+  admin: ReturnType<typeof createAdminClient>,
+  prospectId: string
+) {
+  const { data } = await admin
+    .from("ge_messages")
+    .select("id, status, body")
+    .eq("prospect_id", prospectId)
+    .eq("channel", "email")
+    .eq("direction", "outbound")
+    .in("status", ["draft", "queued", "failed"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+/**
+ * Executes ONE whitelisted Jarvis action and returns a human-readable
+ * result line. Deliberately narrow: Jarvis can prep and organise (rewrite
+ * drafts, queue for the 8am run, notes, follow-up dates) but actual
+ * sending stays with the autopilot's human-visible triggers.
+ */
+async function runJarvisAction(
+  admin: ReturnType<typeof createAdminClient>,
+  memberId: string,
+  a: JarvisAction
+): Promise<string> {
+  const companyQuery = a.company.trim().replace(/[%_]/g, "");
+  if (!companyQuery) return `✗ ${a.type}: no company given`;
+  const { data: prospect } = await admin
+    .from("ge_prospects")
+    .select("id, company, notes")
+    .ilike("company", companyQuery)
+    .limit(1)
+    .maybeSingle();
+  if (!prospect) return `✗ ${a.company}: not found in the CRM`;
+
+  switch (a.type) {
+    case "regenerate_email": {
+      const draft = await latestEmailDraft(admin, prospect.id);
+      if (!draft) return `✗ ${prospect.company}: no email draft to rewrite`;
+      const res = await studioDraft({
+        prospectId: prospect.id,
+        channel: "email",
+        purpose: "first",
+        tone: "professional",
+      });
+      if (!res.ok) return `✗ ${prospect.company}: ${res.error}`;
+      const clean = sanitizeOutreachBody(res.body);
+      const broken = draftLooksBroken(clean);
+      if (broken) return `✗ ${prospect.company}: rewrite still ${broken} — needs the Studio`;
+      await admin
+        .from("ge_messages")
+        .update({
+          subject: res.subject,
+          body: clean,
+          tone: "professional",
+          ...(draft.status === "failed" ? { status: "draft" } : {}),
+        })
+        .eq("id", draft.id);
+      return `✓ ${prospect.company}: email draft rewritten`;
+    }
+    case "queue_email": {
+      const draft = await latestEmailDraft(admin, prospect.id);
+      if (!draft) return `✗ ${prospect.company}: no email draft to queue`;
+      const broken = draftLooksBroken(sanitizeOutreachBody(draft.body));
+      if (broken) return `✗ ${prospect.company}: draft is ${broken} — regenerate first`;
+      await admin.from("ge_messages").update({ status: "queued" }).eq("id", draft.id);
+      return `✓ ${prospect.company}: queued for the 8am send`;
+    }
+    case "add_note": {
+      const note = a.value.trim().slice(0, 1000);
+      if (!note) return `✗ ${prospect.company}: empty note`;
+      const merged = prospect.notes ? `${prospect.notes}\n${note}` : note;
+      await admin
+        .from("ge_prospects")
+        .update({ notes: merged.slice(0, 4000) })
+        .eq("id", prospect.id);
+      await admin.from("ge_activities").insert({
+        prospect_id: prospect.id,
+        type: "system",
+        content: `Note added via Jarvis: ${note}`,
+        created_by: memberId,
+      });
+      return `✓ ${prospect.company}: note saved`;
+    }
+    case "set_follow_up": {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(a.value)) {
+        return `✗ ${prospect.company}: follow-up date must be YYYY-MM-DD`;
+      }
+      await admin
+        .from("ge_prospects")
+        .update({ next_follow_up_at: a.value })
+        .eq("id", prospect.id);
+      return `✓ ${prospect.company}: follow-up set for ${a.value}`;
+    }
+    default:
+      return `✗ ${a.type}: not something I can do`;
+  }
+}
+
+/**
+ * Jarvis fixes its own flagged drafts: rewrites each old placeholder /
+ * invented-name email with the Studio drafting pipeline (current identity
+ * rules, catchy-subject rules, price book) and updates the draft in place.
+ * Anything that still fails the safety check after regeneration is reported
+ * for a manual pass — never silently sent.
+ */
+export async function regenerateFlaggedDrafts(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  await requireGrowth();
+  const ids = formData
+    .getAll("message_id")
+    .map(String)
+    .filter(Boolean)
+    .slice(0, 12);
+  if (ids.length === 0) return { error: "No flagged drafts to regenerate." };
+
+  const admin = createAdminClient();
+  let fixed = 0;
+  const failures: string[] = [];
+  for (const id of ids) {
+    const { data: msg } = await admin
+      .from("ge_messages")
+      .select("id, prospect_id, status, direction, channel, ge_prospects(company)")
+      .eq("id", id)
+      .maybeSingle();
+    if (
+      !msg ||
+      msg.direction !== "outbound" ||
+      msg.channel !== "email" ||
+      !["draft", "queued", "failed"].includes(msg.status)
+    ) {
+      continue;
+    }
+    const company =
+      (msg.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+    const res = await studioDraft({
+      prospectId: msg.prospect_id,
+      channel: "email",
+      purpose: "first",
+      tone: "professional",
+    });
+    if (!res.ok) {
+      failures.push(`${company}: ${res.error}`);
+      continue;
+    }
+    const clean = sanitizeOutreachBody(res.body);
+    const stillBroken = draftLooksBroken(clean);
+    if (stillBroken) {
+      failures.push(`${company}: rewrite still ${stillBroken} — do this one in the Studio`);
+      continue;
+    }
+    await admin
+      .from("ge_messages")
+      .update({
+        subject: res.subject,
+        body: clean,
+        tone: "professional",
+        ...(msg.status === "failed" ? { status: "draft" } : {}),
+      })
+      .eq("id", id);
+    fixed += 1;
+  }
+
+  revalidatePath("/growth/jarvis");
+  revalidatePath("/growth/inbox");
+  if (failures.length > 0) {
+    return {
+      error: `Rewrote ${fixed}/${ids.length}. Still needs you: ${failures.join("; ").slice(0, 350)}`,
+    };
+  }
+  return { ok: true };
+}
 
 /**
  * Email autopilot controls. Two intents from the panel's submit buttons:
@@ -98,7 +304,7 @@ export async function askJarvis(
   history: JarvisTurn[],
   question: string
 ): Promise<JarvisResult> {
-  await requireGrowth();
+  const { member } = await requireGrowth();
   const q = (question ?? "").trim().slice(0, 2000);
   if (!q) return { ok: false, error: "Ask me something." };
 
@@ -183,7 +389,12 @@ export async function askJarvis(
     "- Money figures may ONLY come from the price book below. Never make up a price. When asked what to quote a company, package its top 1-2 recommended solutions: setup total + monthly total, framed as the founding offer (first 10 customers only, then rates rise).",
     "- When asked what to do, give a concrete ordered action list referencing real prospects (who to call/DM/email and why), not generic advice. Include the actual phone number / email / social link from the snapshot next to each name so Jude can act without opening another screen.",
     "- Channels: email sends from the platform; Instagram/Facebook/LinkedIn DMs and phone calls are done by Jude personally — the engine preps drafts and call scripts. Never claim to have sent anything yourself.",
-    "- You cannot change data. To act, point Jude at the right place: a prospect's workspace (Research/Studio/Proposal tabs), the Prospects list, or the Inbox.",
+    "- YOU CAN ACT. When Jude asks you to do something, put it in the `actions` array (empty array when he's only asking a question). Action types, exactly these strings:",
+    "  · regenerate_email — rewrite that prospect's email draft under current rules (value: empty string)",
+    "  · queue_email — queue that prospect's clean email draft for the 8am autopilot send (value: empty string)",
+    "  · add_note — save a note on the prospect (value: the note text)",
+    "  · set_follow_up — set the follow-up date (value: YYYY-MM-DD)",
+    "- Action rules: `company` must be copied EXACTLY from the snapshot; maximum 8 actions per turn; in `reply`, say plainly what you're doing. Actual sending is never yours — queueing is as far as you go; DMs/calls/mark-sent stay with Jude in the app.",
     "",
     "PRICE BOOK (founding-customer rates — the only figures permitted):",
     ...pricingLines(SOLUTION_CATALOG.map((s) => s.key)),
@@ -221,14 +432,52 @@ export async function askJarvis(
     convo ? `CONVERSATION SO FAR:\n${convo}\n` : "",
     `JUDE'S QUESTION: ${q}`,
     "",
-    "Answer as Jarvis. Plain text (no markdown headings), tight paragraphs or short dashed lists.",
+    "Respond as JSON: {\"reply\": \"...\", \"actions\": [...]}. The reply is plain text (no markdown headings), tight paragraphs or short dashed lists.",
   ]
     .filter(Boolean)
     .join("\n");
 
   try {
-    const answer = (await aiComplete(system, prompt, 1200, { effort: "low" })).trim();
-    return { ok: true, answer };
+    const raw = (
+      await aiComplete(system, prompt, 1500, {
+        json: true,
+        effort: "low",
+        schema: JARVIS_SCHEMA as unknown as Record<string, unknown>,
+      })
+    ).trim();
+
+    // Parse the structured response; if parsing fails, treat the whole
+    // output as a plain reply so the chat degrades gracefully.
+    let reply = raw;
+    let actions: JarvisAction[] = [];
+    try {
+      const stripped = raw.replace(/```json|```/g, "").trim();
+      const start = stripped.indexOf("{");
+      const end = stripped.lastIndexOf("}");
+      const parsed = JSON.parse(stripped.slice(start, end + 1)) as {
+        reply?: string;
+        actions?: JarvisAction[];
+      };
+      if (typeof parsed.reply === "string" && parsed.reply.trim()) {
+        reply = parsed.reply.trim();
+        actions = Array.isArray(parsed.actions) ? parsed.actions.slice(0, 8) : [];
+      }
+    } catch {
+      // keep raw as reply
+    }
+
+    if (actions.length > 0) {
+      const results: string[] = [];
+      for (const a of actions) {
+        results.push(await runJarvisAction(admin, member.id, a));
+      }
+      revalidatePath("/growth/jarvis");
+      revalidatePath("/growth/prospects");
+      revalidatePath("/growth/inbox");
+      reply = `${reply}\n\n⚙️ ${results.join("\n")}`;
+    }
+
+    return { ok: true, answer: reply };
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "NO_PROVIDER") return { ok: false, error: NO_PROVIDER_MESSAGE };
