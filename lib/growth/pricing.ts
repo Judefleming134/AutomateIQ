@@ -72,3 +72,55 @@ export function pricingLines(keys: string[]): string[] {
     })
     .filter((l): l is string => l !== null);
 }
+
+/**
+ * The founding offer, stated once so every screen and prompt says the same
+ * thing: price-book rates locked for the first 10 customers.
+ */
+export const FOUNDING_OFFER =
+  "Founding offer — these rates are locked in for our first 10 customers only, then they rise.";
+
+export type Quote = {
+  lines: { key: string; name: string; setup: number; monthly: number; from: boolean }[];
+  setupTotal: number;
+  monthlyTotal: number;
+  firstYear: number;
+  /** True when any line is "from" pricing — totals are minimums. */
+  hasFrom: boolean;
+};
+
+/**
+ * THE quote for a company: its top two priced recommendations packaged into
+ * one figure to say out loud — setup total, monthly total, first-year value.
+ * Deterministic price-book maths (matches estimatedFirstYearValue), so the
+ * quote can never contradict the pipeline number or the proposal.
+ */
+export function buildQuote(
+  recommendations: { key: string; name: string }[]
+): Quote | null {
+  const lines = recommendations
+    .filter((r) => PRICE_BOOK[r.key])
+    .slice(0, 2)
+    .map((r) => {
+      const p = PRICE_BOOK[r.key];
+      return {
+        key: r.key,
+        name: r.name,
+        setup: p.setup,
+        monthly: p.monthly,
+        from: Boolean(p.from),
+      };
+    });
+  if (lines.length === 0) return null;
+  const setupTotal = lines.reduce((s, l) => s + l.setup, 0);
+  const monthlyTotal = lines.reduce((s, l) => s + l.monthly, 0);
+  return {
+    lines,
+    setupTotal,
+    monthlyTotal,
+    firstYear: setupTotal + monthlyTotal * 12,
+    hasFrom: lines.some((l) => l.from),
+  };
+}
+
+export const formatEuro = euro;

@@ -24,7 +24,7 @@ export async function generateProposalMarkdown(
     "HARD RULES:",
     "- Ground everything in the provided research and notes. Never invent client names, revenue figures or specifics. Where a detail must be confirmed, write it as a bracketed placeholder like [confirm current call volume].",
     "- All operational-benefit statements are ILLUSTRATIVE estimates, clearly framed as such — never guarantees.",
-    "- PRICING: use ONLY the founding-customer rates in the PRICE BOOK lines below — never any other figure. Present them as an 'Investment' line per recommended solution, framed as founding-customer rates locked for the first year and subject to final scope. If no price book lines are provided, do not mention money at all.",
+    "- PRICING: use ONLY the founding-customer rates in the PRICE BOOK lines below — never any other figure. Present them as an 'Investment' line per recommended solution, framed as founding-customer rates: available to AutomateIQ's first 10 customers only, locked for the first year, subject to final scope. If no price book lines are provided, do not mention money at all.",
     "Output ONLY the proposal as clean Markdown. Use ## for section headings.",
   ].join("\n");
 
