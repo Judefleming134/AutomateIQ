@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
 import { dublinDate } from "@/lib/growth/dates";
 import { estimatedFirstYearValue } from "@/lib/growth/pricing";
-import { runCompanyResearch } from "@/lib/growth/research";
+import { fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import {
   computeLeadScore,
@@ -576,6 +576,52 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   revalidatePath("/growth/prospects");
   revalidatePath("/growth");
   return { ok: true };
+}
+
+/**
+ * Contact harvest for ONE prospect: reads their website and fills any blank
+ * email/phone/social fields — no AI call, so it costs nothing and takes a
+ * couple of seconds. Driven in a loop by the ContactHarvest queue on the
+ * prospects page to backfill leads researched before harvesting existed.
+ */
+export async function harvestOne(
+  id: string
+): Promise<{ ok: true; found: string } | { ok: false; error: string }> {
+  await requireGrowth();
+  const admin = createAdminClient();
+  const { data: p } = await admin
+    .from("ge_prospects")
+    .select("id, website, email, phone, instagram_url, facebook_url, linkedin_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (!p) return { ok: false, error: "Prospect not found." };
+  if (!p.website) return { ok: false, error: "No website on file." };
+
+  const site = await fetchWebsiteText(p.website);
+  if (!site) return { ok: true, found: "site unreachable" };
+
+  const update: Record<string, string> = {};
+  for (const key of [
+    "email",
+    "phone",
+    "instagram_url",
+    "facebook_url",
+    "linkedin_url",
+  ] as const) {
+    if (!p[key] && site.found[key]) update[key] = site.found[key];
+  }
+  if (Object.keys(update).length > 0) {
+    const { error } = await admin.from("ge_prospects").update(update).eq("id", id);
+    if (error) return { ok: false, error: error.message };
+    revalidatePath(`/growth/prospects/${id}`);
+  }
+  return {
+    ok: true,
+    found:
+      Object.keys(update)
+        .map((k) => k.replace("_url", ""))
+        .join(", ") || "nothing new on the site",
+  };
 }
 
 /**
