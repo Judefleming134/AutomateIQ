@@ -349,9 +349,17 @@ export default async function ProspectsPage({
 
       {rows.length === 0 ? (
         <div className="panel panel-block">
-          <p className="empty-state">
-            No prospects found. Add one above or adjust the filters.
-          </p>
+          {q || status || industry || campaign ? (
+            <p className="empty-state">
+              No prospects match your search or filters.{" "}
+              <Link href="/growth/prospects">Clear them</Link> to see your whole
+              list.
+            </p>
+          ) : (
+            <p className="empty-state">
+              No prospects yet. Add one above, or import a CSV to get started.
+            </p>
+          )}
         </div>
       ) : (
         <>
