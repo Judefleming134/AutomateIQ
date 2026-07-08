@@ -599,6 +599,7 @@ export default async function ProspectWorkspacePage({
             <MessageStudio
               prospectId={prospect.id}
               prospectEmail={prospect.email}
+              prospectPhone={prospect.phone}
               defaultChannel={defaultChannel}
               savedDrafts={studioDrafts}
             />
