@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyGrowthTeam } from "@/lib/growth/email";
+import { dublinLocalToUtcISO } from "@/lib/growth/dates";
 
 type Result = { ok?: boolean; error?: string } | undefined;
 
@@ -32,8 +33,10 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
   const scheduledAtRaw = String(formData.get("scheduled_at") ?? "");
   const notes = String(formData.get("notes") ?? "").trim() || null;
   if (!prospectId) return { error: "Pick a prospect." };
-  const scheduledAt = new Date(scheduledAtRaw);
-  if (Number.isNaN(scheduledAt.getTime())) return { error: "Pick a valid date and time." };
+  // The datetime-local value is IRISH wall-clock time; anchor it to Dublin
+  // so 14:00 stored is 14:00 shown (not +1h from the server reading UTC).
+  const scheduledIso = dublinLocalToUtcISO(scheduledAtRaw);
+  if (!scheduledIso) return { error: "Pick a valid date and time." };
 
   const admin = createAdminClient();
   const { data: prospect } = await admin
@@ -45,7 +48,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
 
   const { error } = await admin.from("ge_meetings").insert({
     prospect_id: prospectId,
-    scheduled_at: scheduledAt.toISOString(),
+    scheduled_at: scheduledIso,
     notes,
   });
   if (error) return { error: error.message };
@@ -54,7 +57,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
   await admin.from("ge_activities").insert({
     prospect_id: prospectId,
     type: "meeting",
-    content: `Meeting booked for ${scheduledAt.toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} by ${member.name}`,
+    content: `Meeting booked for ${new Date(scheduledIso).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} by ${member.name}`,
     created_by: member.id,
   });
 
@@ -65,7 +68,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
     "",
     `Company: ${prospect.company}`,
     `Contact: ${prospect.contact_name}${prospect.email ? ` (${prospect.email})` : ""}`,
-    `When: ${scheduledAt.toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
+    `When: ${new Date(scheduledIso).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
     notes ? `Notes: ${notes}` : "",
   ].filter(Boolean));
 
