@@ -28,27 +28,31 @@ export default async function GrowthLayout({
   // membership itself via requireGrowth() (same doctrine as /admin).
   const { member } = await requireGrowth();
 
+  // Same pages, same labels — just grouped and ordered around the daily
+  // path (Jarvis first, then work the leads), so the everyday items sit at
+  // the top. Nothing removed or renamed.
   const sections: NavSection[] = [
     {
+      label: "Every day",
       items: [
-        { href: "/growth", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/growth/jarvis", label: "Jarvis", icon: <Bot /> },
+        { href: "/growth", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/growth/prospects", label: "Prospects", icon: <Users /> },
-        { href: "/growth/campaigns", label: "Campaigns", icon: <Megaphone /> },
         { href: "/growth/inbox", label: "Inbox", icon: <Inbox /> },
+      ],
+    },
+    {
+      label: "Pipeline",
+      items: [
+        { href: "/growth/campaigns", label: "Campaigns", icon: <Megaphone /> },
         { href: "/growth/meetings", label: "Meetings", icon: <CalendarClock /> },
       ],
     },
     {
-      label: "Insight",
+      label: "Insight & setup",
       items: [
         { href: "/growth/analytics", label: "Analytics", icon: <BarChart3 /> },
         { href: "/growth/reports", label: "Reports", icon: <FileText /> },
-      ],
-    },
-    {
-      label: "Workspace",
-      items: [
         { href: "/growth/settings", label: "Settings", icon: <Settings /> },
       ],
     },
