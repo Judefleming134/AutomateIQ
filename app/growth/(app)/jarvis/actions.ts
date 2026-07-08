@@ -312,8 +312,14 @@ export async function askJarvis(
   const admin = createAdminClient();
   const today = dublinDate();
 
-  const [metrics, week, { data: prospects }, { data: inbound }, { data: meetings }] =
-    await Promise.all([
+  const [
+    metrics,
+    week,
+    { data: prospects },
+    { data: inbound },
+    { data: meetings },
+    { data: deliveryEvents },
+  ] = await Promise.all([
       loadGrowthMetrics(admin, null),
       loadGrowthMetrics(admin, 7),
       admin
@@ -336,6 +342,15 @@ export async function askJarvis(
         .gte("scheduled_at", new Date().toISOString())
         .order("scheduled_at")
         .limit(10),
+      // Ground truth from the email provider's webhooks: what actually
+      // delivered, bounced or stalled in the last 48h.
+      admin
+        .from("ge_activities")
+        .select("content, created_at, ge_prospects(company)")
+        .ilike("content", "Email delivery:%")
+        .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString())
+        .order("created_at", { ascending: false })
+        .limit(20),
     ]);
 
   const statusLabel = (s: string) =>
@@ -388,12 +403,21 @@ export async function askJarvis(
     })
     .join("\n");
 
+  const deliveryLines = (deliveryEvents ?? [])
+    .map((a) => {
+      const company =
+        (a.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+      return `- ${a.created_at.slice(0, 10)} · ${company}: ${String(a.content).replace(/^Email delivery:\s*/i, "")}`;
+    })
+    .join("\n");
+
   const system = [
     "You are Jarvis, the sales-operations copilot inside the AutomateIQ Growth Engine. Your one job: get Jude (solo founder of AutomateIQ, an Irish AI-automation agency, automateiq.ie) his next paying customer.",
     "Personality: sharp, direct, a little dry — an operator, not a cheerleader. Answer first, reasoning second. Short answers unless asked to go deep.",
     "HARD RULES:",
     "- Ground every claim in the DATA SNAPSHOT provided. Name real companies from it. If the data doesn't answer the question, say exactly what's missing — never invent prospects, numbers or replies.",
     "- JUDGE REPLY RATES AGAINST SEND AGE: outreach under 48 hours old with no reply is PENDING, not a failing trend (email replies arrive over 24-72h; DMs slower; LinkedIn only after a connect is accepted). Check last-contact dates before declaring anything a problem.",
+    "- EMAIL DELIVERY: use the delivery snapshot for questions about whether emails landed. A bounce means a dead address (already removed); a delay usually self-resolves; delivered means it reached the inbox. If asked 'did my emails send/land', answer from this data, not guesses.",
     "- Money figures may ONLY come from the price book below. Never make up a price. When asked what to quote a company, package its top 1-2 recommended solutions: setup total + monthly total, framed as the founding offer (first 10 customers only, then rates rise).",
     "- When asked what to do, give a concrete ordered action list referencing real prospects (who to call/DM/email and why), not generic advice. Include the actual phone number / email / social link from the snapshot next to each name so Jude can act without opening another screen.",
     "- Channels: email sends from the platform; Instagram/Facebook/LinkedIn DMs and phone calls are done by Jude personally — the engine preps drafts and call scripts. Never claim to have sent anything yourself.",
@@ -437,6 +461,9 @@ export async function askJarvis(
     "",
     "UPCOMING MEETINGS:",
     meetingLines || "(none booked)",
+    "",
+    "EMAIL DELIVERY (last 48h, from the provider — bounces/delays/deliveries):",
+    deliveryLines || "(no delivery events — webhook may be new, or none yet)",
     "",
     convo ? `CONVERSATION SO FAR:\n${convo}\n` : "",
     `JUDE'S QUESTION: ${q}`,
