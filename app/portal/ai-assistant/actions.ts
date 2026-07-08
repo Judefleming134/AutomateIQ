@@ -162,9 +162,22 @@ export async function sendAssistantMessage(
     .eq("conversation_id", convId)
     .order("created_at", { ascending: false })
     .limit(30);
-  const history = (historyDesc ?? []).reverse();
-  // Both providers require the window to open on a user turn — drop any
-  // assistant rows the truncation left dangling at the front.
+  // Rebuild a provider-legal transcript:
+  //  - ⚙ action-chip rows are UI records, not conversation turns — replayed
+  //    verbatim they produce consecutive assistant messages, which the
+  //    Claude API rejects (HTTP 400) on every message after a tool-using
+  //    turn.
+  //  - Any remaining same-role neighbours merge into one turn.
+  //  - The window must open on a user turn.
+  const history: Turn[] = [];
+  for (const m of (historyDesc ?? []).reverse()) {
+    const content = String(m.content ?? "");
+    if (content.startsWith(ACTION_PREFIX)) continue;
+    const role = m.role === "assistant" ? ("assistant" as const) : ("user" as const);
+    const last = history[history.length - 1];
+    if (last && last.role === role) last.content += `\n\n${content}`;
+    else history.push({ role, content });
+  }
   while (history.length > 0 && history[0].role !== "user") {
     history.shift();
   }
@@ -194,10 +207,7 @@ export async function sendAssistantMessage(
     `Never invent prices, availability or policies that aren't in the business information.`,
   ].join("\n\n");
 
-  const turns = history.map((m) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
-  }));
+  const turns = history;
 
   const ctx: AgentToolContext = { businessId, supabase };
   const actions: AssistantAction[] = [];
@@ -241,6 +251,20 @@ export async function sendAssistantMessage(
 
 type Turn = { role: "user" | "assistant"; content: string };
 
+/** One transparent retry on transient upstream trouble (rate limit /
+ *  server error / overloaded) before surfacing a failure. */
+async function fetchWithRetry(doFetch: () => Promise<Response>): Promise<Response> {
+  let res = await doFetch();
+  if ([429, 500, 529].includes(res.status)) {
+    await new Promise((r) => setTimeout(r, 1500));
+    res = await doFetch();
+  }
+  return res;
+}
+
+/** A hung tool must never hang the whole assistant turn. */
+const TOOL_TIMEOUT_MS = 15_000;
+
 async function executeTool(
   tools: DiscoveredTool[],
   ctx: AgentToolContext,
@@ -249,14 +273,23 @@ async function executeTool(
   actions: AssistantAction[]
 ): Promise<string> {
   const tool = tools.find((t) => t.name === name);
-  if (!tool) return `Error: tool "${name}" is not available on this account.`;
+  if (!tool) {
+    return `Error: the "${name}" capability isn't connected on this account — the agent that provides it may not be installed. Offer what IS available instead.`;
+  }
   try {
-    const result = await tool.execute(ctx, input ?? {});
+    const result = await Promise.race([
+      tool.execute(ctx, input ?? {}),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("TOOL_TIMEOUT")), TOOL_TIMEOUT_MS)
+      ),
+    ]);
     actions.push({ agent: tool.agentName, tool: tool.name });
     return result;
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
-    return `Error: the ${tool.agentName} couldn't complete that just now.`;
+    return err instanceof Error && err.message === "TOOL_TIMEOUT"
+      ? `Error: the ${tool.agentName} is taking too long to respond — tell the user it's busy and to try again in a minute.`
+      : `Error: the ${tool.agentName} couldn't complete that just now.`;
   }
 }
 
@@ -285,23 +318,27 @@ async function runClaude(
   }));
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        // Enough headroom that a tool_use block's input JSON can't truncate
-        // mid-generation.
-        max_tokens: 2048,
-        system,
-        messages,
-        ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),
-      }),
-    });
+    const res = await fetchWithRetry(() =>
+      fetch(ANTHROPIC_MESSAGES_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          // claude-sonnet-5's adaptive thinking shares this budget — 4096
+          // with effort "medium" keeps thinking + tool_use JSON + the reply
+          // from ever truncating mid-generation.
+          max_tokens: 4096,
+          output_config: { effort: "medium" },
+          system,
+          messages,
+          ...(toolDefs.length > 0 ? { tools: toolDefs } : {}),
+        }),
+      })
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
@@ -374,27 +411,29 @@ async function runGemini(
   }));
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    const res = await fetch(geminiGenerateUrl(), {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": apiKey,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents,
-        ...(functionDeclarations.length > 0
-          ? { tools: [{ functionDeclarations }] }
-          : {}),
-        // Thinking off + real headroom: Gemini 2.5 Flash bills thinking
-        // tokens against maxOutputTokens, so a tight budget with thinking
-        // on can return an empty reply (finishReason MAX_TOKENS).
-        generationConfig: {
-          thinkingConfig: GEMINI_THINKING_OFF,
-          maxOutputTokens: 2048,
+    const res = await fetchWithRetry(() =>
+      fetch(geminiGenerateUrl(), {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "content-type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: system }] },
+          contents,
+          ...(functionDeclarations.length > 0
+            ? { tools: [{ functionDeclarations }] }
+            : {}),
+          // Thinking off + real headroom: Gemini 2.5 Flash bills thinking
+          // tokens against maxOutputTokens, so a tight budget with thinking
+          // on can return an empty reply (finishReason MAX_TOKENS).
+          generationConfig: {
+            thinkingConfig: GEMINI_THINKING_OFF,
+            maxOutputTokens: 2048,
+          },
+        }),
+      })
+    );
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");

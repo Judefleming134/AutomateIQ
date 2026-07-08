@@ -63,6 +63,38 @@ export function getInstalledAgents(enabledKeys: Set<string>): AgentModule[] {
 export type DiscoveredTool = AgentTool & { agentName: string };
 
 /**
+ * Connect/disconnect-aware self-knowledge: lets the Assistant answer
+ * "what can you actually do?" / "is X set up?" precisely — INSTALLED vs
+ * available-to-add vs coming-soon — instead of guessing from its prompt.
+ * Lives in the registry (not the platform module) because it needs the
+ * module list plus the caller's entitlements, and the platform module
+ * importing the registry would be a cycle.
+ */
+function agentStatusTool(enabledKeys: Set<string>): DiscoveredTool {
+  return {
+    agentName: platformModule.name,
+    name: "get_agent_status",
+    description:
+      "List every AutomateIQ agent with its status on THIS account — installed (callable now), available to add, or coming soon — plus what each one does. Use when asked what you can do, whether a specific agent is set up, or what the platform offers.",
+    inputSchema: { type: "object", properties: {} },
+    execute: async () => {
+      const status = (m: AgentModule) =>
+        m.availability === "live"
+          ? enabledKeys.has(m.key)
+            ? "INSTALLED"
+            : "available to add"
+          : m.availability === "coming_soon"
+            ? "coming soon"
+            : "in development";
+      return AGENT_MODULES.map(
+        (m) =>
+          `- ${m.name} [${status(m)}]: ${m.description} Capabilities: ${m.capabilities.slice(0, 3).join("; ")}`
+      ).join("\n");
+    },
+  };
+}
+
+/**
  * The AI Assistant's dynamic tool surface: platform tools (always on) plus
  * every tool from live, installed modules. Entitlement is enforced here —
  * a tool from a module the business doesn't have simply never reaches the
@@ -72,7 +104,10 @@ export function getToolsForBusiness(
   enabledKeys: Set<string>
 ): DiscoveredTool[] {
   const modules = [platformModule, ...getInstalledAgents(enabledKeys)];
-  return modules.flatMap((m) =>
-    m.tools.map((t) => ({ ...t, agentName: m.name }))
-  );
+  return [
+    ...modules.flatMap((m) =>
+      m.tools.map((t) => ({ ...t, agentName: m.name }))
+    ),
+    agentStatusTool(enabledKeys),
+  ];
 }
