@@ -85,6 +85,26 @@ export async function sendJarvisMorningBrief(): Promise<{
         .limit(10),
     ]);
 
+    // What the 8am autopilot just sent (this dispatch runs sends first).
+    const { data: sentToday } = await admin
+      .from("ge_messages")
+      .select("subject, sent_at, ge_prospects(company)")
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("status", "sent")
+      .gte("sent_at", `${today}T00:00:00`)
+      .order("sent_at", { ascending: false })
+      .limit(35);
+
+    // Send age matters: fresh outreach with no replies is pending, not
+    // failing — give the narrative the data to judge that correctly.
+    const { count: sent24h } = await admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "outbound")
+      .eq("status", "sent")
+      .gte("sent_at", since24h);
+
     // What Jarvis's 10pm nightly routine did while Jude slept.
     const { data: nightlyActs } = await admin
       .from("ge_activities")
@@ -129,11 +149,13 @@ export async function sendJarvisMorningBrief(): Promise<{
             "You are Jarvis, the sales copilot for AutomateIQ (Irish AI-automation agency, solo founder Jude).",
             "Write the 4-6 sentence opening of his morning brief: direct, a little dry, zero fluff.",
             "Reference only the companies and numbers provided. Order the morning: replies first, then due follow-ups, then fresh sends. If a day looks empty, say what to do about it (add leads, research, call).",
+            "JUDGE REPLY RATES AGAINST SEND AGE, not window totals: outreach under 48 hours old with no reply is PENDING, not a failing trend — never call a reply rate a problem when most sends are that fresh. Cold email replies arrive over 24-72h; DMs slower.",
           ].join("\n"),
           [
             `Date: ${today}`,
             `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
-            `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings.`,
+            `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
+            `Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
             `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
             `Follow-ups due (${dueLines.length}):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyLines.length}):\n${readyLines.join("\n") || "none"}`,
@@ -156,6 +178,15 @@ export async function sendJarvisMorningBrief(): Promise<{
       plan,
       reminders.length
         ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
+        : "",
+      (sentToday ?? []).length
+        ? `📤 SENT THIS MORNING (${(sentToday ?? []).length})\n${(sentToday ?? [])
+            .map((m) => {
+              const company =
+                (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+              return `• ${company} — "${m.subject ?? ""}"`;
+            })
+            .join("\n")}`
         : "",
       nightlyLines.length
         ? `🔧 JARVIS'S OVERNIGHT ROUTINE (${nightlyLines.length})\n${nightlyLines.join("\n")}`
