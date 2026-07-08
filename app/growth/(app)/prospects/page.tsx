@@ -44,7 +44,9 @@ export default async function ProspectsPage({
   const industry = (params.industry ?? "").trim();
   const campaign = (params.campaign ?? "").trim();
 
-  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "newest";
+  // Default to A→Z by company so a lead is easy to find by name; other
+  // sorts stay one click away.
+  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "company";
   const sort = SORTS[sortKey];
   let query = admin
     .from("ge_prospects")

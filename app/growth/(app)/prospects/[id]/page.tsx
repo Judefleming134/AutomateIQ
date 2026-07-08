@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Download,
   ExternalLink,
+  Phone,
 } from "lucide-react";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -698,7 +699,70 @@ export default async function ProspectWorkspacePage({
           </section>
 
           <div>
-            <section className="panel panel-block">
+            {/* Call panel: dial + the script, right where Jude logs the call. */}
+            {(() => {
+              const callDraft = (messages ?? []).find(
+                (m) => m.channel === "call" && m.direction === "outbound"
+              );
+              const script =
+                callDraft?.body ||
+                (report && (report.conversation_starters.length || report.discovery_questions.length)
+                  ? [
+                      report.conversation_starters.length
+                        ? "OPENERS:\n" + report.conversation_starters.map((s) => `• ${s}`).join("\n")
+                        : "",
+                      report.discovery_questions.length
+                        ? "ASK ON THE CALL:\n" + report.discovery_questions.map((s) => `• ${s}`).join("\n")
+                        : "",
+                    ].filter(Boolean).join("\n\n")
+                  : "");
+              if (!prospect.phone && !script) return null;
+              return (
+                <section
+                  className="panel panel-block"
+                  style={{ borderLeft: "3px solid var(--ac2, #3b82f6)" }}
+                  aria-label="Call this prospect"
+                >
+                  <h2 className="panel-title">
+                    <Phone size={15} style={{ verticalAlign: "-2px" }} /> Call {prospect.contact_name}
+                  </h2>
+                  {prospect.phone && (
+                    <a
+                      href={`tel:${prospect.phone.replace(/[^\d+]/g, "")}`}
+                      className="btn btn-primary btn-sm"
+                      style={{ marginBottom: 10 }}
+                    >
+                      <Phone size={13} /> {prospect.phone}
+                    </a>
+                  )}
+                  {script ? (
+                    <div>
+                      <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 4 }}>
+                        {callDraft ? "Your call script:" : "Quick script from the research:"}
+                      </div>
+                      <p style={{ whiteSpace: "pre-wrap", fontSize: 13, margin: 0, maxHeight: 260, overflowY: "auto" }}>
+                        {script}
+                      </p>
+                      <p style={{ fontSize: 11, color: "var(--faint)", margin: "8px 0 0" }}>
+                        {callDraft
+                          ? "Full script generated in the Studio."
+                          : "Generate a full call script in the Studio → Call tab."}
+                      </p>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 12, color: "var(--faint)", margin: 0 }}>
+                      Generate a call script in the Studio → Call tab.
+                    </p>
+                  )}
+                  <p style={{ fontSize: 11, color: "var(--faint)", margin: "8px 0 0" }}>
+                    After the call, log the outcome with the box on the left
+                    (Call) — it schedules the follow-up automatically.
+                  </p>
+                </section>
+              );
+            })()}
+
+            <section className="panel panel-block" style={{ marginTop: 16 }}>
               <h2 className="panel-title">Log their reply</h2>
               <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
                 Paste what they sent back — status moves to Replied and the

@@ -145,6 +145,8 @@ const STARTERS = [
  * every question triggers a fresh server-side snapshot of the CRM, so Jarvis
  * always answers from live data.
  */
+const MEMORY_KEY = "aiq-jarvis-chat";
+
 export function JarvisChat() {
   const [turns, setTurns] = useState<JarvisTurn[]>([]);
   const [input, setInput] = useState("");
@@ -157,6 +159,34 @@ export function JarvisChat() {
   const [listening, setListening] = useState(false);
   const [canListen, setCanListen] = useState(false);
   const recRef = useRef<SpeechRec | null>(null);
+
+  // Memory: restore this browser's Jarvis conversation on mount so it
+  // survives a refresh/navigation. Being able to scroll back to a past
+  // answer means Jude doesn't re-ask the same question — which is what
+  // burns tokens. New questions still hit live data every time.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(MEMORY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as JarvisTurn[];
+        if (Array.isArray(parsed) && parsed.length > 0) setTurns(parsed.slice(-40));
+      }
+    } catch {
+      /* corrupt/blocked storage — start fresh */
+    }
+  }, []);
+
+  // Persist on every change (keep the last 40 turns — plenty of history,
+  // bounded so storage never grows without limit).
+  useEffect(() => {
+    try {
+      if (turns.length > 0) {
+        localStorage.setItem(MEMORY_KEY, JSON.stringify(turns.slice(-40)));
+      }
+    } catch {
+      /* storage full/blocked — ignore, chat still works in-memory */
+    }
+  }, [turns]);
 
   // Feature-detect after mount (SSR has no window). Voice lists load
   // asynchronously in most browsers — warm them and re-pick when ready.
@@ -243,6 +273,23 @@ export function JarvisChat() {
           {voiceOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
           {voiceOn ? " Voice on" : " Muted"}
         </button>
+        {turns.length > 0 && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              setTurns([]);
+              try {
+                localStorage.removeItem(MEMORY_KEY);
+              } catch {
+                /* ignore */
+              }
+            }}
+            title="Clear this saved conversation"
+          >
+            Clear
+          </button>
+        )}
       </h2>
       <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
         Ask anything about your pipeline — Jarvis pulls the live numbers every
