@@ -815,7 +815,34 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   });
   if (error) return { error: error.message };
 
+  // A logged call or meeting IS contact — mirror a sent message: stamp the
+  // last-contact date and schedule the +3-day follow-up so a called lead
+  // can't leak, and nudge an untouched prospect to "Contacted". Notes never
+  // change the pipeline. Later stages are never regressed.
+  if (type === "call" || type === "meeting") {
+    const { data: p } = await admin
+      .from("ge_prospects")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (p) {
+      const bump: Record<string, unknown> = {
+        last_contact_at: new Date().toISOString(),
+        next_follow_up_at: dublinDate(3),
+      };
+      if (
+        ["new", "researching", "research_complete", "outreach_ready"].includes(
+          p.status
+        )
+      ) {
+        bump.status = "contacted";
+      }
+      await admin.from("ge_prospects").update(bump).eq("id", id);
+    }
+  }
+
   revalidatePath(`/growth/prospects/${id}`);
+  revalidatePath("/growth");
   return { ok: true };
 }
 
