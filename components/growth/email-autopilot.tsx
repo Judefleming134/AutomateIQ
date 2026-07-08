@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Mail, Rocket, Clock, RefreshCw } from "lucide-react";
 import {
   autopilotAction,
@@ -37,6 +38,17 @@ export function EmailAutopilot({
     ) => Promise<ActionResult>,
     undefined
   );
+
+  // After a send / queue / regenerate, re-pull the candidate list from the
+  // server so the panel refreshes: sent emails drop off, queued ones show
+  // as queued, rewritten drafts lose their flag — no manual reload.
+  const router = useRouter();
+  useEffect(() => {
+    if (state?.ok) router.refresh();
+  }, [state, router]);
+  useEffect(() => {
+    if (regenState?.ok) router.refresh();
+  }, [regenState, router]);
 
   // Only fresh, unbroken, not-already-queued drafts are ticked by default —
   // stale or broken ones need a look (or a regenerate) first.
