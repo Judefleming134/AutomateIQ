@@ -51,7 +51,7 @@ export default async function ProspectsPage({
   let query = admin
     .from("ge_prospects")
     .select(
-      "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to",
+      "id, company, contact_name, job_title, industry, location, email, phone, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to",
       { count: "exact" }
     )
     .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
@@ -369,6 +369,7 @@ export default async function ProspectsPage({
                 <th>Title</th>
                 <th>Industry</th>
                 <th>Location</th>
+                <th>Phone</th>
                 <th>Status</th>
                 <th>Score</th>
                 <th>Assigned</th>
@@ -402,6 +403,15 @@ export default async function ProspectsPage({
                     <td>{p.job_title ?? "—"}</td>
                     <td>{p.industry ?? "—"}</td>
                     <td>{p.location ?? "—"}</td>
+                    <td>
+                      {p.phone ? (
+                        <a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>
+                          {p.phone}
+                        </a>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td>
                       <span className={`badge ${meta?.badge ?? "badge-gray"}`}>
                         {meta?.label ?? p.status}
