@@ -31,7 +31,7 @@ export default async function MeetingsPage() {
       .limit(300),
     admin
       .from("ge_prospects")
-      .select("id, company, contact_name")
+      .select("id, company, contact_name, phone")
       .order("company"),
     loadGrowthSettings(),
   ]);
@@ -63,6 +63,15 @@ export default async function MeetingsPage() {
           {m.strategy_booking_id && <span className="badge badge-blue">Booking page</span>}
         </div>
         <div style={{ marginTop: 6, fontSize: 14 }}>{fmt(m.scheduled_at)} (Irish time)</div>
+        {p?.phone && (
+          <a
+            href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
+            style={{ fontSize: 13, display: "inline-block", marginTop: 6, color: "var(--ac2, #3b82f6)" }}
+            title="Tap to call"
+          >
+            ☎ {p.phone}
+          </a>
+        )}
         {m.notes && (
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "6px 0 0" }}>{m.notes}</p>
         )}
