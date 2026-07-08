@@ -31,9 +31,16 @@ export type AutopilotCandidate = {
   /** Why this draft can't be auto-sent (old placeholder/invented-name
    *  drafts) — regenerate in the Studio first. Null when clean. */
   broken: string | null;
+  /** Why this draft is likely out of date (research changed since it was
+   *  written, or it's simply old) — regenerate for the freshest angle.
+   *  Unlike `broken`, a stale draft is still sendable if Jude chooses. */
+  stale: string | null;
 };
 
 const READY_STATUSES = ["research_complete", "outreach_ready"];
+/** Drafts older than this are flagged for a refresh even if research
+ *  hasn't changed — an outreach angle written days ago goes off the boil. */
+const STALE_AGE_DAYS = 5;
 
 /** Researched, uncontacted, has an address, has an email draft — top scores first. */
 export async function listAutopilotCandidates(
@@ -50,14 +57,27 @@ export async function listAutopilotCandidates(
   const ids = (prospects ?? []).map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const { data: drafts } = await admin
-    .from("ge_messages")
-    .select("id, prospect_id, subject, body, status, created_at")
-    .in("prospect_id", ids)
-    .eq("channel", "email")
-    .eq("direction", "outbound")
-    .in("status", ["draft", "queued"])
-    .order("created_at", { ascending: false });
+  const [{ data: drafts }, { data: research }] = await Promise.all([
+    admin
+      .from("ge_messages")
+      .select("id, prospect_id, subject, body, status, created_at")
+      .in("prospect_id", ids)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .in("status", ["draft", "queued"])
+      .order("created_at", { ascending: false }),
+    admin
+      .from("ge_research")
+      .select("prospect_id, updated_at")
+      .in("prospect_id", ids),
+  ]);
+
+  // When was each prospect's research last refreshed? A draft written before
+  // that is built on analysis that has since changed.
+  const researchUpdated = new Map<string, string>();
+  for (const r of research ?? []) {
+    if (r.updated_at) researchUpdated.set(r.prospect_id, r.updated_at);
+  }
 
   // Newest email draft per prospect wins (research refreshes in place, but
   // a studio draft may be newer and better-tuned).
@@ -66,11 +86,21 @@ export async function listAutopilotCandidates(
     if (!draftByProspect.has(d.prospect_id)) draftByProspect.set(d.prospect_id, d);
   }
 
+  const staleBefore = Date.now() - STALE_AGE_DAYS * 24 * 3600 * 1000;
+
   const out: AutopilotCandidate[] = [];
   for (const p of prospects ?? []) {
     const d = draftByProspect.get(p.id);
     if (!d || !p.email) continue;
     const body = sanitizeOutreachBody(d.body);
+    const draftAt = new Date(d.created_at).getTime();
+    const researchAt = researchUpdated.get(p.id);
+    let stale: string | null = null;
+    if (researchAt && new Date(researchAt).getTime() > draftAt + 60_000) {
+      stale = "research updated since this draft was written";
+    } else if (draftAt < staleBefore) {
+      stale = `draft is over ${STALE_AGE_DAYS} days old`;
+    }
     out.push({
       messageId: d.id,
       prospectId: p.id,
@@ -83,6 +113,7 @@ export async function listAutopilotCandidates(
       industry: p.industry,
       queued: d.status === "queued",
       broken: draftLooksBroken(body),
+      stale,
     });
     if (out.length >= limit) break;
   }
