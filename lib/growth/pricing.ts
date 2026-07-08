@@ -26,7 +26,7 @@ export const PRICE_BOOK: Record<string, PriceEntry> = {
   "ai-assistant": { setup: 149, monthly: 59 },
   "instant-quote-agent": { setup: 199, monthly: 79 },
   "website-lead-capture": { setup: 449, monthly: 29 },
-  "ai-receptionist": { setup: 249, monthly: 129 },
+  "ai-receptionist": { setup: 349, monthly: 129 },
   "voice-ai": { setup: 299, monthly: 149 },
   "workforce-management": { setup: 499, monthly: 99, from: true },
   "asset-management": { setup: 499, monthly: 99, from: true },

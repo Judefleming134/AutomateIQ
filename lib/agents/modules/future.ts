@@ -46,24 +46,6 @@ export const FUTURE_AGENT_MODULES: AgentModule[] = [
     tools: [],
   },
   {
-    key: "voice-agent",
-    name: "Voice Agent",
-    version: "0.1",
-    category: "voice",
-    description:
-      "An AI receptionist that answers calls, books jobs and never misses an enquiry.",
-    iconName: "mic",
-    accent: "#22D3EE",
-    availability: "coming_soon",
-    capabilities: [
-      "24/7 call answering",
-      "Job booking",
-      "Message taking",
-      "Call summaries",
-    ],
-    tools: [],
-  },
-  {
     key: "sales-agent",
     name: "Sales Agent",
     version: "0.1",
