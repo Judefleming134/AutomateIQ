@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/db/errors";
+
+const SETUP_PENDING =
+  "Your Voice Agent is still being set up — please try again shortly.";
 
 type ActionResult = { ok?: boolean; error?: string } | undefined;
 
@@ -60,7 +64,9 @@ export async function updateVoiceConfig(
     },
     { onConflict: "business_id" }
   );
-  if (error) return { error: error.message };
+  if (error) {
+    return { error: isMissingTableError(error) ? SETUP_PENDING : error.message };
+  }
 
   revalidatePath("/portal/voice-agent");
   return { ok: true };
@@ -99,7 +105,9 @@ export async function logVoiceTicket(
     subject: parsed.data.subject,
     detail: parsed.data.detail ?? "",
   });
-  if (error) return { error: error.message };
+  if (error) {
+    return { error: isMissingTableError(error) ? SETUP_PENDING : error.message };
+  }
 
   revalidatePath("/portal/voice-agent");
   return { ok: true };
