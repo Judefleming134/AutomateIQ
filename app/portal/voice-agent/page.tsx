@@ -1,6 +1,7 @@
 import { Mic, Phone } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError } from "@/lib/db/errors";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { updateVoiceConfig, logVoiceTicket } from "./actions";
@@ -33,21 +34,48 @@ export default async function VoiceAgentPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: config }, { data: tickets }] = await Promise.all([
-    supabase
-      .from("va_config")
-      .select(
-        "status, phone_number, greeting, services, business_hours, service_area, knowledge"
-      )
-      .eq("business_id", profile.business_id!)
-      .maybeSingle(),
-    supabase
-      .from("va_tickets")
-      .select("id, subject, detail, status, created_at")
-      .eq("business_id", profile.business_id!)
-      .order("created_at", { ascending: false })
-      .limit(10),
-  ]);
+  const [{ data: config, error: configError }, { data: tickets }] =
+    await Promise.all([
+      supabase
+        .from("va_config")
+        .select(
+          "status, phone_number, greeting, services, business_hours, service_area, knowledge"
+        )
+        .eq("business_id", profile.business_id!)
+        .maybeSingle(),
+      supabase
+        .from("va_tickets")
+        .select("id, subject, detail, status, created_at")
+        .eq("business_id", profile.business_id!)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
+
+  // The product can be enabled before manual_update_0019 has been run in the
+  // Supabase SQL Editor. Degrade to a clear "being set up" state instead of
+  // throwing a raw schema-cache error at the customer.
+  if (isMissingTableError(configError)) {
+    return (
+      <>
+        <div className="page-header">
+          <div>
+            <h1>
+              <Mic size={22} style={{ verticalAlign: "-3px", marginRight: 8 }} />
+              Voice Agent
+            </h1>
+            <p>Your AI receptionist.</p>
+          </div>
+        </div>
+        <div className="panel panel-block">
+          <span className="badge badge-blue">Setting up</span>
+          <p style={{ color: "var(--faint)", fontSize: 13, marginTop: 10 }}>
+            We&apos;re finishing your receptionist setup. This page will be ready
+            shortly — no action needed from you.
+          </p>
+        </div>
+      </>
+    );
+  }
 
   const status = config?.status ?? "provisioning";
   const meta = STATUS_META[status] ?? STATUS_META.provisioning;
