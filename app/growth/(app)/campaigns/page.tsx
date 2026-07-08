@@ -16,15 +16,29 @@ export default async function CampaignsPage() {
   await requireGrowth();
   const admin = createAdminClient();
 
-  const [{ data: campaigns }, metrics] = await Promise.all([
+  const [{ data: campaigns }, metrics, { data: statusRows }] = await Promise.all([
     admin
       .from("ge_campaigns")
       .select("id, name, channel, industry, service, location, target_audience, status, created_at")
       .order("created_at", { ascending: false }),
     loadGrowthMetrics(admin),
+    admin.from("ge_prospects").select("campaign_id, status"),
   ]);
 
   const perfById = new Map(metrics.topCampaigns.map((c) => [c.id, c]));
+
+  // Per-campaign "what needs doing": researched-and-ready-to-contact vs
+  // still-to-research — so at a glance Jude sees which niche to work next.
+  const READY = new Set(["research_complete", "outreach_ready"]);
+  const TO_RESEARCH = new Set(["new", "researching"]);
+  const todo = new Map<string, { ready: number; toResearch: number }>();
+  for (const p of statusRows ?? []) {
+    if (!p.campaign_id) continue;
+    const t = todo.get(p.campaign_id) ?? { ready: 0, toResearch: 0 };
+    if (READY.has(p.status)) t.ready += 1;
+    else if (TO_RESEARCH.has(p.status)) t.toResearch += 1;
+    todo.set(p.campaign_id, t);
+  }
 
   return (
     <>
@@ -86,6 +100,7 @@ export default async function CampaignsPage() {
                 <th>Campaign</th>
                 <th>Channel</th>
                 <th>Status</th>
+                <th>To do</th>
                 <th>Prospects</th>
                 <th>Sent</th>
                 <th>Replies</th>
@@ -116,6 +131,30 @@ export default async function CampaignsPage() {
                       <span className={`badge ${meta?.badge ?? "badge-gray"}`}>
                         {meta?.label ?? c.status}
                       </span>
+                    </td>
+                    <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
+                      {(() => {
+                        const t = todo.get(c.id);
+                        if (!t || (t.ready === 0 && t.toResearch === 0)) return "—";
+                        return (
+                          <>
+                            {t.ready > 0 && (
+                              <Link
+                                href={`/growth/prospects?campaign=${c.id}&status=research_complete`}
+                                style={{ color: "var(--green, #34d399)" }}
+                              >
+                                {t.ready} ready
+                              </Link>
+                            )}
+                            {t.ready > 0 && t.toResearch > 0 ? " · " : ""}
+                            {t.toResearch > 0 && (
+                              <span style={{ color: "var(--faint)" }}>
+                                {t.toResearch} to research
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
                     </td>
                     <td>{perf?.prospects ?? 0}</td>
                     <td>{perf?.sent ?? 0}</td>

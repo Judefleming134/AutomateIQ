@@ -49,7 +49,8 @@ export default async function ProspectsPage({
   let query = admin
     .from("ge_prospects")
     .select(
-      "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to"
+      "id, company, contact_name, job_title, industry, location, email, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to",
+      { count: "exact" }
     )
     .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
     .limit(500);
@@ -63,7 +64,7 @@ export default async function ProspectsPage({
   if (campaign) query = query.eq("campaign_id", campaign);
 
   const [
-    { data: prospects },
+    { data: prospects, count: totalMatching },
     { data: campaigns },
     { data: industriesRaw },
     { data: team },
@@ -106,10 +107,17 @@ export default async function ProspectsPage({
         <div>
           <h1>Prospect database</h1>
           <p>
-            {rows.length} prospect{rows.length === 1 ? "" : "s"}
+            {(totalMatching ?? rows.length).toLocaleString("en-IE")} prospect
+            {(totalMatching ?? rows.length) === 1 ? "" : "s"}
             {q || status || industry || campaign ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
+          {(totalMatching ?? 0) > rows.length && (
+            <p style={{ fontSize: 12, color: "var(--orange, #fb923c)", margin: "2px 0 0" }}>
+              Showing the first {rows.length.toLocaleString("en-IE")} — narrow
+              with search or the filters below to reach the rest.
+            </p>
+          )}
         </div>
         <form
           method="get"
