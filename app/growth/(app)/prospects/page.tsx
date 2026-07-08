@@ -80,7 +80,7 @@ export default async function ProspectsPage({
     admin.from("ge_team_members").select("id, name"),
     admin
       .from("ge_prospects")
-      .select("id, company")
+      .select("id, company, website")
       .not("status", "in", '("won","lost","do_not_contact","archived")')
       .order("created_at", { ascending: false }),
     admin.from("ge_research").select("prospect_id"),
@@ -95,7 +95,13 @@ export default async function ProspectsPage({
   ]);
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
   const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
-  const unresearched = (allProspects ?? []).filter((p) => !researchedIds.has(p.id));
+  // Research the most-researchable leads first: a website is by far the
+  // strongest signal for research quality (the engine reads the site), so
+  // leads with one lead each batch. Array.sort is stable, so within each
+  // group the created_at-desc order from the query is preserved.
+  const unresearched = (allProspects ?? [])
+    .filter((p) => !researchedIds.has(p.id))
+    .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)));
 
   const industries = [
     ...new Set((industriesRaw ?? []).map((r) => r.industry?.trim()).filter(Boolean)),
