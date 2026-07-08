@@ -366,6 +366,23 @@ export default async function ProspectWorkspacePage({
                       ? ` Researched by ${(report as { engine?: string }).engine}.`
                       : ""}
                   </p>
+                  {!research!.website_fetched && prospect.website && (
+                    <div
+                      className="panel"
+                      style={{ padding: "10px 12px", margin: "0 0 10px", borderLeft: "3px solid var(--orange, #fb923c)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}
+                    >
+                      <span style={{ fontSize: 12, flex: "1 1 200px" }}>
+                        The site may just have blocked the first read. Try again
+                        — no need to delete and re-add.
+                      </span>
+                      <ActionForm action={researchProspect}>
+                        <input type="hidden" name="id" value={prospect.id} />
+                        <SubmitButton className="btn btn-secondary btn-sm" pendingText="Reading the site again (30–60s)…">
+                          <Globe size={13} /> Read the website &amp; re-research
+                        </SubmitButton>
+                      </ActionForm>
+                    </div>
+                  )}
                   <p style={{ fontSize: 15 }}>{report.overview}</p>
                   <div className="table-wrap" style={{ marginTop: 10 }}>
                     <table>
