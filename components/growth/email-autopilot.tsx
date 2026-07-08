@@ -38,7 +38,11 @@ export function EmailAutopilot({
     undefined
   );
 
-  const defaultTicked = candidates.filter((c) => !c.queued && !c.broken).length;
+  // Only fresh, unbroken, not-already-queued drafts are ticked by default —
+  // stale or broken ones need a look (or a regenerate) first.
+  const defaultTicked = candidates.filter(
+    (c) => !c.queued && !c.broken && !c.stale
+  ).length;
   // Live count of ticked boxes so the buttons say exactly what they'll do
   // ("Queue 20 for the 8am run"). Re-syncs when the list refreshes.
   const [ticked, setTicked] = useState(defaultTicked);
@@ -46,7 +50,8 @@ export function EmailAutopilot({
 
   if (candidates.length === 0 && queuedCount === 0) return null;
 
-  const flagged = candidates.filter((c) => c.broken);
+  // Both broken and stale drafts get the one-tap regenerate treatment.
+  const flagged = candidates.filter((c) => c.broken || c.stale);
 
   return (
     <section
@@ -140,7 +145,7 @@ export function EmailAutopilot({
                     type="checkbox"
                     name="message_id"
                     value={c.messageId}
-                    defaultChecked={!c.queued && !c.broken}
+                    defaultChecked={!c.queued && !c.broken && !c.stale}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       // Recount from the form itself — no arithmetic to
@@ -159,12 +164,17 @@ export function EmailAutopilot({
                     {c.contactName} · {c.industry || "—"} · score {c.leadScore}
                     {c.queued ? " · already queued" : ""}
                   </span>
-                  {c.broken && (
+                  {c.broken ? (
                     <span style={{ fontSize: 12, color: "var(--orange, #fb923c)" }}>
                       ⚠ old draft ({c.broken}) — regenerate in the Studio; the
                       autopilot will refuse to send it as-is
                     </span>
-                  )}
+                  ) : c.stale ? (
+                    <span style={{ fontSize: 12, color: "var(--orange, #fb923c)" }}>
+                      ⚠ may be stale ({c.stale}) — regenerate for the freshest
+                      angle, or tick to send anyway
+                    </span>
+                  ) : null}
                   <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: "auto" }}>
                     → {c.email}
                   </span>
