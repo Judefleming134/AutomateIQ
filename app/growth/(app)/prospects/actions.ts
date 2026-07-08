@@ -221,6 +221,23 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     return id;
   }
 
+  // Load existing emails + company names ONCE for in-memory dedupe — a
+  // per-row DB lookup would be ~1,500 round trips on a 750-lead import and
+  // blow the function time budget. The sets also catch duplicates within
+  // the CSV itself as rows are reserved.
+  const { data: existingRows } = await admin
+    .from("ge_prospects")
+    .select("email, company");
+  const seenEmails = new Set<string>();
+  const seenCompanies = new Set<string>();
+  for (const r of existingRows ?? []) {
+    if (r.email) seenEmails.add(String(r.email).toLowerCase());
+    if (r.company) seenCompanies.add(String(r.company).trim().toLowerCase());
+  }
+
+  type NewProspect = Record<string, unknown>;
+  const toInsert: NewProspect[] = [];
+
   for (const row of rows.slice(1)) {
     const cell = (name: string) => {
       const i = col(name);
@@ -253,63 +270,82 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     }
     // Dedupe: by email when present, otherwise by company name — so
     // importing the same sheet twice (or overlapping sheets) never creates
-    // duplicate prospects.
-    if (email) {
-      const { data: existing } = await admin
-        .from("ge_prospects")
-        .select("id")
-        .ilike("email", email)
-        .maybeSingle();
-      if (existing) {
+    // duplicate prospects. Reserve the key so intra-CSV dupes are caught too.
+    const emailKey = email?.toLowerCase() ?? null;
+    const companyKey = company.trim().toLowerCase();
+    if (emailKey) {
+      if (seenEmails.has(emailKey)) {
         skipped++;
         continue;
       }
+      seenEmails.add(emailKey);
     } else {
-      const { data: existing } = await admin
-        .from("ge_prospects")
-        .select("id")
-        .ilike("company", company.replace(/[%_]/g, ""))
-        .limit(1)
-        .maybeSingle();
-      if (existing) {
+      if (seenCompanies.has(companyKey)) {
         skipped++;
         continue;
       }
+      seenCompanies.add(companyKey);
     }
-    const { data: created, error } = await admin
-      .from("ge_prospects")
-      .insert({
-        company,
-        contact_name: cell("contact_name") ?? "Owner",
-        job_title: cell("job_title"),
-        industry: cell("industry"),
-        website: cell("website"),
-        location: cell("location"),
-        email,
-        phone: cell("phone"),
-        linkedin_url: cell("linkedin_url"),
-        instagram_url: cell("instagram_url"),
-        facebook_url: cell("facebook_url"),
-        notes: cell("notes"),
-        campaign_id: autoGroup
-          ? await campaignForIndustry(cell("industry"))
-          : fixedCampaignId,
-        created_by: member.id,
-        source: "import",
-      })
-      .select("id")
-      .single();
-    if (error) {
-      skipped++;
-      continue;
-    }
-    await admin.from("ge_activities").insert({
-      prospect_id: created.id,
+    toInsert.push({
+      company,
+      contact_name: cell("contact_name") ?? "Owner",
+      job_title: cell("job_title"),
+      industry: cell("industry"),
+      website: cell("website"),
+      location: cell("location"),
+      email,
+      phone: cell("phone"),
+      linkedin_url: cell("linkedin_url"),
+      instagram_url: cell("instagram_url"),
+      facebook_url: cell("facebook_url"),
+      notes: cell("notes"),
+      campaign_id: autoGroup
+        ? await campaignForIndustry(cell("industry"))
+        : fixedCampaignId,
+      created_by: member.id,
+      source: "import",
+    });
+  }
+
+  // Bulk insert in chunks; if a whole chunk fails (one bad row poisons it),
+  // fall back to row-by-row for just that chunk so one bad lead can't sink
+  // the batch. Activities are collected and bulk-inserted at the end.
+  const activityRows: Record<string, unknown>[] = [];
+  const pushActivity = (id: string) =>
+    activityRows.push({
+      prospect_id: id,
       type: "system",
       content: `Imported via CSV by ${member.name}`,
       created_by: member.id,
     });
-    imported++;
+  const CHUNK = 100;
+  for (let i = 0; i < toInsert.length; i += CHUNK) {
+    const chunk = toInsert.slice(i, i + CHUNK);
+    const { data: inserted, error } = await admin
+      .from("ge_prospects")
+      .insert(chunk)
+      .select("id");
+    if (error) {
+      for (const one of chunk) {
+        const { data: created, error: e2 } = await admin
+          .from("ge_prospects")
+          .insert(one)
+          .select("id")
+          .single();
+        if (e2 || !created) {
+          skipped++;
+          continue;
+        }
+        pushActivity(created.id as string);
+        imported++;
+      }
+    } else {
+      for (const r of inserted ?? []) pushActivity(r.id as string);
+      imported += (inserted ?? []).length;
+    }
+  }
+  for (let i = 0; i < activityRows.length; i += 500) {
+    await admin.from("ge_activities").insert(activityRows.slice(i, i + 500));
   }
 
   revalidatePath("/growth/prospects");

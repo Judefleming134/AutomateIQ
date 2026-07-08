@@ -20,6 +20,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  *  waiting on the website + the model, so pairing them roughly halves the
  *  batch without straining free-tier AI rate limits. */
 const CONCURRENCY = 2;
+/** One click researches at most this many. A big import (hundreds of leads)
+ *  researched in one go would run for hours with the tab open and cost real
+ *  money — so research goes in deliberate batches: run, work them, run the
+ *  next batch. Keeps AI spend visible and the tab session short. */
+const BATCH_SIZE = 40;
 
 export function ResearchQueue({
   pending,
@@ -32,6 +37,9 @@ export function ResearchQueue({
 }) {
   // Observed per-company wall time (fetch + model + pacing), for the ETA.
   const SECONDS_PER_COMPANY = claude ? 35 : 40;
+  // This run researches at most BATCH_SIZE; the rest wait for the next click.
+  const batch = pending.slice(0, BATCH_SIZE);
+  const remaining = Math.max(0, pending.length - batch.length);
   const idleGap = claude ? 600 : 1500;
   const router = useRouter();
   const [running, setRunning] = useState(false);
@@ -65,8 +73,8 @@ export function ResearchQueue({
         if (stopped) return;
         if (throttled && workerIndex > 0) return; // collapse to serial
         const i = nextIndex++;
-        if (i >= pending.length) return;
-        const p = pending[i];
+        if (i >= batch.length) return;
+        const p = batch[i];
         inFlight.add(p.company);
         setActive([...inFlight]);
 
@@ -120,7 +128,7 @@ export function ResearchQueue({
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, pending.length) }, (_, w) =>
+      Array.from({ length: Math.min(CONCURRENCY, batch.length) }, (_, w) =>
         worker(w * 4000, w)
       )
     );
@@ -147,18 +155,21 @@ export function ResearchQueue({
               {pending.length} prospect{pending.length === 1 ? "" : "s"} not researched yet
             </strong>
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
-              Research them all in one go — reports, solution recommendations,
-              lead scores and outreach drafts for every one. Roughly{" "}
-              {Math.ceil((pending.length * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)}{" "}
-              min for the batch (two at a time); keep this tab open while it
-              runs.
-              {claude
-                ? " Running on Claude — no daily cap, the batch runs straight through."
+              Each run researches up to {BATCH_SIZE} — reports, solution
+              recommendations, lead scores and outreach drafts. This batch:{" "}
+              {batch.length} prospect{batch.length === 1 ? "" : "s"}, roughly{" "}
+              {Math.ceil((batch.length * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)}{" "}
+              min — keep this tab open while it runs.
+              {remaining > 0
+                ? ` The other ${remaining} wait for the next click, so you research in controlled batches (and watch the AI spend).`
                 : ""}
             </p>
           </div>
           <button type="button" className="btn btn-primary" onClick={start}>
-            <Sparkles size={14} /> Research all {pending.length}
+            <Sparkles size={14} />{" "}
+            {remaining > 0
+              ? `Research next ${batch.length}`
+              : `Research all ${batch.length}`}
           </button>
         </div>
       )}
@@ -166,14 +177,14 @@ export function ResearchQueue({
       {running && (
         <div>
           <strong>
-            Researching {done}/{pending.length}
+            Researching {done}/{batch.length}
             {active.length > 0 ? ` — working on ${active.join(" + ")}…` : "…"}
           </strong>
           <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: 8 }}>
             ≈{" "}
             {Math.max(
               1,
-              Math.ceil(((pending.length - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
+              Math.ceil(((batch.length - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
             )}{" "}
             min left
           </span>
@@ -187,11 +198,11 @@ export function ResearchQueue({
             }}
             role="progressbar"
             aria-valuenow={done}
-            aria-valuemax={pending.length}
+            aria-valuemax={batch.length}
           >
             <div
               style={{
-                width: `${Math.round((done / pending.length) * 100)}%`,
+                width: `${Math.round((done / Math.max(1, batch.length)) * 100)}%`,
                 height: "100%",
                 background: "var(--ac2, #3b82f6)",
                 transition: "width .4s",
@@ -208,11 +219,14 @@ export function ResearchQueue({
         <div>
           {stopReason ? (
             <strong style={{ color: "var(--orange, #fb923c)" }}>
-              ⏸ Batch stopped after {done}/{pending.length}: {stopReason}
+              ⏸ Batch stopped after {done}/{batch.length}: {stopReason}
             </strong>
           ) : (
             <strong style={{ color: "var(--green, #34d399)" }}>
-              ✓ Batch finished — {done - failures.length}/{pending.length} researched
+              ✓ Batch finished — {done - failures.length}/{batch.length} researched
+              {remaining > 0
+                ? ` · ${remaining} still to go — reload and click for the next batch`
+                : ""}
             </strong>
           )}
           {stopReason && (
