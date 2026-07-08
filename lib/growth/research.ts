@@ -172,50 +172,81 @@ export function cleanSocialUrl(raw: string): string | null {
  * continues from the details we already hold — the report then plainly says
  * it's working without the site.
  */
+/** One fetch attempt of a single URL. Uses a real desktop-Chrome header
+ *  set — SME sites behind Cloudflare/WAFs routinely 403 a "compatible;
+ *  Bot" agent, which was silently failing half of Jude's reads. */
+async function fetchOnce(
+  target: string
+): Promise<{ text: string; found: FoundContacts } | null> {
+  const res = await fetch(target, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(12000),
+    headers: {
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "accept-language": "en-IE,en-GB;q=0.9,en;q=0.8",
+      "accept-encoding": "gzip, deflate, br",
+      "upgrade-insecure-requests": "1",
+    },
+  });
+  if (!res.ok) return null;
+  const type = res.headers.get("content-type") ?? "";
+  if (type && !type.includes("html") && !type.includes("text")) return null;
+
+  const html = (await res.text()).slice(0, 500_000);
+  const found = harvestContacts(html, new URL(target).hostname);
+  const text = html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    // Keep meta description/title content before stripping tags.
+    .replace(/<meta[^>]+content="([^"]*)"[^>]*>/gi, " $1 ")
+    .replace(/<title[^>]*>([\s\S]*?)<\/title>/i, " PAGE TITLE: $1 ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#?\w+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return text.length >= 60 ? { text: text.slice(0, 9000), found } : null;
+}
+
 export async function fetchWebsiteText(
   rawUrl: string
 ): Promise<{ text: string; found: FoundContacts } | null> {
   let url = rawUrl.trim();
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  let parsed: URL;
   try {
-    const parsed = new URL(url);
-    if (!["http:", "https:"].includes(parsed.protocol)) return null;
-
-    const res = await fetch(parsed.toString(), {
-      redirect: "follow",
-      signal: AbortSignal.timeout(8000),
-      headers: {
-        // Some SME sites block requests with no UA at all.
-        "user-agent":
-          "Mozilla/5.0 (compatible; AutomateIQ-Research/1.0; +https://automateiq.ie)",
-        accept: "text/html,application/xhtml+xml",
-      },
-    });
-    if (!res.ok) return null;
-    const type = res.headers.get("content-type") ?? "";
-    if (!type.includes("html") && !type.includes("text")) return null;
-
-    const html = (await res.text()).slice(0, 500_000);
-    const found = harvestContacts(html, parsed.hostname);
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-      .replace(/<!--[\s\S]*?-->/g, " ")
-      // Keep meta description/title content before stripping tags.
-      .replace(/<meta[^>]+content="([^"]*)"[^>]*>/gi, " $1 ")
-      .replace(/<title[^>]*>([\s\S]*?)<\/title>/i, " PAGE TITLE: $1 ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&amp;/g, "&")
-      .replace(/&#?\w+;/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    return text.length >= 80 ? { text: text.slice(0, 9000), found } : null;
+    parsed = new URL(url);
   } catch {
     return null;
   }
+  if (!["http:", "https:"].includes(parsed.protocol)) return null;
+
+  // Try the URL as given, then the www/non-www variant, then http — a slow
+  // or picky host that fails one shape often serves another. First success
+  // wins; total failure returns null and research hedges without the site.
+  const host = parsed.hostname;
+  const altHost = host.startsWith("www.") ? host.slice(4) : `www.${host}`;
+  const candidates = [
+    parsed.toString(),
+    `${parsed.protocol}//${altHost}${parsed.pathname}${parsed.search}`,
+    `http://${host}${parsed.pathname}${parsed.search}`,
+  ];
+  for (const candidate of candidates) {
+    try {
+      const result = await fetchOnce(candidate);
+      if (result) return result;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
 }
 
 function asStringArray(v: unknown, max = 10): string[] {
