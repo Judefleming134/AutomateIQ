@@ -11,7 +11,8 @@ values
   ('content-agent', 'Content Agent', 'AI-written blogs, social posts, emails and ad copy — on brand, on demand.', 'pen-line', 'active'),
   ('instant-quote-agent', 'Instant Quote Agent', 'Turns a job description into a priced, itemised quote in seconds.', 'calculator', 'active'),
   ('crm-agent', 'CRM Agent', 'Every customer and lead in one place, searchable and up to date.', 'contact', 'active'),
-  ('speed-to-lead-agent', 'Speed-to-Lead Agent', 'Replies to every new lead in under 60 seconds, day or night.', 'zap', 'active')
+  ('speed-to-lead-agent', 'Speed-to-Lead Agent', 'Replies to every new lead in under 60 seconds, day or night.', 'zap', 'active'),
+  ('voice-agent', 'Voice Agent', 'An AI receptionist that answers missed calls, books jobs and texts you the details.', 'mic', 'active')
 on conflict (key) do update set
   name = excluded.name,
   description = excluded.description,

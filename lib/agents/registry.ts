@@ -11,6 +11,7 @@ import { crmAgentModule } from "@/lib/agents/modules/crm-agent";
 import { speedToLeadAgentModule } from "@/lib/agents/modules/speed-to-lead-agent";
 import { instagramDmSetterModule } from "@/lib/agents/modules/instagram-dm-setter";
 import { logisticsAgentModule } from "@/lib/agents/modules/logistics-agent";
+import { voiceAgentModule } from "@/lib/agents/modules/voice-agent";
 import { FUTURE_AGENT_MODULES } from "@/lib/agents/modules/future";
 
 /**
@@ -28,6 +29,7 @@ export const AGENT_MODULES: AgentModule[] = [
   speedToLeadAgentModule,
   instagramDmSetterModule,
   logisticsAgentModule,
+  voiceAgentModule,
   ...FUTURE_AGENT_MODULES,
 ];
 
