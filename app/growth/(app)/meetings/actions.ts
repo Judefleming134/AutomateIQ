@@ -57,7 +57,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
   await admin.from("ge_activities").insert({
     prospect_id: prospectId,
     type: "meeting",
-    content: `Meeting booked for ${scheduledAt.toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} by ${member.name}`,
+    content: `Meeting booked for ${new Date(scheduledIso).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} by ${member.name}`,
     created_by: member.id,
   });
 
@@ -68,7 +68,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
     "",
     `Company: ${prospect.company}`,
     `Contact: ${prospect.contact_name}${prospect.email ? ` (${prospect.email})` : ""}`,
-    `When: ${scheduledAt.toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
+    `When: ${new Date(scheduledIso).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
     notes ? `Notes: ${notes}` : "",
   ].filter(Boolean));
 
