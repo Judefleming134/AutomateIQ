@@ -105,6 +105,22 @@ export async function sendJarvisMorningBrief(): Promise<{
       .eq("status", "sent")
       .gte("sent_at", since24h);
 
+    // Delivery trouble reported by the email provider's webhooks (bounces,
+    // spam complaints, delays) — ground truth on whether sends arrived.
+    const { data: deliveryActs } = await admin
+      .from("ge_activities")
+      .select("content, ge_prospects(company)")
+      .ilike("content", "Email delivery:%")
+      .not("content", "ilike", "%delivered to%")
+      .gte("created_at", since24h)
+      .order("created_at", { ascending: false })
+      .limit(15);
+    const deliveryLines = (deliveryActs ?? []).map((a) => {
+      const company =
+        (a.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+      return `• ${company} — ${String(a.content).replace(/^Email delivery:\s*/i, "")}`;
+    });
+
     // What Jarvis's 10pm nightly routine did while Jude slept.
     const { data: nightlyActs } = await admin
       .from("ge_activities")
@@ -178,6 +194,9 @@ export async function sendJarvisMorningBrief(): Promise<{
       plan,
       reminders.length
         ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
+        : "",
+      deliveryLines.length
+        ? `📬 DELIVERY ISSUES (${deliveryLines.length})\n${deliveryLines.join("\n")}`
         : "",
       (sentToday ?? []).length
         ? `📤 SENT THIS MORNING (${(sentToday ?? []).length})\n${(sentToday ?? [])
