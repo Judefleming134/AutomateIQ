@@ -134,9 +134,9 @@ function MessageBody({ text }: { text: string }) {
 }
 
 const STARTERS = [
-  "Who should I contact first today and why?",
+  "Prep my dial list — top 10 calls with numbers, openers and why.",
+  "Where are we? Contacted, waiting, replies, what's fresh.",
   "Give me my plan for today, in order.",
-  "How's my pipeline actually looking?",
   "Which industry and channel are working best?",
 ];
 
