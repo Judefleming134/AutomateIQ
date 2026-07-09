@@ -75,6 +75,18 @@ function fmt(ts: string | null | undefined): string {
   });
 }
 
+/** Renders a stored social URL as a click-through link (opens the profile in
+ *  a new tab), so DMing a prospect doesn't need copy-paste. Falls back to —. */
+function SocialLink({ url }: { url: string | null | undefined }) {
+  if (!url) return <>—</>;
+  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  return (
+    <a href={href} target="_blank" rel="noreferrer">
+      {url}
+    </a>
+  );
+}
+
 function ListSection({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) return null;
   return (
@@ -629,9 +641,9 @@ export default async function ProspectWorkspacePage({
                     "—"
                   )}
                 </div>
-                <div style={{ wordBreak: "break-all" }}>LinkedIn: {prospect.linkedin_url ?? "—"}</div>
-                <div style={{ wordBreak: "break-all" }}>Instagram: {prospect.instagram_url ?? "—"}</div>
-                <div style={{ wordBreak: "break-all" }}>Facebook: {prospect.facebook_url ?? "—"}</div>
+                <div style={{ wordBreak: "break-all" }}>LinkedIn: <SocialLink url={prospect.linkedin_url} /></div>
+                <div style={{ wordBreak: "break-all" }}>Instagram: <SocialLink url={prospect.instagram_url} /></div>
+                <div style={{ wordBreak: "break-all" }}>Facebook: <SocialLink url={prospect.facebook_url} /></div>
               </div>
             </section>
           </div>
