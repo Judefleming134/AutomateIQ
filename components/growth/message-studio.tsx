@@ -130,6 +130,9 @@ export function MessageStudio({
         return;
       }
       if (mode === "draft") {
+        // Keep editing the same row — without capturing the new id, a second
+        // save (or a later send) would create a duplicate draft.
+        setActive({ messageId: result.messageId });
         setNotice({ kind: "ok", text: "Draft saved." });
       } else {
         setNotice({

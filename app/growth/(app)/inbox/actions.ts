@@ -115,7 +115,7 @@ export async function composeMessage(input: {
   tone?: Tone;
   /** Update this existing draft row instead of creating a new message. */
   messageId?: string;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true; messageId: string } | { ok: false; error: string }> {
   const { member } = await requireGrowth();
   if (!CHANNELS.includes(input.channel)) {
     return { ok: false, error: "Invalid channel." };
@@ -203,7 +203,9 @@ export async function composeMessage(input: {
   }
 
   revalidateProspect(prospect.id);
-  return { ok: true };
+  // Return the row id so the composer can keep editing the SAME draft instead
+  // of creating a duplicate on the next save.
+  return { ok: true, messageId: message.id };
 }
 
 /** Sends a queued/draft EMAIL message from the queue view. */
