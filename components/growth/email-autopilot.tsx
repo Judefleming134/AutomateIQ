@@ -133,8 +133,9 @@ export function EmailAutopilot({
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 10px" }}>
             {candidates.length} researched prospect
             {candidates.length === 1 ? " has" : "s have"} a first-touch email
-            ready. Untick any you want to hold back, expand a row to read the
-            email, then fire.
+            ready to add to the run. Queue them and they move onto the 8am run;
+            research more leads and the next ones appear here automatically.
+            Untick any to hold back, expand a row to read the email, then fire.
           </p>
 
           <div style={{ display: "grid", gap: 6, marginBottom: 12 }}>
