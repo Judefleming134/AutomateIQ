@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/db/errors";
+import { syncVoiceAgentKnowledge } from "@/lib/growth/voice-agent";
 
 const SETUP_PENDING =
   "Your Voice Agent is still being set up — please try again shortly.";
@@ -66,6 +67,29 @@ export async function updateVoiceConfig(
   );
   if (error) {
     return { error: isMissingTableError(error) ? SETUP_PENDING : error.message };
+  }
+
+  // Push the edit to the live ElevenLabs agent so it takes effect on the next
+  // call. Best-effort: the DB (our source of truth) is already saved, so a
+  // sync hiccup never loses the change — it's logged, not surfaced as a
+  // failure. A no-op when the agent isn't linked yet or no API key is set.
+  const [{ data: biz }, { data: cfg }] = await Promise.all([
+    supabase.from("businesses").select("name").eq("id", profile.business_id!).maybeSingle(),
+    supabase
+      .from("va_config")
+      .select("elevenlabs_agent_id")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle(),
+  ]);
+  const sync = await syncVoiceAgentKnowledge(cfg?.elevenlabs_agent_id, biz?.name ?? "", {
+    greeting: parsed.data.greeting ?? "",
+    services: parsed.data.services ?? "",
+    businessHours: parsed.data.businessHours ?? "",
+    serviceArea: parsed.data.serviceArea ?? "",
+    knowledge: parsed.data.knowledge ?? "",
+  });
+  if (!sync.synced) {
+    console.error("Voice Agent ElevenLabs sync skipped/failed:", sync.detail);
   }
 
   revalidatePath("/portal/voice-agent");
