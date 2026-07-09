@@ -76,9 +76,16 @@ export default async function InboxPage({
     : [];
   const lastInbound = selectedThread.find((m) => m.direction === "inbound");
 
-  const queue = messages.filter(
-    (m) => m.direction === "outbound" && ["draft", "queued", "failed"].includes(m.status)
-  );
+  // Surface what needs a decision first: a FAILED send (retry or delete) then
+  // QUEUED (scheduled for 8am), then the bulk of plain drafts. `messages` is
+  // already newest-first and Array.sort is stable, so date order is preserved
+  // within each status group.
+  const queueRank: Record<string, number> = { failed: 0, queued: 1, draft: 2 };
+  const queue = messages
+    .filter(
+      (m) => m.direction === "outbound" && ["draft", "queued", "failed"].includes(m.status)
+    )
+    .sort((a, b) => (queueRank[a.status] ?? 3) - (queueRank[b.status] ?? 3));
 
   let templates: ComposerTemplate[] = [];
   let settingsBookingUrl = "";
