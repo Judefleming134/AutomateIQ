@@ -117,15 +117,18 @@ export async function POST(request: NextRequest) {
     if (msg) {
       await admin.from("ge_messages").update({ status: "failed" }).eq("id", msg.id);
     }
-    // Remove the dead address so nothing can send to it again; keep the
-    // evidence in notes (which Jarvis reads).
+    // Scrub the dead address from EVERY prospect that carries it, not just
+    // the one we sent to — scraped imports routinely repeat the same email
+    // across duplicate rows, and any leftover copy would let the autopilot
+    // re-fire at a known-bad address and rack up more bounces (reputation
+    // damage). One update covers all matches.
+    await admin.from("ge_prospects").update({ email: null }).ilike("email", to);
+    // Keep the evidence in notes on the prospect we actually sent to (which
+    // Jarvis reads); its own email is already nulled by the scrub above.
     const note = `⚠ ${today}: email ${to} ${type === "email.bounced" ? "bounced — invalid address, removed" : "marked us as spam — removed, do not email"}`;
     await admin
       .from("ge_prospects")
-      .update({
-        email: null,
-        notes: prospect.notes ? `${prospect.notes}\n${note}` : note,
-      })
+      .update({ notes: prospect.notes ? `${prospect.notes}\n${note}` : note })
       .eq("id", prospect.id);
     await log(`Email delivery: ${why} — address ${to} removed from the record`);
   } else if (type === "email.delivery_delayed") {
