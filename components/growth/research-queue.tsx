@@ -49,6 +49,12 @@ export function ResearchQueue({
   const [finished, setFinished] = useState(false);
   const [pauseNote, setPauseNote] = useState<string | null>(null);
   const [stopReason, setStopReason] = useState<string | null>(null);
+  // Frozen at run start: `batch` recomputes from live `pending` on every
+  // router.refresh(), so it shrinks as prospects get researched — but the
+  // running loop targets the batch captured at click-time. Use this fixed
+  // total for the progress UI so the denominator can't fall below `done`
+  // (which would show e.g. "40/10" and a >100% bar near the list's end).
+  const [batchTotal, setBatchTotal] = useState(0);
 
   async function start() {
     setRunning(true);
@@ -57,6 +63,7 @@ export function ResearchQueue({
     setDone(0);
     setStopReason(null);
     setPauseNote(null);
+    setBatchTotal(batch.length);
 
     const failed: string[] = [];
     const inFlight = new Set<string>();
@@ -177,14 +184,14 @@ export function ResearchQueue({
       {running && (
         <div>
           <strong>
-            Researching {done}/{batch.length}
+            Researching {done}/{batchTotal}
             {active.length > 0 ? ` — working on ${active.join(" + ")}…` : "…"}
           </strong>
           <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: 8 }}>
             ≈{" "}
             {Math.max(
               1,
-              Math.ceil(((batch.length - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
+              Math.ceil(((batchTotal - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
             )}{" "}
             min left
           </span>
@@ -198,11 +205,11 @@ export function ResearchQueue({
             }}
             role="progressbar"
             aria-valuenow={done}
-            aria-valuemax={batch.length}
+            aria-valuemax={batchTotal}
           >
             <div
               style={{
-                width: `${Math.round((done / Math.max(1, batch.length)) * 100)}%`,
+                width: `${Math.round((done / Math.max(1, batchTotal)) * 100)}%`,
                 height: "100%",
                 background: "var(--ac2, #3b82f6)",
                 transition: "width .4s",
@@ -219,11 +226,11 @@ export function ResearchQueue({
         <div>
           {stopReason ? (
             <strong style={{ color: "var(--orange, #fb923c)" }}>
-              ⏸ Batch stopped after {done}/{batch.length}: {stopReason}
+              ⏸ Batch stopped after {done}/{batchTotal}: {stopReason}
             </strong>
           ) : (
             <strong style={{ color: "var(--green, #34d399)" }}>
-              ✓ Batch finished — {done - failures.length}/{batch.length} researched
+              ✓ Batch finished — {done - failures.length}/{batchTotal} researched
               {remaining > 0
                 ? ` · ${remaining} still to go — reload and click for the next batch`
                 : ""}
