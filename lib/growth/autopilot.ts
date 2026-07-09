@@ -83,10 +83,21 @@ export async function listAutopilotCandidates(
     if (r.updated_at) researchUpdated.set(r.prospect_id, r.updated_at);
   }
 
-  // Newest email draft per prospect wins (research refreshes in place, but
-  // a studio draft may be newer and better-tuned).
+  // A prospect with an already-QUEUED email is handled — it goes out on the
+  // 8am run and then moves to Contacted. It must NOT keep showing in the
+  // "ready to send" list (that double-counts it and blocks the slot), so we
+  // drop those prospects and let the list refill with the next uncontacted
+  // drafts. The queued total is surfaced separately by the queued banner.
+  const queuedProspectIds = new Set(
+    (drafts ?? []).filter((d) => d.status === "queued").map((d) => d.prospect_id)
+  );
+
+  // Newest PLAIN draft per prospect wins (research refreshes in place, but a
+  // studio draft may be newer and better-tuned). Queued rows are excluded —
+  // they're no longer actionable here.
   const draftByProspect = new Map<string, NonNullable<typeof drafts>[number]>();
   for (const d of drafts ?? []) {
+    if (d.status !== "draft") continue;
     if (!draftByProspect.has(d.prospect_id)) draftByProspect.set(d.prospect_id, d);
   }
 
@@ -94,6 +105,7 @@ export async function listAutopilotCandidates(
 
   const out: AutopilotCandidate[] = [];
   for (const p of prospects ?? []) {
+    if (queuedProspectIds.has(p.id)) continue;
     const d = draftByProspect.get(p.id);
     if (!d || !p.email) continue;
     const body = sanitizeOutreachBody(d.body);
