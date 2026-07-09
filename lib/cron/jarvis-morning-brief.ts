@@ -28,11 +28,12 @@ const DATED_REMINDERS: Record<string, string[]> = {
   "2026-07-10": [
     "PLAN FOR THE DAY —",
     "1. BUILD + TEST the ElevenLabs voice agent for Castleknock FIRST — paste the system prompt, connect the Twilio number, call it 3×: emergency / normal job / price probe. This is the Tuesday closer.",
-    "2. DROP IN the new leads: import the cleaned batches (batch 1 first), then Research the top 40 (website-havers get done first now).",
-    "3. DIAL down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
-    "4. DM the LinkedIn / Instagram / Facebook prospects — use Message Studio drafts.",
-    "5. Queue tomorrow's ~20 best emails for 8am before you finish.",
-    "6. Castleknock prep: fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready for Tuesday.",
+    "2. ZOOM DEMO DRY-RUN: test screen-share / holding your phone to the camera while it calls the voice agent — that live demo is what closes him. Confirm the Zoom meeting is set for Tuesday 14:00 Irish.",
+    "3. DROP IN the new leads: import the cleaned batches (batch 1 first), then Research the top 40 (website-havers get done first now).",
+    "4. DIAL down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
+    "5. DM the LinkedIn / Instagram / Facebook prospects — links are clickable in the Studio sidebar now.",
+    "6. Queue ~20 best emails for the next 8am before you finish.",
+    "7. Castleknock prep: fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready. (After Tuesday's call, Claude can pull the Zoom transcript to draft the proposal.)",
   ],
 };
 
