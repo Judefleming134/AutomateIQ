@@ -26,13 +26,13 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
   ],
   "2026-07-10": [
-    "MORNING PLAN (8–9am → lunch) — biggest wins first, calling is prime-time so lead with it:",
-    "① Answer overnight replies FIRST (see the replies section above) — warm leads go cold fast, reply before you do anything else.",
-    "② CALL now — this is the one thing you can ONLY do in business hours. Dial the top-scored researched leads straight down the list, phone-first. Log every call so the follow-up auto-schedules.",
-    "③ Castleknock voice agent — if it's not built + tested yet, do it this morning: call it 3× (emergency / normal job / price probe) and confirm the Zoom is set for Tuesday 14:00. It's the closer.",
-    "④ DM the LinkedIn / Instagram / Facebook prospects — daytime = professional. Links are clickable in the Studio sidebar.",
-    "⑤ Refill the pipeline — import the next batch + research the top 40 (website-havers go first) so tomorrow's 8am autopilot has fuel.",
-    "⑥ Before you break — queue ~20 best emails for the next 8am, and have Castleknock's quote + order form ready to send (€349 setup + €129/mo).",
+    "TODAY'S PLAN, in order —",
+    "① Import the new CSVs → research the top 40 (website-havers go first). Refills the pipeline for dialling + the 8am run.",
+    "② Castleknock finishing touches — sharpen the voice agent (fast, urgent, books the job), run the 3 test calls, confirm Tuesday 14:00 Zoom + quote/order form ready.",
+    "③ DIAL — prime business-hours work: hammer the top-scored researched list, phone-first, log every call so the follow-up auto-schedules.",
+    "④ Last night's scans & catches — skim the Jarvis overnight section below and action anything flagged.",
+    "⑤ Draft the weekend plan — which niches to scrape, who to chase, what to prep for next week.",
+    "⑥ Before you finish — queue ~20 best emails for the next 8am run.",
   ],
 };
 
@@ -144,6 +144,54 @@ export async function sendJarvisMorningBrief(): Promise<{
       return `• ${company} — ${String(a.content).replace(/^Jarvis nightly:\s*/i, "")}`;
     });
 
+    // ── Jarvis Needle-Mover Score ──────────────────────────────────────
+    // One number for "did yesterday move the needle?" — weighted toward the
+    // actions that actually win customers (calls, replies, meetings) over
+    // raw volume (leads added), scored against the last 7 days' daily
+    // average so it reads as progress "vs recent days".
+    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [
+      { count: nmSentY }, { count: nmCallsY }, { count: nmReplyY },
+      { count: nmResY }, { count: nmMeetY }, { count: nmLeadY },
+      { count: nmSentW }, { count: nmCallsW }, { count: nmReplyW },
+      { count: nmResW }, { count: nmMeetW }, { count: nmLeadW },
+    ] = await Promise.all([
+      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since24h),
+      admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since24h),
+      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since24h),
+      admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since24h),
+      admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since24h),
+      admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since24h),
+      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since7d),
+      admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since7d),
+      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since7d),
+      admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since7d),
+      admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since7d),
+      admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since7d),
+    ]);
+    const nmPoints = (s: number, c: number, r: number, rs: number, m: number, l: number) =>
+      s * 2 + c * 3 + r * 6 + m * 25 + rs * 1 + l * 0.5;
+    const nmYest = nmPoints(nmSentY ?? 0, nmCallsY ?? 0, nmReplyY ?? 0, nmResY ?? 0, nmMeetY ?? 0, nmLeadY ?? 0);
+    const nmDailyAvg = nmPoints(nmSentW ?? 0, nmCallsW ?? 0, nmReplyW ?? 0, nmResW ?? 0, nmMeetW ?? 0, nmLeadW ?? 0) / 7;
+    const nmScore =
+      nmDailyAvg > 0.5
+        ? Math.max(0, Math.min(100, Math.round((50 * nmYest) / nmDailyAvg)))
+        : Math.min(100, Math.round(nmYest * 3)); // fresh account: absolute-ish
+    const nmTier =
+      nmScore >= 80 ? "🔥 On fire" : nmScore >= 60 ? "💪 Strong" : nmScore >= 40 ? "➖ Steady" : nmScore >= 20 ? "🐢 Slow start" : "😴 Quiet day";
+    const nmVerdict =
+      nmDailyAvg <= 0.5
+        ? "just getting going — build the habit today"
+        : nmYest >= nmDailyAvg * 1.2
+          ? "above your recent daily average — momentum's building, keep pushing"
+          : nmYest >= nmDailyAvg * 0.8
+            ? "right around your recent average — hold the line and push a bit harder"
+            : "below your recent days — today's the day to move it: dial and send early";
+    const nmScoreBlock =
+      `🎯 JARVIS NEEDLE-MOVER SCORE: ${nmScore}/100 — ${nmTier}\n` +
+      `${nmVerdict}\n` +
+      `Yesterday: ${nmSentY ?? 0} sent · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
+
     const statusLabel = (s: string) =>
       PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
     const companyOf = (row: { ge_prospects: unknown }) =>
@@ -210,6 +258,7 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     const bodyText = [
       plan,
+      nmScoreBlock,
       reminders.length
         ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
         : "",
