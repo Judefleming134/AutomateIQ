@@ -47,13 +47,17 @@ export async function listAutopilotCandidates(
   limit = 25
 ): Promise<AutopilotCandidate[]> {
   const admin = createAdminClient();
+  // Not every ready prospect has an email draft yet, so scan well beyond
+  // `limit` top-scored prospects to reliably fill up to `limit` DRAFTED
+  // first-touches — a tight window (e.g. limit*2) under-fills whenever the
+  // drafted prospects are spread deeper down the score-ranked list.
   const { data: prospects } = await admin
     .from("ge_prospects")
     .select("id, company, contact_name, email, industry, lead_score")
     .in("status", READY_STATUSES)
     .not("email", "is", null)
     .order("lead_score", { ascending: false, nullsFirst: false })
-    .limit(limit * 2);
+    .limit(Math.max(limit * 8, 200));
   const ids = (prospects ?? []).map((p) => p.id);
   if (ids.length === 0) return [];
 
