@@ -25,6 +25,15 @@ const DATED_REMINDERS: Record<string, string[]> = {
   "2026-07-08": [
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
   ],
+  "2026-07-10": [
+    "PLAN FOR THE DAY —",
+    "1. BUILD + TEST the ElevenLabs voice agent for Castleknock FIRST — paste the system prompt, connect the Twilio number, call it 3×: emergency / normal job / price probe. This is the Tuesday closer.",
+    "2. DROP IN the new leads: import the cleaned batches (batch 1 first), then Research the top 40 (website-havers get done first now).",
+    "3. DIAL down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
+    "4. DM the LinkedIn / Instagram / Facebook prospects — use Message Studio drafts.",
+    "5. Queue tomorrow's ~20 best emails for 8am before you finish.",
+    "6. Castleknock prep: fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready for Tuesday.",
+  ],
 };
 
 /**
