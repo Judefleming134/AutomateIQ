@@ -89,6 +89,7 @@ export default async function GrowthDashboardPage() {
     { data: hot },
     { data: recentContacted },
     { data: upcomingMeetings },
+    { data: queuedEmails },
   ] = await Promise.all([
     loadGrowthMetrics(admin, 30),
     admin
@@ -131,7 +132,24 @@ export default async function GrowthDashboardPage() {
       .gte("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true })
       .limit(6),
+    // Prospects whose first-touch email is already queued for the 8am run —
+    // they're handled, so they shouldn't also appear as "ready to send".
+    admin
+      .from("ge_messages")
+      .select("prospect_id")
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("status", "queued"),
   ]);
+
+  // "Ready to send" is the manual-send list; drop anything already queued for
+  // the autopilot so a prospect isn't worked twice (queued + sent by hand).
+  const queuedProspectIds = new Set(
+    (queuedEmails ?? []).map((m) => m.prospect_id)
+  );
+  const readyList = (readyToSend ?? []).filter(
+    (p) => !queuedProspectIds.has(p.id)
+  );
 
   return (
     <>
@@ -204,7 +222,7 @@ export default async function GrowthDashboardPage() {
         </ActionForm>
       </section>
 
-      {(readyToSend ?? []).length > 0 && (
+      {readyList.length > 0 && (
         <section
           className="panel panel-block"
           style={{ marginBottom: 20, borderLeft: "3px solid var(--green, #34d399)" }}
@@ -212,7 +230,7 @@ export default async function GrowthDashboardPage() {
         >
           <h2 className="panel-title" id="rts-title">
             <Send size={15} style={{ verticalAlign: "-2px" }} /> Ready to send —
-            researched, drafts waiting ({(readyToSend ?? []).length})
+            researched, drafts waiting ({readyList.length})
           </h2>
           <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
             Highest score first. Open → skim the report → copy the draft →
@@ -221,7 +239,7 @@ export default async function GrowthDashboardPage() {
           <div className="table-wrap">
             <table>
               <tbody>
-                {(readyToSend ?? []).slice(0, 12).map((p) => (
+                {readyList.slice(0, 12).map((p) => (
                   <tr key={p.id}>
                     <td>
                       <Link href={`/growth/prospects/${p.id}?tab=studio`}>
@@ -244,10 +262,10 @@ export default async function GrowthDashboardPage() {
               </tbody>
             </table>
           </div>
-          {(readyToSend ?? []).length > 12 && (
+          {readyList.length > 12 && (
             <p style={{ fontSize: 12, marginTop: 8 }}>
               <Link href="/growth/prospects?status=research_complete&sort=score">
-                See all {(readyToSend ?? []).length} →
+                See all {readyList.length} →
               </Link>
             </p>
           )}
