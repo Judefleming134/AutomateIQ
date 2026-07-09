@@ -26,14 +26,14 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
   ],
   "2026-07-10": [
-    "PLAN FOR THE DAY —",
-    "1. BUILD + TEST the ElevenLabs voice agent for Castleknock FIRST — paste the system prompt, connect the Twilio number, call it 3×: emergency / normal job / price probe. This is the Tuesday closer.",
-    "2. ZOOM DEMO DRY-RUN: test screen-share / holding your phone to the camera while it calls the voice agent — that live demo is what closes him. Confirm the Zoom meeting is set for Tuesday 14:00 Irish.",
-    "3. DROP IN the new leads: import the cleaned batches (batch 1 first), then Research the top 40 (website-havers get done first now).",
-    "4. DIAL down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
-    "5. DM the LinkedIn / Instagram / Facebook prospects — links are clickable in the Studio sidebar now.",
-    "6. Queue ~20 best emails for the next 8am before you finish.",
-    "7. Castleknock prep: fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready. (After Tuesday's call, Claude can pull the Zoom transcript to draft the proposal.)",
+    "TODAY'S PLAN, in order —",
+    "① Build + test the Castleknock ElevenLabs voice agent FIRST — connect the Twilio number, call it 3× (emergency / normal job / price probe). The Tuesday closer.",
+    "② Zoom demo dry-run — test screen-share / phone-to-camera calling the voice agent, and confirm the Zoom meeting is set for Tuesday 14:00 Irish.",
+    "③ Drop in the new leads — import the cleaned batches (batch 1 first), then research the top 40 (website-havers go first now).",
+    "④ Dial down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
+    "⑤ DM the LinkedIn / Instagram / Facebook prospects — the links are clickable in the Studio sidebar now.",
+    "⑥ Queue ~20 best emails for the next 8am before you finish.",
+    "⑦ Castleknock prep — fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready. (After Tuesday's call, Claude can pull the Zoom transcript to draft the proposal.)",
   ],
 };
 
