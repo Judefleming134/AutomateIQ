@@ -19,6 +19,25 @@ function fmt(ts: string): string {
   });
 }
 
+/** Renders meeting notes with any URL (e.g. a pasted Zoom link) as a
+ *  clickable link, so a call can be joined straight from the meeting card. */
+function NotesWithLinks({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noreferrer">
+            {part}
+          </a>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
+
 export default async function MeetingsPage() {
   await requireGrowth();
   const admin = createAdminClient();
@@ -73,7 +92,9 @@ export default async function MeetingsPage() {
           </a>
         )}
         {m.notes && (
-          <p style={{ fontSize: 13, color: "var(--faint)", margin: "6px 0 0" }}>{m.notes}</p>
+          <p style={{ fontSize: 13, color: "var(--faint)", margin: "6px 0 0", whiteSpace: "pre-wrap" }}>
+            <NotesWithLinks text={m.notes} />
+          </p>
         )}
         {m.status === "booked" && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
