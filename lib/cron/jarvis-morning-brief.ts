@@ -26,14 +26,13 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
   ],
   "2026-07-10": [
-    "TODAY'S PLAN, in order —",
-    "① Build + test the Castleknock ElevenLabs voice agent FIRST — connect the Twilio number, call it 3× (emergency / normal job / price probe). The Tuesday closer.",
-    "② Zoom demo dry-run — test screen-share / phone-to-camera calling the voice agent, and confirm the Zoom meeting is set for Tuesday 14:00 Irish.",
-    "③ Drop in the new leads — import the cleaned batches (batch 1 first), then research the top 40 (website-havers go first now).",
-    "④ Dial down the researched list — highest score, phone-first. Log every call so the follow-up auto-schedules.",
-    "⑤ DM the LinkedIn / Instagram / Facebook prospects — the links are clickable in the Studio sidebar now.",
-    "⑥ Queue ~20 best emails for the next 8am before you finish.",
-    "⑦ Castleknock prep — fill the quote + order form (€349 setup + €129/mo) and have the Stripe link ready. (After Tuesday's call, Claude can pull the Zoom transcript to draft the proposal.)",
+    "MORNING PLAN (8–9am → lunch) — biggest wins first, calling is prime-time so lead with it:",
+    "① Answer overnight replies FIRST (see the replies section above) — warm leads go cold fast, reply before you do anything else.",
+    "② CALL now — this is the one thing you can ONLY do in business hours. Dial the top-scored researched leads straight down the list, phone-first. Log every call so the follow-up auto-schedules.",
+    "③ Castleknock voice agent — if it's not built + tested yet, do it this morning: call it 3× (emergency / normal job / price probe) and confirm the Zoom is set for Tuesday 14:00. It's the closer.",
+    "④ DM the LinkedIn / Instagram / Facebook prospects — daytime = professional. Links are clickable in the Studio sidebar.",
+    "⑤ Refill the pipeline — import the next batch + research the top 40 (website-havers go first) so tomorrow's 8am autopilot has fuel.",
+    "⑥ Before you break — queue ~20 best emails for the next 8am, and have Castleknock's quote + order form ready to send (€349 setup + €129/mo).",
   ],
 };
 
