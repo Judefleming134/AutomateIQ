@@ -153,7 +153,16 @@ export async function sendJarvisMorningBrief(): Promise<{
         `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
     );
     const meetingLines = (meetingsToday ?? []).map(
-      (m) => `• ${String(m.scheduled_at).slice(11, 16)} — ${companyOf(m)}`
+      // Render in Dublin time — scheduled_at is a real UTC instant, so the
+      // raw ISO hour is an hour behind the wall-clock time Jude sees
+      // everywhere else in the app (13:00Z = 14:00 Irish in summer).
+      (m) =>
+        `• ${new Date(String(m.scheduled_at)).toLocaleTimeString("en-IE", {
+          timeZone: "Europe/Dublin",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })} — ${companyOf(m)}`
     );
 
     // The narrative on top — best-effort, the brief never depends on it.
