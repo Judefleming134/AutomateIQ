@@ -38,7 +38,21 @@ export async function GET(
       .eq("id", reviewRequest.id);
   }
 
-  const destination = business?.google_review_link;
+  // Normalise the saved link: a business owner may paste it without a scheme
+  // ("g.page/…", "www.google.com/…"). NextResponse.redirect requires an
+  // ABSOLUTE URL and throws on anything else — which would 500 the customer
+  // clicking their review link. Add https:// if missing and validate; fall
+  // back to home rather than crash.
+  const raw = business?.google_review_link?.trim();
+  let destination: string | null = null;
+  if (raw) {
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+      destination = new URL(withScheme).toString();
+    } catch {
+      destination = null;
+    }
+  }
   if (!destination) {
     return NextResponse.redirect(new URL("/", request.url));
   }
