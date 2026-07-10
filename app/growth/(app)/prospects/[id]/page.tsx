@@ -632,7 +632,14 @@ export default async function ProspectWorkspacePage({
             <section className="panel panel-block" style={{ marginTop: report ? 16 : 0 }}>
               <h2 className="panel-title">Contact channels</h2>
               <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
-                <div>Email: {prospect.email ?? "—"}</div>
+                <div style={{ wordBreak: "break-all" }}>
+                  Email:{" "}
+                  {prospect.email ? (
+                    <a href={`mailto:${prospect.email}`}>{prospect.email}</a>
+                  ) : (
+                    "—"
+                  )}
+                </div>
                 <div>
                   Phone:{" "}
                   {prospect.phone ? (
