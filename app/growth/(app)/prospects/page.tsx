@@ -85,6 +85,7 @@ export default async function ProspectsPage({
     allProspects,
     researched,
     { data: missingEmail },
+    { count: grandTotal },
   ] = await Promise.all([
     query,
     admin.from("ge_campaigns").select("id, name").order("name"),
@@ -113,7 +114,17 @@ export default async function ProspectsPage({
       .not("status", "in", '("won","lost","do_not_contact","archived")')
       .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(100),
+    // Active working-set size (excludes archived + closed) — drives the
+    // "nearing 5k" advisory, so archiving cold leads actually clears it.
+    // head:true fetches only the count, no rows, so it's cheap at any scale.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("status", "in", '("won","lost","do_not_contact","archived")'),
   ]);
+  // Comfortable working ceiling before pruning helps keep things brisk.
+  const SOFT_CAP = 5000;
+  const dbTotal = grandTotal ?? 0;
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
   const researchedIds = new Set(researched.map((r) => r.prospect_id));
   // Research the most-researchable leads first: a website is by far the
@@ -212,6 +223,36 @@ export default async function ProspectsPage({
           <Download size={14} /> Export CSV
         </a>
       </div>
+
+      {dbTotal >= SOFT_CAP * 0.9 && (
+        <div
+          className="panel panel-block"
+          style={{
+            marginBottom: 12,
+            borderLeft: `3px solid var(--orange, #fb923c)`,
+            fontSize: 13,
+          }}
+        >
+          {dbTotal >= SOFT_CAP ? (
+            <>
+              <strong>You&apos;re at {dbTotal.toLocaleString("en-IE")} prospects</strong>{" "}
+              — past the ~{SOFT_CAP.toLocaleString("en-IE")} comfortable working
+              size. Everything still works, but archiving cold or stale leads
+              (never contacted, low score, old and gone quiet) keeps the
+              dashboard and research queue brisk. Sort by <em>Lead score</em> or{" "}
+              <em>Next follow-up</em>, tick the dead weight, and use the bulk
+              actions to archive.
+            </>
+          ) : (
+            <>
+              <strong>Approaching {SOFT_CAP.toLocaleString("en-IE")} prospects</strong>{" "}
+              ({dbTotal.toLocaleString("en-IE")} so far) — plenty of headroom
+              still. When you cross {SOFT_CAP.toLocaleString("en-IE")}, archiving
+              cold or stale leads keeps things snappy. No action needed yet.
+            </>
+          )}
+        </div>
+      )}
 
       <ResearchQueue
         pending={unresearchedBatch}
