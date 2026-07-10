@@ -52,11 +52,23 @@ export function parseCsv(text: string): string[][] {
 }
 
 export function toCsv(rows: (string | number | null | undefined)[][]): string {
+  const cellToStr = (cell: string | number | null | undefined): string => {
+    if (cell === null || cell === undefined) return "";
+    // Numbers can never be a spreadsheet formula — pass them through as-is.
+    if (typeof cell === "number") return String(cell);
+    let s = String(cell);
+    // Neutralise CSV/formula injection: a value a spreadsheet would execute
+    // as a formula (starts with = + - @, or a tab/CR) is prefixed with a
+    // quote so it renders as harmless text. Exports carry external content
+    // (inbound reply bodies, scraped company names), so this matters.
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return s;
+  };
   return rows
     .map((row) =>
       row
         .map((cell) => {
-          const s = cell === null || cell === undefined ? "" : String(cell);
+          const s = cellToStr(cell);
           return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
         })
         .join(",")
