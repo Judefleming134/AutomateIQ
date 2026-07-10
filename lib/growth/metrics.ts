@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { selectAllRows } from "@/lib/growth/db";
 
 export type GrowthMetrics = {
   windowDays: number | null;
@@ -70,29 +71,56 @@ export async function loadGrowthMetrics(
     ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
     : null;
 
-  const [
-    { data: prospects },
-    { data: messages },
-    { data: meetings },
-    { data: campaigns },
-    { data: research },
-    { data: proposals },
-  ] = await Promise.all([
-    admin
-      .from("ge_prospects")
-      .select("id, status, industry, campaign_id, pipeline_value, qualification_status, created_at"),
-    admin
-      .from("ge_messages")
-      .select("prospect_id, campaign_id, channel, direction, status, sentiment, tone, created_at, sent_at"),
-    admin.from("ge_meetings").select("prospect_id, status, created_at"),
-    admin.from("ge_campaigns").select("id, name, status"),
-    admin.from("ge_research").select("solutions, created_at"),
-    admin.from("ge_proposals").select("status, updated_at"),
-  ]);
+  // Page through every table so the aggregates stay correct at any size —
+  // a plain .select() caps at ~1,000 rows, which would freeze the dashboard's
+  // counts and skew every rate once the pipeline grows past that.
+  const [prospects, messages, meetings, campaigns, research, proposals] =
+    await Promise.all([
+      selectAllRows<{
+        id: string;
+        status: string;
+        industry: string | null;
+        campaign_id: string | null;
+        pipeline_value: number | null;
+        qualification_status: string | null;
+        created_at: string;
+      }>(() =>
+        admin
+          .from("ge_prospects")
+          .select("id, status, industry, campaign_id, pipeline_value, qualification_status, created_at")
+      ),
+      selectAllRows<{
+        prospect_id: string;
+        campaign_id: string | null;
+        channel: string;
+        direction: string;
+        status: string;
+        sentiment: string | null;
+        tone: string | null;
+        created_at: string;
+        sent_at: string | null;
+      }>(() =>
+        admin
+          .from("ge_messages")
+          .select("prospect_id, campaign_id, channel, direction, status, sentiment, tone, created_at, sent_at")
+      ),
+      selectAllRows<{ prospect_id: string; status: string; created_at: string }>(
+        () => admin.from("ge_meetings").select("prospect_id, status, created_at")
+      ),
+      selectAllRows<{ id: string; name: string; status: string }>(() =>
+        admin.from("ge_campaigns").select("id, name, status")
+      ),
+      selectAllRows<{ solutions: unknown; created_at: string }>(() =>
+        admin.from("ge_research").select("solutions, created_at")
+      ),
+      selectAllRows<{ status: string; updated_at: string }>(() =>
+        admin.from("ge_proposals").select("status, updated_at")
+      ),
+    ]);
 
-  const allProspects = prospects ?? [];
-  const allMessages = messages ?? [];
-  const allMeetings = (meetings ?? []).filter((m) => m.status !== "cancelled");
+  const allProspects = prospects;
+  const allMessages = messages;
+  const allMeetings = meetings.filter((m) => m.status !== "cancelled");
 
   const inWindow = (createdAt: string) => !since || createdAt >= since;
 

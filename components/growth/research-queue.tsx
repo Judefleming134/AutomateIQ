@@ -28,18 +28,26 @@ const BATCH_SIZE = 40;
 
 export function ResearchQueue({
   pending,
+  totalPending,
   claude = false,
 }: {
+  /** A bounded working slice of unresearched prospects (the server sends a
+   *  few hundred, not the whole database). */
   pending: QueueItem[];
+  /** The TRUE number of unresearched prospects across every import batch —
+   *  may be far larger than `pending.length`. Drives the count + "N still to
+   *  go" copy so it stays accurate no matter how many were imported. */
+  totalPending?: number;
   /** True when the server runs on the Anthropic key: no daily cap and no
    *  10-requests-per-minute wall, so the queue paces itself tighter. */
   claude?: boolean;
 }) {
   // Observed per-company wall time (fetch + model + pacing), for the ETA.
   const SECONDS_PER_COMPANY = claude ? 35 : 40;
+  const total = totalPending ?? pending.length;
   // This run researches at most BATCH_SIZE; the rest wait for the next click.
   const batch = pending.slice(0, BATCH_SIZE);
-  const remaining = Math.max(0, pending.length - batch.length);
+  const remaining = Math.max(0, total - batch.length);
   const idleGap = claude ? 600 : 1500;
   const router = useRouter();
   const [running, setRunning] = useState(false);
@@ -148,7 +156,7 @@ export function ResearchQueue({
     router.refresh();
   }
 
-  if (pending.length === 0 && !finished) return null;
+  if (total === 0 && !finished) return null;
 
   return (
     <div
@@ -159,7 +167,7 @@ export function ResearchQueue({
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 260px" }}>
             <strong>
-              {pending.length} prospect{pending.length === 1 ? "" : "s"} not researched yet
+              {total} prospect{total === 1 ? "" : "s"} not researched yet
             </strong>
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
               Each run researches up to {BATCH_SIZE} — reports, solution
