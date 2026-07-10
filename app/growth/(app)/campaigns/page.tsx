@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { selectAllRows } from "@/lib/growth/db";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
@@ -16,13 +17,17 @@ export default async function CampaignsPage() {
   await requireGrowth();
   const admin = createAdminClient();
 
-  const [{ data: campaigns }, metrics, { data: statusRows }] = await Promise.all([
+  const [{ data: campaigns }, metrics, statusRows] = await Promise.all([
     admin
       .from("ge_campaigns")
       .select("id, name, channel, industry, service, location, target_audience, status, created_at")
       .order("created_at", { ascending: false }),
     loadGrowthMetrics(admin),
-    admin.from("ge_prospects").select("campaign_id, status"),
+    // Page past the 1,000-row cap so the per-campaign ready/to-research
+    // tallies count every prospect, not just the first 1,000.
+    selectAllRows<{ campaign_id: string | null; status: string }>(() =>
+      admin.from("ge_prospects").select("campaign_id, status")
+    ),
   ]);
 
   const perfById = new Map(metrics.topCampaigns.map((c) => [c.id, c]));
@@ -32,7 +37,7 @@ export default async function CampaignsPage() {
   const READY = new Set(["research_complete", "outreach_ready"]);
   const TO_RESEARCH = new Set(["new", "researching"]);
   const todo = new Map<string, { ready: number; toResearch: number }>();
-  for (const p of statusRows ?? []) {
+  for (const p of statusRows) {
     if (!p.campaign_id) continue;
     const t = todo.get(p.campaign_id) ?? { ready: 0, toResearch: 0 };
     if (READY.has(p.status)) t.ready += 1;
