@@ -14,21 +14,43 @@ type Rangeable<T> = {
  * that cap, which quietly corrupts any count or aggregate once a table grows
  * past it (the dashboard freezing at "1,000 prospects", dedupe missing
  * existing leads, the research queue never seeing later import batches). This
- * loop guarantees completeness at any table size.
+ * guarantees completeness at any table size.
+ *
+ * Pages are fetched in parallel WINDOWS (default 5 at a time) rather than one
+ * after another, so a 5,000-row table is read in ~1 round trip instead of 5.
+ * That keeps hot pages (dashboard, Jarvis) snappy well past 5k leads.
  *
  * `makeQuery` MUST return a fresh builder each call — a builder is single-use
  * once it has been ranged/awaited.
  */
 export async function selectAllRows<T>(
   makeQuery: () => Rangeable<T>,
-  pageSize = 1000
+  pageSize = 1000,
+  parallelPages = 5
 ): Promise<T[]> {
   const rows: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
-    if (error || !data) break;
-    rows.push(...data);
-    if (data.length < pageSize) break;
+  for (let windowStart = 0; ; windowStart += parallelPages) {
+    const window = await Promise.all(
+      Array.from({ length: parallelPages }, (_, k) => {
+        const from = (windowStart + k) * pageSize;
+        return makeQuery().range(from, from + pageSize - 1);
+      })
+    );
+    let last = false;
+    for (const { data, error } of window) {
+      if (error || !data) {
+        last = true;
+        break;
+      }
+      rows.push(...data);
+      // A short page is the final page — nothing beyond it in this window
+      // (or any later one) can hold rows, so stop.
+      if (data.length < pageSize) {
+        last = true;
+        break;
+      }
+    }
+    if (last) break;
   }
   return rows;
 }
