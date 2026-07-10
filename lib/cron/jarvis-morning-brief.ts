@@ -34,6 +34,37 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "⑤ Draft the weekend plan — which niches to scrape, who to chase, what to prep for next week.",
     "⑥ Before you finish — queue ~20 best emails for the next 8am run.",
   ],
+  // ── Redemption weekend: build the arsenal so Monday is a pure dial day ──
+  "2026-07-11": [
+    "SATURDAY — BUILD THE ARSENAL (the whole point of the weekend: walk into Monday with a loaded, scored dial list). Work these:",
+    "① Import every remaining CSV, then RESEARCH HARD — get 60–80 leads scored + drafted (website-havers first). This is Monday's ammo.",
+    "② Scrape ONE new niche (blinds installers, or another local trade) → paste to Claude to clean → import → research.",
+    "③ Castleknock: full run-through of the receptionist — 3 fresh test calls, tighten the booking flow so it's fast and closes. Confirm quote + order form + Tuesday 14:00 Zoom.",
+    "④ Queue ~20 best emails for the 8am run.",
+    "END OF DAY YOU SHOULD HAVE: 30+ researched leads with phone numbers, ready to dial. That's a good Saturday.",
+  ],
+  "2026-07-12": [
+    "SUNDAY — SHARPEN & SET UP THE WEEK. You did the graft yesterday; today you aim it:",
+    "① Finalise MONDAY'S DIAL LIST: Prospects → leads with a phone → sort by Lead score → eyeball the top 30. Those are your calls.",
+    "② One more research batch if the pipeline's thin — depth beats scramble.",
+    "③ Castleknock DEMO DRY-RUN: rehearse the Zoom — play the agent off your phone, talk track, pricing, order form. Time it so it's tight.",
+    "④ Map the week: Mon = DIAL, Tue = Castleknock demo + close, Wed = follow-ups, Thu = fresh outreach, Fri = review.",
+    "⑤ Queue the 8am Monday emails, then get an early night — Monday you dial sharp.",
+  ],
+  "2026-07-13": [
+    "MONDAY — DIAL DAY. This is where the week is won. No admin rabbit-holes till the calls are done:",
+    "① From 9am, PHONE-FIRST: work the top-scored researched list, best scores first, tap-to-call. Log EVERY call so the follow-up auto-schedules.",
+    "② Aim for conversations, not perfection — volume + reps. A 'no' is progress, a booked callback is gold.",
+    "③ Answer any replies same day.",
+    "④ Last 30 mins: prep the final Castleknock bits for tomorrow (agent test, quote + order form ready to send live).",
+    "This is the redemption you talked about — it starts with the first dial.",
+  ],
+  "2026-07-14": [
+    "TUESDAY — CASTLECKNOCK DEMO, 14:00. Close it:",
+    "① Morning: final agent test, quote + order form open and ready to send live on the call.",
+    "② 14:00 Zoom: demo the receptionist, play it off your phone, walk the value, ASK FOR THE YES, send the order form on the call.",
+    "③ If yes → provision the Twilio number and go live. First customer. Then keep dialling — momentum.",
+  ],
 };
 
 /**
