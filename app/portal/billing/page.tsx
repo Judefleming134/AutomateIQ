@@ -2,10 +2,26 @@ import { Send, MessageSquare, Users, FileText } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
+import { isStripeConfigured } from "@/lib/billing/stripe";
+import { BillingActivation } from "@/components/portal/billing-activation";
 
 export default async function BillingPage() {
-  await requireSession();
+  const { profile } = await requireSession();
   const supabase = await createClient();
+
+  // Only read the billing columns once Stripe is switched on (and the
+  // migration has run) — before that the page stays exactly as it was.
+  const stripeOn = isStripeConfigured();
+  let subscriptionStatus = "inactive";
+  if (stripeOn) {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("subscription_status")
+      .eq("id", profile.business_id!)
+      .maybeSingle();
+    subscriptionStatus = (biz?.subscription_status as string) ?? "inactive";
+  }
+  const active = subscriptionStatus === "active";
 
   const monthStart = new Date();
   monthStart.setDate(1);
@@ -43,21 +59,50 @@ export default async function BillingPage() {
         </div>
       </div>
 
-      <div className="panel panel-block" style={{ marginBottom: 26 }}>
-        <h2 className="panel-title">
-          <span><span className="sys-index">01 /</span>Your plan</span>
-          <span className="badge badge-green">Active</span>
-        </h2>
-        <p style={{ margin: 0, fontSize: 13.5, color: "var(--body)", maxWidth: "60ch" }}>
-          Your subscription is managed directly with AutomateIQ. In-portal
-          invoices and card payments are coming soon — for plan changes,
-          invoices or payment questions, email{" "}
-          <a href="mailto:hello@automateiq.ie" style={{ color: "var(--ac2)" }}>
-            hello@automateiq.ie
-          </a>{" "}
-          and we&apos;ll sort it same-day.
-        </p>
-      </div>
+      {stripeOn ? (
+        <div className="panel panel-block" style={{ marginBottom: 26 }}>
+          <h2 className="panel-title">
+            <span><span className="sys-index">01 /</span>Your plan</span>
+            <span className={`badge ${active ? "badge-green" : "badge-gray"}`}>
+              {active
+                ? "Active"
+                : subscriptionStatus === "past_due"
+                  ? "Payment due"
+                  : "Not active"}
+            </span>
+          </h2>
+          {!active && (
+            <p style={{ margin: "0 0 14px", fontSize: 13.5, color: "var(--body)", maxWidth: "60ch" }}>
+              Activate your account to switch on your AI Assistant and Voice
+              Agent. It&apos;s a one-off setup fee plus your monthly plan, paid
+              securely through Stripe.
+            </p>
+          )}
+          {active && (
+            <p style={{ margin: "0 0 14px", fontSize: 13.5, color: "var(--body)", maxWidth: "60ch" }}>
+              You&apos;re all set. Manage your card, plan or invoices any time
+              through the secure billing portal.
+            </p>
+          )}
+          <BillingActivation active={active} />
+        </div>
+      ) : (
+        <div className="panel panel-block" style={{ marginBottom: 26 }}>
+          <h2 className="panel-title">
+            <span><span className="sys-index">01 /</span>Your plan</span>
+            <span className="badge badge-green">Active</span>
+          </h2>
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--body)", maxWidth: "60ch" }}>
+            Your subscription is managed directly with AutomateIQ. In-portal
+            invoices and card payments are coming soon — for plan changes,
+            invoices or payment questions, email{" "}
+            <a href="mailto:hello@automateiq.ie" style={{ color: "var(--ac2)" }}>
+              hello@automateiq.ie
+            </a>{" "}
+            and we&apos;ll sort it same-day.
+          </p>
+        </div>
+      )}
 
       <h2 className="section-title">Usage — {monthName}</h2>
       <div className="stat-grid">
