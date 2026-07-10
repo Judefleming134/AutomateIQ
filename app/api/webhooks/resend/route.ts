@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: prospect } = await admin
     .from("ge_prospects")
-    .select("id, company, email, notes")
+    .select("id, company, email, notes, status")
     .ilike("email", to)
     .limit(1)
     .maybeSingle();
@@ -123,14 +123,34 @@ export async function POST(request: NextRequest) {
     // re-fire at a known-bad address and rack up more bounces (reputation
     // damage). One update covers all matches.
     await admin.from("ge_prospects").update({ email: null }).ilike("email", to);
+    // A BOUNCE means the email never reached them — so the CRM must NOT keep
+    // claiming it did. Roll the status set by that send back to a truthful
+    // state: a bounced follow-up → back to Contacted (an earlier touch may
+    // still have landed); a bounced first touch → back to Outreach ready (it
+    // was never actually contacted). Only these two auto-set states are
+    // touched, so a lead that already replied/qualified is never regressed.
+    // (A spam COMPLAINT means it WAS delivered, so the status stands.)
+    const rolledBack =
+      type === "email.bounced"
+        ? prospect.status === "follow_up_sent"
+          ? "contacted"
+          : prospect.status === "contacted"
+            ? "outreach_ready"
+            : null
+        : null;
     // Keep the evidence in notes on the prospect we actually sent to (which
     // Jarvis reads); its own email is already nulled by the scrub above.
     const note = `⚠ ${today}: email ${to} ${type === "email.bounced" ? "bounced — invalid address, removed" : "marked us as spam — removed, do not email"}`;
     await admin
       .from("ge_prospects")
-      .update({ notes: prospect.notes ? `${prospect.notes}\n${note}` : note })
+      .update({
+        notes: prospect.notes ? `${prospect.notes}\n${note}` : note,
+        ...(rolledBack ? { status: rolledBack } : {}),
+      })
       .eq("id", prospect.id);
-    await log(`Email delivery: ${why} — address ${to} removed from the record`);
+    await log(
+      `Email delivery: ${why} — address ${to} removed from the record${rolledBack ? `; status rolled back to ${rolledBack} (not actually reached)` : ""}`
+    );
   } else if (type === "email.delivery_delayed") {
     await log(
       `Email delivery: delayed to ${to} — their mail server is slow, usually resolves on its own`
