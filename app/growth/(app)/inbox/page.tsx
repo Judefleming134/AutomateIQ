@@ -26,6 +26,25 @@ function fmt(ts: string | null | undefined): string {
   });
 }
 
+/**
+ * A labelled timestamp for a thread message so "did this actually send?" is
+ * unmistakable: a SENT email shows its real send time ("Sent 10 Jul 14:32"),
+ * a draft shows when it was written, etc. — the bare time alone silently
+ * mixed send-time and draft-time.
+ */
+function stampLabel(m: {
+  direction: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+}): string {
+  if (m.direction === "inbound") return `Received ${fmt(m.created_at)}`;
+  if (m.status === "sent") return `Sent ${fmt(m.sent_at ?? m.created_at)}`;
+  if (m.status === "queued") return `Queued ${fmt(m.created_at)}`;
+  if (m.status === "failed") return `Failed ${fmt(m.created_at)}`;
+  return `Drafted ${fmt(m.created_at)}`;
+}
+
 export default async function InboxPage({
   searchParams,
 }: {
@@ -234,7 +253,7 @@ export default async function InboxPage({
                               {SENTIMENT_META[m.sentiment as Sentiment].label}
                             </span>
                           )}
-                          <span>{fmt(m.sent_at ?? m.created_at)}</span>
+                          <span>{stampLabel(m)}</span>
                         </div>
                         {m.subject && <div style={{ fontWeight: 600, marginTop: 6 }}>{m.subject}</div>}
                         <p style={{ whiteSpace: "pre-wrap", margin: "6px 0 0", fontSize: 14 }}>{m.body}</p>
