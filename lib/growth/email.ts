@@ -88,6 +88,21 @@ function outreachFromAddress(): string {
 }
 
 /**
+ * Where prospect replies land. CRITICAL: a reply that reaches no monitored
+ * inbox is a lost customer. So replies go to BOTH Jude's domain address and
+ * his Gmail by default — if one isn't set up to receive yet, the other still
+ * catches every reply. Override with GROWTH_REPLY_TO (comma-separated) without
+ * a deploy.
+ */
+function outreachReplyTo(): string[] {
+  const configured = process.env.GROWTH_REPLY_TO;
+  const list = configured
+    ? configured.split(",").map((s) => s.trim()).filter(Boolean)
+    : ["jude@automateiq.ie", "judeautomated@gmail.com"];
+  return list.length > 0 ? list : ["jude@automateiq.ie"];
+}
+
+/**
  * Sends an outreach email through Resend (the one channel with a first-class
  * official sending API in this stack). Returns an error string instead of
  * throwing so callers can mark the message row 'failed' with a reason.
@@ -104,7 +119,7 @@ export async function sendOutreachEmail(params: {
       from: outreachFromAddress(),
       to: params.to,
       subject: params.subject,
-      replyTo: "jude@automateiq.ie",
+      replyTo: outreachReplyTo(),
       text: body,
       html: bodyToHtml(body),
     });
