@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
 import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendAutopilotEmail } from "@/lib/growth/autopilot";
+import { sendAutopilotEmail, runQueuedEmailAutopilot } from "@/lib/growth/autopilot";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { studioDraft } from "../inbox/actions";
@@ -541,4 +541,24 @@ export async function sendBriefNow(): Promise<{ ok: boolean; detail: string }> {
   await requireGrowth();
   const res = await sendJarvisMorningBrief();
   return { ok: res.sent, detail: res.detail };
+}
+
+/**
+ * Flush the queued outbound emails on demand — the exact same send the 8am
+ * cron performs (runQueuedEmailAutopilot: owner as sender, cross-contamination
+ * guard, provider-rate pacing, full CRM bookkeeping). Queued emails otherwise
+ * only leave on the cron, so when Vercel's Hobby cron fires late or skips a
+ * day they sit unsent with no way out from the UI. This is that way out.
+ */
+export async function sendQueuedNow(): Promise<{
+  ok: boolean;
+  detail: string;
+}> {
+  await requireGrowth();
+  const res = await runQueuedEmailAutopilot();
+  revalidatePath("/growth/jarvis");
+  revalidatePath("/growth/inbox");
+  revalidatePath("/growth");
+  const ok = res.sent > 0 || (res.sent === 0 && res.failed === 0);
+  return { ok, detail: res.detail };
 }

@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Rocket, Clock, RefreshCw } from "lucide-react";
+import { Mail, Rocket, Clock, RefreshCw, Send } from "lucide-react";
 import {
   autopilotAction,
   regenerateFlaggedDrafts,
+  sendQueuedNow,
 } from "@/app/growth/(app)/jarvis/actions";
 import type { AutopilotCandidate } from "@/lib/growth/autopilot";
 
@@ -50,6 +51,13 @@ export function EmailAutopilot({
     if (regenState?.ok) router.refresh();
   }, [regenState, router]);
 
+  // Flush the queue on demand — a manual trigger for the same send the 8am
+  // cron does, so a late/skipped Hobby cron never traps queued emails.
+  const [flushPending, startFlush] = useTransition();
+  const [flushMsg, setFlushMsg] = useState<{ ok: boolean; text: string } | null>(
+    null
+  );
+
   // Only fresh, unbroken, not-already-queued drafts are ticked by default —
   // stale or broken ones need a look (or a regenerate) first.
   const defaultTicked = candidates.filter(
@@ -75,11 +83,61 @@ export function EmailAutopilot({
         <Mail size={16} style={{ verticalAlign: "-3px" }} /> Email autopilot
       </h2>
       {queuedCount > 0 && (
-        <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
-          <Clock size={13} style={{ verticalAlign: "-2px" }} /> {queuedCount}{" "}
-          email{queuedCount === 1 ? "" : "s"} queued — they go out
-          automatically on the 8am run.
-        </p>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: 12,
+          }}
+        >
+          <p style={{ fontSize: 13, color: "var(--faint)", margin: 0 }}>
+            <Clock size={13} style={{ verticalAlign: "-2px" }} /> {queuedCount}{" "}
+            email{queuedCount === 1 ? "" : "s"} queued — they go out
+            automatically on the 8am run.
+          </p>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={flushPending}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Send the ${queuedCount} queued email${queuedCount === 1 ? "" : "s"} right now, for real, from your sending address?`
+                )
+              )
+                return;
+              startFlush(async () => {
+                setFlushMsg(null);
+                const res = await sendQueuedNow().catch(() => ({
+                  ok: false,
+                  detail: "request failed — try again",
+                }));
+                setFlushMsg(
+                  res.ok
+                    ? { ok: true, text: `Sent — ${res.detail}.` }
+                    : { ok: false, text: `Couldn't send: ${res.detail}` }
+                );
+                if (res.ok) router.refresh();
+              });
+            }}
+          >
+            <Send size={13} /> {flushPending ? "Sending…" : "Send queued now"}
+          </button>
+          {flushMsg && (
+            <span
+              style={{
+                fontSize: 12,
+                color: flushMsg.ok
+                  ? "var(--green, #34d399)"
+                  : "var(--orange, #fb923c)",
+              }}
+            >
+              {flushMsg.text}
+            </span>
+          )}
+        </div>
       )}
 
       {flagged.length > 0 && (
