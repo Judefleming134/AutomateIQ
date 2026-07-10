@@ -278,6 +278,9 @@ export function JarvisChat() {
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={() => {
+              // Stop Jarvis mid-sentence too — clearing the chat while it's
+              // still speaking the last answer is jarring.
+              if (typeof window !== "undefined") window.speechSynthesis?.cancel();
               setTurns([]);
               try {
                 localStorage.removeItem(MEMORY_KEY);
