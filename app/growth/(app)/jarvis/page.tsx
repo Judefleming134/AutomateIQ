@@ -15,6 +15,7 @@ import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { StatCard } from "@/components/portal/stat-card";
 import { JarvisChat } from "@/components/growth/jarvis-chat";
 import { EmailAutopilot } from "@/components/growth/email-autopilot";
+import { SendBriefButton } from "@/components/growth/send-brief-button";
 import { listAutopilotCandidates } from "@/lib/growth/autopilot";
 import { CLOSED_STATUSES } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
@@ -93,6 +94,10 @@ export default async function JarvisPage() {
         <StatCard icon={<MessageSquare />} label="Reply rate" value={`${metrics.replyRate}%`} />
         <StatCard icon={<CalendarCheck />} label="Meetings booked" value={String(metrics.meetingsBooked)} />
         <StatCard icon={<TrendingUp />} label="Won" value={String(metrics.won)} />
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <SendBriefButton />
       </div>
 
       {priorities.length > 0 && (
