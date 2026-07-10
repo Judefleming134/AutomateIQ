@@ -114,6 +114,15 @@ export function MessageStudio({
 
   function dispatch(mode: "draft" | "send_email" | "mark_sent") {
     setNotice(null);
+    // An email that goes out (sent or recorded) needs a subject — a blank one
+    // looks broken and hurts deliverability. Draft-saving stays unguarded.
+    if (channel === "email" && mode !== "draft" && !active.subject.trim()) {
+      setNotice({
+        kind: "error",
+        text: "Add a subject line first — an email with no subject looks broken and hurts deliverability.",
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await composeMessage({
         prospectId,
