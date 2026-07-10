@@ -95,6 +95,16 @@ export function MessageComposer({
 
   function dispatch(mode: "draft" | "queue" | "send_email" | "mark_sent") {
     setNotice(null);
+    // Guard against sending/recording an email with a blank subject — it
+    // looks broken to the recipient and hurts deliverability. Saving a draft
+    // is fine (still a work in progress).
+    if (channel === "email" && mode !== "draft" && !subject.trim()) {
+      setNotice({
+        kind: "error",
+        text: "Add a subject line first — an email with no subject looks broken and hurts deliverability.",
+      });
+      return;
+    }
     startTransition(async () => {
       const result = await composeMessage({
         prospectId,
