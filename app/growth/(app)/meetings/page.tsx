@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { CopyButton } from "@/components/portal/copy-button";
 import { MEETING_STATUS_META, type MeetingStatus } from "@/lib/growth/constants";
+import { selectAllRows } from "@/lib/growth/db";
 import { recordMeeting, setMeetingStatus, syncStrategyBookings } from "./actions";
 
 function fmt(ts: string): string {
@@ -42,20 +43,30 @@ export default async function MeetingsPage() {
   await requireGrowth();
   const admin = createAdminClient();
 
-  const [{ data: meetings }, { data: prospects }, settings] = await Promise.all([
+  const [{ data: meetings }, prospects, settings] = await Promise.all([
     admin
       .from("ge_meetings")
       .select("id, prospect_id, scheduled_at, status, notes, strategy_booking_id")
       .order("scheduled_at", { ascending: false })
       .limit(300),
-    admin
-      .from("ge_prospects")
-      .select("id, company, contact_name, phone")
-      .order("company"),
+    // Page past the 1,000-row cap so every meeting resolves its prospect
+    // (no "Unknown prospect" for later-alphabet companies) and every lead
+    // stays selectable in the record-a-meeting dropdown after big imports.
+    selectAllRows<{
+      id: string;
+      company: string;
+      contact_name: string;
+      phone: string | null;
+    }>(() =>
+      admin
+        .from("ge_prospects")
+        .select("id, company, contact_name, phone")
+        .order("company")
+    ),
     loadGrowthSettings(),
   ]);
 
-  const prospectById = new Map((prospects ?? []).map((p) => [p.id, p]));
+  const prospectById = new Map(prospects.map((p) => [p.id, p]));
   const nowIso = new Date().toISOString();
   const upcoming = (meetings ?? []).filter(
     (m) => m.status === "booked" && m.scheduled_at >= nowIso
