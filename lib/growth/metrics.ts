@@ -63,17 +63,37 @@ function pct(part: number, whole: number): number {
  * a trailing window; null = all time. Internal-scale data (thousands of
  * rows, one team) — aggregating in JS keeps the queries trivial.
  */
-export async function loadGrowthMetrics(
-  admin: SupabaseClient,
-  days: number | null = null
-): Promise<GrowthMetrics> {
-  const since = days
-    ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
-    : null;
+type GrowthData = {
+  prospects: {
+    id: string;
+    status: string;
+    industry: string | null;
+    campaign_id: string | null;
+    pipeline_value: number | null;
+    qualification_status: string | null;
+    created_at: string;
+  }[];
+  messages: {
+    prospect_id: string;
+    campaign_id: string | null;
+    channel: string;
+    direction: string;
+    status: string;
+    sentiment: string | null;
+    tone: string | null;
+    created_at: string;
+    sent_at: string | null;
+  }[];
+  meetings: { prospect_id: string; status: string; created_at: string }[];
+  campaigns: { id: string; name: string; status: string }[];
+  research: { solutions: unknown; created_at: string }[];
+  proposals: { status: string; updated_at: string }[];
+};
 
-  // Page through every table so the aggregates stay correct at any size —
-  // a plain .select() caps at ~1,000 rows, which would freeze the dashboard's
-  // counts and skew every rate once the pipeline grows past that.
+// Load every Growth table once (paged past the 1,000-row cap). Kept separate
+// from aggregation so several trailing windows (e.g. all-time + last 7 days)
+// can be computed from ONE database load instead of re-scanning per window.
+async function fetchGrowthData(admin: SupabaseClient): Promise<GrowthData> {
   const [prospects, messages, meetings, campaigns, research, proposals] =
     await Promise.all([
       selectAllRows<{
@@ -117,7 +137,18 @@ export async function loadGrowthMetrics(
         admin.from("ge_proposals").select("status, updated_at")
       ),
     ]);
+  return { prospects, messages, meetings, campaigns, research, proposals };
+}
 
+/** Aggregate ONE trailing window from already-loaded data. Pure (no I/O). */
+function computeGrowthMetrics(
+  data: GrowthData,
+  days: number | null
+): GrowthMetrics {
+  const since = days
+    ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+  const { prospects, messages, meetings, campaigns, research, proposals } = data;
   const allProspects = prospects;
   const allMessages = messages;
   const allMeetings = meetings.filter((m) => m.status !== "cancelled");
@@ -290,4 +321,33 @@ export async function loadGrowthMetrics(
       }))
       .sort((a, b) => b.replyRate - a.replyRate || b.sent - a.sent),
   };
+}
+
+/**
+ * One pass over the Growth Engine tables producing every number the
+ * dashboard, analytics, campaign and report screens show — so "reply rate"
+ * can never mean two different things on two different screens.
+ *
+ * `days` restricts activity (prospects added, messages, meetings created) to
+ * a trailing window; null = all time.
+ */
+export async function loadGrowthMetrics(
+  admin: SupabaseClient,
+  days: number | null = null
+): Promise<GrowthMetrics> {
+  return computeGrowthMetrics(await fetchGrowthData(admin), days);
+}
+
+/**
+ * Same numbers as loadGrowthMetrics, but for several windows at once from a
+ * SINGLE table load — e.g. the Jarvis page needs all-time + last-7-days and
+ * would otherwise scan all six tables twice. Returns metrics in the same
+ * order as the requested windows.
+ */
+export async function loadGrowthMetricsMulti(
+  admin: SupabaseClient,
+  windows: (number | null)[]
+): Promise<GrowthMetrics[]> {
+  const data = await fetchGrowthData(admin);
+  return windows.map((w) => computeGrowthMetrics(data, w));
 }

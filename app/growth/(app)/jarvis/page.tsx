@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
 import { StatCard } from "@/components/portal/stat-card";
 import { JarvisChat } from "@/components/growth/jarvis-chat";
 import { EmailAutopilot } from "@/components/growth/email-autopilot";
@@ -30,15 +30,14 @@ export default async function JarvisPage() {
   const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
 
   const [
-    metrics,
-    week,
+    [metrics, week],
     { count: dueCount },
     { count: readyCount },
     candidates,
     { count: queuedCount },
   ] = await Promise.all([
-    loadGrowthMetrics(admin, null),
-    loadGrowthMetrics(admin, 7),
+    // All-time + last-7-days from a single table load, not two full scans.
+    loadGrowthMetricsMulti(admin, [null, 7]),
     admin
       .from("ge_prospects")
       .select("id", { count: "exact", head: true })
