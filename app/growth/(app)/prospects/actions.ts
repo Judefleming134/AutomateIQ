@@ -163,6 +163,15 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   if (rows.length < 2) {
     return { error: "Need a header row plus at least one data row." };
   }
+  // Cap one import so a giant paste can't run past the function time budget
+  // mid-insert. Chunks commit as they go and re-imports dedupe cleanly, so
+  // this is a friendly guardrail, not data loss — split and import the rest.
+  const MAX_ROWS = 3000;
+  if (rows.length - 1 > MAX_ROWS) {
+    return {
+      error: `That's ${(rows.length - 1).toLocaleString("en-IE")} rows — import up to ${MAX_ROWS.toLocaleString("en-IE")} at a time so it doesn't time out. Split the file and run it again for the rest (duplicates are skipped automatically).`,
+    };
+  }
 
   const header = rows[0].map((h) => h.trim().toLowerCase().replace(/\s+/g, "_"));
   const col = (name: string) => header.indexOf(name);
@@ -225,14 +234,25 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   // per-row DB lookup would be ~1,500 round trips on a 750-lead import and
   // blow the function time budget. The sets also catch duplicates within
   // the CSV itself as rows are reserved.
-  const { data: existingRows } = await admin
-    .from("ge_prospects")
-    .select("email, company");
+  //
+  // Page through the whole table: PostgREST caps a single select (default
+  // ~1,000 rows), so once the database grows past that a one-shot fetch
+  // would silently miss existing leads and let duplicates back in. Ranging
+  // in 1,000-row pages guarantees dedupe stays correct at any DB size.
   const seenEmails = new Set<string>();
   const seenCompanies = new Set<string>();
-  for (const r of existingRows ?? []) {
-    if (r.email) seenEmails.add(String(r.email).toLowerCase());
-    if (r.company) seenCompanies.add(String(r.company).trim().toLowerCase());
+  const EXISTING_PAGE = 1000;
+  for (let start = 0; ; start += EXISTING_PAGE) {
+    const { data: existingRows, error } = await admin
+      .from("ge_prospects")
+      .select("email, company")
+      .range(start, start + EXISTING_PAGE - 1);
+    if (error) break; // dedupe degrades gracefully rather than blocking import
+    for (const r of existingRows ?? []) {
+      if (r.email) seenEmails.add(String(r.email).toLowerCase());
+      if (r.company) seenCompanies.add(String(r.company).trim().toLowerCase());
+    }
+    if (!existingRows || existingRows.length < EXISTING_PAGE) break;
   }
 
   type NewProspect = Record<string, unknown>;

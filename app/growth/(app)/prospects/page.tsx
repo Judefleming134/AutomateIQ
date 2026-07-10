@@ -31,11 +31,15 @@ const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last"
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
   const admin = createAdminClient();
+
+  // How many prospects per page. Big enough to scan a lot at once, small
+  // enough to stay snappy on a large database.
+  const PAGE_SIZE = 100;
 
   // PostgREST .or() filters are comma-delimited — strip characters that
   // would let a search term escape the ilike pattern into extra clauses.
@@ -48,6 +52,9 @@ export default async function ProspectsPage({
   // sorts stay one click away.
   const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "company";
   const sort = SORTS[sortKey];
+  // 1-indexed page; clamp to a sane floor here, ceiling once we know the count.
+  const pageReq = Math.max(1, Math.floor(Number(params.page)) || 1);
+  const from = (pageReq - 1) * PAGE_SIZE;
   let query = admin
     .from("ge_prospects")
     .select(
@@ -55,7 +62,11 @@ export default async function ProspectsPage({
       { count: "exact" }
     )
     .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
-    .limit(500);
+    // Tie-break so paging is stable when many rows share a sort value
+    // (e.g. lots of "—" scores): id is unique, so no row is skipped/repeated
+    // across page boundaries.
+    .order("id", { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
   if (q) {
     query = query.or(
       `company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%,job_title.ilike.%${q}%`
@@ -109,21 +120,54 @@ export default async function ProspectsPage({
 
   const rows = prospects ?? [];
 
+  // Pagination maths. Alphabetical order is preserved across pages (the query
+  // sort is unchanged); we just window the rows.
+  const total = totalMatching ?? rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(pageReq, totalPages);
+  const firstOnPage = total === 0 ? 0 : from + 1;
+  const lastOnPage = from + rows.length;
+  // Keep every active filter/sort in the page links; only the page number
+  // changes. Search/filter forms omit `page`, so changing a filter resets
+  // to page 1 automatically.
+  const pageHref = (p: number) => {
+    const sp = new URLSearchParams();
+    if (q) sp.set("q", q);
+    if (status) sp.set("status", status);
+    if (industry) sp.set("industry", industry);
+    if (campaign) sp.set("campaign", campaign);
+    if (params.sort) sp.set("sort", params.sort);
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
+  };
+  // Show up to 10 numbered pages, windowed around the current one so the
+  // strip never runs off the screen on a big database.
+  const WINDOW = 10;
+  let winStart = Math.max(1, page - Math.floor(WINDOW / 2));
+  const winEnd = Math.min(totalPages, winStart + WINDOW - 1);
+  winStart = Math.max(1, winEnd - WINDOW + 1);
+  const pageNumbers = Array.from(
+    { length: winEnd - winStart + 1 },
+    (_, i) => winStart + i
+  );
+
   return (
     <>
       <div className="page-header">
         <div>
           <h1>Prospect database</h1>
           <p>
-            {(totalMatching ?? rows.length).toLocaleString("en-IE")} prospect
-            {(totalMatching ?? rows.length) === 1 ? "" : "s"}
+            {total.toLocaleString("en-IE")} prospect
+            {total === 1 ? "" : "s"}
             {q || status || industry || campaign ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
-          {(totalMatching ?? 0) > rows.length && (
-            <p style={{ fontSize: 12, color: "var(--orange, #fb923c)", margin: "2px 0 0" }}>
-              Showing the first {rows.length.toLocaleString("en-IE")} — narrow
-              with search or the filters below to reach the rest.
+          {totalPages > 1 && (
+            <p style={{ fontSize: 12, color: "var(--faint)", margin: "2px 0 0" }}>
+              Showing {firstOnPage.toLocaleString("en-IE")}–
+              {lastOnPage.toLocaleString("en-IE")} · page {page} of {totalPages}{" "}
+              (alphabetical by company)
             </p>
           )}
         </div>
@@ -441,6 +485,69 @@ export default async function ProspectsPage({
             </tbody>
           </table>
           </div>
+
+          {totalPages > 1 && (
+            <nav
+              aria-label="Prospect pages"
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 16,
+              }}
+            >
+              {page > 1 ? (
+                <Link href={pageHref(page - 1)} className="btn btn-ghost btn-sm">
+                  ← Prev
+                </Link>
+              ) : (
+                <span className="btn btn-ghost btn-sm" aria-disabled style={{ opacity: 0.4, pointerEvents: "none" }}>
+                  ← Prev
+                </span>
+              )}
+              {winStart > 1 && (
+                <>
+                  <Link href={pageHref(1)} className="btn btn-ghost btn-sm">1</Link>
+                  <span style={{ color: "var(--faint)", padding: "0 2px" }}>…</span>
+                </>
+              )}
+              {pageNumbers.map((p) =>
+                p === page ? (
+                  <span
+                    key={p}
+                    aria-current="page"
+                    className="btn btn-primary btn-sm"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    {p}
+                  </span>
+                ) : (
+                  <Link key={p} href={pageHref(p)} className="btn btn-ghost btn-sm">
+                    {p}
+                  </Link>
+                )
+              )}
+              {winEnd < totalPages && (
+                <>
+                  <span style={{ color: "var(--faint)", padding: "0 2px" }}>…</span>
+                  <Link href={pageHref(totalPages)} className="btn btn-ghost btn-sm">
+                    {totalPages}
+                  </Link>
+                </>
+              )}
+              {page < totalPages ? (
+                <Link href={pageHref(page + 1)} className="btn btn-ghost btn-sm">
+                  Next →
+                </Link>
+              ) : (
+                <span className="btn btn-ghost btn-sm" aria-disabled style={{ opacity: 0.4, pointerEvents: "none" }}>
+                  Next →
+                </span>
+              )}
+            </nav>
+          )}
         </>
       )}
     </>
