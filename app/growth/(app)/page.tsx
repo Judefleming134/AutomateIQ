@@ -155,7 +155,7 @@ export default async function GrowthDashboardPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Good {dublinHour() < 12 ? "morning" : "afternoon"}, {member.name.split(" ")[0]}</h1>
+          <h1>Good {(() => { const h = dublinHour(); return h < 12 ? "morning" : h < 18 ? "afternoon" : "evening"; })()}, {member.name.split(" ")[0]}</h1>
           <p>Today&apos;s priorities first — then research the next company.</p>
         </div>
       </div>
