@@ -281,6 +281,9 @@ export default async function InboxPage({
                         {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
                       </div>
                       <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.latest.direction === "outbound" && (
+                          <span style={{ color: "var(--ac2, #3b82f6)" }}>You: </span>
+                        )}
                         {c.latest.body}
                       </div>
                     </Link>
