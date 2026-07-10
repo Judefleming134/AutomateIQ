@@ -10,6 +10,19 @@ export function dublinDate(daysFromNow = 0): string {
   );
 }
 
+/**
+ * Day of week in Irish time: 0 = Sunday … 6 = Saturday. Used to give the
+ * morning brief a lighter weekend shape without depending on the server's
+ * own timezone.
+ */
+export function dublinWeekday(): number {
+  const name = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Dublin",
+    weekday: "short",
+  }).format(new Date());
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[name] ?? 1;
+}
+
 export function dublinHour(): number {
   return Number(
     new Intl.DateTimeFormat("en-GB", {

@@ -4,7 +4,7 @@ import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { aiComplete } from "@/lib/ai/complete";
-import { dublinDate } from "@/lib/growth/dates";
+import { dublinDate, dublinWeekday } from "@/lib/growth/dates";
 import {
   CLOSED_STATUSES,
   PROSPECT_STATUS_META,
@@ -37,20 +37,55 @@ const DATED_REMINDERS: Record<string, string[]> = {
 };
 
 /**
+ * Delivers a brief to the owner recipients. Split out so both the full
+ * brief and the guaranteed-minimum fallback share one send path — the
+ * promise Jude asked for is "never NOT get a brief", so every code path
+ * ends here.
+ */
+async function deliverBrief(
+  subject: string,
+  bodyText: string
+): Promise<{ sent: boolean; detail: string }> {
+  const recipients = await ownerNotifyRecipients();
+  if (recipients.length === 0)
+    return { sent: false, detail: "no notify recipients configured" };
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;max-width:640px;white-space:pre-wrap;">${escapeHtml(bodyText)}</div>`;
+  const resend = getResendClient();
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
+    to: recipients,
+    subject,
+    text: bodyText,
+    html,
+  });
+  if (error) return { sent: false, detail: error.message };
+  return { sent: true, detail: `to ${recipients.join(", ")}` };
+}
+
+/**
  * Jarvis's 8am email: what happened overnight, what's due, who to hit
  * first — the day's attack plan in the inbox before the app is opened.
  * The numbers and lists are deterministic (straight from the CRM); the
  * AI only writes the short battle-plan narrative on top, and if that
- * call fails the brief still sends without it. Never throws: the cron
- * dispatcher records the returned summary either way.
+ * call fails the brief still sends without it.
+ *
+ * WEEKENDS (Sat/Sun Irish time) get a lighter brief: only what changed
+ * and the overnight catches + fixes from the nightly routine — no needle-
+ * mover push, no full pipeline dump, so the weekend inbox stays calm.
+ *
+ * GUARANTEE: a brief always goes out. If the CRM data layer fails entirely,
+ * a minimal "here's your nudge" brief is sent instead of nothing. Never
+ * throws — the cron dispatcher records the returned summary either way.
  */
 export async function sendJarvisMorningBrief(): Promise<{
   sent: boolean;
   detail: string;
 }> {
+  const today = dublinDate();
+  const wd = dublinWeekday();
+  const isWeekend = wd === 0 || wd === 6;
   try {
     const admin = createAdminClient();
-    const today = dublinDate();
     const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
@@ -144,53 +179,63 @@ export async function sendJarvisMorningBrief(): Promise<{
       return `• ${company} — ${String(a.content).replace(/^Jarvis nightly:\s*/i, "")}`;
     });
 
-    // ── Jarvis Needle-Mover Score ──────────────────────────────────────
+    // ── Jarvis Needle-Mover Score (weekdays only) ──────────────────────
     // One number for "did yesterday move the needle?" — weighted toward the
     // actions that actually win customers (calls, replies, meetings) over
     // raw volume (leads added), scored against the last 7 days' daily
-    // average so it reads as progress "vs recent days".
-    const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const [
-      { count: nmSentY }, { count: nmCallsY }, { count: nmReplyY },
-      { count: nmResY }, { count: nmMeetY }, { count: nmLeadY },
-      { count: nmSentW }, { count: nmCallsW }, { count: nmReplyW },
-      { count: nmResW }, { count: nmMeetW }, { count: nmLeadW },
-    ] = await Promise.all([
-      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since24h),
-      admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since24h),
-      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since24h),
-      admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since24h),
-      admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since24h),
-      admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since24h),
-      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since7d),
-      admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since7d),
-      admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since7d),
-      admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since7d),
-      admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since7d),
-      admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since7d),
-    ]);
-    const nmPoints = (s: number, c: number, r: number, rs: number, m: number, l: number) =>
-      s * 2 + c * 3 + r * 6 + m * 25 + rs * 1 + l * 0.5;
-    const nmYest = nmPoints(nmSentY ?? 0, nmCallsY ?? 0, nmReplyY ?? 0, nmResY ?? 0, nmMeetY ?? 0, nmLeadY ?? 0);
-    const nmDailyAvg = nmPoints(nmSentW ?? 0, nmCallsW ?? 0, nmReplyW ?? 0, nmResW ?? 0, nmMeetW ?? 0, nmLeadW ?? 0) / 7;
-    const nmScore =
-      nmDailyAvg > 0.5
-        ? Math.max(0, Math.min(100, Math.round((50 * nmYest) / nmDailyAvg)))
-        : Math.min(100, Math.round(nmYest * 3)); // fresh account: absolute-ish
-    const nmTier =
-      nmScore >= 80 ? "🔥 On fire" : nmScore >= 60 ? "💪 Strong" : nmScore >= 40 ? "➖ Steady" : nmScore >= 20 ? "🐢 Slow start" : "😴 Quiet day";
-    const nmVerdict =
-      nmDailyAvg <= 0.5
-        ? "just getting going — build the habit today"
-        : nmYest >= nmDailyAvg * 1.2
-          ? "above your recent daily average — momentum's building, keep pushing"
-          : nmYest >= nmDailyAvg * 0.8
-            ? "right around your recent average — hold the line and push a bit harder"
-            : "below your recent days — today's the day to move it: dial and send early";
-    const nmScoreBlock =
-      `🎯 JARVIS NEEDLE-MOVER SCORE: ${nmScore}/100 — ${nmTier}\n` +
-      `${nmVerdict}\n` +
-      `Yesterday: ${nmSentY ?? 0} sent · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
+    // average so it reads as progress "vs recent days". Skipped at weekends:
+    // the weekend brief is a calm changelog, not a productivity push.
+    let nmScoreBlock = "";
+    if (!isWeekend) {
+      const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const [
+        { count: nmSentY }, { count: nmCallsY }, { count: nmReplyY },
+        { count: nmResY }, { count: nmMeetY }, { count: nmLeadY },
+        { count: nmSentW }, { count: nmCallsW }, { count: nmReplyW },
+        { count: nmResW }, { count: nmMeetW }, { count: nmLeadW },
+      ] = await Promise.all([
+        admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since24h),
+        admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since24h),
+        admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since24h),
+        admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since24h),
+        admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since24h),
+        admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since24h),
+        admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "outbound").eq("status", "sent").gte("sent_at", since7d),
+        admin.from("ge_activities").select("id", { count: "exact", head: true }).eq("type", "call").gte("created_at", since7d),
+        admin.from("ge_messages").select("id", { count: "exact", head: true }).eq("direction", "inbound").gte("created_at", since7d),
+        admin.from("ge_research").select("prospect_id", { count: "exact", head: true }).gte("updated_at", since7d),
+        admin.from("ge_meetings").select("id", { count: "exact", head: true }).gte("created_at", since7d),
+        admin.from("ge_prospects").select("id", { count: "exact", head: true }).gte("created_at", since7d),
+      ]);
+      const nmPoints = (s: number, c: number, r: number, rs: number, m: number, l: number) =>
+        s * 2 + c * 3 + r * 6 + m * 25 + rs * 1 + l * 0.5;
+      const nmYest = nmPoints(nmSentY ?? 0, nmCallsY ?? 0, nmReplyY ?? 0, nmResY ?? 0, nmMeetY ?? 0, nmLeadY ?? 0);
+      const nmDailyAvg = nmPoints(nmSentW ?? 0, nmCallsW ?? 0, nmReplyW ?? 0, nmResW ?? 0, nmMeetW ?? 0, nmLeadW ?? 0) / 7;
+      const nmScore =
+        nmDailyAvg > 0.5
+          ? Math.max(0, Math.min(100, Math.round((50 * nmYest) / nmDailyAvg)))
+          : Math.min(100, Math.round(nmYest * 3)); // fresh account: absolute-ish
+      const nmTier =
+        nmScore >= 80 ? "🔥 On fire" : nmScore >= 60 ? "💪 Strong" : nmScore >= 40 ? "➖ Steady" : nmScore >= 20 ? "🐢 Slow start" : "😴 Quiet day";
+      const nmVerdict =
+        nmDailyAvg <= 0.5
+          ? "just getting going — build the habit today"
+          : nmYest >= nmDailyAvg * 1.2
+            ? "above your recent daily average — momentum's building, keep pushing"
+            : nmYest >= nmDailyAvg * 0.8
+              ? "right around your recent average — hold the line and push a bit harder"
+              : "below your recent days — today's the day to move it: dial and send early";
+      nmScoreBlock =
+        `🎯 JARVIS NEEDLE-MOVER SCORE: ${nmScore}/100 — ${nmTier}\n` +
+        `${nmVerdict}\n` +
+        `Yesterday: ${nmSentY ?? 0} sent · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
+    }
+
+    // What changed over the weekend/overnight — the core of the weekend brief.
+    const { count: leadsAdded24h } = await admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since24h);
 
     const statusLabel = (s: string) =>
       PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
@@ -223,8 +268,9 @@ export async function sendJarvisMorningBrief(): Promise<{
     );
 
     // The narrative on top — best-effort, the brief never depends on it.
+    // Weekdays only: the weekend brief stays a quiet changelog.
     let plan = "";
-    try {
+    if (!isWeekend) try {
       plan = (
         await aiComplete(
           [
@@ -256,66 +302,111 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     const reminders = DATED_REMINDERS[today] ?? [];
 
-    const bodyText = [
-      plan,
-      nmScoreBlock,
-      reminders.length
-        ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
-        : "",
-      deliveryLines.length
-        ? `📬 DELIVERY ISSUES (${deliveryLines.length})\n${deliveryLines.join("\n")}`
-        : "",
-      (sentToday ?? []).length
-        ? `📤 SENT THIS MORNING (${(sentToday ?? []).length})\n${(sentToday ?? [])
-            .map((m) => {
-              const company =
-                (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
-              return `• ${company} — "${m.subject ?? ""}"`;
-            })
-            .join("\n")}`
-        : "",
-      nightlyLines.length
-        ? `🔧 JARVIS'S OVERNIGHT ROUTINE (${nightlyLines.length})\n${nightlyLines.join("\n")}`
-        : "",
-      section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
-      section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
-      section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
-      section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
-      [
-        "THE NUMBERS",
-        `• Pipeline value: €${metrics.pipelineValue.toLocaleString("en-IE")}`,
-        `• Reply rate: ${metrics.replyRate}% · Meetings: ${metrics.meetingsBooked} · Won: ${metrics.won}`,
-        `• Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.leadsAdded} leads added`,
-      ].join("\n"),
-      "Open Jarvis: https://automateiq.ie/growth/jarvis",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    // Blocks shared by both shapes: the overnight catches + fixes.
+    const deliveryBlock = deliveryLines.length
+      ? `📬 DELIVERY ISSUES (${deliveryLines.length})\n${deliveryLines.join("\n")}`
+      : "";
+    const sentBlock = (sentToday ?? []).length
+      ? `📤 SENT THIS MORNING (${(sentToday ?? []).length})\n${(sentToday ?? [])
+          .map((m) => {
+            const company =
+              (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+            return `• ${company} — "${m.subject ?? ""}"`;
+          })
+          .join("\n")}`
+      : "";
+    const nightlyBlock = nightlyLines.length
+      ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyLines.length})\n${nightlyLines.join("\n")}`
+      : "";
 
-    const recipients = await ownerNotifyRecipients();
-    if (recipients.length === 0)
-      return { sent: false, detail: "no notify recipients configured" };
+    let bodyText: string;
+    let subject: string;
 
-    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1a1a1a;max-width:640px;white-space:pre-wrap;">${escapeHtml(bodyText)}</div>`;
+    if (isWeekend) {
+      // Weekend: a calm changelog — what changed, overnight catches, and the
+      // fixes the nightly routine applied. No pipeline dump, no needle-mover.
+      const changedLine =
+        `📈 WHAT CHANGED\n• ${leadsAdded24h ?? 0} new lead${(leadsAdded24h ?? 0) === 1 ? "" : "s"} added` +
+        `${(sentToday ?? []).length ? ` · ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning` : ""}` +
+        `${replyLines.length ? ` · ${replyLines.length} new repl${replyLines.length === 1 ? "y" : "ies"}` : ""}`;
+      bodyText = [
+        `🌤️ Weekend brief — ${today}. Lighter one: just what changed and what Jarvis caught & fixed overnight. Enjoy the weekend.`,
+        reminders.length
+          ? `⏰ REMINDERS\n${reminders.map((r) => `• ${r}`).join("\n")}`
+          : "",
+        changedLine,
+        nightlyBlock,
+        deliveryBlock,
+        replyLines.length
+          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "")
+          : "",
+        meetingLines.length
+          ? section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "")
+          : "",
+        sentBlock,
+        "Open Jarvis: https://automateiq.ie/growth/jarvis",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      subject = `Jarvis weekend brief — ${today}: ${leadsAdded24h ?? 0} added, ${nightlyLines.length} overnight fixes, ${replyLines.length} replies`;
+    } else {
+      // Weekday: the full attack plan.
+      bodyText = [
+        plan,
+        nmScoreBlock,
+        reminders.length
+          ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
+          : "",
+        deliveryBlock,
+        sentBlock,
+        nightlyBlock,
+        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
+        section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
+        section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
+        section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
+        [
+          "THE NUMBERS",
+          `• Pipeline value: €${metrics.pipelineValue.toLocaleString("en-IE")}`,
+          `• Reply rate: ${metrics.replyRate}% · Meetings: ${metrics.meetingsBooked} · Won: ${metrics.won}`,
+          `• Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.leadsAdded} leads added`,
+        ].join("\n"),
+        "Open Jarvis: https://automateiq.ie/growth/jarvis",
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+      subject = `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready to send`;
+    }
 
-    const resend = getResendClient();
-    const { error } = await resend.emails.send({
-      from: getFromAddress(),
-      to: recipients,
-      subject: `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready to send`,
-      text: bodyText,
-      html,
-    });
-    if (error) return { sent: false, detail: error.message };
+    const { sent, detail } = await deliverBrief(subject, bodyText);
+    if (!sent) return { sent, detail };
     return {
       sent: true,
-      detail: `to ${recipients.join(", ")} (${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready)`,
+      detail: `${isWeekend ? "weekend " : ""}${detail} (${replyLines.length} replies, ${nightlyLines.length} overnight fixes)`,
     };
   } catch (err) {
-    console.error("Jarvis morning brief failed:", err);
-    return {
-      sent: false,
-      detail: err instanceof Error ? err.message : "unknown error",
-    };
+    // GUARANTEE: the data layer blew up, but Jude still gets a brief. Send a
+    // minimal nudge rather than nothing — "never NOT get a brief".
+    console.error("Jarvis morning brief failed — sending minimal fallback:", err);
+    const fallback = [
+      `${isWeekend ? "🌤️ Weekend brief" : "☀️ Morning brief"} — ${today}`,
+      "Jarvis couldn't assemble the full brief this morning (a data lookup hiccuped), but here's your nudge so the day still starts with a plan:",
+      "• Open Jarvis and eyeball the pipeline — replies first, then due follow-ups, then fresh sends.",
+      "• If anything looks off, tell Claude and it'll dig in.",
+      "Open Jarvis: https://automateiq.ie/growth/jarvis",
+    ].join("\n\n");
+    try {
+      const { sent, detail } = await deliverBrief(
+        `Jarvis brief — ${today} (lite)`,
+        fallback
+      );
+      return sent
+        ? { sent: true, detail: `minimal fallback sent — ${detail}` }
+        : { sent: false, detail: `fallback failed: ${detail}` };
+    } catch (err2) {
+      return {
+        sent: false,
+        detail: err2 instanceof Error ? err2.message : "unknown error",
+      };
+    }
   }
 }
