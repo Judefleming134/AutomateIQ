@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
+import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendAutopilotEmail } from "@/lib/growth/autopilot";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
@@ -529,4 +530,15 @@ export async function askJarvis(
       return { ok: false, error: "The AI service is briefly overloaded — try again in a minute." };
     return { ok: false, error: "Something went wrong answering that — ask again." };
   }
+}
+
+/**
+ * Send the morning brief on demand — exactly the email the 8am cron sends.
+ * A manual fallback for when Vercel's Hobby cron fires late or skips a day,
+ * so Jude is never left without his brief.
+ */
+export async function sendBriefNow(): Promise<{ ok: boolean; detail: string }> {
+  await requireGrowth();
+  const res = await sendJarvisMorningBrief();
+  return { ok: res.sent, detail: res.detail };
 }
