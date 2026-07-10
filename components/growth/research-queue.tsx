@@ -239,24 +239,33 @@ export function ResearchQueue({
           ) : (
             <strong style={{ color: "var(--green, #34d399)" }}>
               ✓ Batch finished — {done - failures.length}/{batchTotal} researched
-              {remaining > 0
-                ? ` · ${remaining} still to go — reload and click for the next batch`
-                : ""}
+              (now scored in the list below, best drafts on the autopilot)
+              {total > 0 ? ` · ${total} still to research` : " · all done 🎉"}
             </strong>
           )}
           {stopReason && (
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
-              The remaining prospects are untouched — reload this page and the
-              button will offer them again once the quota resets.
+              The remaining prospects are untouched — once the quota resets,
+              the button below will offer them again.
             </p>
           )}
           {failures.length > 0 && (
             <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>
-              Couldn&apos;t research (reload the page and run the batch again —
-              only these will be retried):
+              Couldn&apos;t research (they stay in the queue — the next batch
+              retries them):
               {failures.map((f) => (
                 <div key={f}>· {f}</div>
               ))}
+            </div>
+          )}
+          {batch.length > 0 && (
+            // The list already refreshed (router.refresh() ran at batch end),
+            // so `batch` here is the NEXT unresearched slice — researched ones
+            // have dropped out. One click continues; no page reload needed.
+            <div style={{ marginTop: 10 }}>
+              <button type="button" className="btn btn-primary" onClick={start}>
+                <Sparkles size={14} /> Research next {batch.length}
+              </button>
             </div>
           )}
         </div>

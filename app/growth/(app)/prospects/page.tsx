@@ -102,9 +102,15 @@ export default async function ProspectsPage({
         .select("id, company, website")
         .not("status", "in", '("won","lost","do_not_contact","archived")')
         .order("created_at", { ascending: false })
+        // Bulk imports share timestamps: without a unique tiebreak the order
+        // shuffles between refreshes (the research queue looks like "the same
+        // batch again") and paged reads can skip/duplicate rows. id fixes it.
+        .order("id", { ascending: true })
     ),
     selectAllRows<{ prospect_id: string }>(() =>
-      admin.from("ge_research").select("prospect_id")
+      // Ordered so paged reads stay exact once research rows pass 1,000 — an
+      // unordered range can skip a row, which would re-offer a researched lead.
+      admin.from("ge_research").select("prospect_id").order("prospect_id")
     ),
     admin
       .from("ge_prospects")
