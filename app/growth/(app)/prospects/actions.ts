@@ -368,8 +368,14 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     await admin.from("ge_activities").insert(activityRows.slice(i, i + 500));
   }
 
+  // Refresh every surface that counts prospects so an import shows up
+  // everywhere at once — the list, the dashboard tiles, Jarvis's pipeline
+  // numbers + research queue, and analytics.
   revalidatePath("/growth/prospects");
   revalidatePath("/growth/campaigns");
+  revalidatePath("/growth");
+  revalidatePath("/growth/jarvis");
+  revalidatePath("/growth/analytics");
   if (imported === 0) {
     return {
       error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
@@ -636,6 +642,9 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
   revalidatePath("/growth");
+  // New research means a new lead score + a fresh outreach draft — surface
+  // them on Jarvis's autopilot "ready to send" list right away.
+  revalidatePath("/growth/jarvis");
   return { ok: true };
 }
 

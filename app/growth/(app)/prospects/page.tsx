@@ -14,6 +14,7 @@ import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
 import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
+import { selectAllRows } from "@/lib/growth/db";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -79,22 +80,31 @@ export default async function ProspectsPage({
   const [
     { data: prospects, count: totalMatching },
     { data: campaigns },
-    { data: industriesRaw },
+    industriesRaw,
     { data: team },
-    { data: allProspects },
-    { data: researched },
+    allProspects,
+    researched,
     { data: missingEmail },
   ] = await Promise.all([
     query,
     admin.from("ge_campaigns").select("id, name").order("name"),
-    admin.from("ge_prospects").select("industry").not("industry", "is", null),
+    // Full scans (paged past the 1,000-row cap) so the research queue sees
+    // EVERY imported batch — not just the first 1,000 — and never re-offers
+    // an already-researched prospect once research rows pass 1,000.
+    selectAllRows<{ industry: string | null }>(() =>
+      admin.from("ge_prospects").select("industry").not("industry", "is", null)
+    ),
     admin.from("ge_team_members").select("id, name"),
-    admin
-      .from("ge_prospects")
-      .select("id, company, website")
-      .not("status", "in", '("won","lost","do_not_contact","archived")')
-      .order("created_at", { ascending: false }),
-    admin.from("ge_research").select("prospect_id"),
+    selectAllRows<{ id: string; company: string; website: string | null }>(() =>
+      admin
+        .from("ge_prospects")
+        .select("id, company, website")
+        .not("status", "in", '("won","lost","do_not_contact","archived")')
+        .order("created_at", { ascending: false })
+    ),
+    selectAllRows<{ prospect_id: string }>(() =>
+      admin.from("ge_research").select("prospect_id")
+    ),
     admin
       .from("ge_prospects")
       .select("id, company")
@@ -105,17 +115,22 @@ export default async function ProspectsPage({
       .limit(100),
   ]);
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
-  const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
+  const researchedIds = new Set(researched.map((r) => r.prospect_id));
   // Research the most-researchable leads first: a website is by far the
   // strongest signal for research quality (the engine reads the site), so
   // leads with one lead each batch. Array.sort is stable, so within each
   // group the created_at-desc order from the query is preserved.
-  const unresearched = (allProspects ?? [])
+  const unresearched = allProspects
     .filter((p) => !researchedIds.has(p.id))
     .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)));
+  // Hand the queue an accurate TOTAL but only a bounded working slice — the
+  // component researches 40 per click, so shipping thousands of rows to the
+  // browser is wasted payload. It refills from the server on each refresh.
+  const unresearchedTotal = unresearched.length;
+  const unresearchedBatch = unresearched.slice(0, 300);
 
   const industries = [
-    ...new Set((industriesRaw ?? []).map((r) => r.industry?.trim()).filter(Boolean)),
+    ...new Set(industriesRaw.map((r) => r.industry?.trim()).filter(Boolean)),
   ].sort() as string[];
 
   const rows = prospects ?? [];
@@ -199,7 +214,8 @@ export default async function ProspectsPage({
       </div>
 
       <ResearchQueue
-        pending={unresearched}
+        pending={unresearchedBatch}
+        totalPending={unresearchedTotal}
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
       />
 

@@ -1,6 +1,7 @@
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { selectAllRows } from "@/lib/growth/db";
 import { toCsv } from "@/lib/growth/csv";
 
 /**
@@ -22,12 +23,17 @@ export async function GET(request: Request) {
   let name: string;
 
   if (type === "prospects") {
-    const { data } = await admin
-      .from("ge_prospects")
-      .select(
-        "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, facebook_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
-      )
-      .order("created_at", { ascending: false });
+    // Page past the 1,000-row cap so the export is the WHOLE database, not a
+    // truncated first slice — an incomplete export is a silent data-loss trap.
+    const data = await selectAllRows<Record<string, string | number | null>>(
+      () =>
+        admin
+          .from("ge_prospects")
+          .select(
+            "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, facebook_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
+          )
+          .order("created_at", { ascending: false })
+    );
     rows = [
       [
         "company", "contact_name", "job_title", "industry", "website", "location",
@@ -44,13 +50,25 @@ export async function GET(request: Request) {
     ];
     name = "growth-prospects";
   } else if (type === "messages") {
-    const { data } = await admin
-      .from("ge_messages")
-      .select(
-        "created_at, sent_at, channel, direction, status, sentiment, subject, body, ge_prospects(company, contact_name)"
-      )
-      .gte("created_at", sinceIso)
-      .order("created_at", { ascending: false });
+    const data = await selectAllRows<{
+      created_at: string;
+      sent_at: string | null;
+      channel: string;
+      direction: string;
+      status: string;
+      sentiment: string | null;
+      subject: string | null;
+      body: string | null;
+      ge_prospects: unknown;
+    }>(() =>
+      admin
+        .from("ge_messages")
+        .select(
+          "created_at, sent_at, channel, direction, status, sentiment, subject, body, ge_prospects(company, contact_name)"
+        )
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+    );
     rows = [
       ["created_at", "sent_at", "company", "contact", "channel", "direction", "status", "sentiment", "subject", "body"],
       ...(data ?? []).map((m) => {
@@ -63,11 +81,19 @@ export async function GET(request: Request) {
     ];
     name = `growth-messages-${days}d`;
   } else if (type === "meetings") {
-    const { data } = await admin
-      .from("ge_meetings")
-      .select("scheduled_at, status, notes, created_at, ge_prospects(company, contact_name, email)")
-      .gte("created_at", sinceIso)
-      .order("scheduled_at", { ascending: false });
+    const data = await selectAllRows<{
+      scheduled_at: string;
+      status: string;
+      notes: string | null;
+      created_at: string;
+      ge_prospects: unknown;
+    }>(() =>
+      admin
+        .from("ge_meetings")
+        .select("scheduled_at, status, notes, created_at, ge_prospects(company, contact_name, email)")
+        .gte("created_at", sinceIso)
+        .order("scheduled_at", { ascending: false })
+    );
     rows = [
       ["scheduled_at", "status", "company", "contact", "email", "notes", "recorded_at"],
       ...(data ?? []).map((m) => {
