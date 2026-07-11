@@ -290,6 +290,7 @@ export default async function ProspectWorkspacePage({
         const nba: Partial<Record<string, { msg: string; cta: string; href: string }>> = {
           new: { msg: "Not researched yet — one click gets the report, score, quote and drafts.", cta: "Run research", href: `${base}?tab=research` },
           researching: { msg: "Research is underway — check back for the report and drafts.", cta: "Open research", href: `${base}?tab=research` },
+          research_failed: { msg: "Research failed last time (the timeline below says why) — the lead is fine; run it again.", cta: "Retry research", href: `${base}?tab=research` },
           research_complete: { msg: "Researched with drafts ready — nothing sent yet.", cta: "Send the first touch", href: `${base}?tab=studio` },
           outreach_ready: { msg: "Drafts approved and waiting — get the first touch out.", cta: "Send the first touch", href: `${base}?tab=studio` },
           contacted: overdue
