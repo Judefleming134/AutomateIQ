@@ -506,10 +506,20 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     // Exact wording matters below: the batch queue pattern-matches the
-    // returned error ("DAILY AI QUOTA", "rate limit") to pace itself.
+    // returned error ("AI CREDITS EMPTY", "DAILY AI QUOTA", "rate limit")
+    // to stop instantly or pace itself.
     let friendly: string;
+    // The whole account is failing, not this lead — surface it as such and
+    // let the queue kill the batch on the FIRST sighting (zero retries, zero
+    // wasted attempts).
+    const accountDead =
+      /credit balance/i.test(message) ||
+      (message.startsWith("HTTP 400") && /invalid_request_error/i.test(message) && /\bYou\b/.test(message));
     if (message === "NO_PROVIDER") friendly = NO_PROVIDER_MESSAGE;
-    else if (message === "BAD_JSON") {
+    else if (accountDead) {
+      friendly =
+        "AI CREDITS EMPTY — the Anthropic account can't accept requests (credit balance / billing). Top up at console.anthropic.com → Billing, then hit Retry. Failed attempts cost nothing, and your leads are untouched.";
+    } else if (message === "BAD_JSON") {
       friendly = "The research came back malformed — run it again.";
     } else if (message.startsWith("HTTP 429")) {
       const daily = /perday|per_day|per day|daily|quota/i.test(message);
@@ -521,9 +531,18 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     } else {
       friendly = `Research failed${message.startsWith("HTTP") ? ` (${message.slice(0, 80)})` : ""} — try again in a moment.`;
     }
-    // Stamp the failure on the prospect's timeline. This is what (a) lets
-    // the queue park failed leads BEHIND fresh ones so the next batch isn't
-    // a rerun, and (b) lets Jude find exactly which leads failed and why.
+    // Park the lead in its OWN group: status research_failed takes it out of
+    // fresh batches entirely (retry it from the failed panel, or filter
+    // Status → Research failed in the list to archive/delete). Only pre-
+    // research statuses are parked — a failed re-research of a contacted
+    // lead must not yank it out of the live pipeline. The timeline entry
+    // records the why.
+    if (["new", "researching"].includes(prospect.status)) {
+      await admin
+        .from("ge_prospects")
+        .update({ status: "research_failed" })
+        .eq("id", id);
+    }
     await admin.from("ge_activities").insert({
       prospect_id: id,
       type: "system",
@@ -575,7 +594,8 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     const estimate = estimatedFirstYearValue(result.solutions.map((s) => s.key));
     if (estimate > 0) update.pipeline_value = estimate;
   }
-  if (["new", "researching"].includes(prospect.status)) {
+  if (["new", "researching", "research_failed"].includes(prospect.status)) {
+    // A successful retry lifts a parked lead straight out of the failed group.
     update.status = "research_complete";
   }
   // Contact details harvested from the company's own website fill any blank

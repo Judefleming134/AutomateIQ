@@ -7,6 +7,7 @@
 export type ProspectStatus =
   | "new"
   | "researching"
+  | "research_failed"
   | "research_complete"
   | "outreach_ready"
   | "contacted"
@@ -32,6 +33,7 @@ export const PROSPECT_STATUS_META: Record<
 > = {
   new: { label: "New", badge: "badge-blue" },
   researching: { label: "Researching", badge: "badge-blue" },
+  research_failed: { label: "Research failed", badge: "badge-red" },
   research_complete: { label: "Research complete", badge: "badge-blue" },
   outreach_ready: { label: "Outreach ready", badge: "badge-blue" },
   contacted: { label: "Contacted", badge: "badge-orange" },

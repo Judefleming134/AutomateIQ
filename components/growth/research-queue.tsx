@@ -30,6 +30,7 @@ export function ResearchQueue({
   pending,
   totalPending,
   failedRecently = [],
+  failedTotal,
   claude = false,
 }: {
   /** A bounded working slice of unresearched prospects (the server sends a
@@ -40,9 +41,12 @@ export function ResearchQueue({
    *  may be far larger than `pending.length`. Drives the count + "N still to
    *  go" copy so it stays accurate no matter how many were imported. */
   totalPending?: number;
-  /** Leads whose research failed in the last 48h — kept separate from the
-   *  next fresh batch and retryable on their own button. */
+  /** Leads parked in the research_failed group — completely separate from
+   *  fresh batches; retryable here or bulk archive/delete via the table's
+   *  Status filter. */
   failedRecently?: QueueItem[];
+  /** True size of the failed group (the list above is a bounded slice). */
+  failedTotal?: number;
   /** True when the server runs on the Anthropic key: no daily cap and no
    *  10-requests-per-minute wall, so the queue paces itself tighter. */
   claude?: boolean;
@@ -121,14 +125,19 @@ export function ResearchQueue({
         let lastError = "";
         while (!result.ok && tries < 4 && !stopped) {
           const msg = result.error;
-          if (/DAILY AI QUOTA/i.test(msg)) {
+          // Account-level failures kill the WHOLE batch on first sighting —
+          // zero retries, zero further attempts, nothing burned.
+          if (/DAILY AI QUOTA|AI CREDITS EMPTY/i.test(msg)) {
             stopped = msg;
             break;
           }
           const isThrottle = /rate limit|overloaded|429|quota/i.test(msg);
           if (isThrottle) throttled = true;
+          // A 4xx is a rejected request — retrying the identical request
+          // can never succeed. Fail immediately, move on.
+          if (!isThrottle && /\(HTTP 4\d\d/.test(msg)) break;
           // Same non-throttle error twice in a row = it won't fix itself by
-          // retrying (bad key, 4xx, broken site) — fail fast, move on.
+          // retrying (bad key, broken site) — fail fast, move on.
           if (!isThrottle && msg === lastError) break;
           lastError = msg;
           const wait = isThrottle ? 65000 : 8000;
@@ -232,15 +241,22 @@ export function ResearchQueue({
           }}
         >
           <strong style={{ color: "var(--orange, #fb923c)" }}>
-            ⚠ {failedRecently.length} failed research recently
+            ⚠ {failedTotal ?? failedRecently.length} in the Research-failed
+            group
           </strong>{" "}
-          — kept out of the fresh batches (each prospect&apos;s timeline says
-          why):{" "}
+          — completely separate from fresh batches; each prospect&apos;s
+          timeline says why. Retry them here, or{" "}
+          <a href="/growth/prospects?status=research_failed">
+            open the group in the list
+          </a>{" "}
+          to tick and bulk archive/delete. First few:{" "}
           {failedRecently
             .slice(0, 6)
             .map((f) => f.company)
             .join(", ")}
-          {failedRecently.length > 6 ? `, +${failedRecently.length - 6} more` : ""}
+          {(failedTotal ?? failedRecently.length) > 6
+            ? `, +${(failedTotal ?? failedRecently.length) - 6} more`
+            : ""}
           <div style={{ marginTop: 8 }}>
             <button
               type="button"
