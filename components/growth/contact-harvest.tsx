@@ -107,7 +107,16 @@ export function ContactHarvest({
         </div>
       )}
       {summary && !running && (
-        <strong style={{ color: "var(--green, #34d399)" }}>{summary}</strong>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <strong style={{ color: "var(--green, #34d399)" }}>{summary}</strong>
+          {pending.length > 0 && (
+            // The list refreshed at run end, so `pending` is the NEXT slice of
+            // prospects still missing an email — continue without a reload.
+            <button type="button" className="btn btn-secondary btn-sm" onClick={start}>
+              <AtSign size={13} /> Check next {pending.length}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
