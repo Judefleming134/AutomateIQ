@@ -16,6 +16,7 @@ import {
   Truck,
   CalendarClock,
   Zap,
+  Euro,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -174,6 +175,34 @@ export default async function AdminHome() {
   // tenants) — the same shared calculator the customer Analytics page uses.
   const platform = await computeAgentUsage(supabase);
 
+  // Billing/activation control (guarded: hidden until 0021 is run). One
+  // glance answers "who has actually paid?" — the Stripe webhook writes
+  // subscription_status, this reads it.
+  let billing: {
+    paying: number;
+    pastDue: number;
+    inactive: number;
+    byBusiness: Map<string, string>;
+  } | null = null;
+  {
+    const { data, error } = await supabase
+      .from("businesses")
+      .select("id, subscription_status")
+      .is("deleted_at", null);
+    if (!error && data) {
+      const byBusiness = new Map<string, string>(
+        data.map((b) => [b.id as string, String(b.subscription_status ?? "inactive")])
+      );
+      const statuses = [...byBusiness.values()];
+      billing = {
+        paying: statuses.filter((s) => s === "active").length,
+        pastDue: statuses.filter((s) => s === "past_due").length,
+        inactive: statuses.filter((s) => !["active", "past_due"].includes(s)).length,
+        byBusiness,
+      };
+    }
+  }
+
   // Upcoming strategy-session bookings (guarded: 0 until 0010 is run).
   let upcomingBookings = 0;
   try {
@@ -302,6 +331,19 @@ export default async function AdminHome() {
         <StatCard label="Instagram DMs" value={platform.igMessages} icon={<Instagram />} accent="#E1306C" hint={`${platform.igConversations} conversations`} />
         <StatCard label="Deliveries" value={platform.logDeliveries} icon={<Truck />} accent="#FB7185" hint={`${platform.logVehicles} vehicles`} />
         <StatCard label="Upcoming bookings" value={upcomingBookings ?? 0} icon={<CalendarClock />} accent="#34D399" hint="strategy sessions" />
+        {billing && (
+          <StatCard
+            label="Paying customers"
+            value={billing.paying}
+            icon={<Euro />}
+            accent="#34D399"
+            hint={
+              billing.pastDue > 0
+                ? `${billing.pastDue} past due · ${billing.inactive} not activated`
+                : `${billing.inactive} not activated`
+            }
+          />
+        )}
       </div>
 
       <div className="grid-2">
@@ -453,6 +495,22 @@ export default async function AdminHome() {
                     >
                       {b.status}
                     </span>
+                    {billing &&
+                      (() => {
+                        const sub = billing.byBusiness.get(b.id) ?? "inactive";
+                        return (
+                          <span
+                            className={`badge ${sub === "active" ? "badge-green" : sub === "past_due" ? "badge-red" : "badge-gray"}`}
+                            title="Billing status (Stripe)"
+                          >
+                            {sub === "active"
+                              ? "€ paying"
+                              : sub === "past_due"
+                                ? "€ past due"
+                                : "€ not activated"}
+                          </span>
+                        );
+                      })()}
                     <Link
                       href={`/admin/customers/${b.id}`}
                       style={{
