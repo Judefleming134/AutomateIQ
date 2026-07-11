@@ -107,6 +107,7 @@ async function runJarvisAction(
           subject: res.subject,
           body: clean,
           tone: "professional",
+          updated_at: new Date().toISOString(),
           ...(draft.status === "failed" ? { status: "draft" } : {}),
         })
         .eq("id", draft.id);
@@ -211,6 +212,7 @@ export async function regenerateFlaggedDrafts(
         subject: res.subject,
         body: clean,
         tone: "professional",
+        updated_at: new Date().toISOString(),
         ...(msg.status === "failed" ? { status: "draft" } : {}),
       })
       .eq("id", id);
