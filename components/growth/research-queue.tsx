@@ -81,6 +81,16 @@ export function ResearchQueue({
     // After the first rate-limit sighting, drop to one-at-a-time — hammering
     // a throttled API with two workers just doubles the failures.
     let throttled = false;
+    // Circuit breaker: when EVERY company is failing the problem is systemic
+    // (dead API key, provider outage, quota) — grinding through the rest of
+    // the batch wastes minutes and teaches nothing. Track the failure streak
+    // and the most common error so the stop message says the real reason.
+    let successCount = 0;
+    let failStreak = 0;
+    const errorTally = new Map<string, number>();
+    const topError = () =>
+      [...errorTally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ??
+      "unknown error";
 
     const worker = async (stagger: number, workerIndex: number) => {
       await sleep(stagger);
@@ -101,6 +111,7 @@ export function ResearchQueue({
 
         let result = await tryOnce();
         let tries = 1;
+        let lastError = "";
         while (!result.ok && tries < 4 && !stopped) {
           const msg = result.error;
           if (/DAILY AI QUOTA/i.test(msg)) {
@@ -109,6 +120,10 @@ export function ResearchQueue({
           }
           const isThrottle = /rate limit|overloaded|429|quota/i.test(msg);
           if (isThrottle) throttled = true;
+          // Same non-throttle error twice in a row = it won't fix itself by
+          // retrying (bad key, 4xx, broken site) — fail fast, move on.
+          if (!isThrottle && msg === lastError) break;
+          lastError = msg;
           const wait = isThrottle ? 65000 : 8000;
           setPauseNote(
             isThrottle
@@ -124,10 +139,20 @@ export function ResearchQueue({
         if (!result.ok && !stopped) {
           failed.push(`${p.company} — ${result.error}`);
           setFailures([...failed]);
+          failStreak++;
+          errorTally.set(result.error, (errorTally.get(result.error) ?? 0) + 1);
+          // Break the circuit: 6 failures with zero successes, or a 10-long
+          // streak mid-batch, means the problem is systemic — stop, say why,
+          // and leave the rest of the batch untouched for the retry.
+          if ((successCount === 0 && failStreak >= 6) || failStreak >= 10) {
+            stopped = `every attempt is failing (${topError()}) — stopped early so the rest of the batch isn't wasted. The leads are all still in the queue.`;
+          }
         }
         if (result.ok) {
           // Success clears the throttle flag so speed recovers.
           throttled = false;
+          successCount++;
+          failStreak = 0;
         }
 
         inFlight.delete(p.company);
@@ -236,6 +261,13 @@ export function ResearchQueue({
             <strong style={{ color: "var(--orange, #fb923c)" }}>
               ⏸ Batch stopped after {done}/{batchTotal}: {stopReason}
             </strong>
+          ) : failures.length >= batchTotal && batchTotal > 0 ? (
+            <strong style={{ color: "var(--orange, #fb923c)" }}>
+              ✗ 0 of {batchTotal} researched — every attempt failed. Nothing
+              was lost: all {total} leads are still queued. Check the first
+              failure reason below; it&apos;s almost always the AI provider
+              (quota, key or rate limit), not your leads.
+            </strong>
           ) : (
             <strong style={{ color: "var(--green, #34d399)" }}>
               ✓ Batch finished — {done - failures.length}/{batchTotal} researched
@@ -253,9 +285,15 @@ export function ResearchQueue({
             <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>
               Couldn&apos;t research (they stay in the queue — the next batch
               retries them):
-              {failures.map((f) => (
+              {failures.slice(0, 8).map((f) => (
                 <div key={f}>· {f}</div>
               ))}
+              {failures.length > 8 && (
+                <div>
+                  · …and {failures.length - 8} more with the same kind of
+                  failure.
+                </div>
+              )}
             </div>
           )}
           {batch.length > 0 && (
