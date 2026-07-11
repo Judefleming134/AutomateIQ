@@ -73,7 +73,11 @@ export default async function InboxPage({
     : { data: [] as never[] };
   const prospects = new Map((prospectsRaw ?? []).map((p) => [p.id, p]));
 
-  // Conversations: newest message per prospect, unanswered replies first.
+  // Conversations: THE INBOX — only prospects who have actually messaged us
+  // (at least one inbound). Outbound-only prospects are outreach, not
+  // conversations; they'd flood this list with Jude's own sends the moment a
+  // batch is queued. They live in the Outreach queue view instead. Newest
+  // message per prospect, unanswered replies first.
   const conversations = prospectIds
     .map((pid) => {
       const thread = messages.filter((m) => m.prospect_id === pid);
@@ -81,7 +85,11 @@ export default async function InboxPage({
       const awaitingUs = latest?.direction === "inbound";
       return { pid, thread, latest, awaitingUs };
     })
-    .filter((c) => prospects.has(c.pid))
+    .filter(
+      (c) =>
+        prospects.has(c.pid) &&
+        c.thread.some((m) => m.direction === "inbound")
+    )
     .sort((a, b) => {
       if (a.awaitingUs !== b.awaitingUs) return a.awaitingUs ? -1 : 1;
       return a.latest.created_at < b.latest.created_at ? 1 : -1;
@@ -129,8 +137,8 @@ export default async function InboxPage({
         <div>
           <h1>Conversation inbox</h1>
           <p>
-            Every message across LinkedIn, Instagram, email and SMS in one
-            place — replies waiting on you come first.
+            Prospects who&apos;ve messaged you — replies waiting on you come
+            first. Your own outreach lives in the queue tab, not here.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -236,8 +244,10 @@ export default async function InboxPage({
       ) : conversations.length === 0 ? (
         <div className="panel panel-block">
           <p className="empty-state">
-            No conversations yet — send your first outreach from a prospect&apos;s
-            page and it will appear here.
+            No replies yet — when a prospect emails back (or you log a DM
+            reply from their page), the conversation lands here. Your sent and
+            queued outreach is under{" "}
+            <Link href="/growth/inbox?view=queue">Outreach queue</Link>.
           </p>
         </div>
       ) : (
