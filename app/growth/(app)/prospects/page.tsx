@@ -86,6 +86,7 @@ export default async function ProspectsPage({
     researched,
     { data: missingEmail },
     { count: grandTotal },
+    { data: failedActs },
   ] = await Promise.all([
     query,
     admin.from("ge_campaigns").select("id, name").order("name"),
@@ -127,6 +128,17 @@ export default async function ProspectsPage({
       .from("ge_prospects")
       .select("id", { count: "exact", head: true })
       .not("status", "in", '("won","lost","do_not_contact","archived")'),
+    // Research failures from the last 48h: parks failed leads at the BACK of
+    // the research queue (fresh ones first) and lists them for a targeted
+    // retry. A success removes the lead from the unresearched pool entirely,
+    // so this can never hide a researched prospect.
+    admin
+      .from("ge_activities")
+      .select("prospect_id")
+      .ilike("content", "Research failed:%")
+      .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1000),
   ]);
   // Comfortable working ceiling before pruning helps keep things brisk.
   const SOFT_CAP = 5000;
@@ -134,12 +146,22 @@ export default async function ProspectsPage({
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
   const researchedIds = new Set(researched.map((r) => r.prospect_id));
   // Research the most-researchable leads first: a website is by far the
-  // strongest signal for research quality (the engine reads the site), so
-  // leads with one lead each batch. Array.sort is stable, so within each
-  // group the created_at-desc order from the query is preserved.
+  // strongest signal for research quality (the engine reads the site).
+  // Leads that FAILED research recently sort behind everything fresh, so
+  // "Research next 40" always advances instead of rerunning the failures —
+  // they're offered separately for a targeted retry. Array.sort is stable,
+  // so within each group the created_at-desc order is preserved.
+  const failedIds = new Set((failedActs ?? []).map((a) => a.prospect_id));
   const unresearched = allProspects
     .filter((p) => !researchedIds.has(p.id))
-    .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)));
+    .sort(
+      (a, b) =>
+        Number(failedIds.has(a.id)) - Number(failedIds.has(b.id)) ||
+        Number(Boolean(b.website)) - Number(Boolean(a.website))
+    );
+  const failedRecently = unresearched
+    .filter((p) => failedIds.has(p.id))
+    .slice(0, 60);
   // Hand the queue an accurate TOTAL but only a bounded working slice — the
   // component researches 40 per click, so shipping thousands of rows to the
   // browser is wasted payload. It refills from the server on each refresh.
@@ -263,6 +285,7 @@ export default async function ProspectsPage({
       <ResearchQueue
         pending={unresearchedBatch}
         totalPending={unresearchedTotal}
+        failedRecently={failedRecently}
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
       />
 
