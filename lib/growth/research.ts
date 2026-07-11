@@ -1,6 +1,6 @@
 import "server-only";
 import { aiComplete } from "@/lib/ai/complete";
-import { activeEngineLabel } from "@/lib/ai/config";
+import { activeEngineLabel, CLAUDE_MODEL, GEMINI_MODEL } from "@/lib/ai/config";
 import {
   SOLUTION_CATALOG,
   sanitizeRecommendations,
@@ -441,10 +441,17 @@ export async function runCompanyResearch(
   // effort "medium": this is grounded analysis + writing, not deep multi-step
   // reasoning — sonnet-5's default ("high") thinks for minutes per company
   // for no material quality gain on this task.
+  // Track who ACTUALLY answered: with account-failover live, the configured
+  // provider and the serving provider can differ, and the stored engine
+  // label must tell the truth.
+  let servedBy: "anthropic" | "gemini" | null = null;
   const raw = await aiComplete(system, prompt, 8000, {
     json: true,
     effort: "medium",
     schema: researchSchema(),
+    onProvider: (p) => {
+      servedBy = p;
+    },
   });
   const parsed = extractJson(raw);
   if (!parsed) throw new Error("BAD_JSON");
@@ -493,7 +500,12 @@ export async function runCompanyResearch(
     ratings,
     drafts,
     websiteFetched: websiteText !== null,
-    engine: activeEngineLabel(),
+    engine:
+      servedBy === "gemini"
+        ? `Gemini (${GEMINI_MODEL}, free tier)`
+        : servedBy === "anthropic"
+          ? `Claude (${CLAUDE_MODEL})`
+          : activeEngineLabel(),
     found: site?.found ?? {},
   };
 }

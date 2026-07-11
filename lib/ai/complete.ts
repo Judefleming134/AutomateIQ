@@ -39,6 +39,9 @@ export async function aiComplete(
     json?: boolean;
     effort?: "low" | "medium" | "high";
     schema?: Record<string, unknown>;
+    /** Called with the provider that ACTUALLY answered — with failover live,
+     *  resolveProvider() alone can't tell callers who served the response. */
+    onProvider?: (provider: "anthropic" | "gemini") => void;
   } = {}
 ): Promise<string> {
   const provider = resolveProvider();
@@ -46,7 +49,9 @@ export async function aiComplete(
 
   if (provider.kind === "anthropic") {
     try {
-      return await callAnthropic(provider.apiKey, system, prompt, maxTokens, opts);
+      const text = await callAnthropic(provider.apiKey, system, prompt, maxTokens, opts);
+      opts.onProvider?.("anthropic");
+      return text;
     } catch (err) {
       // ACCOUNT-LEVEL failover: a dead Anthropic account (credit balance,
       // revoked/invalid key) fails every call identically — if a Gemini key
@@ -67,13 +72,17 @@ export async function aiComplete(
           "aiComplete: Anthropic account-level failure — failing over to Gemini:",
           msg.slice(0, 160)
         );
-        return callGemini(geminiKey, system, prompt, maxTokens, opts);
+        const text = await callGemini(geminiKey, system, prompt, maxTokens, opts);
+        opts.onProvider?.("gemini");
+        return text;
       }
       throw err;
     }
   }
 
-  return callGemini(provider.apiKey, system, prompt, maxTokens, opts);
+  const text = await callGemini(provider.apiKey, system, prompt, maxTokens, opts);
+  opts.onProvider?.("gemini");
+  return text;
 }
 
 async function callAnthropic(
