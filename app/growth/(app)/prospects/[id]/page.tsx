@@ -20,6 +20,7 @@ import { formatPrice, buildQuote, formatEuro, FOUNDING_OFFER } from "@/lib/growt
 import { markdownToHtml } from "@/lib/growth/markdown";
 import { dublinDate } from "@/lib/growth/dates";
 import type { ResearchReport } from "@/lib/growth/research";
+import { cleanSocialUrl } from "@/lib/growth/research";
 import {
   PROSPECT_STATUSES,
   PROSPECT_STATUS_META,
@@ -600,6 +601,39 @@ export default async function ProspectWorkspacePage({
         <div className="grid-main-side">
           <section className="panel panel-block">
             <h2 className="panel-title">Message Studio</h2>
+            {/* Send destinations right beside the drafts — copying a DM then
+                hunting another tab for the profile link was a tab-flip per
+                message on a 15-DM session. Junk links are hidden, not shown
+                dead (cleanSocialUrl). */}
+            {(() => {
+              const ig = cleanSocialUrl(prospect.instagram_url);
+              const fb = cleanSocialUrl(prospect.facebook_url);
+              const li = cleanSocialUrl(prospect.linkedin_url);
+              const targets = [
+                ig && { label: "Instagram", href: ig },
+                fb && { label: "Facebook", href: fb },
+                li && { label: "LinkedIn", href: li },
+                prospect.email && { label: "Email", href: `mailto:${prospect.email}` },
+                prospect.phone && { label: `☎ ${prospect.phone}`, href: `tel:${prospect.phone.replace(/[^\d+]/g, "")}` },
+              ].filter(Boolean) as { label: string; href: string }[];
+              if (targets.length === 0) return null;
+              return (
+                <p style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 12.5, margin: "0 0 12px" }}>
+                  <span style={{ color: "var(--faint)" }}>Send it here:</span>
+                  {targets.map((t) => (
+                    <a
+                      key={t.label}
+                      href={t.href}
+                      target={t.href.startsWith("http") ? "_blank" : undefined}
+                      rel="noreferrer"
+                      className="btn btn-ghost btn-sm"
+                    >
+                      {t.label} ↗
+                    </a>
+                  ))}
+                </p>
+              );
+            })()}
             {!report && (
               <p style={{ fontSize: 13, color: "var(--orange, #fb923c)", marginTop: 0 }}>
                 No research yet — drafts will be generic.{" "}
