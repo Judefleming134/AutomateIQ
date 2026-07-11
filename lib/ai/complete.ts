@@ -45,48 +45,93 @@ export async function aiComplete(
   if (provider.kind === "none") throw new Error("NO_PROVIDER");
 
   if (provider.kind === "anthropic") {
-    const outputConfig: Record<string, unknown> = {};
-    if (opts.effort) outputConfig.effort = opts.effort;
-    if (opts.schema)
-      outputConfig.format = { type: "json_schema", schema: opts.schema };
-    const res = await fetch(ANTHROPIC_MESSAGES_URL, {
-      method: "POST",
-      headers: {
-        "x-api-key": provider.apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: CLAUDE_MODEL,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: "user", content: prompt }],
-        ...(Object.keys(outputConfig).length
-          ? { output_config: outputConfig }
-          : {}),
-      }),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error("aiComplete Anthropic error:", res.status, detail.slice(0, 300));
-      throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)}`);
+    try {
+      return await callAnthropic(provider.apiKey, system, prompt, maxTokens, opts);
+    } catch (err) {
+      // ACCOUNT-LEVEL failover: a dead Anthropic account (credit balance,
+      // revoked/invalid key) fails every call identically — if a Gemini key
+      // is also configured, answer from Gemini instead of failing the whole
+      // platform. The Anthropic key does NOT need to be deleted for Gemini
+      // to take over, and once the Anthropic account works again it wins
+      // automatically (it's still tried first). Model/latency errors (429,
+      // 5xx, empty output) do NOT fail over — their handling belongs to the
+      // callers' retry logic.
+      const msg = err instanceof Error ? err.message : "";
+      const accountDead =
+        /credit balance/i.test(msg) ||
+        /HTTP 40[13]/.test(msg) ||
+        (msg.startsWith("HTTP 400") && /invalid_request_error/i.test(msg));
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (accountDead && geminiKey) {
+        console.error(
+          "aiComplete: Anthropic account-level failure — failing over to Gemini:",
+          msg.slice(0, 160)
+        );
+        return callGemini(geminiKey, system, prompt, maxTokens, opts);
+      }
+      throw err;
     }
-    const data = (await res.json()) as {
-      content: { type: string; text?: string }[];
-    };
-    const text =
-      data.content
-        ?.filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join("") || "";
-    if (!text.trim()) throw new Error("EMPTY_OUTPUT");
-    return text;
   }
 
+  return callGemini(provider.apiKey, system, prompt, maxTokens, opts);
+}
+
+async function callAnthropic(
+  apiKey: string,
+  system: string,
+  prompt: string,
+  maxTokens: number,
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown> }
+): Promise<string> {
+  const outputConfig: Record<string, unknown> = {};
+  if (opts.effort) outputConfig.effort = opts.effort;
+  if (opts.schema)
+    outputConfig.format = { type: "json_schema", schema: opts.schema };
+  const res = await fetch(ANTHROPIC_MESSAGES_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": ANTHROPIC_VERSION,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: "user", content: prompt }],
+      ...(Object.keys(outputConfig).length
+        ? { output_config: outputConfig }
+        : {}),
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    console.error("aiComplete Anthropic error:", res.status, detail.slice(0, 300));
+    throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)}`);
+  }
+  const data = (await res.json()) as {
+    content: { type: string; text?: string }[];
+  };
+  const text =
+    data.content
+      ?.filter((b) => b.type === "text")
+      .map((b) => b.text)
+      .join("") || "";
+  if (!text.trim()) throw new Error("EMPTY_OUTPUT");
+  return text;
+}
+
+async function callGemini(
+  apiKey: string,
+  system: string,
+  prompt: string,
+  maxTokens: number,
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown> }
+): Promise<string> {
   const res = await fetch(geminiGenerateUrl(), {
     method: "POST",
     headers: {
-      "x-goog-api-key": provider.apiKey,
+      "x-goog-api-key": apiKey,
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -95,7 +140,9 @@ export async function aiComplete(
       generationConfig: {
         thinkingConfig: GEMINI_THINKING_OFF,
         maxOutputTokens: maxTokens,
-        ...(opts.json ? { responseMimeType: "application/json" } : {}),
+        // A Claude structured-output schema implies the caller needs JSON —
+        // Gemini's native JSON mode is the equivalent on failover.
+        ...(opts.json || opts.schema ? { responseMimeType: "application/json" } : {}),
       },
     }),
   });
