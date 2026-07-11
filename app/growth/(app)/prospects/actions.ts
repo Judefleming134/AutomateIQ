@@ -638,7 +638,7 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     if (existing) {
       await admin
         .from("ge_messages")
-        .update({ subject: draft.subject, body: draft.body, tone: "professional" })
+        .update({ subject: draft.subject, body: draft.body, tone: "professional", updated_at: new Date().toISOString() })
         .eq("id", existing.id);
     } else {
       await admin.from("ge_messages").insert({

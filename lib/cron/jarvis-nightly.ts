@@ -155,7 +155,7 @@ export async function runJarvisNightly(): Promise<{
           if (draftLooksBroken(clean)) continue;
           await admin
             .from("ge_messages")
-            .update({ subject: draft.subject, body: clean, tone: "professional" })
+            .update({ subject: draft.subject, body: clean, tone: "professional", updated_at: new Date().toISOString() })
             .eq("id", d.id);
           rewritten += 1;
           await admin.from("ge_activities").insert({

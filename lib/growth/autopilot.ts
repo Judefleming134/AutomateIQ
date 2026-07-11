@@ -64,7 +64,7 @@ export async function listAutopilotCandidates(
   const [{ data: drafts }, { data: research }] = await Promise.all([
     admin
       .from("ge_messages")
-      .select("id, prospect_id, subject, body, status, created_at")
+      .select("id, prospect_id, subject, body, status, created_at, updated_at")
       .in("prospect_id", ids)
       .eq("channel", "email")
       .eq("direction", "outbound")
@@ -109,7 +109,14 @@ export async function listAutopilotCandidates(
     const d = draftByProspect.get(p.id);
     if (!d || !p.email) continue;
     const body = sanitizeOutreachBody(d.body);
-    const draftAt = new Date(d.created_at).getTime();
+    // A draft's freshness is when its CONTENT was last written: research
+    // refreshes and regenerates update rows in place (bumping updated_at),
+    // so judging by created_at alone would flag a just-rewritten draft as
+    // "stale" against the very research run that rewrote it.
+    const draftAt = Math.max(
+      new Date(d.created_at).getTime(),
+      d.updated_at ? new Date(d.updated_at).getTime() : 0
+    );
     const researchAt = researchUpdated.get(p.id);
     let stale: string | null = null;
     if (researchAt && new Date(researchAt).getTime() > draftAt + 60_000) {
