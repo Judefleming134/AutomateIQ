@@ -320,6 +320,7 @@ export async function askJarvis(
     { data: inbound },
     { data: meetings },
     { data: deliveryEvents },
+    { count: researchFailedCount },
   ] = await Promise.all([
       loadGrowthMetrics(admin, null),
       loadGrowthMetrics(admin, 7),
@@ -352,6 +353,12 @@ export async function askJarvis(
         .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(20),
+      // Size of the parked research-failed group so Jarvis answers "how many
+      // failed / left to research" from data, not guesses.
+      admin
+        .from("ge_prospects")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "research_failed"),
     ]);
 
   const statusLabel = (s: string) =>
@@ -448,6 +455,7 @@ export async function askJarvis(
     "",
     "ALL-TIME FUNNEL:",
     `prospects ${metrics.prospectsTotal} · researched ${metrics.companiesResearched} · contacted ${metrics.contacted} · outreach sent ${metrics.outreachSent} · replies ${metrics.replies} (${metrics.replyRate}% of contacted) · meetings ${metrics.meetingsBooked} · qualified ${metrics.qualified} · proposals sent ${metrics.proposalsSent} · won ${metrics.won} · pipeline value €${metrics.pipelineValue}`,
+    `work in the machine: ${metrics.queuedOutreach} queued for the 8am autopilot run · ${metrics.draftOutreach} drafts not yet queued · ~${Math.max(0, metrics.prospectsTotal - metrics.companiesResearched - (researchFailedCount ?? 0))} still to research · ${researchFailedCount ?? 0} in the Research-failed group (parked after failed research — no drafts or score yet; the fix is Retry on the Prospects page, not outreach)`,
     "",
     "LAST 7 DAYS:",
     `leads added ${week.leadsAdded} · sent ${week.outreachSent} · replies ${week.replies} · meetings ${week.meetingsBooked}`,
