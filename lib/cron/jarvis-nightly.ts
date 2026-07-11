@@ -168,8 +168,11 @@ export async function runJarvisNightly(): Promise<{
           // AI hiccup on one draft never blocks the rest of the routine.
         }
       }
-      if (broken.length > 4) {
-        notes.push(`${broken.length - 4} more outdated drafts remain for tomorrow's run`);
+      // The loop above rewrites at most 3 — anything beyond that genuinely
+      // remains (an off-by-one here silently hid the 4th broken draft from
+      // the morning brief's note).
+      if (broken.length > 3) {
+        notes.push(`${broken.length - 3} more outdated drafts remain for tomorrow's run`);
       }
     }
   } catch (err) {
