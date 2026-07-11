@@ -10,6 +10,7 @@ import {
   Globe,
   LifeBuoy,
   Bell,
+  Mic,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
@@ -62,6 +63,21 @@ export default async function PortalHome() {
 
   const hasWebsiteAgent = enabledKeys.has("website-agent");
   const hasAssistant = enabledKeys.has("ai-assistant");
+  const hasVoiceAgent = enabledKeys.has("voice-agent");
+
+  // Voice Agent state for the home page — a receptionist customer's #1
+  // product must be visible here, not buried in its own tab. Errors (e.g.
+  // migration not yet run) degrade to null = "being set up".
+  type VoiceConfig = { status: string; phone_number: string | null };
+  let voiceConfig: VoiceConfig | null = null;
+  if (hasVoiceAgent) {
+    const { data } = await supabase
+      .from("va_config")
+      .select("status, phone_number")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle();
+    voiceConfig = (data as VoiceConfig | null) ?? null;
+  }
 
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
@@ -185,6 +201,15 @@ export default async function PortalHome() {
           },
         ]
       : []),
+    ...(hasVoiceAgent
+      ? [
+          {
+            label: "AI receptionist answering calls",
+            ok: voiceConfig?.status === "live",
+            href: "/portal/voice-agent",
+          },
+        ]
+      : []),
     {
       label: "First lead captured",
       ok: (leadCount ?? 0) > 0,
@@ -220,7 +245,7 @@ export default async function PortalHome() {
               {requestsToday ?? 0} review request{(requestsToday ?? 0) === 1 ? "" : "s"} ·{" "}
               {aiMessagesToday ?? 0} AI message{(aiMessagesToday ?? 0) === 1 ? "" : "s"}
             </p>
-            <p style={{ marginTop: 10 }}>
+            <p style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span
                 className={`badge ${hasAssistant ? (assistant?.knowledge ? "badge-green" : "badge-orange") : "badge-gray"}`}
               >
@@ -232,13 +257,31 @@ export default async function PortalHome() {
                     : "needs setup"
                   : "not enabled"}
               </span>
+              {hasVoiceAgent && (
+                <span
+                  className={`badge ${voiceConfig?.status === "live" ? "badge-green" : voiceConfig?.status === "paused" ? "badge-gray" : "badge-orange"}`}
+                >
+                  <Mic size={11} />
+                  Receptionist:{" "}
+                  {voiceConfig?.status === "live"
+                    ? `answering${voiceConfig?.phone_number ? ` on ${voiceConfig.phone_number}` : ""}`
+                    : voiceConfig?.status === "paused"
+                      ? "paused"
+                      : "being set up"}
+                </span>
+              )}
             </p>
           </div>
-          {hasReviewAgent && (
+          {hasReviewAgent ? (
             <Link href="/portal/review-agent/send" className="btn btn-primary">
               <Send size={15} /> Send review request
             </Link>
-          )}
+          ) : hasVoiceAgent ? (
+            // A receptionist-first customer still gets a primary action.
+            <Link href="/portal/voice-agent" className="btn btn-primary">
+              <Mic size={15} /> Open Voice Agent
+            </Link>
+          ) : null}
         </div>
       </section>
 
@@ -307,6 +350,12 @@ export default async function PortalHome() {
           className={`qa-btn${hasWebsiteAgent ? "" : " is-disabled"}`}
         >
           <Users size={16} /> View Leads
+        </Link>
+        <Link
+          href="/portal/voice-agent"
+          className={`qa-btn${hasVoiceAgent ? "" : " is-disabled"}`}
+        >
+          <Mic size={16} /> Voice Agent
         </Link>
         <a href="mailto:hello@automateiq.ie" className="qa-btn">
           <LifeBuoy size={16} /> Contact Support

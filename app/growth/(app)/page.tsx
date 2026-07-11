@@ -160,12 +160,19 @@ export default async function GrowthDashboardPage() {
         </div>
       </div>
 
-      {/* The daily entry point: paste a website, get a researched prospect. */}
-      <section className="panel panel-block" style={{ marginBottom: 20 }} aria-labelledby="qr-title">
-        <h2 className="panel-title" id="qr-title">
-          <Sparkles size={15} style={{ verticalAlign: "-2px" }} /> Research a company
-        </h2>
-        <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
+      {/* The daily entry point: paste a website, get a researched prospect.
+          Collapsed once the pipeline exists so the day's PRIORITIES lead the
+          page — the form is one tap away, not a wall above the plan. */}
+      <details
+        className="panel panel-block"
+        style={{ marginBottom: 20 }}
+        open={metrics.prospectsTotal === 0}
+      >
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+          <Sparkles size={15} style={{ verticalAlign: "-2px" }} /> Research a
+          company (paste a website)
+        </summary>
+        <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 10 }}>
           Paste a website. The AI writes the company report, spots the pain
           points, recommends solutions, scores the lead and drafts outreach
           for every channel — then opens the prospect workspace. No website?
@@ -220,7 +227,7 @@ export default async function GrowthDashboardPage() {
             </SubmitButton>
           </div>
         </ActionForm>
-      </section>
+      </details>
 
       {readyList.length > 0 && (
         <section
