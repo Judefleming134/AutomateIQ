@@ -29,15 +29,20 @@ const BATCH_SIZE = 40;
 export function ResearchQueue({
   pending,
   totalPending,
+  failedRecently = [],
   claude = false,
 }: {
   /** A bounded working slice of unresearched prospects (the server sends a
-   *  few hundred, not the whole database). */
+   *  few hundred, not the whole database). Server-sorted: fresh leads first,
+   *  recently-failed ones parked at the back. */
   pending: QueueItem[];
   /** The TRUE number of unresearched prospects across every import batch —
    *  may be far larger than `pending.length`. Drives the count + "N still to
    *  go" copy so it stays accurate no matter how many were imported. */
   totalPending?: number;
+  /** Leads whose research failed in the last 48h — kept separate from the
+   *  next fresh batch and retryable on their own button. */
+  failedRecently?: QueueItem[];
   /** True when the server runs on the Anthropic key: no daily cap and no
    *  10-requests-per-minute wall, so the queue paces itself tighter. */
   claude?: boolean;
@@ -64,14 +69,16 @@ export function ResearchQueue({
   // (which would show e.g. "40/10" and a >100% bar near the list's end).
   const [batchTotal, setBatchTotal] = useState(0);
 
-  async function start() {
+  async function start(itemsOverride?: QueueItem[]) {
+    // Default run = the next fresh batch; a retry run passes the failed list.
+    const items = itemsOverride ?? batch;
     setRunning(true);
     setFinished(false);
     setFailures([]);
     setDone(0);
     setStopReason(null);
     setPauseNote(null);
-    setBatchTotal(batch.length);
+    setBatchTotal(items.length);
 
     const failed: string[] = [];
     const inFlight = new Set<string>();
@@ -98,8 +105,8 @@ export function ResearchQueue({
         if (stopped) return;
         if (throttled && workerIndex > 0) return; // collapse to serial
         const i = nextIndex++;
-        if (i >= batch.length) return;
-        const p = batch[i];
+        if (i >= items.length) return;
+        const p = items[i];
         inFlight.add(p.company);
         setActive([...inFlight]);
 
@@ -168,7 +175,7 @@ export function ResearchQueue({
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, batch.length) }, (_, w) =>
+      Array.from({ length: Math.min(CONCURRENCY, items.length) }, (_, w) =>
         worker(w * 4000, w)
       )
     );
@@ -205,12 +212,44 @@ export function ResearchQueue({
                 : ""}
             </p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={start}>
+          <button type="button" className="btn btn-primary" onClick={() => start()}>
             <Sparkles size={14} />{" "}
             {remaining > 0
               ? `Research next ${batch.length}`
               : `Research all ${batch.length}`}
           </button>
+        </div>
+      )}
+
+      {!running && failedRecently.length > 0 && (
+        <div
+          style={{
+            marginTop: finished || total > 0 ? 12 : 0,
+            paddingTop: 10,
+            borderTop: "1px solid rgba(255,255,255,.08)",
+            fontSize: 12,
+            color: "var(--faint)",
+          }}
+        >
+          <strong style={{ color: "var(--orange, #fb923c)" }}>
+            ⚠ {failedRecently.length} failed research recently
+          </strong>{" "}
+          — kept out of the fresh batches (each prospect&apos;s timeline says
+          why):{" "}
+          {failedRecently
+            .slice(0, 6)
+            .map((f) => f.company)
+            .join(", ")}
+          {failedRecently.length > 6 ? `, +${failedRecently.length - 6} more` : ""}
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => start(failedRecently.slice(0, BATCH_SIZE))}
+            >
+              <Sparkles size={13} /> Retry {Math.min(failedRecently.length, BATCH_SIZE)} failed
+            </button>
+          </div>
         </div>
       )}
 
@@ -301,7 +340,7 @@ export function ResearchQueue({
             // so `batch` here is the NEXT unresearched slice — researched ones
             // have dropped out. One click continues; no page reload needed.
             <div style={{ marginTop: 10 }}>
-              <button type="button" className="btn btn-primary" onClick={start}>
+              <button type="button" className="btn btn-primary" onClick={() => start()}>
                 <Sparkles size={14} /> Research next {batch.length}
               </button>
             </div>

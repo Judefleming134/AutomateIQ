@@ -505,26 +505,32 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
     result = await runCompanyResearch(prospect);
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
-    if (message === "NO_PROVIDER") return { error: NO_PROVIDER_MESSAGE };
-    if (message === "BAD_JSON") {
-      return { error: "The research came back malformed — run it again." };
-    }
-    // Make throttling distinguishable so the batch queue can pace itself
-    // and the user sees the true reason, not a generic shrug.
-    if (message.startsWith("HTTP 429")) {
+    // Exact wording matters below: the batch queue pattern-matches the
+    // returned error ("DAILY AI QUOTA", "rate limit") to pace itself.
+    let friendly: string;
+    if (message === "NO_PROVIDER") friendly = NO_PROVIDER_MESSAGE;
+    else if (message === "BAD_JSON") {
+      friendly = "The research came back malformed — run it again.";
+    } else if (message.startsWith("HTTP 429")) {
       const daily = /perday|per_day|per day|daily|quota/i.test(message);
-      return {
-        error: daily
-          ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily; adding ANTHROPIC_API_KEY in Vercel removes the cap."
-          : "AI rate limit — pausing a minute fixes this.",
-      };
+      friendly = daily
+        ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily; adding ANTHROPIC_API_KEY in Vercel removes the cap."
+        : "AI rate limit — pausing a minute fixes this.";
+    } else if (/^HTTP 5\d\d/.test(message)) {
+      friendly = "AI service briefly overloaded — retry in a minute.";
+    } else {
+      friendly = `Research failed${message.startsWith("HTTP") ? ` (${message.slice(0, 80)})` : ""} — try again in a moment.`;
     }
-    if (/^HTTP 5\d\d/.test(message)) {
-      return { error: "AI service briefly overloaded — retry in a minute." };
-    }
-    return {
-      error: `Research failed${message.startsWith("HTTP") ? ` (${message.slice(0, 80)})` : ""} — try again in a moment.`,
-    };
+    // Stamp the failure on the prospect's timeline. This is what (a) lets
+    // the queue park failed leads BEHIND fresh ones so the next batch isn't
+    // a rerun, and (b) lets Jude find exactly which leads failed and why.
+    await admin.from("ge_activities").insert({
+      prospect_id: id,
+      type: "system",
+      content: `Research failed: ${friendly.slice(0, 200)}`,
+      created_by: member.id,
+    });
+    return { error: friendly };
   }
 
   const { error: researchError } = await admin.from("ge_research").upsert(
