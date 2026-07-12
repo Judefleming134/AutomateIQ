@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dublinDate } from "@/lib/growth/dates";
+import { draftOutreach } from "@/lib/growth/ai";
+import { loadGrowthSettings } from "@/lib/growth/auth";
+import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+
+// The capture itself is instant, but the best-effort reply draft makes one AI
+// call — give the invocation room so it finishes in the same request.
+export const maxDuration = 45;
 
 /**
  * Inbound reply capture → the Growth Engine inbox.
@@ -65,7 +72,9 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   const { data: prospect } = await admin
     .from("ge_prospects")
-    .select("id, campaign_id, status")
+    .select(
+      "id, campaign_id, status, company, contact_name, job_title, industry, website, location, notes"
+    )
     .ilike("email", senderEmail)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -127,5 +136,65 @@ export async function POST(request: NextRequest) {
     created_by: null,
   });
 
-  return NextResponse.json({ ok: true, matched: true });
+  // Auto-draft a suggested response so Jude opens the inbox to a reply already
+  // written, not a blank box. Strictly best-effort and NEVER auto-sent: it's a
+  // draft in the Studio, gated by the same broken-draft check as every other
+  // path. Any failure here leaves the captured reply untouched.
+  let replyDrafted = false;
+  try {
+    // One suggested reply at a time — don't stack drafts if a forwarder double-
+    // fires or the prospect sends a second message before Jude has sent the first.
+    const { data: pending } = await admin
+      .from("ge_messages")
+      .select("id")
+      .eq("prospect_id", prospect.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "reply")
+      .eq("status", "draft")
+      .limit(1)
+      .maybeSingle();
+    if (!pending) {
+      const settings = await loadGrowthSettings();
+      const draft = await draftOutreach(
+        {
+          company: prospect.company,
+          contact_name: prospect.contact_name,
+          job_title: prospect.job_title,
+          industry: prospect.industry,
+          website: prospect.website,
+          location: prospect.location,
+          notes: prospect.notes,
+        },
+        { channel: "email", objective: "reply", tone: "professional", replyContext: text.slice(0, 4000) },
+        settings.bookingUrl
+      );
+      const clean = sanitizeOutreachBody(draft.body);
+      if (!draftLooksBroken(clean)) {
+        await admin.from("ge_messages").insert({
+          prospect_id: prospect.id,
+          campaign_id: prospect.campaign_id,
+          channel: "email",
+          direction: "outbound",
+          status: "draft",
+          purpose: "reply",
+          tone: "professional",
+          subject: draft.subject,
+          body: clean,
+          created_by: null,
+        });
+        replyDrafted = true;
+        await admin.from("ge_activities").insert({
+          prospect_id: prospect.id,
+          type: "system",
+          content: "Jarvis: drafted a suggested reply to their message — ready to review and send in the inbox",
+          created_by: null,
+        });
+      }
+    }
+  } catch {
+    // Drafting is a bonus; the captured reply is what matters. Swallow.
+  }
+
+  return NextResponse.json({ ok: true, matched: true, replyDrafted });
 }

@@ -125,7 +125,8 @@ export type MessagePurpose =
   | "follow_up"
   | "second_follow_up"
   | "meeting_confirmation"
-  | "thank_you";
+  | "thank_you"
+  | "reply";
 
 export const PURPOSE_META: Record<MessagePurpose, { label: string }> = {
   first: { label: "First message" },
@@ -133,6 +134,7 @@ export const PURPOSE_META: Record<MessagePurpose, { label: string }> = {
   second_follow_up: { label: "Second follow-up" },
   meeting_confirmation: { label: "Meeting confirmation" },
   thank_you: { label: "Thank-you" },
+  reply: { label: "Reply" },
 };
 
 export const PURPOSES = Object.keys(PURPOSE_META) as MessagePurpose[];
