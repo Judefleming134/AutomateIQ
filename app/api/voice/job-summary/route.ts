@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * ElevenLabs voice-agent post-call webhook → an instant job email.
@@ -76,6 +77,38 @@ export async function POST(request: NextRequest) {
     `Booked: ${slot}`,
   ];
   if (summary) lines.push("", `Call summary: ${summary}`);
+
+  // Persist the captured job so the customer's portal shows a living list of
+  // what their receptionist booked — not just an email that scrolls away.
+  // Best-effort and fully isolated: a DB hiccup must never stop the job email.
+  try {
+    const admin = createAdminClient();
+    // Resolve the owning business: an explicit VOICE_BUSINESS_ID wins; else,
+    // if exactly one business has a voice agent configured, it's unambiguous
+    // (the demo case). Anything else, skip DB logging — the email still lands.
+    let businessId = process.env.VOICE_BUSINESS_ID?.trim() || null;
+    if (!businessId) {
+      const { data: configs } = await admin
+        .from("va_config")
+        .select("business_id")
+        .limit(2);
+      if (configs && configs.length === 1) businessId = configs[0].business_id;
+    }
+    if (businessId) {
+      await admin.from("va_jobs").insert({
+        business_id: businessId,
+        caller_name: name === "Unknown caller" ? "" : name,
+        caller_phone: phone === "—" ? "" : phone,
+        address: address === "—" ? "" : address,
+        problem: problem === "—" ? "" : problem,
+        urgency: urgency === "—" ? "" : urgency,
+        booking_slot: slot === "—" ? "" : slot,
+        summary,
+      });
+    }
+  } catch (err) {
+    console.error("Job-summary DB log failed (non-fatal):", err);
+  }
 
   const recipients = (
     process.env.VOICE_SUMMARY_EMAIL || "judeautomated@gmail.com"
