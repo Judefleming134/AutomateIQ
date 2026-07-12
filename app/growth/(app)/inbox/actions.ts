@@ -387,6 +387,7 @@ export async function saveStudioTemplate(input: {
     second_follow_up: "follow_up",
     meeting_confirmation: "confirmation",
     thank_you: "reply",
+    reply: "reply",
   };
 
   const admin = createAdminClient();

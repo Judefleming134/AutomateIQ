@@ -133,6 +133,8 @@ const PURPOSE_RULES: Record<MessagePurpose, string> = {
     "They're ready to book. Warmly confirm, give them the booking link with one line on what the free AI Strategy Session covers.",
   thank_you:
     "Thank them after a meeting or positive exchange. Reference the conversation genuinely, confirm the agreed next step.",
+  reply:
+    "Reply to the prospect's inbound message. Answer their question directly and honestly first, then — only if it fits naturally — move one step toward booking a free AI Strategy Session. Never ignore what they actually asked.",
 };
 
 const TRANSFORM_RULES: Record<StudioTransform, string> = {
