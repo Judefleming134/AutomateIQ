@@ -158,7 +158,17 @@ function computeGrowthMetrics(
   const wMessages = allMessages.filter((m) => inWindow(m.created_at));
   const wMeetings = allMeetings.filter((m) => inWindow(m.created_at));
 
-  const sent = wMessages.filter((m) => m.direction === "outbound" && m.status === "sent");
+  // A send's window membership is when it ACTUALLY went out (sent_at), not when
+  // the draft was written (created_at). With overnight drafting + the 7am send,
+  // a draft can be created before the window but sent inside it — filtering by
+  // created_at silently undercounts sends. Fall back to created_at for legacy
+  // rows with no sent_at stamped.
+  const sent = allMessages.filter(
+    (m) =>
+      m.direction === "outbound" &&
+      m.status === "sent" &&
+      inWindow(m.sent_at ?? m.created_at)
+  );
   const inbound = wMessages.filter((m) => m.direction === "inbound");
 
   const prospectById = new Map(allProspects.map((p) => [p.id, p]));
