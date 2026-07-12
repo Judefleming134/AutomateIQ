@@ -6,6 +6,8 @@ import {
   autoQueueTopDrafts,
   autoQueueDueFollowups,
 } from "@/lib/growth/autopilot";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { syncStrategyBookingsCore } from "@/lib/growth/booking-sync";
 
 /**
  * Single Vercel Cron entry, dispatching to every registered task. Adding
@@ -39,6 +41,15 @@ export async function GET(request: NextRequest) {
   }
 
   const reviewReminders = await isolated("reviewReminders", sendReviewReminders);
+  // Auto-sync any AI Strategy Sessions booked overnight through the public
+  // /book page into the Growth Engine as meetings — a booked call surfaces
+  // itself, no manual "Sync bookings" click required.
+  const bookingSync = await isolated("bookingSync", () =>
+    syncStrategyBookingsCore(createAdminClient(), {
+      createdBy: null,
+      attributedTo: "the overnight engine",
+    })
+  );
   // Auto-queue tops the queue up to target with the best clean drafts (manual
   // queueing always takes the slots first), THEN the autopilot sends, THEN the
   // brief reports both — order matters.
@@ -51,6 +62,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    tasks: { reviewReminders, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
+    tasks: { reviewReminders, bookingSync, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
   });
 }
