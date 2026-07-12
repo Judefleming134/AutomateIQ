@@ -188,6 +188,14 @@ export async function composeMessage(input: {
   }
 
   if (input.mode === "send_email") {
+    // Same hard broken-draft guard the autopilot and queue Send button run:
+    // a leftover [placeholder], invented sender name or made-up job title must
+    // never reach a real prospect. The row stays a draft, ready to fix.
+    const broken = draftLooksBroken(sanitizeOutreachBody(body));
+    if (broken) {
+      revalidateProspect(prospect.id);
+      return { ok: false, error: `Not sent — ${broken}. Regenerate the draft first.` };
+    }
     const sent = await sendOutreachEmail({
       to: prospect.email!,
       subject: subject!,
