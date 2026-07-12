@@ -6,6 +6,12 @@ import {
   parkResearchFailure,
   persistResearchResult,
 } from "@/lib/growth/research-runner";
+import { draftStudioMessage } from "@/lib/growth/ai";
+import { loadGrowthSettings } from "@/lib/growth/auth";
+import { pricingLines } from "@/lib/growth/pricing";
+import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { dublinDate } from "@/lib/growth/dates";
+import type { ResearchReport } from "@/lib/growth/research";
 
 // Two researches (~20-40s each on Gemini) must fit one invocation.
 export const maxDuration = 60;
@@ -57,10 +63,6 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)))
     .slice(0, 2);
 
-  if (fresh.length === 0) {
-    return NextResponse.json({ ok: true, researched: 0, detail: "queue empty" });
-  }
-
   let done = 0;
   const notes: string[] = [];
   for (const prospect of fresh) {
@@ -92,9 +94,98 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Second skill: when the fresh-research queue is drained (or short), spend
+  // the leftover slots DRAFTING DUE FOLLOW-UPS — prospects whose chase date
+  // has arrived and who don't already have an unsent follow-up draft. Come
+  // morning, every due chase greets Jude pre-written in the Studio.
+  let followUpsDrafted = 0;
+  const slots = 2 - fresh.length;
+  if (slots > 0) {
+    try {
+      const today = dublinDate();
+      const { data: due } = await admin
+        .from("ge_prospects")
+        .select("id, company, contact_name, job_title, industry, website, location, notes, campaign_id")
+        .lte("next_follow_up_at", today)
+        .in("status", ["contacted", "follow_up_sent"])
+        .order("lead_score", { ascending: false, nullsFirst: false })
+        .limit(20);
+      const settings = await loadGrowthSettings();
+      for (const p of due ?? []) {
+        if (followUpsDrafted >= slots) break;
+        // Skip anyone who already has an unsent follow-up draft waiting.
+        const { data: existing } = await admin
+          .from("ge_messages")
+          .select("id")
+          .eq("prospect_id", p.id)
+          .eq("channel", "email")
+          .eq("direction", "outbound")
+          .eq("purpose", "follow_up")
+          .in("status", ["draft", "queued"])
+          .limit(1)
+          .maybeSingle();
+        if (existing) continue;
+        const { data: research } = await admin
+          .from("ge_research")
+          .select("report, solutions")
+          .eq("prospect_id", p.id)
+          .maybeSingle();
+        const keys = Array.isArray(research?.solutions)
+          ? (research!.solutions as { key?: string }[])
+              .map((s) => s.key)
+              .filter((k): k is string => Boolean(k))
+          : [];
+        try {
+          const draft = await draftStudioMessage(
+            p,
+            (research?.report as ResearchReport | undefined) ?? null,
+            { channel: "email", purpose: "follow_up", tone: "professional" },
+            settings.bookingUrl,
+            pricingLines(keys)
+          );
+          const clean = sanitizeOutreachBody(draft.body);
+          if (draftLooksBroken(clean)) continue; // never save a broken draft
+          await admin.from("ge_messages").insert({
+            prospect_id: p.id,
+            campaign_id: p.campaign_id,
+            channel: "email",
+            direction: "outbound",
+            status: "draft",
+            purpose: "follow_up",
+            tone: "professional",
+            subject: draft.subject,
+            body: clean,
+            created_by: null,
+          });
+          followUpsDrafted += 1;
+          notes.push(`${p.company}: follow-up drafted`);
+          await admin.from("ge_activities").insert({
+            prospect_id: p.id,
+            type: "system",
+            content: `Jarvis nightly: drafted the follow-up email (chase was due ${today}) — ready in the Studio`,
+            created_by: null,
+          });
+        } catch (err) {
+          const { accountDead, dailyQuota } = mapResearchError(err);
+          if (accountDead || dailyQuota) break; // account-level: stop the run
+          // One bad draft never blocks the rest.
+        }
+      }
+    } catch (err) {
+      notes.push(
+        `follow-up drafting error: ${err instanceof Error ? err.message : "unknown"}`
+      );
+    }
+  }
+
+  if (done === 0 && followUpsDrafted === 0 && notes.length === 0) {
+    return NextResponse.json({ ok: true, researched: 0, detail: "nothing to do" });
+  }
+
   return NextResponse.json({
     ok: true,
     researched: done,
+    followUpsDrafted,
     detail: notes.join("; ").slice(0, 500),
   });
 }
