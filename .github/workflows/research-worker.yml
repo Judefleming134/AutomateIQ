@@ -1,0 +1,37 @@
+name: Overnight research worker
+
+# The self-driving pipeline: every 10 minutes through the night (21:00–06:50
+# UTC) this hits /api/cron/research-worker, which researches up to 2 fresh
+# prospects per call using the same runner as the on-page Research button —
+# report, score, contact backfill, first-touch drafts. ~110 researches a
+# night, paced to sit comfortably inside Gemini free-tier limits (and the
+# endpoint stops itself instantly on account-level AI failures, so a dead
+# key never burns the night). Import leads, sleep, wake to a researched
+# pipeline; the morning brief lists what it did.
+
+on:
+  schedule:
+    - cron: "*/10 21-23 * * *"
+    - cron: "*/10 0-6 * * *"
+  workflow_dispatch: {} # manual kick from the Actions tab
+
+concurrency:
+  group: research-worker
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit /api/cron/research-worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET repo secret is not set — add it in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          curl -fsS --retry 2 --retry-delay 15 --max-time 90 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://automateiq.ie/api/cron/research-worker"
+          echo "Research worker fired."
