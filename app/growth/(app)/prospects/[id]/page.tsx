@@ -300,7 +300,9 @@ export default async function ProspectWorkspacePage({
           follow_up_sent: overdue
             ? { msg: `Second chase was due ${prospect.next_follow_up_at} — one more touch or a call.`, cta: "Send the next touch", href: `${base}?tab=studio` }
             : { msg: "Follow-up sent — give it a beat, then consider a call.", cta: "Open the call script", href: `${base}?tab=studio` },
-          replied: { msg: "They replied — answer today while it's warm and steer to the Strategy Session.", cta: "Open the conversation", href: `${base}?tab=conversation` },
+          replied: studioDrafts.some((d) => d.purpose === "reply")
+            ? { msg: "They replied — a suggested response is already drafted. Review it and send while it's warm.", cta: "Review the drafted reply", href: `${base}?tab=studio` }
+            : { msg: "They replied — answer today while it's warm and steer to the Strategy Session.", cta: "Open the conversation", href: `${base}?tab=conversation` },
           qualified: { msg: "Qualified — the only next move is a booked AI Strategy Session.", cta: "Compose the booking message", href: `${base}?tab=studio` },
           meeting_booked: { msg: "Session booked — walk in prepared: report, angle, quote.", cta: "Review session prep", href: `${base}?tab=research` },
           proposal_in_progress: { msg: "Proposal in progress — finish and send while momentum holds.", cta: "Open Proposal Studio", href: `${base}?tab=proposal` },
