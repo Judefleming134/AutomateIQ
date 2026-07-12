@@ -7,6 +7,7 @@ import {
   reviewOutreachEmail,
 } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
+import { dublinDate } from "@/lib/growth/dates";
 
 /**
  * Email autopilot: the one channel with a real sending API, made hands-off.
@@ -202,6 +203,113 @@ export async function autoQueueTopDrafts(): Promise<{
   return {
     queued,
     detail: `topped the queue up from ${already ?? 0} to ${(already ?? 0) + queued} (target ${target})`,
+  };
+}
+
+/**
+ * Closes the follow-up loop. The overnight worker DRAFTS a follow-up email
+ * for every prospect whose chase date has arrived; this queues those clean
+ * drafts for the 8am send, so the whole chase cycle runs itself:
+ *   contacted → (3 days) chase due → drafted overnight → queued → sent →
+ *   follow_up_sent, next chase in 3 days … up to a hard touch cap.
+ *
+ * Safety: only prospects still in a chase-eligible status get here (a reply
+ * moves them to `replied`, a bounce nulled the email); a hard cap of
+ * GROWTH_MAX_FOLLOWUPS *sent* follow-ups (default 2) stops it ever
+ * harassing anyone; the pre-send review gate is re-run here AND at send
+ * time; GROWTH_AUTOFOLLOWUP="0"/"off" disables the whole thing.
+ */
+export async function autoQueueDueFollowups(): Promise<{
+  queued: number;
+  detail: string;
+}> {
+  const flag = (process.env.GROWTH_AUTOFOLLOWUP ?? "").toLowerCase();
+  if (flag === "0" || flag === "off") {
+    return { queued: 0, detail: "auto follow-up disabled" };
+  }
+  const maxTouches = Math.max(1, Number(process.env.GROWTH_MAX_FOLLOWUPS ?? 2));
+  const PER_RUN_CAP = 15;
+
+  const admin = createAdminClient();
+  const today = dublinDate();
+
+  const { data: due } = await admin
+    .from("ge_prospects")
+    .select("id, company, email, lead_score")
+    .in("status", ["contacted", "follow_up_sent"])
+    .lte("next_follow_up_at", today)
+    .not("email", "is", null)
+    .order("lead_score", { ascending: false, nullsFirst: false })
+    .limit(80);
+
+  let queued = 0;
+  const names: string[] = [];
+  for (const p of due ?? []) {
+    if (queued >= PER_RUN_CAP) break;
+
+    // Hard chase cap: stop once we've SENT this many follow-ups.
+    const { count: sentFollowups } = await admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("prospect_id", p.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "follow_up")
+      .eq("status", "sent");
+    if ((sentFollowups ?? 0) >= maxTouches) continue;
+
+    // Already have one queued? leave it (don't double up).
+    const { data: pending } = await admin
+      .from("ge_messages")
+      .select("id")
+      .eq("prospect_id", p.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "follow_up")
+      .eq("status", "queued")
+      .limit(1)
+      .maybeSingle();
+    if (pending) continue;
+
+    // The clean follow-up draft the worker wrote overnight.
+    const { data: draft } = await admin
+      .from("ge_messages")
+      .select("id, subject, body")
+      .eq("prospect_id", p.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "follow_up")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!draft) continue;
+
+    const body = sanitizeOutreachBody(draft.body);
+    if (draftLooksBroken(body)) continue;
+    if (reviewOutreachEmail({ subject: draft.subject || "", body })) continue;
+
+    const { error } = await admin
+      .from("ge_messages")
+      .update({ status: "queued" })
+      .eq("id", draft.id)
+      .eq("status", "draft");
+    if (error) continue;
+    queued += 1;
+    names.push(p.company);
+    await admin.from("ge_activities").insert({
+      prospect_id: p.id,
+      type: "system",
+      content: `Jarvis nightly: auto-queued the follow-up email for the 8am run (chase was due ${today})`,
+      created_by: null,
+    });
+  }
+
+  return {
+    queued,
+    detail: queued
+      ? `queued ${queued} follow-ups: ${names.slice(0, 8).join(", ")}${names.length > 8 ? "…" : ""}`
+      : "no due follow-ups ready",
   };
 }
 

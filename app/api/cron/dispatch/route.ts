@@ -4,6 +4,7 @@ import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
 import {
   runQueuedEmailAutopilot,
   autoQueueTopDrafts,
+  autoQueueDueFollowups,
 } from "@/lib/growth/autopilot";
 
 /**
@@ -42,11 +43,14 @@ export async function GET(request: NextRequest) {
   // queueing always takes the slots first), THEN the autopilot sends, THEN the
   // brief reports both — order matters.
   const autoQueue = await isolated("autoQueue", autoQueueTopDrafts);
+  // Due follow-ups the overnight worker drafted — queued after first touches,
+  // before the send, so the whole chase cycle runs itself (capped, gated).
+  const autoFollowups = await isolated("autoFollowups", autoQueueDueFollowups);
   const emailAutopilot = await isolated("emailAutopilot", runQueuedEmailAutopilot);
   const jarvisBrief = await isolated("jarvisBrief", sendJarvisMorningBrief);
 
   return NextResponse.json({
     ok: true,
-    tasks: { reviewReminders, autoQueue, emailAutopilot, jarvisBrief },
+    tasks: { reviewReminders, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
   });
 }
