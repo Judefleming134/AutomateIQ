@@ -5,27 +5,9 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyGrowthTeam } from "@/lib/growth/email";
 import { dublinLocalToUtcISO } from "@/lib/growth/dates";
+import { syncStrategyBookingsCore, markMeetingBooked } from "@/lib/growth/booking-sync";
 
 type Result = { ok?: boolean; error?: string } | undefined;
-
-async function markMeetingBooked(prospectId: string) {
-  const admin = createAdminClient();
-  const { data: prospect } = await admin
-    .from("ge_prospects")
-    .select("status")
-    .eq("id", prospectId)
-    .maybeSingle();
-  if (
-    prospect &&
-    !["meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation",
-      "won", "lost", "do_not_contact", "archived"].includes(prospect.status)
-  ) {
-    await admin
-      .from("ge_prospects")
-      .update({ status: "meeting_booked" })
-      .eq("id", prospectId);
-  }
-}
 
 export async function recordMeeting(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
@@ -53,7 +35,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
   });
   if (error) return { error: error.message };
 
-  await markMeetingBooked(prospectId);
+  await markMeetingBooked(admin, prospectId);
   await admin.from("ge_activities").insert({
     prospect_id: prospectId,
     type: "meeting",
@@ -106,57 +88,11 @@ export async function syncStrategyBookings(_prev: Result, formData: FormData): P
   void formData;
   const admin = createAdminClient();
 
-  const { data: bookings, error } = await admin
-    .from("strategy_bookings")
-    .select("id, name, email, company, slot_at, status")
-    .in("status", ["pending", "confirmed", "rescheduled", "completed"]);
-  if (error) {
-    return {
-      error:
-        "Could not read bookings — has supabase/manual_update_0010.sql been run?",
-    };
-  }
-
-  let matched = 0;
-  for (const b of bookings ?? []) {
-    const { data: prospect } = await admin
-      .from("ge_prospects")
-      .select("id, company, status")
-      .ilike("email", b.email)
-      .maybeSingle();
-    if (!prospect) continue;
-
-    const { data: created, error: insertError } = await admin
-      .from("ge_meetings")
-      .insert({
-        prospect_id: prospect.id,
-        scheduled_at: b.slot_at,
-        status: b.status === "completed" ? "completed" : "booked",
-        notes: `AI Strategy Session booked via the public booking page (${b.name}${b.company ? `, ${b.company}` : ""}).`,
-        strategy_booking_id: b.id,
-      })
-      .select("id")
-      .single();
-    if (insertError) continue; // already synced (unique index) — skip quietly
-
-    matched++;
-    await markMeetingBooked(prospect.id);
-    await admin.from("ge_activities").insert({
-      prospect_id: prospect.id,
-      type: "meeting",
-      content: "AI Strategy Session booked through the public booking page (synced).",
-      created_by: member.id,
-    });
-    await notifyGrowthTeam(
-      `Growth Engine: prospect booked a Strategy Session — ${prospect.company}`,
-      [
-        `${b.name} (${b.email}) booked an AI Strategy Session and matches Growth Engine prospect "${prospect.company}".`,
-        `Slot: ${new Date(b.slot_at).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
-        `Synced by ${member.name}.`,
-      ]
-    );
-    void created;
-  }
+  const { matched, error } = await syncStrategyBookingsCore(admin, {
+    createdBy: member.id,
+    attributedTo: member.name,
+  });
+  if (error) return { error };
 
   revalidatePath("/growth/meetings");
   revalidatePath("/growth/prospects");
