@@ -10,6 +10,7 @@ import { draftStudioMessage } from "@/lib/growth/ai";
 import { loadGrowthSettings } from "@/lib/growth/auth";
 import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
 import type { ResearchReport } from "@/lib/growth/research";
 
@@ -178,7 +179,48 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (done === 0 && followUpsDrafted === 0 && notes.length === 0) {
+  // Third skill: catch-up reply drafts. The auto-reply-draft fires when a
+  // reply is captured, but replies captured before that feature (or where
+  // drafting failed) can sit with no suggested response. Any slots still
+  // spare go to prospects in 'replied' status without an unsent reply draft —
+  // so every warm reply, the closest thing to a customer, greets Jude
+  // pre-written by morning. autoDraftReply dedupes and stays best-effort.
+  let repliesDrafted = 0;
+  const replySlots = slots - followUpsDrafted;
+  if (replySlots > 0) {
+    try {
+      const { data: replied } = await admin
+        .from("ge_prospects")
+        .select("id, company, contact_name, job_title, industry, website, location, notes, campaign_id")
+        .eq("status", "replied")
+        .order("lead_score", { ascending: false, nullsFirst: false })
+        .limit(20);
+      for (const p of replied ?? []) {
+        if (repliesDrafted >= replySlots) break;
+        // The message to answer: their most recent inbound.
+        const { data: lastIn } = await admin
+          .from("ge_messages")
+          .select("body")
+          .eq("prospect_id", p.id)
+          .eq("direction", "inbound")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!lastIn?.body) continue;
+        const drafted = await autoDraftReply(admin, p, lastIn.body, null);
+        if (drafted) {
+          repliesDrafted += 1;
+          notes.push(`${p.company}: reply drafted`);
+        }
+      }
+    } catch (err) {
+      notes.push(
+        `reply drafting error: ${err instanceof Error ? err.message : "unknown"}`
+      );
+    }
+  }
+
+  if (done === 0 && followUpsDrafted === 0 && repliesDrafted === 0 && notes.length === 0) {
     return NextResponse.json({ ok: true, researched: 0, detail: "nothing to do" });
   }
 
@@ -186,6 +228,7 @@ export async function GET(request: NextRequest) {
     ok: true,
     researched: done,
     followUpsDrafted,
+    repliesDrafted,
     detail: notes.join("; ").slice(0, 500),
   });
 }
