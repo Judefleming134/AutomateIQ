@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
-import { sendOutreachEmail } from "@/lib/growth/email";
+import { sendOutreachEmail, sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
@@ -230,6 +230,16 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
 
   const prospect = await loadProspect(message.prospect_id);
   if (!prospect?.email) return { error: "This prospect has no email address on file." };
+
+  // Same hard broken-draft guard the 8am autopilot runs: a leftover
+  // [placeholder], an invented sender name or a made-up job title must never
+  // reach a real prospect — even via the manual Send button. Regenerate in
+  // the Studio to clear it. (Length/subject nits are left to the sender's
+  // judgement here; this only blocks the unambiguously-broken.)
+  const broken = draftLooksBroken(sanitizeOutreachBody(message.body));
+  if (broken) {
+    return { error: `Not sent — ${broken}. Regenerate the draft in the Studio first.` };
+  }
 
   const sent = await sendOutreachEmail({
     to: prospect.email,
