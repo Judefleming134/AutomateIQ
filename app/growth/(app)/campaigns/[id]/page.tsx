@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRows } from "@/lib/growth/db";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
@@ -31,22 +32,32 @@ export default async function CampaignDetailPage({
     .maybeSingle();
   if (!campaign) notFound();
 
-  const [{ data: prospects }, { data: messages }, { data: meetings }] =
-    await Promise.all([
+  // Page every query past PostgREST's 1,000-row cap so a big campaign's funnel
+  // (drafts/queued/sent/replies) and prospect tallies count EVERY row — a
+  // campaign with a few hundred prospects easily passes 1,000 messages once
+  // first touches and follow-ups are drafted, silently truncating the numbers.
+  const [prospects, messages, meetings] = await Promise.all([
+    selectAllRows<{
+      id: string;
+      company: string;
+      contact_name: string;
+      status: string;
+      lead_score: number;
+      qualification_status: string;
+    }>(() =>
       admin
         .from("ge_prospects")
         .select("id, company, contact_name, status, lead_score, qualification_status")
         .eq("campaign_id", id)
-        .order("created_at", { ascending: false }),
-      admin
-        .from("ge_messages")
-        .select("id, direction, status")
-        .eq("campaign_id", id),
-      admin
-        .from("ge_meetings")
-        .select("id, prospect_id, status")
-        .neq("status", "cancelled"),
-    ]);
+        .order("created_at", { ascending: false })
+    ),
+    selectAllRows<{ id: string; direction: string; status: string }>(() =>
+      admin.from("ge_messages").select("id, direction, status").eq("campaign_id", id)
+    ),
+    selectAllRows<{ id: string; prospect_id: string; status: string }>(() =>
+      admin.from("ge_meetings").select("id, prospect_id, status").neq("status", "cancelled")
+    ),
+  ]);
 
   const prospectIds = new Set((prospects ?? []).map((p) => p.id));
   const outbound = (messages ?? []).filter((m) => m.direction === "outbound");
