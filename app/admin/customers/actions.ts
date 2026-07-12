@@ -189,6 +189,58 @@ export async function setProductEnabled(
   return { ok: true };
 }
 
+/**
+ * Provision a business's Voice Agent from the admin — the fields AutomateIQ
+ * controls (never the customer): live/paused status, the phone number shown
+ * in their portal, and the ElevenLabs agent id that portal knowledge edits
+ * sync to. Upserts only these columns, so the customer's own greeting /
+ * services / knowledge are left untouched. Lets Jude flip Castleknock live
+ * without touching SQL.
+ */
+export async function saveVoiceProvisioning(
+  businessId: string,
+  _prevState: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const status = String(formData.get("status") ?? "");
+  if (!["provisioning", "live", "paused"].includes(status)) {
+    return { error: "Pick a valid status." };
+  }
+  const phone = String(formData.get("phone_number") ?? "").trim().slice(0, 40) || null;
+  const agentId =
+    String(formData.get("elevenlabs_agent_id") ?? "").trim().slice(0, 120) || null;
+
+  const { error } = await supabase.from("va_config").upsert(
+    {
+      business_id: businessId,
+      status,
+      phone_number: phone,
+      elevenlabs_agent_id: agentId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id" }
+  );
+  if (error) {
+    if (error.code === "42P01") {
+      return { error: "Database update required — run supabase/manual_update_0019.sql (and 0020)." };
+    }
+    return { error: error.message };
+  }
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "voice.provision",
+    targetBusinessId: businessId,
+    metadata: { status, hasPhone: Boolean(phone), hasAgent: Boolean(agentId) },
+  });
+
+  revalidatePath(`/admin/customers/${businessId}`);
+  return { ok: true };
+}
+
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 
 export async function uploadDocument(
