@@ -143,6 +143,68 @@ export async function listAutopilotCandidates(
   return out;
 }
 
+/**
+ * Auto-queue: tops the 8am send queue up to a target with the BEST clean
+ * drafts (top lead score, not broken, not stale, not already queued) so
+ * "queue ~20 before bed" stops being a nightly chore. Runs from the 07:00
+ * dispatch just before the send; anything Jude queued by hand counts toward
+ * the target, so manual choices always take the slots first. Every email
+ * still passes the hard pre-send review gate at send time.
+ *
+ * Tunable without a deploy: GROWTH_AUTOQUEUE_TARGET (default 20, "0"
+ * disables the whole behaviour).
+ */
+export async function autoQueueTopDrafts(): Promise<{
+  queued: number;
+  detail: string;
+}> {
+  const raw = process.env.GROWTH_AUTOQUEUE_TARGET;
+  const target = raw === undefined ? 20 : Number(raw);
+  if (!Number.isFinite(target) || target <= 0) {
+    return { queued: 0, detail: "auto-queue disabled" };
+  }
+
+  const admin = createAdminClient();
+  const { count: already } = await admin
+    .from("ge_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("channel", "email")
+    .eq("direction", "outbound")
+    .eq("status", "queued");
+  const need = target - (already ?? 0);
+  if (need <= 0) {
+    return { queued: 0, detail: `queue already at ${already} (target ${target})` };
+  }
+
+  // Over-fetch: some candidates come back flagged broken/stale and are
+  // skipped — only clean, fresh, top-scored drafts are auto-queued.
+  const candidates = await listAutopilotCandidates(Math.min(need * 2, 50));
+  const clean = candidates
+    .filter((c) => !c.queued && !c.broken && !c.stale)
+    .slice(0, need);
+
+  let queued = 0;
+  for (const c of clean) {
+    const { error } = await admin
+      .from("ge_messages")
+      .update({ status: "queued" })
+      .eq("id", c.messageId)
+      .eq("status", "draft");
+    if (error) continue;
+    queued += 1;
+    await admin.from("ge_activities").insert({
+      prospect_id: c.prospectId,
+      type: "system",
+      content: `Jarvis nightly: auto-queued the first-touch email for the 8am run (score ${c.leadScore})`,
+      created_by: null,
+    });
+  }
+  return {
+    queued,
+    detail: `topped the queue up from ${already ?? 0} to ${(already ?? 0) + queued} (target ${target})`,
+  };
+}
+
 /** Sends ONE draft/queued email message with full CRM bookkeeping. */
 export async function sendAutopilotEmail(params: {
   messageId: string;
