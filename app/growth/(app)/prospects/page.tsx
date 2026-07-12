@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Download, Search as SearchIcon, Sparkles } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -189,6 +190,11 @@ export default async function ProspectsPage({
     const qs = sp.toString();
     return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
   };
+  // If the requested page is now past the end — e.g. after bulk-archiving cold
+  // leads on a later page shrinks the result set — the range query returned an
+  // empty slice while the footer clamped the label. Bounce to the real last
+  // page so the table shows rows instead of looking mysteriously empty.
+  if (pageReq > totalPages && total > 0) redirect(pageHref(totalPages));
   // Show up to 10 numbered pages, windowed around the current one so the
   // strip never runs off the screen on a big database.
   const WINDOW = 10;
