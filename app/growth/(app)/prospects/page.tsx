@@ -32,7 +32,7 @@ const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last"
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
@@ -48,6 +48,9 @@ export default async function ProspectsPage({
   const status = (params.status ?? "").trim();
   const industry = (params.industry ?? "").trim();
   const campaign = (params.campaign ?? "").trim();
+  // "Has phone" — the dial-list filter: the daily plan says "Prospects ->
+  // has phone -> sort by score", so the UI must actually offer it.
+  const phoneOnly = params.phone === "1";
 
   // Default to A→Z by company so a lead is easy to find by name; other
   // sorts stay one click away.
@@ -76,6 +79,7 @@ export default async function ProspectsPage({
   if (status) query = query.eq("status", status);
   if (industry) query = query.ilike("industry", industry);
   if (campaign) query = query.eq("campaign_id", campaign);
+  if (phoneOnly) query = query.not("phone", "is", null);
 
   const [
     { data: prospects, count: totalMatching },
@@ -180,6 +184,7 @@ export default async function ProspectsPage({
     if (industry) sp.set("industry", industry);
     if (campaign) sp.set("campaign", campaign);
     if (params.sort) sp.set("sort", params.sort);
+    if (phoneOnly) sp.set("phone", "1");
     if (p > 1) sp.set("page", String(p));
     const qs = sp.toString();
     return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
@@ -203,7 +208,7 @@ export default async function ProspectsPage({
           <p>
             {total.toLocaleString("en-IE")} prospect
             {total === 1 ? "" : "s"}
-            {q || status || industry || campaign ? " matching your filters" : ""} —
+            {q || status || industry || campaign || phoneOnly ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
           {totalPages > 1 && (
@@ -224,6 +229,7 @@ export default async function ProspectsPage({
           {industry && <input type="hidden" name="industry" value={industry} />}
           {campaign && <input type="hidden" name="campaign" value={campaign} />}
           {params.sort && <input type="hidden" name="sort" value={params.sort} />}
+          {phoneOnly && <input type="hidden" name="phone" value="1" />}
           <input
             type="search"
             name="q"
@@ -370,6 +376,19 @@ export default async function ProspectsPage({
             ))}
           </select>
         </div>
+        <div style={{ flex: "0 1 auto", display: "flex", alignItems: "center", gap: 6, paddingBottom: 8 }}>
+          <input
+            id="pf-phone"
+            type="checkbox"
+            name="phone"
+            value="1"
+            defaultChecked={phoneOnly}
+            style={{ margin: 0 }}
+          />
+          <label htmlFor="pf-phone" style={{ fontSize: 13, margin: 0, cursor: "pointer" }}>
+            Has phone ☎
+          </label>
+        </div>
         <div style={{ flex: "1 1 130px" }}>
           <label htmlFor="pf-sort" style={{ fontSize: 12, color: "var(--faint)" }}>
             Sort by
@@ -475,7 +494,7 @@ export default async function ProspectsPage({
 
       {rows.length === 0 ? (
         <div className="panel panel-block">
-          {q || status || industry || campaign ? (
+          {q || status || industry || campaign || phoneOnly ? (
             <p className="empty-state">
               No prospects match your search or filters.{" "}
               <Link href="/growth/prospects">Clear them</Link> to see your whole
