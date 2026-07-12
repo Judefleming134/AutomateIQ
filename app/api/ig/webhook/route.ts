@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { handleInboundMessage } from "@/lib/instagram/setter-core";
 
@@ -16,8 +17,43 @@ import { handleInboundMessage } from "@/lib/instagram/setter-core";
  * POST — message events.
  *
  * Setup env: INSTAGRAM_VERIFY_TOKEN (the token you enter in the Meta app's
- * webhook config). Per-business page tokens live in ig_settings, not env.
+ * webhook config) and INSTAGRAM_APP_SECRET (the Meta app secret, used to
+ * verify each POST's X-Hub-Signature-256). Per-business page tokens live in
+ * ig_settings, not env.
+ *
+ * SECURITY: without signature verification, anyone who learns a business's
+ * ig_account_id could POST forged DMs and make the AI send replies from that
+ * business's account. So when INSTAGRAM_APP_SECRET is set, a POST whose
+ * X-Hub-Signature-256 doesn't match the raw body is rejected. Until the
+ * secret is configured the endpoint still processes (so an existing setup is
+ * never broken) but logs that it's running unverified — set the secret to
+ * close the gap.
  */
+
+/**
+ * Verifies Meta's X-Hub-Signature-256 (HMAC-SHA256 of the raw body, keyed by
+ * the app secret). Returns "ok"/"bad" when a secret is configured, or
+ * "unconfigured" when it isn't (caller processes but warns).
+ */
+function verifyIgSignature(
+  request: NextRequest,
+  rawBody: string
+): "ok" | "bad" | "unconfigured" {
+  const secret = process.env.INSTAGRAM_APP_SECRET;
+  if (!secret) return "unconfigured";
+  const header = request.headers.get("x-hub-signature-256") ?? "";
+  const [algo, sig] = header.split("=");
+  if (algo !== "sha256" || !sig) return "bad";
+  const expected = crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
+  try {
+    const a = Buffer.from(sig, "hex");
+    const b = Buffer.from(expected, "hex");
+    if (a.length !== b.length) return "bad";
+    return crypto.timingSafeEqual(a, b) ? "ok" : "bad";
+  } catch {
+    return "bad";
+  }
+}
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -68,7 +104,26 @@ async function sendInstagramReply(
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null);
+  const rawBody = await request.text();
+
+  // Reject forged events once the app secret is set; process-but-warn until
+  // then so a live setup is never broken by the new check.
+  const sigState = verifyIgSignature(request, rawBody);
+  if (sigState === "bad") {
+    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+  }
+  if (sigState === "unconfigured") {
+    console.warn(
+      "IG webhook: processing UNVERIFIED — set INSTAGRAM_APP_SECRET to enforce X-Hub-Signature-256."
+    );
+  }
+
+  let body: { entry?: { messaging?: MessagingEvent[] }[] } | null;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    body = null;
+  }
   // Always 200 to Meta; process best-effort.
   if (!body || !Array.isArray(body.entry)) {
     return NextResponse.json({ ok: true });
