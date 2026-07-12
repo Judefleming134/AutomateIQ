@@ -6,6 +6,7 @@ import {
   MousePointerClick,
   Users,
   MessageSquare,
+  Mic,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,11 +16,18 @@ import {
   softDeleteBusiness,
   resetUserPassword,
   setProductEnabled,
+  saveVoiceProvisioning,
   uploadDocument,
   deleteDocument,
 } from "../actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
+
+type VoiceProvisioning = {
+  status: string;
+  phone_number: string | null;
+  elevenlabs_agent_id: string | null;
+};
 
 export default async function AdminCustomerDetailPage({
   params,
@@ -63,6 +71,20 @@ export default async function AdminCustomerDetailPage({
   );
 
   const enabledProductIds = new Set((enabled ?? []).map((e) => e.product_id));
+  const voiceProduct = (products ?? []).find((p) => p.key === "voice-agent");
+  const voiceEnabled = voiceProduct ? enabledProductIds.has(voiceProduct.id) : false;
+
+  // Current voice provisioning (admin-controlled fields). Guarded — the table
+  // may not exist yet on a fresh DB; degrade to blank defaults rather than 500.
+  let voiceConfig: VoiceProvisioning | null = null;
+  if (voiceEnabled) {
+    const { data } = await supabase
+      .from("va_config")
+      .select("status, phone_number, elevenlabs_agent_id")
+      .eq("business_id", id)
+      .maybeSingle();
+    voiceConfig = (data as VoiceProvisioning | null) ?? null;
+  }
 
   // Usage snapshot + setup state for this business — service-role queries,
   // explicitly scoped by business_id.
@@ -134,6 +156,11 @@ export default async function AdminCustomerDetailPage({
     "use server";
     return softDeleteBusiness(id);
   }
+  async function saveVoice(_p: unknown, f: FormData) {
+    "use server";
+    return saveVoiceProvisioning(id, undefined, f);
+  }
+  const voiceStatus = voiceConfig?.status ?? "provisioning";
 
   return (
     <>
@@ -304,6 +331,66 @@ export default async function AdminCustomerDetailPage({
           </ul>
         </div>
       </div>
+
+      {voiceEnabled && (
+        <div className="panel panel-block" style={{ marginBottom: 28 }}>
+          <h2 className="panel-title">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Mic size={16} /> Voice Agent provisioning
+            </span>
+          </h2>
+          <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
+            The bits AutomateIQ controls — flip it live, set the number the
+            customer sees, and link the ElevenLabs agent so their portal edits
+            sync to the live receptionist. The customer edits the greeting and
+            knowledge themselves.
+          </p>
+          <ActionForm action={saveVoice}>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                alignItems: "end",
+              }}
+            >
+              <div className="field" style={{ margin: 0 }}>
+                <label htmlFor="va-status">Status</label>
+                <select id="va-status" name="status" defaultValue={voiceStatus}>
+                  <option value="provisioning">Setting up</option>
+                  <option value="live">Live</option>
+                  <option value="paused">Paused</option>
+                </select>
+              </div>
+              <div className="field" style={{ margin: 0 }}>
+                <label htmlFor="va-phone">Phone number</label>
+                <input
+                  id="va-phone"
+                  type="text"
+                  name="phone_number"
+                  placeholder="+353 1 234 5678"
+                  defaultValue={voiceConfig?.phone_number ?? ""}
+                />
+              </div>
+              <div className="field" style={{ margin: 0 }}>
+                <label htmlFor="va-agent">ElevenLabs agent ID</label>
+                <input
+                  id="va-agent"
+                  type="text"
+                  name="elevenlabs_agent_id"
+                  placeholder="agent_xxxx…"
+                  defaultValue={voiceConfig?.elevenlabs_agent_id ?? ""}
+                />
+              </div>
+              <div>
+                <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
+                  Save provisioning
+                </SubmitButton>
+              </div>
+            </div>
+          </ActionForm>
+        </div>
+      )}
 
       <div className="panel panel-block" style={{ marginBottom: 28 }}>
         <h2 className="panel-title">
