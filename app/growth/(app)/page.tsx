@@ -81,6 +81,8 @@ export default async function GrowthDashboardPage() {
   const today = dublinDate();
   const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
 
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
   const [
     metrics,
     { data: readyToSend },
@@ -90,6 +92,7 @@ export default async function GrowthDashboardPage() {
     { data: recentContacted },
     { data: upcomingMeetings },
     { data: queuedEmails },
+    { data: nightly },
   ] = await Promise.all([
     loadGrowthMetrics(admin, 30),
     admin
@@ -140,7 +143,27 @@ export default async function GrowthDashboardPage() {
       .eq("channel", "email")
       .eq("direction", "outbound")
       .eq("status", "queued"),
+    // What the engine did on its own in the last 24h — so the automation is
+    // visible and trusted, not a black box.
+    admin
+      .from("ge_activities")
+      .select("content")
+      .ilike("content", "Jarvis nightly:%")
+      .gte("created_at", since24h)
+      .limit(400),
   ]);
+
+  // Tally the overnight automation into a one-line "what the engine did".
+  const nightlyLines = (nightly ?? []).map((a) => String(a.content));
+  const autoStats = {
+    researched: nightlyLines.filter((c) => /researched .* while you slept/i.test(c)).length,
+    followUpsDrafted: nightlyLines.filter((c) => /drafted the follow-up/i.test(c)).length,
+    firstQueued: nightlyLines.filter((c) => /auto-queued the first-touch/i.test(c)).length,
+    followUpsQueued: nightlyLines.filter((c) => /auto-queued the follow-up/i.test(c)).length,
+    harvested: nightlyLines.filter((c) => /found .* on their website/i.test(c)).length,
+    fixed: nightlyLines.filter((c) => /rewrote an outdated|repaired dead social/i.test(c)).length,
+  };
+  const autoTotal = Object.values(autoStats).reduce((a, b) => a + b, 0);
 
   // "Ready to send" is the manual-send list; drop anything already queued for
   // the autopilot so a prospect isn't worked twice (queued + sent by hand).
@@ -159,6 +182,33 @@ export default async function GrowthDashboardPage() {
           <p>Today&apos;s priorities first — then research the next company.</p>
         </div>
       </div>
+
+      {/* The engine's own work in the last 24h — proof the automation ran. */}
+      {autoTotal > 0 && (
+        <section
+          className="panel panel-block"
+          style={{ marginBottom: 20, borderLeft: "3px solid var(--ac1, #8b5cf6)" }}
+          aria-label="What the engine did"
+        >
+          <h2 className="panel-title" style={{ marginBottom: 6 }}>
+            <Sparkles size={15} style={{ verticalAlign: "-2px" }} /> The engine
+            worked overnight
+          </h2>
+          <p style={{ fontSize: 13.5, color: "var(--body)", margin: 0 }}>
+            {[
+              autoStats.researched && `researched ${autoStats.researched} new lead${autoStats.researched === 1 ? "" : "s"}`,
+              autoStats.followUpsDrafted && `drafted ${autoStats.followUpsDrafted} follow-up${autoStats.followUpsDrafted === 1 ? "" : "s"}`,
+              autoStats.firstQueued && `queued ${autoStats.firstQueued} first-touch email${autoStats.firstQueued === 1 ? "" : "s"}`,
+              autoStats.followUpsQueued && `queued ${autoStats.followUpsQueued} chase${autoStats.followUpsQueued === 1 ? "" : "s"}`,
+              autoStats.harvested && `found contact details for ${autoStats.harvested}`,
+              autoStats.fixed && `tidied ${autoStats.fixed} draft${autoStats.fixed === 1 ? "" : "s"}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            . All hands-off — you just work the replies and the calls.
+          </p>
+        </section>
+      )}
 
       {/* The daily entry point: paste a website, get a researched prospect.
           Collapsed once the pipeline exists so the day's PRIORITIES lead the
