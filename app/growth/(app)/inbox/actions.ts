@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
+import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
 import { pricingLines } from "@/lib/growth/pricing";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
@@ -450,6 +451,12 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
       .from("ge_prospects")
       .update({ status: "replied", next_follow_up_at: dublinDate(1) })
       .eq("id", prospect.id);
+  }
+
+  // Same courtesy as the auto-capture webhook: leave a suggested email reply
+  // waiting in the Studio. Email only — DMs are quick enough to answer live.
+  if (channel === "email") {
+    await autoDraftReply(admin, prospect, body, member.id);
   }
 
   revalidateProspect(prospect.id);
