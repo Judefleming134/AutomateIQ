@@ -93,6 +93,8 @@ export default async function GrowthDashboardPage() {
     { data: upcomingMeetings },
     { data: queuedEmails },
     { data: nightly },
+    { count: dueTodayCount },
+    { count: overdueCount },
   ] = await Promise.all([
     loadGrowthMetrics(admin, 30),
     admin
@@ -151,6 +153,19 @@ export default async function GrowthDashboardPage() {
       .ilike("content", "Jarvis nightly:%")
       .gte("created_at", since24h)
       .limit(400),
+    // True totals for the follow-up headings — the lists above cap at 10, so
+    // on a busy day the heading count must come from a real count, or Jude
+    // thinks he's cleared his chases when a dozen more sit below the fold.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .eq("next_follow_up_at", today)
+      .not("status", "in", activeFilter),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .lt("next_follow_up_at", today)
+      .not("status", "in", activeFilter),
   ]);
 
   // Tally the overnight automation into a one-line "what the engine did".
@@ -332,23 +347,41 @@ export default async function GrowthDashboardPage() {
       <div className="grid-2">
         <section className="panel panel-block" aria-labelledby="fu-today">
           <h2 className="panel-title" id="fu-today">
-            <AlarmClock size={15} style={{ verticalAlign: "-2px" }} /> Today&apos;s follow-ups ({(dueToday ?? []).length})
+            <AlarmClock size={15} style={{ verticalAlign: "-2px" }} /> Today&apos;s follow-ups ({dueTodayCount ?? (dueToday ?? []).length})
           </h2>
           {(dueToday ?? []).length === 0 ? (
             <p className="empty-state">Nothing due today.</p>
           ) : (
-            <ProspectList rows={dueToday ?? []} dateField="follow_up" />
+            <>
+              <ProspectList rows={dueToday ?? []} dateField="follow_up" />
+              {(dueTodayCount ?? 0) > (dueToday ?? []).length && (
+                <p style={{ fontSize: 12, marginTop: 8 }}>
+                  <Link href="/growth/prospects?sort=follow_up">
+                    See all {dueTodayCount} →
+                  </Link>
+                </p>
+              )}
+            </>
           )}
         </section>
 
         <section className="panel panel-block" aria-labelledby="fu-overdue">
           <h2 className="panel-title" id="fu-overdue">
-            <AlarmClock size={15} style={{ verticalAlign: "-2px", color: "var(--red, #f87171)" }} /> Overdue ({(overdue ?? []).length})
+            <AlarmClock size={15} style={{ verticalAlign: "-2px", color: "var(--red, #f87171)" }} /> Overdue ({overdueCount ?? (overdue ?? []).length})
           </h2>
           {(overdue ?? []).length === 0 ? (
             <p className="empty-state">Nothing overdue — clean pipeline.</p>
           ) : (
-            <ProspectList rows={overdue ?? []} dateField="follow_up" />
+            <>
+              <ProspectList rows={overdue ?? []} dateField="follow_up" />
+              {(overdueCount ?? 0) > (overdue ?? []).length && (
+                <p style={{ fontSize: 12, marginTop: 8 }}>
+                  <Link href="/growth/prospects?sort=follow_up">
+                    See all {overdueCount} →
+                  </Link>
+                </p>
+              )}
+            </>
           )}
         </section>
       </div>
