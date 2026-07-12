@@ -1,9 +1,20 @@
-import { Mic, Phone } from "lucide-react";
+import {
+  Mic,
+  Phone,
+  PhoneCall,
+  ClipboardList,
+  CalendarClock,
+  MessageSquareText,
+  MoonStar,
+  ShieldCheck,
+} from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/db/errors";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
+import { StatCard } from "@/components/portal/stat-card";
 import { updateVoiceConfig, logVoiceTicket } from "./actions";
 
 const STATUS_META: Record<string, { label: string; cls: string; blurb: string }> = {
@@ -15,7 +26,7 @@ const STATUS_META: Record<string, { label: string; cls: string; blurb: string }>
   live: {
     label: "Live",
     cls: "badge-green",
-    blurb: "Your receptionist is answering. Missed calls are picked up, jobs booked, and the details texted to you.",
+    blurb: "Your receptionist is answering. Missed calls are picked up, jobs booked, and the details sent straight to you.",
   },
   paused: {
     label: "Paused",
@@ -30,26 +41,81 @@ const TICKET_STATUS: Record<string, { label: string; cls: string }> = {
   resolved: { label: "Resolved", cls: "badge-green" },
 };
 
+const URGENCY_CLS: Record<string, string> = {
+  emergency: "badge-red",
+  urgent: "badge-orange",
+  high: "badge-orange",
+  soon: "badge-blue",
+  routine: "badge-gray",
+  low: "badge-gray",
+};
+
+type VoiceJob = {
+  id: string;
+  caller_name: string;
+  caller_phone: string;
+  address: string;
+  problem: string;
+  urgency: string;
+  booking_slot: string;
+  summary: string;
+  created_at: string;
+};
+
+/** Compact "2h ago" / "3 days ago" so the list reads like a live feed. */
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  const mins = Math.max(0, Math.round((Date.now() - then) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-IE", { day: "numeric", month: "short" });
+}
+
 export default async function VoiceAgentPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
+  const businessId = profile.business_id!;
 
-  const [{ data: config, error: configError }, { data: tickets }] =
+  const [{ data: config, error: configError }, { data: tickets }, { data: business }] =
     await Promise.all([
       supabase
         .from("va_config")
         .select(
           "status, phone_number, greeting, services, business_hours, service_area, knowledge"
         )
-        .eq("business_id", profile.business_id!)
+        .eq("business_id", businessId)
         .maybeSingle(),
       supabase
         .from("va_tickets")
         .select("id, subject, detail, status, created_at")
-        .eq("business_id", profile.business_id!)
+        .eq("business_id", businessId)
         .order("created_at", { ascending: false })
         .limit(10),
+      supabase.from("businesses").select("name").eq("id", businessId).maybeSingle(),
     ]);
+
+  // Captured jobs — the living proof the receptionist is working. Read through
+  // the admin client so it's shown even before RLS-visible sessions catch up,
+  // and guarded so a not-yet-run migration degrades to a clean empty state.
+  let jobs: VoiceJob[] = [];
+  try {
+    const admin = createAdminClient();
+    const { data, error: jobsError } = await admin
+      .from("va_jobs")
+      .select(
+        "id, caller_name, caller_phone, address, problem, urgency, booking_slot, summary, created_at"
+      )
+      .eq("business_id", businessId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!jobsError && data) jobs = data as VoiceJob[];
+  } catch {
+    // Table not there yet — the rest of the page still works.
+  }
 
   // The product can be enabled before manual_update_0019 has been run in the
   // Supabase SQL Editor. Degrade to a clear "being set up" state instead of
@@ -79,6 +145,17 @@ export default async function VoiceAgentPage() {
 
   const status = config?.status ?? "provisioning";
   const meta = STATUS_META[status] ?? STATUS_META.provisioning;
+  const bizName = business?.name?.trim() || "your business";
+
+  // Headline numbers — real captured jobs, framed as money saved from being
+  // missed. "This week" and "after-hours" make the value concrete at a glance.
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const jobsThisWeek = jobs.filter((j) => new Date(j.created_at).getTime() >= weekAgo).length;
+  const afterHoursJobs = jobs.filter((j) => {
+    const h = new Date(j.created_at).getHours();
+    return h < 8 || h >= 18;
+  }).length;
+  const lastJob = jobs[0];
 
   return (
     <>
@@ -89,22 +166,15 @@ export default async function VoiceAgentPage() {
             Voice Agent
           </h1>
           <p>
-            Your AI receptionist. See that it&apos;s live, keep what it says up
-            to date, and log a problem any time.
+            {bizName}&apos;s AI receptionist — answering every call, booking the
+            job, and sending you the details the moment the caller hangs up.
           </p>
         </div>
       </div>
 
       {/* Status + number — the "is it live?" answer, first thing on the page. */}
-      <div className="panel panel-block" style={{ marginBottom: 24 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-          }}
-        >
+      <div className="panel panel-block" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <span className={`badge ${meta.cls}`}>{meta.label}</span>
           {config?.phone_number && (
             <a
@@ -116,9 +186,159 @@ export default async function VoiceAgentPage() {
             </a>
           )}
         </div>
-        <p style={{ color: "var(--faint)", fontSize: 13, marginTop: 10 }}>
-          {meta.blurb}
-        </p>
+        <p style={{ color: "var(--faint)", fontSize: 13, marginTop: 10 }}>{meta.blurb}</p>
+      </div>
+
+      {/* Headline value — the jobs it's captured, at a glance. */}
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
+        <StatCard
+          label="Jobs captured"
+          value={jobs.length}
+          icon={<ClipboardList />}
+          accent="#7C3AED"
+          hint="all time"
+        />
+        <StatCard
+          label="This week"
+          value={jobsThisWeek}
+          icon={<CalendarClock />}
+          accent="#22D3EE"
+          hint="last 7 days"
+        />
+        <StatCard
+          label="After-hours saved"
+          value={afterHoursJobs}
+          icon={<MoonStar />}
+          accent="#FB923C"
+          hint="calls you'd have missed"
+        />
+        <StatCard
+          label="Last job"
+          value={lastJob ? timeAgo(lastJob.created_at) : "—"}
+          icon={<PhoneCall />}
+          accent="#34D399"
+        />
+      </div>
+
+      {/* Jobs your receptionist booked — the centrepiece. */}
+      <div className="panel panel-block" style={{ marginBottom: 20 }}>
+        <h2 className="panel-title">
+          <PhoneCall size={15} style={{ verticalAlign: "-2px", marginRight: 6 }} />
+          Jobs your receptionist booked
+        </h2>
+        {jobs.length === 0 ? (
+          <div
+            style={{
+              border: "1px dashed var(--border)",
+              borderRadius: 10,
+              padding: "22px 18px",
+              textAlign: "center",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 14 }}>
+              As soon as your receptionist takes its first call, the job appears
+              here — and lands in your inbox at the same time.
+            </p>
+            <p style={{ margin: "6px 0 0", color: "var(--faint)", fontSize: 13 }}>
+              Every enquiry captured, nothing lost to a missed call.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {jobs.map((j) => {
+              const uKey = j.urgency.trim().toLowerCase();
+              const uCls = URGENCY_CLS[uKey] ?? "badge-gray";
+              return (
+                <div
+                  key={j.id}
+                  className="panel"
+                  style={{ padding: "12px 14px", borderLeft: "3px solid var(--ac2, #3b82f6)" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      fontSize: 12,
+                      color: "var(--faint)",
+                    }}
+                  >
+                    <strong style={{ color: "var(--text, #eee)", fontSize: 14 }}>
+                      {j.caller_name || "Caller"}
+                    </strong>
+                    {j.urgency.trim() && <span className={`badge ${uCls}`}>{j.urgency}</span>}
+                    {j.caller_phone.trim() && (
+                      <a
+                        href={`tel:${j.caller_phone.replace(/[^\d+]/g, "")}`}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                      >
+                        <Phone size={12} /> {j.caller_phone}
+                      </a>
+                    )}
+                    <span style={{ marginLeft: "auto" }}>{timeAgo(j.created_at)}</span>
+                  </div>
+                  {j.problem.trim() && (
+                    <p style={{ margin: "6px 0 0", fontSize: 14 }}>{j.problem}</p>
+                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 14,
+                      flexWrap: "wrap",
+                      marginTop: 6,
+                      fontSize: 12,
+                      color: "var(--faint)",
+                    }}
+                  >
+                    {j.address.trim() && <span>📍 {j.address}</span>}
+                    {j.booking_slot.trim() && <span>🗓️ {j.booking_slot}</span>}
+                  </div>
+                  {j.summary.trim() && (
+                    <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "var(--faint)" }}>
+                      {j.summary}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* How it works — reassures a new customer their €349 bought a real system. */}
+      <div className="panel panel-block" style={{ marginBottom: 24 }}>
+        <h2 className="panel-title">How your receptionist works</h2>
+        <div className="stat-grid">
+          {[
+            {
+              icon: <PhoneCall />,
+              t: "Answers every call",
+              d: "Picks up the calls your team can't — first ring, day or night, never engaged.",
+            },
+            {
+              icon: <ClipboardList />,
+              t: "Captures the job",
+              d: "Gets the name, number, address, the problem and how urgent it is — and reads it back to confirm.",
+            },
+            {
+              icon: <MessageSquareText />,
+              t: "Sends it straight to you",
+              d: "The moment the caller hangs up, the full job card lands in your inbox — ready to action.",
+            },
+            {
+              icon: <ShieldCheck />,
+              t: "Stays on the rails",
+              d: "Never quotes a price or invents availability — it takes the details and says you'll confirm.",
+            },
+          ].map((s) => (
+            <div key={s.t} className="panel" style={{ padding: "14px 16px" }}>
+              <div style={{ color: "var(--ac2, #3b82f6)", marginBottom: 8 }}>{s.icon}</div>
+              <strong style={{ fontSize: 14 }}>{s.t}</strong>
+              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--faint)" }}>{s.d}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid-main-side">
@@ -189,9 +409,7 @@ export default async function VoiceAgentPage() {
           {/* Log a problem */}
           <ActionForm action={logVoiceTicket} className="panel form-card">
             <h2 className="panel-title">Log a problem</h2>
-            <p
-              style={{ color: "var(--faint)", fontSize: 13, marginBottom: 14 }}
-            >
+            <p style={{ color: "var(--faint)", fontSize: 13, marginBottom: 14 }}>
               Something not right? Tell us and we&apos;ll get on it.
             </p>
             <div className="field">
@@ -237,10 +455,7 @@ export default async function VoiceAgentPage() {
                   return (
                     <li
                       key={t.id}
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        paddingBottom: 10,
-                      }}
+                      style={{ borderBottom: "1px solid var(--border)", paddingBottom: 10 }}
                     >
                       <div
                         style={{
@@ -254,13 +469,7 @@ export default async function VoiceAgentPage() {
                         <span className={`badge ${ts.cls}`}>{ts.label}</span>
                       </div>
                       {t.detail && (
-                        <p
-                          style={{
-                            color: "var(--faint)",
-                            fontSize: 13,
-                            margin: "4px 0 0",
-                          }}
-                        >
+                        <p style={{ color: "var(--faint)", fontSize: 13, margin: "4px 0 0" }}>
                           {t.detail}
                         </p>
                       )}
@@ -273,8 +482,7 @@ export default async function VoiceAgentPage() {
               </ul>
             ) : (
               <p style={{ color: "var(--faint)", fontSize: 13 }}>
-                No problems logged. If your receptionist ever slips up, tell us
-                here.
+                No problems logged. If your receptionist ever slips up, tell us here.
               </p>
             )}
           </div>
