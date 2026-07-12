@@ -186,6 +186,16 @@ export async function sendJarvisMorningBrief(): Promise<{
       .eq("status", "sent")
       .gte("sent_at", since24h);
 
+    // Suggested reply drafts the engine wrote for incoming replies — so the
+    // brief can tell Jude the responses are already waiting, just review + send.
+    const { count: replyDrafts24h } = await admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "outbound")
+      .eq("purpose", "reply")
+      .eq("status", "draft")
+      .gte("created_at", since24h);
+
     // Delivery trouble reported by the email provider's webhooks (bounces,
     // spam complaints, delays) — ground truth on whether sends arrived.
     const { data: deliveryActs } = await admin
@@ -337,6 +347,13 @@ export async function sendJarvisMorningBrief(): Promise<{
     const section = (title: string, lines: string[], empty: string) =>
       `${title}\n${lines.length ? lines.join("\n") : `• ${empty}`}`;
 
+    // When the engine has pre-written responses to incoming replies, say so —
+    // the answers are already waiting in the inbox, just review and send.
+    const replyDraftNote =
+      (replyDrafts24h ?? 0) > 0
+        ? `\n✍️ ${replyDrafts24h} suggested repl${replyDrafts24h === 1 ? "y is" : "ies are"} already drafted for you — review & send in the inbox.`
+        : "";
+
     const reminders = DATED_REMINDERS[today] ?? [];
 
     // Blocks shared by both shapes: the overnight catches + fixes.
@@ -375,7 +392,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         nightlyBlock,
         deliveryBlock,
         replyLines.length
-          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "")
+          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + replyDraftNote
           : "",
         meetingLines.length
           ? section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "")
@@ -397,7 +414,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         deliveryBlock,
         sentBlock,
         nightlyBlock,
-        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up."),
+        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + replyDraftNote,
         section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
         section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
         section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
