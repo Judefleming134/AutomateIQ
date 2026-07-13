@@ -26,6 +26,27 @@ import {
 } from "../actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
+import { PrefillButton } from "@/components/admin/prefill-button";
+
+// Editable starter templates for a plumbing/trades customer, so onboarding is
+// "click, review, tweak" instead of writing a knowledge base from a blank box.
+// Deliberately no fabricated specifics (real number, firm prices) — just a
+// professional structure Jude adjusts. Only fills fields left empty.
+const VOICE_STARTER: Record<string, string> = {
+  greeting:
+    "Thanks for calling — you're through to our reception line. How can I help today?",
+  business_hours: "Mon–Fri 8am–6pm, Sat 9am–1pm. 24/7 emergency callout.",
+  service_area:
+    "Castleknock, Blanchardstown, Clonsilla, Dublin 15 and surrounding areas.",
+  services:
+    "Emergency callouts, burst pipes & leaks, boiler repair & servicing, blocked drains, taps & toilets, bathroom installs, general plumbing & heating.",
+  knowledge:
+    "Never quote a firm price on the phone — say it depends on the job and the team will confirm on site. For a suspected gas leak, tell the caller to ring Gas Networks Ireland on 1800 20 50 50 immediately, then take their details. Always take a name, phone number, address and a short description of the problem. Emergencies get a callback as soon as possible; non-urgent jobs are booked in.",
+};
+const ASSISTANT_STARTER: Record<string, string> = {
+  knowledge:
+    "Plumbing & heating business serving Castleknock, Blanchardstown and Dublin 15. Services: emergency callouts, burst pipes & leaks, boiler repair & servicing, blocked drains, bathroom installs, general plumbing & heating. Hours: Mon–Fri 8am–6pm, Sat 9am–1pm, 24/7 emergency. We never quote firm prices upfront — the team confirms on site. Always collect the customer's name, phone, address and the problem.",
+};
 
 type VoiceProvisioning = {
   status: string;
@@ -576,10 +597,17 @@ export default async function AdminCustomerDetailPage({
                 defaultValue={voiceConfig?.knowledge ?? ""}
               />
             </div>
-            <div className="form-actions" style={{ marginTop: 12 }}>
+            <div
+              className="form-actions"
+              style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
+            >
               <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
                 Save &amp; sync receptionist
               </SubmitButton>
+              <PrefillButton
+                fields={VOICE_STARTER}
+                label="Load plumbing starter"
+              />
             </div>
           </ActionForm>
         </div>
@@ -618,10 +646,17 @@ export default async function AdminCustomerDetailPage({
                 defaultValue={assistant?.knowledge ?? ""}
               />
             </div>
-            <div className="form-actions" style={{ marginTop: 12 }}>
+            <div
+              className="form-actions"
+              style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}
+            >
               <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
                 Save assistant knowledge
               </SubmitButton>
+              <PrefillButton
+                fields={ASSISTANT_STARTER}
+                label="Load plumbing starter"
+              />
             </div>
           </ActionForm>
         </div>
