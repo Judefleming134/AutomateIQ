@@ -29,6 +29,8 @@ function revalidateProspect(prospectId: string) {
   revalidatePath(`/growth/prospects/${prospectId}`);
   revalidatePath("/growth/inbox");
   revalidatePath("/growth/prospects");
+  // Keep the DM worklist fresh — a sent message drops that prospect off it.
+  revalidatePath("/growth/dms");
 }
 
 async function loadProspect(prospectId: string) {
