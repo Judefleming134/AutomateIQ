@@ -47,6 +47,46 @@ export function SetPasswordForm() {
         return;
       }
 
+      // Fallbacks for the other shapes Supabase can send a recovery/invite
+      // link in, depending on the project's email-template + flow settings —
+      // so onboarding works regardless of how the link is formatted. These
+      // only run when the hash-token path above found nothing, so they can
+      // never affect the case that already works.
+      const query = new URLSearchParams(window.location.search);
+
+      // PKCE flow: ?code=<auth code>.
+      const code = query.get("code");
+      if (code) {
+        const { error: codeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+        if (codeError) {
+          setError(codeError.message);
+          setPhase("invalid");
+        } else {
+          window.history.replaceState(null, "", window.location.pathname);
+          setPhase("ready");
+        }
+        return;
+      }
+
+      // OTP token-hash flow: ?token_hash=<hash>&type=recovery|invite|...
+      const tokenHash = query.get("token_hash");
+      const type = query.get("type");
+      if (tokenHash && type) {
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type as "recovery" | "invite" | "email" | "signup",
+        });
+        if (otpError) {
+          setError(otpError.message);
+          setPhase("invalid");
+        } else {
+          window.history.replaceState(null, "", window.location.pathname);
+          setPhase("ready");
+        }
+        return;
+      }
+
       // No tokens in the URL — maybe the session already exists (e.g. the
       // page was reloaded after the hash was consumed).
       const { data } = await supabase.auth.getSession();
