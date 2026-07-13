@@ -179,20 +179,40 @@ export default async function PortalHome() {
   const clickRate =
     totalSent > 0 ? `${Math.round((totalClicked / totalSent) * 100)}%` : "—";
 
-  // Business health — a setup-and-momentum score built from real state.
+  // Business health — a setup-and-momentum score built from real state, and
+  // ONLY from the products this customer has. A voice customer isn't marked
+  // "incomplete" for a Google review link or a website lead they'll never use.
   // Every unchecked item links straight to its fix.
   const healthChecks: { label: string; ok: boolean; href: string }[] = [
-    {
-      label: "Google review link added",
-      ok: Boolean(business?.google_review_link),
-      href: "/portal/settings",
-    },
+    ...(hasVoiceAgent
+      ? [
+          {
+            label: "AI receptionist answering calls",
+            ok: voiceConfig?.status === "live",
+            href: "/portal/voice-agent",
+          },
+        ]
+      : []),
     ...(hasAssistant
       ? [
           {
             label: "AI Assistant trained on your business",
             ok: Boolean(assistant?.knowledge),
             href: "/portal/ai-assistant",
+          },
+        ]
+      : []),
+    ...(hasReviewAgent
+      ? [
+          {
+            label: "Google review link added",
+            ok: Boolean(business?.google_review_link),
+            href: "/portal/settings",
+          },
+          {
+            label: "First review request sent",
+            ok: totalSent > 0,
+            href: "/portal/review-agent/send",
           },
         ]
       : []),
@@ -203,35 +223,17 @@ export default async function PortalHome() {
             ok: Boolean(waPage?.published),
             href: "/portal/website-agent",
           },
-        ]
-      : []),
-    ...(hasReviewAgent
-      ? [
           {
-            label: "First review request sent",
-            ok: totalSent > 0,
-            href: "/portal/review-agent/send",
+            label: "First lead captured",
+            ok: (leadCount ?? 0) > 0,
+            href: "/portal/website-agent",
           },
         ]
       : []),
-    ...(hasVoiceAgent
-      ? [
-          {
-            label: "AI receptionist answering calls",
-            ok: voiceConfig?.status === "live",
-            href: "/portal/voice-agent",
-          },
-        ]
-      : []),
-    {
-      label: "First lead captured",
-      ok: (leadCount ?? 0) > 0,
-      href: hasWebsiteAgent ? "/portal/website-agent" : "/portal/products",
-    },
   ];
-  const healthScore = Math.round(
-    (healthChecks.filter((h) => h.ok).length / healthChecks.length) * 100
-  );
+  const healthScore = healthChecks.length
+    ? Math.round((healthChecks.filter((h) => h.ok).length / healthChecks.length) * 100)
+    : 100;
 
   const today = new Date().toLocaleDateString("en-IE", {
     weekday: "long",
