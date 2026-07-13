@@ -133,15 +133,17 @@ export default async function PortalHome() {
       .limit(4),
   ]);
 
-  // Voice customers care about jobs their receptionist captured today, not
+  // Voice customers care about jobs their receptionist captured, not
   // leads/reviews they don't use. Guarded — va_jobs may not be migrated yet.
   let jobsToday = 0;
+  let jobsTotal = 0;
   if (hasVoiceAgent) {
-    const { count } = await supabase
-      .from("va_jobs")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", sinceToday);
-    jobsToday = count ?? 0;
+    const [todayRes, totalRes] = await Promise.all([
+      supabase.from("va_jobs").select("id", { count: "exact", head: true }).gte("created_at", sinceToday),
+      supabase.from("va_jobs").select("id", { count: "exact", head: true }),
+    ]);
+    jobsToday = todayRes.count ?? 0;
+    jobsTotal = totalRes.count ?? 0;
   }
 
   let chartTimestamps: string[] = [];
@@ -348,78 +350,99 @@ export default async function PortalHome() {
         </Link>
       )}
 
-      {/* Quick actions — every button is a real destination */}
+      {/* Quick actions — only the products this customer actually has, so a
+          new customer sees a clean set of real buttons, not greyed-out tools
+          they didn't buy. "Explore more agents" keeps the upsell one tap away. */}
       <div className="quick-actions">
-        <Link
-          href="/portal/ai-assistant"
-          className={`qa-btn${hasAssistant ? "" : " is-disabled"}`}
-        >
-          <Sparkles size={16} /> Ask AI Assistant
-        </Link>
-        <Link
-          href="/portal/review-agent/send"
-          className={`qa-btn${hasReviewAgent ? "" : " is-disabled"}`}
-        >
-          <Send size={16} /> Send Review Request
-        </Link>
-        <Link
-          href="/portal/website-agent"
-          className={`qa-btn${hasWebsiteAgent ? "" : " is-disabled"}`}
-        >
-          <Globe size={16} /> Manage Website
-        </Link>
-        <Link
-          href="/portal/website-agent/leads"
-          className={`qa-btn${hasWebsiteAgent ? "" : " is-disabled"}`}
-        >
-          <Users size={16} /> View Leads
-        </Link>
-        <Link
-          href="/portal/voice-agent"
-          className={`qa-btn${hasVoiceAgent ? "" : " is-disabled"}`}
-        >
-          <Mic size={16} /> Voice Agent
+        {hasVoiceAgent && (
+          <Link href="/portal/voice-agent" className="qa-btn">
+            <Mic size={16} /> Voice Agent
+          </Link>
+        )}
+        {hasAssistant && (
+          <Link href="/portal/ai-assistant" className="qa-btn">
+            <Sparkles size={16} /> Ask AI Assistant
+          </Link>
+        )}
+        {hasReviewAgent && (
+          <Link href="/portal/review-agent/send" className="qa-btn">
+            <Send size={16} /> Send Review Request
+          </Link>
+        )}
+        {hasWebsiteAgent && (
+          <Link href="/portal/website-agent" className="qa-btn">
+            <Globe size={16} /> Manage Website
+          </Link>
+        )}
+        {hasWebsiteAgent && (
+          <Link href="/portal/website-agent/leads" className="qa-btn">
+            <Users size={16} /> View Leads
+          </Link>
+        )}
+        <Link href="/portal/products" className="qa-btn">
+          <Zap size={16} /> Explore more agents
         </Link>
         <a href="mailto:hello@automateiq.ie" className="qa-btn">
           <LifeBuoy size={16} /> Contact Support
         </a>
       </div>
 
+      {/* Stats for the products this customer has — a voice customer sees
+          jobs, not a row of zero leads/reviews for tools they don't use. */}
       <div className="stat-grid">
-        <StatCard
-          label="Leads"
-          value={leadCount ?? 0}
-          icon={<Users />}
-          accent="#0891B2"
-          hint="all time"
-        />
-        <StatCard
-          label="Review requests"
-          value={totalSent}
-          icon={<Send />}
-          accent="#7C3AED"
-          hint="all time"
-        />
-        <StatCard
-          label="Review link clicks"
-          value={totalClicked}
-          icon={<MousePointerClick />}
-          accent="#22D3EE"
-          hint={`${clickRate} click rate`}
-        />
-        <StatCard
-          label="AI conversations"
-          value={conversationCount ?? 0}
-          icon={<MessageSquare />}
-          accent="#3B82F6"
-        />
-        <StatCard
-          label="Automations completed"
-          value={automationCount ?? 0}
-          icon={<Zap />}
-          accent="#059669"
-          hint="auto follow-ups"
-        />
+        {hasVoiceAgent && (
+          <StatCard
+            label="Jobs captured"
+            value={jobsTotal}
+            icon={<Mic />}
+            accent="#7C3AED"
+            hint="all time"
+          />
+        )}
+        {hasVoiceAgent && (
+          <StatCard
+            label="Jobs today"
+            value={jobsToday}
+            icon={<Zap />}
+            accent="#FB923C"
+            hint="so far today"
+          />
+        )}
+        {hasWebsiteAgent && (
+          <StatCard
+            label="Leads"
+            value={leadCount ?? 0}
+            icon={<Users />}
+            accent="#0891B2"
+            hint="all time"
+          />
+        )}
+        {hasReviewAgent && (
+          <StatCard
+            label="Review requests"
+            value={totalSent}
+            icon={<Send />}
+            accent="#7C3AED"
+            hint="all time"
+          />
+        )}
+        {hasReviewAgent && (
+          <StatCard
+            label="Review link clicks"
+            value={totalClicked}
+            icon={<MousePointerClick />}
+            accent="#22D3EE"
+            hint={`${clickRate} click rate`}
+          />
+        )}
+        {hasAssistant && (
+          <StatCard
+            label="AI conversations"
+            value={conversationCount ?? 0}
+            icon={<MessageSquare />}
+            accent="#3B82F6"
+          />
+        )}
       </div>
 
       {/* Notifications — derived from real state, each links to its fix */}
