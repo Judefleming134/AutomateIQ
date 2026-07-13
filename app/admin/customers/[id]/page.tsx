@@ -75,17 +75,29 @@ export default async function AdminCustomerDetailPage({
   const usersWithEmail = await Promise.all(
     (users ?? []).map(async (u) => {
       const { data } = await supabase.auth.admin.getUserById(u.id);
-      return { ...u, email: data.user?.email ?? "(unknown)" };
+      // "Logged in" = they've set a password / signed in at least once, so the
+      // onboarding checklist can tell "invited" from "actually in".
+      const confirmed = Boolean(
+        data.user?.last_sign_in_at || data.user?.email_confirmed_at
+      );
+      return { ...u, email: data.user?.email ?? "(unknown)", confirmed };
     })
   );
+  const anyLoggedIn = usersWithEmail.some((u) => u.confirmed);
 
   const enabledProductIds = new Set((enabled ?? []).map((e) => e.product_id));
+  const productEnabled = (key: string) => {
+    const p = (products ?? []).find((x) => x.key === key);
+    return p ? enabledProductIds.has(p.id) : false;
+  };
   const voiceProduct = (products ?? []).find((p) => p.key === "voice-agent");
   const voiceEnabled = voiceProduct ? enabledProductIds.has(voiceProduct.id) : false;
   const assistantProduct = (products ?? []).find((p) => p.key === "ai-assistant");
   const aiAssistantEnabled = assistantProduct
     ? enabledProductIds.has(assistantProduct.id)
     : false;
+  const reviewEnabled = productEnabled("review-agent");
+  const websiteEnabled = productEnabled("website-agent");
 
   // Current voice provisioning + seeded knowledge. Guarded — the table may not
   // exist yet on a fresh DB; degrade to blank defaults rather than 500.
@@ -146,16 +158,48 @@ export default async function AdminCustomerDetailPage({
       ? `${Math.round(((clicked ?? 0) / (requests ?? 1)) * 100)}%`
       : "—";
 
+  // Onboarding checklist — only the steps that matter for THIS customer's
+  // products, each driven by real state, so on the call it reads as "what's
+  // left before they're ready" instead of a wall of irrelevant items.
+  const billingStageForChecks = (business.subscription_status as string) ?? "inactive";
   const setupChecks = [
+    { label: "Products assigned", ok: enabledProductIds.size > 0 },
+    ...(voiceEnabled
+      ? [
+          {
+            label: "Voice Agent linked (ElevenLabs)",
+            ok: Boolean(voiceConfig?.elevenlabs_agent_id),
+          },
+          { label: "Phone number connected", ok: Boolean(voiceConfig?.phone_number) },
+          {
+            label: "Receptionist knowledge seeded",
+            ok: Boolean(voiceConfig?.services || voiceConfig?.greeting),
+          },
+          { label: "Receptionist live", ok: voiceConfig?.status === "live" },
+        ]
+      : []),
+    ...(aiAssistantEnabled
+      ? [{ label: "AI Assistant knowledge seeded", ok: Boolean(assistant?.knowledge) }]
+      : []),
+    ...(reviewEnabled
+      ? [
+          { label: "Google review link", ok: Boolean(business.google_review_link) },
+          { label: "First review request sent", ok: (requests ?? 0) > 0 },
+        ]
+      : []),
+    ...(websiteEnabled
+      ? [
+          { label: "Website page published", ok: Boolean(waPage?.published) },
+          { label: "First lead captured", ok: (leads ?? 0) > 0 },
+        ]
+      : []),
+    { label: "Customer logged in", ok: anyLoggedIn },
     {
-      label: "Google review link",
-      ok: Boolean(business.google_review_link),
+      label: "Setup fee marked paid",
+      ok: billingStageForChecks === "setup_paid" || billingStageForChecks === "active",
     },
-    { label: "AI Assistant knowledge", ok: Boolean(assistant?.knowledge) },
-    { label: "Website page published", ok: Boolean(waPage?.published) },
-    { label: "First review request sent", ok: (requests ?? 0) > 0 },
-    { label: "First lead captured", ok: (leads ?? 0) > 0 },
   ];
+  const setupDone = setupChecks.filter((c) => c.ok).length;
 
   // useActionState requires action: (prevState, formData) => result — these
   // capture `id` (and, per-item, the loop variable) via closure.
@@ -263,7 +307,14 @@ export default async function AdminCustomerDetailPage({
       </div>
 
       <div className="panel panel-block" style={{ marginBottom: 26 }}>
-        <h2 className="panel-title">Setup progress</h2>
+        <h2 className="panel-title">
+          <span>Onboarding checklist</span>
+          <span
+            className={`badge ${setupDone === setupChecks.length ? "badge-green" : "badge-orange"}`}
+          >
+            {setupDone}/{setupChecks.length} done
+          </span>
+        </h2>
         <ul className="health-list health-list-row">
           {setupChecks.map((c) => (
             <li key={c.label} className={c.ok ? "is-done" : ""}>
