@@ -8,7 +8,13 @@ import { MEETING_STATUS_META, type MeetingStatus } from "@/lib/growth/constants"
 import { selectAllRows } from "@/lib/growth/db";
 import { recordMeeting, setMeetingStatus, syncStrategyBookings } from "./actions";
 
-function fmt(ts: string): string {
+function fmt(ts: string, fromBooking = false): string {
+  // Public-booking slots are labelled by their UTC wall-clock (a slot stored
+  // 14:00Z is shown to the customer as "2:00pm" in the confirmation email), so
+  // meetings synced FROM a booking must render the same way or Jude's list
+  // disagrees with what the customer was told by an hour in summer (IST=UTC+1).
+  // Manually recorded meetings ARE stored as true instants (dublinLocalToUtcISO)
+  // and render correctly in Europe/Dublin.
   return new Date(ts).toLocaleString("en-IE", {
     weekday: "short",
     day: "numeric",
@@ -16,7 +22,7 @@ function fmt(ts: string): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Europe/Dublin",
+    timeZone: fromBooking ? "UTC" : "Europe/Dublin",
   });
 }
 
@@ -92,7 +98,7 @@ export default async function MeetingsPage() {
           <span className={`badge ${meta?.badge ?? "badge-gray"}`}>{meta?.label ?? m.status}</span>
           {m.strategy_booking_id && <span className="badge badge-blue">Booking page</span>}
         </div>
-        <div style={{ marginTop: 6, fontSize: 14 }}>{fmt(m.scheduled_at)} (Irish time)</div>
+        <div style={{ marginTop: 6, fontSize: 14 }}>{fmt(m.scheduled_at, Boolean(m.strategy_booking_id))} (Irish time)</div>
         {p?.phone && (
           <a
             href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
