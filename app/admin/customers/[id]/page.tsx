@@ -16,6 +16,7 @@ import {
   setBusinessStatus,
   softDeleteBusiness,
   resetUserPassword,
+  sendLoginInvite,
   setProductEnabled,
   saveVoiceProvisioning,
   saveAssistantKnowledge,
@@ -169,6 +170,10 @@ export default async function AdminCustomerDetailPage({
     "use server";
     return softDeleteBusiness(id);
   }
+  async function invite(_p: unknown, _f: FormData) {
+    "use server";
+    return sendLoginInvite(id);
+  }
   async function saveVoice(_p: unknown, f: FormData) {
     "use server";
     return saveVoiceProvisioning(id, undefined, f);
@@ -189,6 +194,11 @@ export default async function AdminCustomerDetailPage({
           </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <ActionForm action={invite} className="inline-form">
+            <SubmitButton className="btn btn-primary" pendingText="Sending…">
+              Send login invite
+            </SubmitButton>
+          </ActionForm>
           {business.status === "active" ? (
             <ActionForm action={suspend} className="inline-form">
               <SubmitButton className="btn btn-secondary" pendingText="Suspending…">
