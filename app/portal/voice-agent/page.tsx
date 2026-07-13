@@ -5,12 +5,11 @@ import {
   ClipboardList,
   CalendarClock,
   MessageSquareText,
-  MoonStar,
+  Clock,
   ShieldCheck,
 } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/db/errors";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -98,21 +97,46 @@ export default async function VoiceAgentPage() {
       supabase.from("businesses").select("name").eq("id", businessId).maybeSingle(),
     ]);
 
-  // Captured jobs — the living proof the receptionist is working. Read through
-  // the admin client so it's shown even before RLS-visible sessions catch up,
-  // and guarded so a not-yet-run migration degrades to a clean empty state.
+  // Captured jobs. The headline numbers come from real COUNT queries (not the
+  // length of a fetched page), so they stay correct no matter how many calls
+  // the receptionist takes — a busy customer never sees a total frozen at the
+  // page size. The feed itself is a bounded most-recent slice. Read through the
+  // RLS-scoped session client (defence in depth — a customer can only ever see
+  // their OWN jobs), and guarded so a not-yet-run migration degrades cleanly.
+  const FEED_SIZE = 30;
   let jobs: VoiceJob[] = [];
+  let totalJobs = 0;
+  let jobsThisWeek = 0;
+  let jobsToday = 0;
   try {
-    const admin = createAdminClient();
-    const { data, error: jobsError } = await admin
-      .from("va_jobs")
-      .select(
-        "id, caller_name, caller_phone, address, problem, urgency, booking_slot, summary, created_at"
-      )
-      .eq("business_id", businessId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (!jobsError && data) jobs = data as VoiceJob[];
+    const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const [recent, totalRes, weekRes, todayRes] = await Promise.all([
+      supabase
+        .from("va_jobs")
+        .select(
+          "id, caller_name, caller_phone, address, problem, urgency, booking_slot, summary, created_at"
+        )
+        .eq("business_id", businessId)
+        .order("created_at", { ascending: false })
+        .limit(FEED_SIZE),
+      supabase.from("va_jobs").select("id", { count: "exact", head: true }).eq("business_id", businessId),
+      supabase
+        .from("va_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId)
+        .gte("created_at", weekAgoIso),
+      supabase
+        .from("va_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", businessId)
+        .gte("created_at", dayStart.toISOString()),
+    ]);
+    if (!recent.error && recent.data) jobs = recent.data as VoiceJob[];
+    totalJobs = totalRes.count ?? 0;
+    jobsThisWeek = weekRes.count ?? 0;
+    jobsToday = todayRes.count ?? 0;
   } catch {
     // Table not there yet — the rest of the page still works.
   }
@@ -147,14 +171,6 @@ export default async function VoiceAgentPage() {
   const meta = STATUS_META[status] ?? STATUS_META.provisioning;
   const bizName = business?.name?.trim() || "your business";
 
-  // Headline numbers — real captured jobs, framed as money saved from being
-  // missed. "This week" and "after-hours" make the value concrete at a glance.
-  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const jobsThisWeek = jobs.filter((j) => new Date(j.created_at).getTime() >= weekAgo).length;
-  const afterHoursJobs = jobs.filter((j) => {
-    const h = new Date(j.created_at).getHours();
-    return h < 8 || h >= 18;
-  }).length;
   const lastJob = jobs[0];
 
   return (
@@ -193,7 +209,7 @@ export default async function VoiceAgentPage() {
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <StatCard
           label="Jobs captured"
-          value={jobs.length}
+          value={totalJobs}
           icon={<ClipboardList />}
           accent="#7C3AED"
           hint="all time"
@@ -206,16 +222,16 @@ export default async function VoiceAgentPage() {
           hint="last 7 days"
         />
         <StatCard
-          label="After-hours saved"
-          value={afterHoursJobs}
-          icon={<MoonStar />}
+          label="Today"
+          value={jobsToday}
+          icon={<PhoneCall />}
           accent="#FB923C"
-          hint="calls you'd have missed"
+          hint="so far today"
         />
         <StatCard
           label="Last job"
           value={lastJob ? timeAgo(lastJob.created_at) : "—"}
-          icon={<PhoneCall />}
+          icon={<Clock />}
           accent="#34D399"
         />
       </div>
@@ -302,6 +318,11 @@ export default async function VoiceAgentPage() {
                 </div>
               );
             })}
+            {totalJobs > jobs.length && (
+              <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--faint)", textAlign: "center" }}>
+                Showing your {jobs.length} most recent jobs of {totalJobs} total.
+              </p>
+            )}
           </div>
         )}
       </div>
