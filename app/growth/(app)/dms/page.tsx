@@ -3,6 +3,7 @@ import { Send, ExternalLink } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cleanSocialUrl } from "@/lib/growth/research";
+import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -34,6 +35,9 @@ type WorkItem = {
   link: string;
   messageId: string;
   body: string;
+  /** Why this draft shouldn't be pasted as-is (leftover placeholder / invented
+   *  name) — null when it's clean and ready. */
+  broken: string | null;
 };
 
 const MAX_ITEMS = 40;
@@ -83,15 +87,22 @@ export default async function DmListPage() {
   const items: WorkItem[] = [];
   for (const p of (prospects ?? []) as ProspectRow[]) {
     if (alreadyDmd.has(p.id)) continue;
+    // Prefer a channel with a CLEAN draft; only fall back to a flagged one so
+    // the prospect still surfaces (with a "fix it" nudge) rather than vanishing.
+    let clean: WorkItem | null = null;
+    let flagged: WorkItem | null = null;
     for (const channel of CHANNEL_ORDER) {
       const rawUrl = p[SOCIAL_FIELD[channel]];
       const link = rawUrl ? cleanSocialUrl(rawUrl) : null;
       const draft = draftByKey.get(`${p.id}:${channel}`);
-      if (link && draft) {
-        items.push({ prospect: p, channel, link, messageId: draft.id, body: draft.body });
-        break; // one DM per prospect — best channel wins
-      }
+      if (!link || !draft) continue;
+      const broken = draftLooksBroken(sanitizeOutreachBody(draft.body));
+      const item: WorkItem = { prospect: p, channel, link, messageId: draft.id, body: draft.body, broken };
+      if (!broken) { clean = item; break; }
+      if (!flagged) flagged = item;
     }
+    const chosen = clean ?? flagged;
+    if (chosen) items.push(chosen);
     if (items.length >= MAX_ITEMS) break;
   }
 
@@ -163,18 +174,33 @@ export default async function DmListPage() {
                   {it.body}
                 </p>
 
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <CopyButton text={it.body} label="Copy message" />
-                  <ActionForm action={markMessageSent} className="inline-form">
-                    <input type="hidden" name="message_id" value={it.messageId} />
-                    <SubmitButton className="btn btn-primary btn-sm" pendingText="Marking…">
-                      Mark sent
-                    </SubmitButton>
-                  </ActionForm>
-                  <span style={{ fontSize: 11.5, color: "var(--faint)" }}>
-                    “Mark sent” moves them to Contacted and schedules the follow-up.
-                  </span>
-                </div>
+                {it.broken ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: 12.5, color: "var(--orange, #fb923c)" }}>
+                      ⚠ this draft needs a quick fix ({it.broken}) — regenerate it before sending
+                    </span>
+                    <Link
+                      href={`/growth/prospects/${it.prospect.id}?tab=studio`}
+                      className="btn btn-secondary btn-sm"
+                      style={{ marginLeft: "auto" }}
+                    >
+                      Fix in Studio →
+                    </Link>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    <CopyButton text={it.body} label="Copy message" />
+                    <ActionForm action={markMessageSent} className="inline-form">
+                      <input type="hidden" name="message_id" value={it.messageId} />
+                      <SubmitButton className="btn btn-primary btn-sm" pendingText="Marking…">
+                        Mark sent
+                      </SubmitButton>
+                    </ActionForm>
+                    <span style={{ fontSize: 11.5, color: "var(--faint)" }}>
+                      “Mark sent” moves them to Contacted and schedules the follow-up.
+                    </span>
+                  </div>
+                )}
               </section>
             ))}
           </div>
