@@ -73,6 +73,30 @@ function fieldValue(v: unknown): string {
   return v == null ? "" : String(v).trim();
 }
 
+/**
+ * The receptionist should capture a job even if the ElevenLabs data-collection
+ * fields aren't named exactly caller_name / caller_phone / etc. Build a
+ * case-insensitive lookup over whatever keys came back, then read the first
+ * non-empty value among a field's known aliases — so a field typed as "name",
+ * "phone" or "issue" still lands in the right slot instead of silently
+ * dropping to "—". This is what makes the setup forgiving of small config
+ * differences on the ElevenLabs side.
+ */
+function makePicker(collected: Record<string, unknown>) {
+  const byLower = new Map<string, unknown>();
+  for (const [k, v] of Object.entries(collected)) {
+    byLower.set(k.toLowerCase().replace(/[\s-]+/g, "_"), v);
+  }
+  return (aliases: string[]): string => {
+    for (const a of aliases) {
+      const v = byLower.get(a);
+      const s = fieldValue(v);
+      if (s) return s;
+    }
+    return "";
+  };
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
@@ -115,12 +139,51 @@ export async function POST(request: NextRequest) {
     fieldValue(analysis.transcript_summary) ||
     fieldValue((payload as Record<string, unknown>)?.summary);
 
-  const name = fieldValue(collected.caller_name) || "Unknown caller";
-  const phone = fieldValue(collected.caller_phone) || "—";
-  const address = fieldValue(collected.address) || "—";
-  const problem = fieldValue(collected.problem) || "—";
-  const urgency = fieldValue(collected.urgency) || "—";
-  const slot = fieldValue(collected.booking_slot) || "—";
+  // Read each field by its known aliases, so the job still captures cleanly
+  // even if the ElevenLabs data-collection fields are named a little
+  // differently (name vs caller_name, phone vs caller_phone, issue vs problem).
+  const pick = makePicker(collected);
+  const name =
+    pick(["caller_name", "name", "customer_name", "full_name", "caller"]) ||
+    "Unknown caller";
+  const phone =
+    pick([
+      "caller_phone",
+      "phone",
+      "phone_number",
+      "number",
+      "contact",
+      "contact_number",
+      "mobile",
+    ]) || "—";
+  const address =
+    pick(["address", "job_address", "location", "callout_address", "eircode"]) ||
+    "—";
+  const problem =
+    pick([
+      "problem",
+      "issue",
+      "job",
+      "job_description",
+      "reason",
+      "description",
+      "enquiry",
+      "inquiry",
+    ]) || "—";
+  const urgency =
+    pick(["urgency", "priority", "emergency", "how_urgent"]) || "—";
+  const slot =
+    pick([
+      "booking_slot",
+      "slot",
+      "appointment",
+      "appointment_time",
+      "booking",
+      "preferred_time",
+      "preferred_slot",
+      "time",
+      "date",
+    ]) || "—";
 
   const lines = [
     "🔧 NEW JOB — Castleknock Plumbing",
