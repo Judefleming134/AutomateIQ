@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 
-type ActionResult = { ok?: boolean; error?: string } | undefined;
+type ActionResult =
+  | { ok?: boolean; error?: string; notice?: string }
+  | undefined;
 
 /**
  * Thin wrapper so server actions can return { ok } | { error } (real user
@@ -33,6 +35,11 @@ export function ActionForm({
       {state?.ok && !pending && (
         <p style={{ color: "var(--green)", fontSize: 13, marginTop: 6 }}>
           ✓ Done
+        </p>
+      )}
+      {state?.notice && !pending && (
+        <p style={{ color: "var(--orange)", fontSize: 12.5, marginTop: 6 }}>
+          {state.notice}
         </p>
       )}
       {pending && (

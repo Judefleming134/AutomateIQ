@@ -250,7 +250,7 @@ export async function setProductEnabled(
  */
 export async function saveVoiceProvisioning(
   businessId: string,
-  _prevState: { error?: string; ok?: boolean } | undefined,
+  _prevState: { error?: string; ok?: boolean; notice?: string } | undefined,
   formData: FormData
 ) {
   const admin = await requireAdmin();
@@ -295,7 +295,10 @@ export async function saveVoiceProvisioning(
   }
 
   // Push the COMPLETE current knowledge to the live ElevenLabs agent so the
-  // receptionist matches the portal — best-effort, never fails the save.
+  // receptionist matches the portal — best-effort, never fails the save. But
+  // DO surface the outcome: a silent sync failure means the live agent is
+  // stale, and the admin should know that on the spot (not mid-demo).
+  let notice: string | undefined;
   try {
     const [{ data: cfg }, { data: biz }] = await Promise.all([
       supabase
@@ -306,16 +309,25 @@ export async function saveVoiceProvisioning(
       supabase.from("businesses").select("name").eq("id", businessId).maybeSingle(),
     ]);
     if (cfg?.elevenlabs_agent_id) {
-      await syncVoiceAgentKnowledge(cfg.elevenlabs_agent_id, biz?.name ?? "", {
-        greeting: cfg.greeting ?? "",
-        services: cfg.services ?? "",
-        businessHours: cfg.business_hours ?? "",
-        serviceArea: cfg.service_area ?? "",
-        knowledge: cfg.knowledge ?? "",
-      });
+      const result = await syncVoiceAgentKnowledge(
+        cfg.elevenlabs_agent_id,
+        biz?.name ?? "",
+        {
+          greeting: cfg.greeting ?? "",
+          services: cfg.services ?? "",
+          businessHours: cfg.business_hours ?? "",
+          serviceArea: cfg.service_area ?? "",
+          knowledge: cfg.knowledge ?? "",
+        }
+      );
+      if (!result.synced) {
+        notice = `Saved to the portal — but the live ElevenLabs agent didn't update (${result.detail}). The receptionist will keep using its previous knowledge until this is resolved; check the agent ID and ELEVENLABS_API_KEY.`;
+      }
     }
   } catch (err) {
     console.error("Voice provisioning: ElevenLabs sync skipped:", err);
+    notice =
+      "Saved to the portal — but pushing to the live ElevenLabs agent failed. Check the agent ID and ELEVENLABS_API_KEY; the live receptionist wasn't updated.";
   }
 
   await logAdminAction({
@@ -326,7 +338,7 @@ export async function saveVoiceProvisioning(
   });
 
   revalidatePath(`/admin/customers/${businessId}`);
-  return { ok: true };
+  return notice ? { ok: true, notice } : { ok: true };
 }
 
 /**
