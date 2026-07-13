@@ -20,6 +20,7 @@ import {
   setProductEnabled,
   saveVoiceProvisioning,
   saveAssistantKnowledge,
+  setBillingStage,
   uploadDocument,
   deleteDocument,
 } from "../actions";
@@ -174,6 +175,19 @@ export default async function AdminCustomerDetailPage({
     "use server";
     return sendLoginInvite(id);
   }
+  async function markSetupPaid(_p: unknown, _f: FormData) {
+    "use server";
+    return setBillingStage(id, "setup_paid");
+  }
+  async function markMonthlyActive(_p: unknown, _f: FormData) {
+    "use server";
+    return setBillingStage(id, "active");
+  }
+  async function markUnpaid(_p: unknown, _f: FormData) {
+    "use server";
+    return setBillingStage(id, "inactive");
+  }
+  const billingStage = (business.subscription_status as string) ?? "inactive";
   async function saveVoice(_p: unknown, f: FormData) {
     "use server";
     return saveVoiceProvisioning(id, undefined, f);
@@ -356,6 +370,47 @@ export default async function AdminCustomerDetailPage({
               );
             })}
           </ul>
+        </div>
+      </div>
+
+      <div className="panel panel-block" style={{ marginBottom: 28 }}>
+        <h2 className="panel-title">Payment</h2>
+        <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--body)" }}>
+          Gates the monthly payment link in the customer&apos;s portal. When the
+          €349 setup lands in Stripe, click <b>Mark setup fee paid</b> — that
+          unlocks the €129 monthly link for them. Current stage:{" "}
+          <span
+            className={`badge ${billingStage === "active" ? "badge-green" : billingStage === "setup_paid" ? "badge-blue" : "badge-gray"}`}
+          >
+            {billingStage === "active"
+              ? "Monthly active"
+              : billingStage === "setup_paid"
+                ? "Setup paid — monthly unlocked"
+                : "Nothing paid yet"}
+          </span>
+        </p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {billingStage === "inactive" && (
+            <ActionForm action={markSetupPaid} className="inline-form">
+              <SubmitButton className="btn btn-primary btn-sm" pendingText="…">
+                Mark setup fee paid
+              </SubmitButton>
+            </ActionForm>
+          )}
+          {billingStage === "setup_paid" && (
+            <ActionForm action={markMonthlyActive} className="inline-form">
+              <SubmitButton className="btn btn-primary btn-sm" pendingText="…">
+                Mark monthly active
+              </SubmitButton>
+            </ActionForm>
+          )}
+          {billingStage !== "inactive" && (
+            <ActionForm action={markUnpaid} className="inline-form">
+              <SubmitButton className="btn btn-secondary btn-sm" pendingText="…">
+                Reset to unpaid
+              </SubmitButton>
+            </ActionForm>
+          )}
         </div>
       </div>
 
