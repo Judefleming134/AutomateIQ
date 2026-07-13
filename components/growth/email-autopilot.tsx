@@ -58,10 +58,12 @@ export function EmailAutopilot({
     null
   );
 
-  // Only fresh, unbroken, not-already-queued drafts are ticked by default —
-  // stale or broken ones need a look (or a regenerate) first.
+  // Tick by default exactly what the 8am auto-queue would send: unbroken,
+  // not-already-queued, and not research-stale. An age-stale draft (just old,
+  // but a valid cold intro) is pre-ticked too; only a broken or research-
+  // changed draft needs a look/regenerate first.
   const defaultTicked = candidates.filter(
-    (c) => !c.queued && !c.broken && !c.stale
+    (c) => !c.queued && !c.broken && c.staleKind !== "research"
   ).length;
   // Live count of ticked boxes so the buttons say exactly what they'll do
   // ("Queue 20 for the 8am run"). Re-syncs when the list refreshes.
@@ -70,8 +72,9 @@ export function EmailAutopilot({
 
   if (candidates.length === 0 && queuedCount === 0) return null;
 
-  // Both broken and stale drafts get the one-tap regenerate treatment.
-  const flagged = candidates.filter((c) => c.broken || c.stale);
+  // Broken and research-stale drafts get the one-tap regenerate treatment;
+  // an age-stale draft is still a valid send, so it isn't flagged for a rewrite.
+  const flagged = candidates.filter((c) => c.broken || c.staleKind === "research");
 
   return (
     <section
@@ -216,7 +219,7 @@ export function EmailAutopilot({
                     type="checkbox"
                     name="message_id"
                     value={c.messageId}
-                    defaultChecked={!c.queued && !c.broken && !c.stale}
+                    defaultChecked={!c.queued && !c.broken && c.staleKind !== "research"}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       // Recount from the form itself — no arithmetic to
@@ -240,10 +243,15 @@ export function EmailAutopilot({
                       ⚠ old draft ({c.broken}) — regenerate in the Studio; the
                       autopilot will refuse to send it as-is
                     </span>
-                  ) : c.stale ? (
+                  ) : c.staleKind === "research" ? (
                     <span style={{ fontSize: 12, color: "var(--orange, #fb923c)" }}>
                       ⚠ may be stale ({c.stale}) — regenerate for the freshest
                       angle, or tick to send anyway
+                    </span>
+                  ) : c.staleKind === "age" ? (
+                    <span style={{ fontSize: 12, color: "var(--faint)" }}>
+                      older draft, still fine to send — regenerate only if you
+                      want a fresher angle
                     </span>
                   ) : null}
                   <span style={{ fontSize: 12, color: "var(--faint)", marginLeft: "auto" }}>
