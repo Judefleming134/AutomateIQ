@@ -1,4 +1,4 @@
-import { Send, MessageSquare, Users, FileText, Lock } from "lucide-react";
+import { Send, MessageSquare, Users, FileText, Lock, Mic } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
@@ -29,6 +29,21 @@ export default async function BillingPage() {
   const active = subscriptionStatus === "active";
   const setupPaid = isSetupPaid(subscriptionStatus);
 
+  // Which products this customer has — so usage shows THEIR numbers, not a row
+  // of zero reviews/leads for tools they don't use.
+  const { data: enabledRows } = await supabase
+    .from("business_products")
+    .select("products(key)");
+  const enabledKeys = new Set(
+    (enabledRows ?? [])
+      .map((r) => (r.products as unknown as { key: string } | null)?.key)
+      .filter((k): k is string => Boolean(k))
+  );
+  const hasVoiceAgent = enabledKeys.has("voice-agent");
+  const hasAssistant = enabledKeys.has("ai-assistant");
+  const hasReviewAgent = enabledKeys.has("review-agent");
+  const hasWebsiteAgent = enabledKeys.has("website-agent");
+
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
@@ -50,6 +65,17 @@ export default async function BillingPage() {
         .select("id", { count: "exact", head: true })
         .gte("created_at", since),
     ]);
+
+  // Jobs the receptionist captured this month — guarded (va_jobs may not be
+  // migrated yet). Only for voice customers.
+  let jobsThisMonth = 0;
+  if (hasVoiceAgent) {
+    const { count } = await supabase
+      .from("va_jobs")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since);
+    jobsThisMonth = count ?? 0;
+  }
 
   const monthName = new Date().toLocaleDateString("en-IE", {
     month: "long",
@@ -170,9 +196,21 @@ export default async function BillingPage() {
 
       <h2 className="section-title">Usage — {monthName}</h2>
       <div className="stat-grid">
-        <StatCard label="Review requests" value={requests ?? 0} icon={<Send />} accent="#7C3AED" hint="this month" />
-        <StatCard label="AI messages" value={aiMessages ?? 0} icon={<MessageSquare />} accent="#3B82F6" hint="this month" />
-        <StatCard label="Leads captured" value={leads ?? 0} icon={<Users />} accent="#0891B2" hint="this month" />
+        {hasVoiceAgent && (
+          <StatCard label="Jobs captured" value={jobsThisMonth} icon={<Mic />} accent="#7C3AED" hint="this month" />
+        )}
+        {hasAssistant && (
+          <StatCard label="AI messages" value={aiMessages ?? 0} icon={<MessageSquare />} accent="#3B82F6" hint="this month" />
+        )}
+        {hasReviewAgent && (
+          <StatCard label="Review requests" value={requests ?? 0} icon={<Send />} accent="#0891B2" hint="this month" />
+        )}
+        {hasWebsiteAgent && (
+          <StatCard label="Leads captured" value={leads ?? 0} icon={<Users />} accent="#0EA5E9" hint="this month" />
+        )}
+        {!hasVoiceAgent && !hasAssistant && !hasReviewAgent && !hasWebsiteAgent && (
+          <StatCard label="AI messages" value={aiMessages ?? 0} icon={<MessageSquare />} accent="#3B82F6" hint="this month" />
+        )}
       </div>
 
       <div className="panel panel-block">
