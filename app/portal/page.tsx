@@ -88,7 +88,6 @@ export default async function PortalHome() {
   const [
     { count: leadCount },
     { count: conversationCount },
-    { count: automationCount },
     { data: assistant },
     { count: leadsToday },
     { count: requestsToday },
@@ -100,10 +99,6 @@ export default async function PortalHome() {
     supabase
       .from("aa_conversations")
       .select("id", { count: "exact", head: true }),
-    supabase
-      .from("ra_review_requests")
-      .select("id", { count: "exact", head: true })
-      .not("reminder_sent_at", "is", null),
     supabase
       .from("aa_assistants")
       .select("knowledge")
