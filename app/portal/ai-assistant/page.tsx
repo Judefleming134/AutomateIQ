@@ -64,6 +64,9 @@ export default async function AiAssistantPage({
   const installedSet = new Set(installed.map((m) => m.key));
   const suggestions = [
     "How is my business doing right now?",
+    ...(installedSet.has("voice-agent")
+      ? ["What jobs came in today?"]
+      : []),
     ...(installedSet.has("review-agent")
       ? ["How are my review requests performing?"]
       : []),
