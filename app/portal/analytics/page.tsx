@@ -11,6 +11,7 @@ import {
   Instagram,
   Truck,
   CheckCircle2,
+  Phone,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { requireSession } from "@/lib/auth/require-session";
@@ -47,6 +48,12 @@ export default async function AnalyticsPage() {
   const has = (k: string) => enabled.has(k);
 
   const cards: Card[] = [
+    {
+      key: "voice-agent",
+      enabled: has("voice-agent"),
+      count: usage.voiceJobs,
+      node: <StatCard label="Jobs captured" value={usage.voiceJobs} icon={<Phone />} accent="#7C3AED" hint="by your receptionist" />,
+    },
     {
       key: "review-agent",
       enabled: has("review-agent"),
@@ -119,6 +126,7 @@ export default async function AnalyticsPage() {
 
   // Donut: only dimensions with data, so the mix always reads cleanly.
   const donutSegments = [
+    { label: "Jobs captured", count: usage.voiceJobs, color: "#7C3AED" },
     { label: "Review requests", count: usage.reviewRequests, color: "var(--chart-1)" },
     { label: "Leads", count: usage.leads, color: "var(--chart-3)" },
     { label: "AI conversations", count: usage.aiConversations, color: "var(--chart-2)" },
