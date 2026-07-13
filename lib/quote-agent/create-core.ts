@@ -57,7 +57,14 @@ export async function createQuoteCore(
 
   let raw: string;
   try {
-    raw = await aiComplete(system, `Job description: ${jobDescription}`, 1200);
+    // json: true switches Gemini to native JSON mode on the failover path
+    // (far more reliable than prompting alone) so a money quote parses cleanly
+    // even when running on Gemini; effort "low" keeps a structured extraction
+    // fast on Claude. Callers still parse defensively either way.
+    raw = await aiComplete(system, `Job description: ${jobDescription}`, 1200, {
+      json: true,
+      effort: "low",
+    });
   } catch (err) {
     return {
       ok: false,
