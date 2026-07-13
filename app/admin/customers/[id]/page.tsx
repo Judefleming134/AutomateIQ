@@ -7,6 +7,7 @@ import {
   Users,
   MessageSquare,
   Mic,
+  Sparkles,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +18,7 @@ import {
   resetUserPassword,
   setProductEnabled,
   saveVoiceProvisioning,
+  saveAssistantKnowledge,
   uploadDocument,
   deleteDocument,
 } from "../actions";
@@ -27,6 +29,11 @@ type VoiceProvisioning = {
   status: string;
   phone_number: string | null;
   elevenlabs_agent_id: string | null;
+  greeting: string | null;
+  services: string | null;
+  business_hours: string | null;
+  service_area: string | null;
+  knowledge: string | null;
 };
 
 export default async function AdminCustomerDetailPage({
@@ -73,14 +80,20 @@ export default async function AdminCustomerDetailPage({
   const enabledProductIds = new Set((enabled ?? []).map((e) => e.product_id));
   const voiceProduct = (products ?? []).find((p) => p.key === "voice-agent");
   const voiceEnabled = voiceProduct ? enabledProductIds.has(voiceProduct.id) : false;
+  const assistantProduct = (products ?? []).find((p) => p.key === "ai-assistant");
+  const aiAssistantEnabled = assistantProduct
+    ? enabledProductIds.has(assistantProduct.id)
+    : false;
 
-  // Current voice provisioning (admin-controlled fields). Guarded — the table
-  // may not exist yet on a fresh DB; degrade to blank defaults rather than 500.
+  // Current voice provisioning + seeded knowledge. Guarded — the table may not
+  // exist yet on a fresh DB; degrade to blank defaults rather than 500.
   let voiceConfig: VoiceProvisioning | null = null;
   if (voiceEnabled) {
     const { data } = await supabase
       .from("va_config")
-      .select("status, phone_number, elevenlabs_agent_id")
+      .select(
+        "status, phone_number, elevenlabs_agent_id, greeting, services, business_hours, service_area, knowledge"
+      )
       .eq("business_id", id)
       .maybeSingle();
     voiceConfig = (data as VoiceProvisioning | null) ?? null;
@@ -121,7 +134,7 @@ export default async function AdminCustomerDetailPage({
       .maybeSingle(),
     supabase
       .from("aa_assistants")
-      .select("knowledge")
+      .select("knowledge, tone")
       .eq("business_id", id)
       .maybeSingle(),
   ]);
@@ -159,6 +172,10 @@ export default async function AdminCustomerDetailPage({
   async function saveVoice(_p: unknown, f: FormData) {
     "use server";
     return saveVoiceProvisioning(id, undefined, f);
+  }
+  async function saveAssistant(_p: unknown, f: FormData) {
+    "use server";
+    return saveAssistantKnowledge(id, undefined, f);
   }
   const voiceStatus = voiceConfig?.status ?? "provisioning";
 
@@ -340,10 +357,11 @@ export default async function AdminCustomerDetailPage({
             </span>
           </h2>
           <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
-            The bits AutomateIQ controls — flip it live, set the number the
-            customer sees, and link the ElevenLabs agent so their portal edits
-            sync to the live receptionist. The customer edits the greeting and
-            knowledge themselves.
+            Set it all up here before you send the invite — flip it live, set
+            the number, link the ElevenLabs agent, and pre-fill what the
+            receptionist knows. When the customer logs in, everything already
+            works. Saving pushes the knowledge to the live ElevenLabs agent
+            too. (Blank knowledge boxes are left as-is, never wiped.)
           </p>
           <ActionForm action={saveVoice}>
             <div
@@ -382,11 +400,112 @@ export default async function AdminCustomerDetailPage({
                   defaultValue={voiceConfig?.elevenlabs_agent_id ?? ""}
                 />
               </div>
-              <div>
-                <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
-                  Save provisioning
-                </SubmitButton>
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label htmlFor="va-greeting">Greeting (first line it says)</label>
+              <input
+                id="va-greeting"
+                type="text"
+                name="greeting"
+                placeholder="Thanks for calling Castleknock Plumbing, how can I help?"
+                defaultValue={voiceConfig?.greeting ?? ""}
+              />
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                marginTop: 12,
+              }}
+            >
+              <div className="field" style={{ margin: 0 }}>
+                <label htmlFor="va-hours">Business hours</label>
+                <input
+                  id="va-hours"
+                  type="text"
+                  name="business_hours"
+                  placeholder="Mon–Fri 8am–6pm, emergency 24/7"
+                  defaultValue={voiceConfig?.business_hours ?? ""}
+                />
               </div>
+              <div className="field" style={{ margin: 0 }}>
+                <label htmlFor="va-area">Service area</label>
+                <input
+                  id="va-area"
+                  type="text"
+                  name="service_area"
+                  placeholder="Castleknock, Blanchardstown & Dublin 15"
+                  defaultValue={voiceConfig?.service_area ?? ""}
+                />
+              </div>
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label htmlFor="va-services">Services offered</label>
+              <textarea
+                id="va-services"
+                name="services"
+                rows={2}
+                placeholder="Emergency callouts, boiler repair & servicing, leaks, bathroom installs…"
+                defaultValue={voiceConfig?.services ?? ""}
+              />
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label htmlFor="va-knowledge">Anything else it should know (FAQs, what to say)</label>
+              <textarea
+                id="va-knowledge"
+                name="knowledge"
+                rows={4}
+                placeholder="Never quote a price on the phone. If it's a gas leak, tell them to ring Gas Networks on 1800 20 50 50 first."
+                defaultValue={voiceConfig?.knowledge ?? ""}
+              />
+            </div>
+            <div className="form-actions" style={{ marginTop: 12 }}>
+              <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
+                Save &amp; sync receptionist
+              </SubmitButton>
+            </div>
+          </ActionForm>
+        </div>
+      )}
+
+      {aiAssistantEnabled && (
+        <div className="panel panel-block" style={{ marginBottom: 28 }}>
+          <h2 className="panel-title">
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Sparkles size={16} /> AI Assistant — pre-seed its knowledge
+            </span>
+          </h2>
+          <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
+            Fill this in and the customer&apos;s AI Assistant is <b>online and
+            already knows their business</b> the moment they log in — no blank
+            first run. They can still edit it in their portal afterwards.
+          </p>
+          <ActionForm action={saveAssistant}>
+            <div className="field">
+              <label htmlFor="aa-tone">Tone</label>
+              <input
+                id="aa-tone"
+                type="text"
+                name="tone"
+                placeholder="friendly and professional"
+                defaultValue={assistant?.tone ?? "friendly and professional"}
+              />
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label htmlFor="aa-knowledge">What the assistant knows about the business</label>
+              <textarea
+                id="aa-knowledge"
+                name="knowledge"
+                rows={6}
+                placeholder="Castleknock Plumbing — plumbing & heating in Dublin 15. Services: emergency callouts, boiler repair & servicing, leaks, bathroom installs. Hours: Mon–Fri 8–6, emergency 24/7. Owner: [name]. Never quote firm prices — the team confirms on site."
+                defaultValue={assistant?.knowledge ?? ""}
+              />
+            </div>
+            <div className="form-actions" style={{ marginTop: 12 }}>
+              <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving…">
+                Save assistant knowledge
+              </SubmitButton>
             </div>
           </ActionForm>
         </div>
