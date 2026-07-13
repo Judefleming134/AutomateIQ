@@ -18,6 +18,7 @@ export type AgentUsage = {
   reviewClicks: number;
   reviewConversionPct: number;
   reminders: number;
+  voiceJobs: number;
   leads: number;
   aiConversations: number;
   aiMessages: number;
@@ -59,6 +60,7 @@ export async function computeAgentUsage(
     reviewRequests,
     reviewClicks,
     reminders,
+    voiceJobs,
     leads,
     aiConversations,
     aiMessages,
@@ -81,6 +83,7 @@ export async function computeAgentUsage(
     tableCount(supabase, "ra_review_requests", (q) =>
       q.not("reminder_sent_at", "is", null)
     ),
+    tableCount(supabase, "va_jobs"),
     tableCount(supabase, "wa_leads"),
     tableCount(supabase, "aa_conversations"),
     tableCount(supabase, "aa_messages"),
@@ -105,6 +108,7 @@ export async function computeAgentUsage(
     reviewClicks,
     reviewConversionPct,
     reminders,
+    voiceJobs,
     leads,
     aiConversations,
     aiMessages,

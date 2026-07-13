@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Zap,
   Euro,
+  Phone,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -324,6 +325,7 @@ export default async function AdminHome() {
 
       <h2 className="section-title">Agents &amp; systems — platform totals</h2>
       <div className="stat-grid">
+        <StatCard label="Jobs captured" value={platform.voiceJobs} icon={<Phone />} accent="#7C3AED" hint="voice receptionist" />
         <StatCard label="Content written" value={platform.contentPieces} icon={<PenLine />} accent="#EC4899" hint="all agents" />
         <StatCard label="Quotes created" value={platform.quotes} icon={<Calculator />} accent="#EA580C" hint={`${platform.quotesAccepted} accepted`} />
         <StatCard label="Instant lead replies" value={platform.instantReplies} icon={<Zap />} accent="#F59E0B" hint="under 60s" />
@@ -454,6 +456,7 @@ export default async function AdminHome() {
             centerLabel="events"
             emptyText="No activity yet."
             segments={[
+              { label: "Jobs captured", count: platform.voiceJobs, color: "#7C3AED" },
               { label: "Review requests", count: requestsSent ?? 0, color: "var(--chart-1)" },
               { label: "Leads", count: totalLeads ?? 0, color: "var(--chart-3)" },
               { label: "AI conversations", count: totalConversations ?? 0, color: "var(--chart-2)" },
