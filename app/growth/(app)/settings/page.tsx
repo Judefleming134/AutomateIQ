@@ -23,12 +23,22 @@ export default async function GrowthSettingsPage() {
   const isOwner = member.role === "owner";
   const admin = createAdminClient();
 
-  const ai = process.env.ANTHROPIC_API_KEY
-    ? { label: "Claude (Anthropic)", badge: "badge-green",
-        note: "Research and drafting run on Claude — no daily free-tier quota, batches run at full speed." }
-    : process.env.GEMINI_API_KEY
+  // Reflect the REAL failover chain (lib/ai/complete.ts): Claude is preferred,
+  // but on an account-level failure — most commonly Anthropic credit running
+  // out — it automatically falls back to Gemini. The status must say this, or a
+  // green "Claude, full speed" badge hides the fact that a credit run-out
+  // silently drops research onto Gemini's daily-capped free tier.
+  const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
+  const ai = hasAnthropic
+    ? hasGemini
+      ? { label: "Claude + Gemini fallback", badge: "badge-green",
+          note: "Runs on Claude (Anthropic) at full speed. If Anthropic credit runs out it automatically falls back to Gemini's free tier (daily cap, resets 8am Irish) so research never fully stops — top up Anthropic to stay at full speed." }
+      : { label: "Claude (Anthropic)", badge: "badge-green",
+          note: "Runs on Claude at full speed — no daily quota. No fallback configured: if Anthropic credit runs out, research and drafting PAUSE. Add a GEMINI_API_KEY in Vercel as a free backup." }
+    : hasGemini
       ? { label: "Gemini (free tier)", badge: "badge-orange",
-          note: "Free tier has a daily request cap that resets 8am Irish time. Add an ANTHROPIC_API_KEY in Vercel to remove it." }
+          note: "Free tier has a daily request cap that resets 8am Irish time. Add an ANTHROPIC_API_KEY in Vercel to run at full speed (Gemini stays as the automatic fallback)." }
       : { label: "Not connected", badge: "badge-red",
           note: "Add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel to enable research and drafting." };
 
