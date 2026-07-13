@@ -36,6 +36,11 @@ export type AutopilotCandidate = {
    *  written, or it's simply old) — regenerate for the freshest angle.
    *  Unlike `broken`, a stale draft is still sendable if Jude chooses. */
   stale: string | null;
+  /** WHICH kind of staleness, so callers can treat them differently:
+   *  "research" = the research changed under it (genuinely out of date);
+   *  "age" = just old, but a cold first-touch intro doesn't rot, so it's
+   *  still fine to auto-send. Null when fresh. */
+  staleKind: "research" | "age" | null;
 };
 
 const READY_STATUSES = ["research_complete", "outreach_ready"];
@@ -120,10 +125,13 @@ export async function listAutopilotCandidates(
     );
     const researchAt = researchUpdated.get(p.id);
     let stale: string | null = null;
+    let staleKind: "research" | "age" | null = null;
     if (researchAt && new Date(researchAt).getTime() > draftAt + 60_000) {
       stale = "research updated since this draft was written";
+      staleKind = "research";
     } else if (draftAt < staleBefore) {
       stale = `draft is over ${STALE_AGE_DAYS} days old`;
+      staleKind = "age";
     }
     out.push({
       messageId: d.id,
@@ -138,6 +146,7 @@ export async function listAutopilotCandidates(
       queued: d.status === "queued",
       broken: draftLooksBroken(body),
       stale,
+      staleKind,
     });
     if (out.length >= limit) break;
   }
@@ -177,11 +186,16 @@ export async function autoQueueTopDrafts(): Promise<{
     return { queued: 0, detail: `queue already at ${already} (target ${target})` };
   }
 
-  // Over-fetch: some candidates come back flagged broken/stale and are
-  // skipped — only clean, fresh, top-scored drafts are auto-queued.
+  // Over-fetch: some candidates come back flagged and are skipped. Auto-queue
+  // top-scored drafts that are clean and not-out-of-date. Broken drafts and
+  // research-STALE drafts (the research changed under them) are skipped — but
+  // an AGE-stale draft (an old but still-valid cold first-touch) is fine to
+  // send, and excluding it was starving the 8am run whenever a batch of
+  // drafts aged past the 5-day mark. Every queued email still passes the full
+  // reviewOutreachEmail gate at send time.
   const candidates = await listAutopilotCandidates(Math.min(need * 2, 50));
   const clean = candidates
-    .filter((c) => !c.queued && !c.broken && !c.stale)
+    .filter((c) => !c.queued && !c.broken && c.staleKind !== "research")
     .slice(0, need);
 
   let queued = 0;
