@@ -221,12 +221,36 @@ export async function sendAssistantMessage(
   } catch (err) {
     console.error("Assistant API call failed:", err);
     const message = err instanceof Error ? err.message : "";
-    return {
-      ok: false,
-      error: message.startsWith("KEY_REJECTED")
-        ? "The assistant's API key was rejected — check it in Vercel."
-        : "The assistant couldn't respond just now — please try again.",
-    };
+    // ACCOUNT-LEVEL failover, matching lib/ai/complete.ts: a dead Anthropic
+    // account (credit balance, revoked/invalid key) fails every call the same
+    // way, so answer from Gemini instead of leaving the assistant — the
+    // platform's control centre — dead while research and quotes keep working.
+    const accountDead =
+      message.startsWith("KEY_REJECTED") ||
+      /credit balance/i.test(message) ||
+      /HTTP 40[13]/.test(message) ||
+      (message.startsWith("HTTP 400") && /invalid_request_error/i.test(message));
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (provider.kind === "anthropic" && accountDead && geminiKey) {
+      console.error("Assistant: Anthropic account-level failure — failing over to Gemini.");
+      actions.length = 0; // discard any partial actions from the failed attempt
+      try {
+        reply = await runGemini(geminiKey, system, turns, tools, ctx, actions);
+      } catch (err2) {
+        console.error("Assistant Gemini fallback also failed:", err2);
+        return {
+          ok: false,
+          error: "The assistant couldn't respond just now — please try again.",
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        error: message.startsWith("KEY_REJECTED")
+          ? "The assistant's API key was rejected — check it in Vercel."
+          : "The assistant couldn't respond just now — please try again.",
+      };
+    }
   }
 
   // Persist one compact action row per tool call (rendered as chips in the
@@ -343,7 +367,11 @@ async function runClaude(
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error("Anthropic API error:", res.status, detail.slice(0, 300));
-      throw new Error(res.status === 401 ? "KEY_REJECTED" : `HTTP ${res.status}`);
+      // Carry the status AND body so the caller can tell an account-level
+      // failure (credit balance / invalid key) apart from a transient blip and
+      // fail over to Gemini. 401 keeps its dedicated message too.
+      if (res.status === 401) throw new Error(`KEY_REJECTED HTTP 401: ${detail.slice(0, 200)}`);
+      throw new Error(`HTTP ${res.status}: ${detail.slice(0, 200)}`);
     }
 
     const data = (await res.json()) as {
