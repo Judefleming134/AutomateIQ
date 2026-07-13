@@ -132,7 +132,7 @@ export default async function GrowthDashboardPage() {
       .limit(6),
     admin
       .from("ge_meetings")
-      .select("id, scheduled_at, status, prospect_id, ge_prospects(company)")
+      .select("id, scheduled_at, status, prospect_id, strategy_booking_id, ge_prospects(company)")
       .eq("status", "booked")
       .gte("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true })
@@ -425,7 +425,10 @@ export default async function GrowthDashboardPage() {
                           month: "short",
                           hour: "2-digit",
                           minute: "2-digit",
-                          timeZone: "Europe/Dublin",
+                          // Booking-page slots are labelled by UTC wall-clock;
+                          // render synced bookings the same way the customer saw
+                          // them, not shifted +1h by Dublin conversion.
+                          timeZone: m.strategy_booking_id ? "UTC" : "Europe/Dublin",
                         })}
                       </td>
                     </tr>

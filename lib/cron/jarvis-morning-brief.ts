@@ -158,7 +158,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         .limit(10),
       admin
         .from("ge_meetings")
-        .select("scheduled_at, ge_prospects(company)")
+        .select("scheduled_at, strategy_booking_id, ge_prospects(company)")
         .eq("status", "booked")
         .gte("scheduled_at", `${today}T00:00:00`)
         .lte("scheduled_at", `${today}T23:59:59`)
@@ -302,12 +302,16 @@ export async function sendJarvisMorningBrief(): Promise<{
         `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
     );
     const meetingLines = (meetingsToday ?? []).map(
-      // Render in Dublin time — scheduled_at is a real UTC instant, so the
-      // raw ISO hour is an hour behind the wall-clock time Jude sees
-      // everywhere else in the app (13:00Z = 14:00 Irish in summer).
+      // Manually recorded meetings are stored as real UTC instants, so render
+      // them in Dublin. Public-booking slots are labelled by their UTC
+      // wall-clock (the customer's confirmation shows 14:00Z as "2:00pm"), so
+      // render synced bookings in UTC to match what the customer was told —
+      // otherwise the brief shows the session an hour late in summer.
       (m) =>
         `• ${new Date(String(m.scheduled_at)).toLocaleTimeString("en-IE", {
-          timeZone: "Europe/Dublin",
+          timeZone: (m as { strategy_booking_id?: string | null }).strategy_booking_id
+            ? "UTC"
+            : "Europe/Dublin",
           hour: "2-digit",
           minute: "2-digit",
           hour12: false,
