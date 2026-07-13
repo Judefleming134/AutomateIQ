@@ -373,6 +373,42 @@ export async function saveAssistantKnowledge(
   return { ok: true };
 }
 
+/**
+ * Advance a customer's billing stage: 'inactive' → 'setup_paid' → 'active'.
+ * Flipping to 'setup_paid' is what unlocks the €129 monthly payment link in
+ * the customer's portal — so nobody starts a subscription before the setup
+ * fee lands. Jude sees the €349 in Stripe, clicks "Mark setup fee paid", and
+ * the monthly link appears for the customer. Purely a manual gate.
+ */
+export async function setBillingStage(
+  businessId: string,
+  stage: "inactive" | "setup_paid" | "active"
+) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const update: Record<string, unknown> = { subscription_status: stage };
+  if (stage === "active") update.activated_at = new Date().toISOString();
+
+  const { error } = await supabase.from("businesses").update(update).eq("id", businessId);
+  if (error) {
+    if (error.code === "42703" || error.code === "42P01") {
+      return { error: "Billing columns missing — run supabase/migrations/0021_billing.sql." };
+    }
+    return { error: error.message };
+  }
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "billing.stage_set",
+    targetBusinessId: businessId,
+    metadata: { stage },
+  });
+
+  revalidatePath(`/admin/customers/${businessId}`);
+  return { ok: true };
+}
+
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 
 export async function uploadDocument(
