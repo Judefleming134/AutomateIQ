@@ -133,6 +133,17 @@ export default async function PortalHome() {
       .limit(4),
   ]);
 
+  // Voice customers care about jobs their receptionist captured today, not
+  // leads/reviews they don't use. Guarded — va_jobs may not be migrated yet.
+  let jobsToday = 0;
+  if (hasVoiceAgent) {
+    const { count } = await supabase
+      .from("va_jobs")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", sinceToday);
+    jobsToday = count ?? 0;
+  }
+
   let chartTimestamps: string[] = [];
 
   if (hasReviewAgent) {
@@ -226,6 +237,18 @@ export default async function PortalHome() {
     month: "long",
   });
 
+  // The hero's "Today" line only shows metrics for products this customer
+  // actually has — a voice-only customer sees jobs captured, not a row of
+  // zero leads/reviews/AI-messages for tools they don't use.
+  const todayBits: string[] = [];
+  if (hasVoiceAgent) todayBits.push(`${jobsToday} job${jobsToday === 1 ? "" : "s"} captured`);
+  if (hasWebsiteAgent)
+    todayBits.push(`${leadsToday ?? 0} lead${(leadsToday ?? 0) === 1 ? "" : "s"}`);
+  if (hasReviewAgent)
+    todayBits.push(`${requestsToday ?? 0} review request${(requestsToday ?? 0) === 1 ? "" : "s"}`);
+  if (hasAssistant)
+    todayBits.push(`${aiMessagesToday ?? 0} AI message${(aiMessagesToday ?? 0) === 1 ? "" : "s"}`);
+
   return (
     <>
       <section className="page-hero">
@@ -241,9 +264,9 @@ export default async function PortalHome() {
               {greetingForNow()}, {business?.name ?? "there"}
             </h1>
             <p>
-              Today: {leadsToday ?? 0} lead{(leadsToday ?? 0) === 1 ? "" : "s"} ·{" "}
-              {requestsToday ?? 0} review request{(requestsToday ?? 0) === 1 ? "" : "s"} ·{" "}
-              {aiMessagesToday ?? 0} AI message{(aiMessagesToday ?? 0) === 1 ? "" : "s"}
+              {todayBits.length > 0
+                ? `Today: ${todayBits.join(" · ")}`
+                : "Your dashboard is ready."}
             </p>
             <p style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
               <span
