@@ -136,6 +136,51 @@ export async function softDeleteBusiness(businessId: string) {
   return { ok: true };
 }
 
+/**
+ * Send (or resend) the login invite to every user on a business — a
+ * set-password link to /auth/set-password. This is the "get them logged in"
+ * button for onboarding: set the account up fully, then click this on the
+ * call and the customer lands in a dashboard that already works.
+ */
+export async function sendLoginInvite(businessId: string) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("business_id", businessId);
+  if (!profiles || profiles.length === 0) {
+    return { error: "No user on this account yet — create the customer with their email first." };
+  }
+
+  let sent = 0;
+  let lastError: string | null = null;
+  for (const p of profiles) {
+    const { data: userRes } = await supabase.auth.admin.getUserById(p.id);
+    const email = userRes.user?.email;
+    if (!email) continue;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${getSiteUrl()}/auth/set-password`,
+    });
+    if (error) lastError = error.message;
+    else sent += 1;
+  }
+
+  if (sent === 0) {
+    return { error: lastError ?? "Could not send the invite — no valid email on the account." };
+  }
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "customer.login_invite_sent",
+    targetBusinessId: businessId,
+    metadata: { sent },
+  });
+
+  return { ok: true };
+}
+
 export async function resetUserPassword(userId: string, email: string) {
   const admin = await requireAdmin();
   const supabase = createAdminClient();
