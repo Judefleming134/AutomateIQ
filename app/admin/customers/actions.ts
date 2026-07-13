@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAdminAction } from "@/lib/audit";
+import { syncVoiceAgentKnowledge } from "@/lib/growth/voice-agent";
 
 const createCustomerSchema = z.object({
   businessName: z.string().trim().min(1, "Business name is required"),
@@ -190,12 +191,17 @@ export async function setProductEnabled(
 }
 
 /**
- * Provision a business's Voice Agent from the admin — the fields AutomateIQ
- * controls (never the customer): live/paused status, the phone number shown
- * in their portal, and the ElevenLabs agent id that portal knowledge edits
- * sync to. Upserts only these columns, so the customer's own greeting /
- * services / knowledge are left untouched. Lets Jude flip Castleknock live
- * without touching SQL.
+ * Provision a business's Voice Agent from the admin, AND pre-seed the
+ * knowledge so the customer logs in to a fully-wired receptionist — status,
+ * number and ElevenLabs link (AutomateIQ-controlled) PLUS the greeting /
+ * services / hours / area / extra knowledge that would otherwise be blank
+ * until the customer filled them in. So the whole demo flow is: provision
+ * here → send the invite → they log in and everything already works.
+ *
+ * Knowledge fields are only written when provided, so re-saving status alone
+ * never wipes content the customer has since edited themselves. After saving,
+ * the complete current knowledge is pushed to the linked ElevenLabs agent
+ * (best-effort) so the live receptionist matches the portal.
  */
 export async function saveVoiceProvisioning(
   businessId: string,
@@ -213,16 +219,29 @@ export async function saveVoiceProvisioning(
   const agentId =
     String(formData.get("elevenlabs_agent_id") ?? "").trim().slice(0, 120) || null;
 
-  const { error } = await supabase.from("va_config").upsert(
-    {
-      business_id: businessId,
-      status,
-      phone_number: phone,
-      elevenlabs_agent_id: agentId,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "business_id" }
-  );
+  const row: Record<string, unknown> = {
+    business_id: businessId,
+    status,
+    phone_number: phone,
+    elevenlabs_agent_id: agentId,
+    updated_at: new Date().toISOString(),
+  };
+  // Only overwrite a knowledge field when the admin actually typed something,
+  // so a blank box never clears content the customer later edited themselves.
+  const knowledgeFields: Record<string, string> = {
+    greeting: String(formData.get("greeting") ?? "").trim().slice(0, 500),
+    services: String(formData.get("services") ?? "").trim().slice(0, 2000),
+    business_hours: String(formData.get("business_hours") ?? "").trim().slice(0, 500),
+    service_area: String(formData.get("service_area") ?? "").trim().slice(0, 500),
+    knowledge: String(formData.get("knowledge") ?? "").trim().slice(0, 4000),
+  };
+  for (const [k, v] of Object.entries(knowledgeFields)) {
+    if (v) row[k] = v;
+  }
+
+  const { error } = await supabase
+    .from("va_config")
+    .upsert(row, { onConflict: "business_id" });
   if (error) {
     if (error.code === "42P01") {
       return { error: "Database update required — run supabase/manual_update_0019.sql (and 0020)." };
@@ -230,11 +249,79 @@ export async function saveVoiceProvisioning(
     return { error: error.message };
   }
 
+  // Push the COMPLETE current knowledge to the live ElevenLabs agent so the
+  // receptionist matches the portal — best-effort, never fails the save.
+  try {
+    const [{ data: cfg }, { data: biz }] = await Promise.all([
+      supabase
+        .from("va_config")
+        .select("greeting, services, business_hours, service_area, knowledge, elevenlabs_agent_id")
+        .eq("business_id", businessId)
+        .maybeSingle(),
+      supabase.from("businesses").select("name").eq("id", businessId).maybeSingle(),
+    ]);
+    if (cfg?.elevenlabs_agent_id) {
+      await syncVoiceAgentKnowledge(cfg.elevenlabs_agent_id, biz?.name ?? "", {
+        greeting: cfg.greeting ?? "",
+        services: cfg.services ?? "",
+        businessHours: cfg.business_hours ?? "",
+        serviceArea: cfg.service_area ?? "",
+        knowledge: cfg.knowledge ?? "",
+      });
+    }
+  } catch (err) {
+    console.error("Voice provisioning: ElevenLabs sync skipped:", err);
+  }
+
   await logAdminAction({
     actorId: admin.id,
     action: "voice.provision",
     targetBusinessId: businessId,
     metadata: { status, hasPhone: Boolean(phone), hasAgent: Boolean(agentId) },
+  });
+
+  revalidatePath(`/admin/customers/${businessId}`);
+  return { ok: true };
+}
+
+/**
+ * Pre-seed a business's AI Assistant knowledge + tone from the admin, so the
+ * assistant is "online" and already knows the business the moment the customer
+ * logs in — no blank-slate first run. The customer can still edit it in their
+ * portal afterwards.
+ */
+export async function saveAssistantKnowledge(
+  businessId: string,
+  _prevState: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const knowledge = String(formData.get("knowledge") ?? "").trim().slice(0, 8000);
+  const tone = String(formData.get("tone") ?? "").trim().slice(0, 120) || "friendly and professional";
+
+  const { error } = await supabase.from("aa_assistants").upsert(
+    {
+      business_id: businessId,
+      knowledge,
+      tone,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "business_id" }
+  );
+  if (error) {
+    if (error.code === "42P01") {
+      return { error: "Database update required — run supabase/manual_update_0005.sql." };
+    }
+    return { error: error.message };
+  }
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "assistant.seed",
+    targetBusinessId: businessId,
+    metadata: { hasKnowledge: Boolean(knowledge) },
   });
 
   revalidatePath(`/admin/customers/${businessId}`);
