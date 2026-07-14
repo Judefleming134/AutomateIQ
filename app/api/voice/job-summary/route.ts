@@ -171,15 +171,18 @@ function isMissingColumnError(error: unknown): boolean {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
-  const sharedSecret = process.env.ELEVENLABS_WEBHOOK_SECRET;
-  const signingSecret = process.env.ELEVENLABS_WEBHOOK_SIGNING_SECRET;
+  // Trim: a trailing newline pasted into the Vercel env var would make an
+  // otherwise-correct secret mismatch and 401.
+  const sharedSecret = process.env.ELEVENLABS_WEBHOOK_SECRET?.trim();
+  const signingSecret = process.env.ELEVENLABS_WEBHOOK_SIGNING_SECRET?.trim();
   if (!sharedSecret && !signingSecret) {
     return NextResponse.json({ error: "Not configured" }, { status: 503 });
   }
-  const provided =
+  const provided = (
     request.headers.get("x-webhook-secret") ??
     new URL(request.url).searchParams.get("secret") ??
-    "";
+    ""
+  ).trim();
   const sharedOk = Boolean(sharedSecret) && provided === sharedSecret;
   const hmacOk =
     Boolean(signingSecret) &&
@@ -409,15 +412,16 @@ export async function POST(request: NextRequest) {
  * business a captured job would land on — without sending anything.
  */
 export async function GET(request: NextRequest) {
-  const sharedSecret = process.env.ELEVENLABS_WEBHOOK_SECRET;
-  const signingSecret = process.env.ELEVENLABS_WEBHOOK_SIGNING_SECRET;
+  const sharedSecret = process.env.ELEVENLABS_WEBHOOK_SECRET?.trim();
+  const signingSecret = process.env.ELEVENLABS_WEBHOOK_SIGNING_SECRET?.trim();
   if (!sharedSecret && !signingSecret) {
     return NextResponse.json({ error: "Not configured" }, { status: 503 });
   }
-  const provided =
+  const provided = (
     request.headers.get("x-webhook-secret") ??
     new URL(request.url).searchParams.get("secret") ??
-    "";
+    ""
+  ).trim();
   // For a browser preflight, either configured secret is acceptable.
   if (
     !(sharedSecret && provided === sharedSecret) &&
