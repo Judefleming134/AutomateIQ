@@ -206,11 +206,12 @@ export async function POST(request: NextRequest) {
     payload = null;
   }
 
-  // ElevenLabs workspace webhooks can also deliver non-transcription events
-  // (e.g. post_call_audio). Those carry no job data — acknowledge and skip
-  // rather than emailing an empty "Unknown caller" card for every call.
+  // ElevenLabs workspace webhooks can also deliver an audio event
+  // (post_call_audio) that carries no job data. Skip ONLY that — fail OPEN for
+  // everything else so a differently-named transcription event is never
+  // silently dropped (that would capture the call but email/log nothing).
   const eventType = typeof payload?.type === "string" ? payload.type : "";
-  if (eventType && eventType !== "post_call_transcription") {
+  if (eventType === "post_call_audio") {
     return NextResponse.json({ ok: true, skipped: eventType });
   }
 
