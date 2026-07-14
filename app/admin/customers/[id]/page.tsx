@@ -95,13 +95,21 @@ export default async function AdminCustomerDetailPage({
   // via the admin API for the small number of users on this business.
   const usersWithEmail = await Promise.all(
     (users ?? []).map(async (u) => {
-      const { data } = await supabase.auth.admin.getUserById(u.id);
-      // "Logged in" = they've set a password / signed in at least once, so the
-      // onboarding checklist can tell "invited" from "actually in".
-      const confirmed = Boolean(
-        data.user?.last_sign_in_at || data.user?.email_confirmed_at
-      );
-      return { ...u, email: data.user?.email ?? "(unknown)", confirmed };
+      // A blip in the auth-admin email lookup must NEVER white-screen the whole
+      // customer page — degrade just this one row instead of throwing. (One
+      // rejected getUserById in this Promise.all used to take the page down.)
+      try {
+        const { data } = await supabase.auth.admin.getUserById(u.id);
+        // "Logged in" = they've set a password / signed in at least once, so
+        // the onboarding checklist can tell "invited" from "actually in".
+        const confirmed = Boolean(
+          data?.user?.last_sign_in_at || data?.user?.email_confirmed_at
+        );
+        return { ...u, email: data?.user?.email ?? "(unknown)", confirmed };
+      } catch (err) {
+        console.error("getUserById failed for", u.id, err);
+        return { ...u, email: "(unavailable)", confirmed: false };
+      }
     })
   );
   const anyLoggedIn = usersWithEmail.some((u) => u.confirmed);
