@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Search, ArrowRight } from "lucide-react";
+import { BookOpen, Search, ArrowRight, FileText, Download } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { DOC_CATEGORY_ORDER } from "@/lib/documentation/library";
@@ -28,6 +28,16 @@ export default async function DocumentationCentre({
   const { data: docs } = await docsQuery;
   const all = docs ?? [];
 
+  // The customer's own uploaded files (contracts, quotes, order forms) — these
+  // live in the `documents` table, uploaded from the admin per customer. They
+  // belong on this page too, so a customer has ONE place for everything.
+  // RLS-scoped to the caller's business; guarded so a hiccup can't break the page.
+  const { data: files } = await supabase
+    .from("documents")
+    .select("id, name, created_at")
+    .order("created_at", { ascending: false });
+  const uploadedFiles = files ?? [];
+
   const known = new Set(DOC_CATEGORY_ORDER);
   const categories = [
     ...DOC_CATEGORY_ORDER.filter((c) => all.some((d) => d.category === c)),
@@ -55,7 +65,38 @@ export default async function DocumentationCentre({
         </form>
       </section>
 
-      {all.length === 0 ? (
+      {uploadedFiles.length > 0 && !query && (
+        <section className="doc-cat">
+          <h2 className="doc-cat-title">Your documents</h2>
+          <div className="doc-grid">
+            {uploadedFiles.map((f) => (
+              <a
+                key={f.id}
+                href={`/portal/documents/${f.id}/download`}
+                className="doc-card panel"
+              >
+                <span className="doc-card-icon">
+                  <FileText size={18} />
+                </span>
+                <span className="doc-card-body">
+                  <span className="doc-card-title">{f.name}</span>
+                  <span className="doc-card-summary">
+                    Shared with you ·{" "}
+                    {new Date(f.created_at).toLocaleDateString("en-IE", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </span>
+                <Download size={16} className="doc-card-arrow" />
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {all.length === 0 && uploadedFiles.length === 0 ? (
         <div className="panel panel-block" style={{ marginTop: 24 }}>
           <p className="empty-state">
             {query
@@ -63,7 +104,7 @@ export default async function DocumentationCentre({
               : "No documents have been shared with you yet — they'll appear here as your team publishes them."}
           </p>
         </div>
-      ) : (
+      ) : all.length === 0 ? null : (
         categories.map((category) => (
           <section key={category} className="doc-cat">
             <h2 className="doc-cat-title">{category}</h2>
