@@ -83,8 +83,13 @@ export default async function PortalHome() {
   dayStart.setHours(0, 0, 0, 0);
   const sinceToday = dayStart.toISOString();
 
-  // Cross-module KPIs — every count is a real RLS-scoped query; modules
-  // that aren't enabled (or whose tables aren't migrated yet) read 0.
+  // Cross-module KPIs — each is a real RLS-scoped query, but only run the ones
+  // this customer's products actually render. A voice + assistant customer
+  // doesn't display leads/reviews, so skip those table scans on their busiest
+  // page rather than fetch four counts that go nowhere. Disabled products
+  // resolve to a zero default (identical to what the render already shows).
+  const zeroCount = Promise.resolve({ count: 0 as number | null });
+  const nullData = Promise.resolve({ data: null });
   const [
     { count: leadCount },
     { count: conversationCount },
@@ -95,37 +100,51 @@ export default async function PortalHome() {
     { data: waPage },
     { data: recentConversations },
   ] = await Promise.all([
-    supabase.from("wa_leads").select("id", { count: "exact", head: true }),
-    supabase
-      .from("aa_conversations")
-      .select("id", { count: "exact", head: true }),
-    supabase
-      .from("aa_assistants")
-      .select("knowledge")
-      .eq("business_id", profile.business_id!)
-      .maybeSingle(),
-    supabase
-      .from("wa_leads")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", sinceToday),
-    supabase
-      .from("ra_review_requests")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", sinceToday),
-    supabase
-      .from("aa_messages")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", sinceToday),
-    supabase
-      .from("wa_pages")
-      .select("published")
-      .eq("business_id", profile.business_id!)
-      .maybeSingle(),
-    supabase
-      .from("aa_conversations")
-      .select("id, title, created_at")
-      .order("created_at", { ascending: false })
-      .limit(4),
+    hasWebsiteAgent
+      ? supabase.from("wa_leads").select("id", { count: "exact", head: true })
+      : zeroCount,
+    hasAssistant
+      ? supabase.from("aa_conversations").select("id", { count: "exact", head: true })
+      : zeroCount,
+    hasAssistant
+      ? supabase
+          .from("aa_assistants")
+          .select("knowledge")
+          .eq("business_id", profile.business_id!)
+          .maybeSingle()
+      : nullData,
+    hasWebsiteAgent
+      ? supabase
+          .from("wa_leads")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceToday)
+      : zeroCount,
+    hasReviewAgent
+      ? supabase
+          .from("ra_review_requests")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceToday)
+      : zeroCount,
+    hasAssistant
+      ? supabase
+          .from("aa_messages")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", sinceToday)
+      : zeroCount,
+    hasWebsiteAgent
+      ? supabase
+          .from("wa_pages")
+          .select("published")
+          .eq("business_id", profile.business_id!)
+          .maybeSingle()
+      : nullData,
+    hasAssistant
+      ? supabase
+          .from("aa_conversations")
+          .select("id, title, created_at")
+          .order("created_at", { ascending: false })
+          .limit(4)
+      : Promise.resolve({ data: [] as { id: string; title: string; created_at: string }[] }),
   ]);
 
   // Voice customers care about jobs their receptionist captured, not
