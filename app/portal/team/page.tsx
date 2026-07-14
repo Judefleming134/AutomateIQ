@@ -23,8 +23,15 @@ export default async function TeamPage() {
 
   const withEmails = await Promise.all(
     (members ?? []).map(async (m) => {
-      const { data } = await admin.auth.admin.getUserById(m.id);
-      return { ...m, email: data.user?.email ?? "(unknown)" };
+      // A blip in the auth-admin email lookup must never white-screen a
+      // customer's Team page — degrade this one row instead of throwing.
+      try {
+        const { data } = await admin.auth.admin.getUserById(m.id);
+        return { ...m, email: data?.user?.email ?? "(unknown)" };
+      } catch (err) {
+        console.error("Team page getUserById failed for", m.id, err);
+        return { ...m, email: "(unavailable)" };
+      }
     })
   );
 
