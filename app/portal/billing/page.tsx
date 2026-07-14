@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
 import { isStripeConfigured } from "@/lib/billing/stripe";
 import { BillingActivation } from "@/components/portal/billing-activation";
+import { OrderForm, type OrderFormData } from "@/components/portal/order-form";
 import {
   SETUP_PAYMENT_LINK,
   MONTHLY_PAYMENT_LINK,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/billing/payment-links";
 
 export default async function BillingPage() {
-  const { profile } = await requireSession();
+  const { profile, user } = await requireSession();
   const supabase = await createClient();
 
   const stripeOn = isStripeConfigured();
@@ -43,6 +44,41 @@ export default async function BillingPage() {
   const hasAssistant = enabledKeys.has("ai-assistant");
   const hasReviewAgent = enabledKeys.has("review-agent");
   const hasWebsiteAgent = enabledKeys.has("website-agent");
+
+  // Business name + the in-dashboard order form. Guarded — if migration 0025
+  // hasn't run yet, the panel simply doesn't render (the billing page never
+  // breaks). Pre-fills the email with the customer's login email.
+  let businessName = "";
+  {
+    const { data: biz } = await supabase
+      .from("businesses")
+      .select("name")
+      .eq("id", profile.business_id!)
+      .maybeSingle();
+    businessName = (biz?.name as string | undefined)?.trim() ?? "";
+  }
+  let orderForm: OrderFormData | null = null;
+  {
+    const { data, error } = await supabase
+      .from("order_forms")
+      .select("contact_name, phone, email, business_hours, service_area, agreed, agreed_name, agreed_at")
+      .eq("business_id", profile.business_id!)
+      .maybeSingle();
+    if (!error) {
+      const row = (data ?? null) as Partial<OrderFormData> | null;
+      orderForm = {
+        contact_name: row?.contact_name ?? "",
+        phone: row?.phone ?? "",
+        email: row?.email || (user.email ?? ""),
+        business_hours: row?.business_hours ?? "",
+        service_area: row?.service_area ?? "",
+        agreed: Boolean(row?.agreed),
+        agreed_name: row?.agreed_name ?? "",
+        agreed_at: row?.agreed_at ?? null,
+      };
+    }
+    // error (e.g. table missing) → orderForm stays null, panel not rendered.
+  }
 
   const monthStart = new Date();
   monthStart.setDate(1);
@@ -193,6 +229,8 @@ export default async function BillingPage() {
           </p>
         </div>
       )}
+
+      {orderForm && <OrderForm businessName={businessName} initial={orderForm} />}
 
       <h2 className="section-title">Usage — {monthName}</h2>
       <div className="stat-grid">
