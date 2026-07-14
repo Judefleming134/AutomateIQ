@@ -124,35 +124,49 @@ async function resolveBusiness(
   admin: SupabaseAdmin,
   agentId: string | null
 ): Promise<{ businessId: string | null; via: string }> {
+  // Only route to LIVE businesses — a soft-deleted account (deleted_at set)
+  // still has its va_config row, and would otherwise keep grabbing jobs by its
+  // old agent ID after the customer was "deleted". Given candidate business
+  // ids, return the first that isn't soft-deleted.
+  const firstActive = async (ids: string[]): Promise<string | null> => {
+    const unique = [...new Set(ids.filter(Boolean))];
+    if (unique.length === 0) return null;
+    const { data } = await admin
+      .from("businesses")
+      .select("id")
+      .in("id", unique)
+      .is("deleted_at", null);
+    return (data?.[0]?.id as string | undefined) ?? null;
+  };
+
   if (agentId) {
     const { data } = await admin
       .from("va_config")
       .select("business_id")
-      .eq("elevenlabs_agent_id", agentId)
-      .limit(1)
-      .maybeSingle();
-    if (data?.business_id) {
-      return { businessId: data.business_id as string, via: "agent ID match" };
-    }
+      .eq("elevenlabs_agent_id", agentId);
+    const id = await firstActive((data ?? []).map((r) => r.business_id as string));
+    if (id) return { businessId: id, via: "agent ID match" };
   }
   const envId = process.env.VOICE_BUSINESS_ID?.trim();
   if (envId) return { businessId: envId, via: "VOICE_BUSINESS_ID" };
+  // The unambiguous single-customer case — counted over LIVE businesses only.
   const { data: configs } = await admin
     .from("va_config")
     .select("business_id")
-    .limit(2);
-  if (configs && configs.length === 1) {
-    return {
-      businessId: configs[0].business_id as string,
-      via: "only voice customer",
-    };
+    .limit(50);
+  const configIds = [...new Set((configs ?? []).map((r) => r.business_id as string))];
+  const { data: liveBiz } = configIds.length
+    ? await admin.from("businesses").select("id").in("id", configIds).is("deleted_at", null)
+    : { data: [] as { id: string }[] };
+  if (liveBiz && liveBiz.length === 1) {
+    return { businessId: liveBiz[0].id as string, via: "only voice customer" };
   }
   return {
     businessId: null,
     via:
-      configs && configs.length > 1
+      liveBiz && liveBiz.length > 1
         ? "multiple voice customers and no agent ID matched — paste this agent's ID into Admin → Customers → Voice provisioning (or set VOICE_BUSINESS_ID)"
-        : "no voice customer is provisioned yet — assign the Voice Agent product and save provisioning in Admin → Customers",
+        : "no live voice customer is provisioned — assign the Voice Agent product and save provisioning in Admin → Customers",
   };
 }
 
