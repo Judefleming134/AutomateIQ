@@ -82,8 +82,17 @@ export default async function InboxPage({
     .map((pid) => {
       const thread = messages.filter((m) => m.prospect_id === pid);
       const latest = thread[0];
-      const awaitingUs = latest?.direction === "inbound";
-      return { pid, thread, latest, awaitingUs };
+      // "Who spoke last" must only count messages that actually happened —
+      // inbound, or outbound that genuinely SENT. The engine auto-drafts a
+      // suggested reply after every inbound, and that unsent draft would
+      // otherwise register as "we replied" and silently clear the Reply-due
+      // flag on every single conversation.
+      const latestReal =
+        thread.find(
+          (m) => m.direction === "inbound" || m.status === "sent"
+        ) ?? latest;
+      const awaitingUs = latestReal?.direction === "inbound";
+      return { pid, thread, latest, latestReal, awaitingUs };
     })
     .filter(
       (c) =>
@@ -92,7 +101,7 @@ export default async function InboxPage({
     )
     .sort((a, b) => {
       if (a.awaitingUs !== b.awaitingUs) return a.awaitingUs ? -1 : 1;
-      return a.latest.created_at < b.latest.created_at ? 1 : -1;
+      return a.latestReal.created_at < b.latestReal.created_at ? 1 : -1;
     });
 
   const selectedId =
@@ -332,11 +341,14 @@ export default async function InboxPage({
                         <strong style={{ fontSize: 14 }}>{p.company}</strong>
                         {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
                       </div>
+                      {/* Preview the last message actually exchanged — an
+                          unsent auto-draft would read as "You: …" for a reply
+                          that never went out. */}
                       <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {c.latest.direction === "outbound" && (
+                        {c.latestReal.direction === "outbound" && (
                           <span style={{ color: "var(--ac2, #3b82f6)" }}>You: </span>
                         )}
-                        {c.latest.body}
+                        {c.latestReal.body}
                       </div>
                     </Link>
                   );
