@@ -23,16 +23,44 @@ export async function GET(request: Request) {
   let name: string;
 
   if (type === "prospects") {
-    // Page past the 1,000-row cap so the export is the WHOLE database, not a
+    // Honour the same filters as the prospects table, so "filter → Export"
+    // gives exactly the list on screen (e.g. Has-phone + a status = a dial
+    // sheet). No filter params = the whole database, as before. Same
+    // sanitisation as the page: strip PostgREST .or() syntax chars from q.
+    const q = (url.searchParams.get("q") ?? "")
+      .trim()
+      .replace(/[,()]/g, " ")
+      .slice(0, 100)
+      .trim();
+    const status = (url.searchParams.get("status") ?? "").trim();
+    const industry = (url.searchParams.get("industry") ?? "").trim();
+    const campaign = (url.searchParams.get("campaign") ?? "").trim();
+    const phoneOnly = url.searchParams.get("phone") === "1";
+    const filtered = Boolean(q || status || industry || campaign || phoneOnly);
+
+    // Page past the 1,000-row cap so the export is the WHOLE result set, not a
     // truncated first slice — an incomplete export is a silent data-loss trap.
     const data = await selectAllRows<Record<string, string | number | null>>(
-      () =>
-        admin
+      () => {
+        let query = admin
           .from("ge_prospects")
           .select(
             "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, facebook_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
           )
           .order("created_at", { ascending: false })
+          // Unique tiebreak keeps paged reads exact when rows share a timestamp.
+          .order("id", { ascending: true });
+        if (q) {
+          query = query.or(
+            `company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%,job_title.ilike.%${q}%`
+          );
+        }
+        if (status) query = query.eq("status", status);
+        if (industry) query = query.ilike("industry", industry);
+        if (campaign) query = query.eq("campaign_id", campaign);
+        if (phoneOnly) query = query.not("phone", "is", null);
+        return query;
+      }
     );
     rows = [
       [
@@ -48,7 +76,7 @@ export async function GET(request: Request) {
         p.last_contact_at, p.next_follow_up_at, p.created_at,
       ]),
     ];
-    name = "growth-prospects";
+    name = filtered ? "growth-prospects-filtered" : "growth-prospects";
   } else if (type === "messages") {
     const data = await selectAllRows<{
       created_at: string;
