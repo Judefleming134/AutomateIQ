@@ -34,7 +34,7 @@ export const voiceAgentModule: AgentModule = {
   version: "1.0",
   category: "voice",
   description:
-    "An AI receptionist that answers missed calls, books jobs and texts you the details.",
+    "An AI receptionist that answers missed calls, books jobs and sends you the details the moment the caller hangs up.",
   iconName: "mic",
   accent: "#22D3EE",
   href: "/portal/voice-agent",
@@ -43,7 +43,7 @@ export const voiceAgentModule: AgentModule = {
     "24/7 call answering on your own number",
     "Job booking & message taking",
     "Editable knowledge base",
-    "Call summaries texted to you",
+    "Job details emailed to you instantly",
   ],
   tools: [
     {
