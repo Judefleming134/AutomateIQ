@@ -23,6 +23,7 @@ import {
   setBillingStage,
   uploadDocument,
   deleteDocument,
+  changeCustomerEmail,
 } from "../actions";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -365,8 +366,12 @@ export default async function AdminCustomerDetailPage({
                   "use server";
                   return resetUserPassword(u.id, u.email);
                 }
+                async function changeEmail(_p: unknown, f: FormData) {
+                  "use server";
+                  return changeCustomerEmail(id, u.id, undefined, f);
+                }
                 return (
-                  <li key={u.id}>
+                  <li key={u.id} style={{ flexWrap: "wrap", rowGap: 8 }}>
                     <span
                       style={{
                         display: "flex",
@@ -393,6 +398,33 @@ export default async function AdminCustomerDetailPage({
                         pendingText="Sending…"
                       >
                         <KeyRound size={13} /> Reset password
+                      </SubmitButton>
+                    </ActionForm>
+                    {/* Hand over: swap this login to the customer's email and
+                        invite them straight in. Use after you've demoed under
+                        your own email. */}
+                    <ActionForm
+                      action={changeEmail}
+                      className="inline-form"
+                      style={{ display: "flex", gap: 6, flexWrap: "wrap", flexBasis: "100%" }}
+                    >
+                      <input
+                        type="email"
+                        name="new_email"
+                        required
+                        placeholder="customer@email.ie"
+                        style={{
+                          background: "var(--bg2)",
+                          border: "1px solid var(--line)",
+                          borderRadius: "var(--radius-sm)",
+                          padding: "7px 10px",
+                          color: "var(--heading)",
+                          fontSize: 13,
+                          flex: "1 1 180px",
+                        }}
+                      />
+                      <SubmitButton className="btn btn-primary btn-sm" pendingText="Handing over…">
+                        Change email &amp; hand over
                       </SubmitButton>
                     </ActionForm>
                   </li>
