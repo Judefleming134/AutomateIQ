@@ -67,12 +67,19 @@ const TABS = [
   { key: "details", label: "Details" },
 ] as const;
 
-function fmt(ts: string | null | undefined): string {
+/**
+ * Booking-page slots store the Irish wall-clock time AS UTC (a 14:00 session
+ * is 14:00Z), so meetings synced from a booking must render in UTC — Dublin
+ * rendering would show them an hour late in summer. Everything else (real
+ * server timestamps) renders in Europe/Dublin as usual. Same rule as the
+ * meetings page and the Jarvis brief.
+ */
+function fmt(ts: string | null | undefined, fromBooking = false): string {
   if (!ts) return "—";
   return new Date(ts).toLocaleString("en-IE", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "Europe/Dublin",
+    timeZone: fromBooking ? "UTC" : "Europe/Dublin",
   });
 }
 
@@ -159,7 +166,7 @@ export default async function ProspectWorkspacePage({
       .order("due_at", { ascending: true, nullsFirst: false }),
     admin
       .from("ge_meetings")
-      .select("id, scheduled_at, status, notes")
+      .select("id, scheduled_at, status, notes, strategy_booking_id")
       .eq("prospect_id", id)
       .order("scheduled_at", { ascending: false }),
     admin
@@ -521,7 +528,8 @@ export default async function ProspectWorkspacePage({
                     .slice(0, 2)
                     .map((m) => (
                       <p key={m.id} style={{ fontSize: 13, margin: "0 0 8px" }}>
-                        <strong>{fmt(m.scheduled_at)}</strong> (Irish time)
+                        <strong>{fmt(m.scheduled_at, Boolean(m.strategy_booking_id))}</strong>{" "}
+                        (Irish time)
                       </p>
                     ))}
                   {solutions.length > 0 && (
@@ -588,7 +596,7 @@ export default async function ProspectWorkspacePage({
                       <span className={`badge ${MEETING_STATUS_META[mt.status as MeetingStatus]?.badge}`}>
                         {MEETING_STATUS_META[mt.status as MeetingStatus]?.label}
                       </span>{" "}
-                      {fmt(mt.scheduled_at)}
+                      {fmt(mt.scheduled_at, Boolean(mt.strategy_booking_id))}
                     </div>
                   ))}
                 </div>
