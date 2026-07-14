@@ -195,6 +195,17 @@ export default async function ProspectsPage({
   // empty slice while the footer clamped the label. Bounce to the real last
   // page so the table shows rows instead of looking mysteriously empty.
   if (pageReq > totalPages && total > 0) redirect(pageHref(totalPages));
+  // Export exactly what's on screen: the CSV link carries the active filters,
+  // so Has-phone + a status + a search = the dial sheet you're looking at.
+  // With no filters it exports the whole database, exactly as before.
+  const exportSp = new URLSearchParams({ type: "prospects" });
+  if (q) exportSp.set("q", q);
+  if (status) exportSp.set("status", status);
+  if (industry) exportSp.set("industry", industry);
+  if (campaign) exportSp.set("campaign", campaign);
+  if (phoneOnly) exportSp.set("phone", "1");
+  const exportHref = `/growth/reports/export?${exportSp.toString()}`;
+
   // Show up to 10 numbered pages, windowed around the current one so the
   // strip never runs off the screen on a big database.
   const WINDOW = 10;
@@ -248,7 +259,15 @@ export default async function ProspectsPage({
             <SearchIcon size={14} /> Search
           </button>
         </form>
-        <a href="/growth/reports/export?type=prospects" className="btn btn-secondary">
+        <a
+          href={exportHref}
+          className="btn btn-secondary"
+          title={
+            q || status || industry || campaign || phoneOnly
+              ? "Exports the filtered list you're looking at"
+              : "Exports every prospect"
+          }
+        >
           <Download size={14} /> Export CSV
         </a>
       </div>
