@@ -181,6 +181,59 @@ export async function sendLoginInvite(businessId: string) {
   return { ok: true };
 }
 
+/**
+ * The "hand over to the customer" action. You set an account up under YOUR
+ * email (so you can log in, connect everything, and demo), then change the
+ * login email to the customer's here — this switches the auth user's email
+ * and immediately sends THEM a set-password link. They click it, set a
+ * password, and they're in. One step = the whole handover.
+ */
+export async function changeCustomerEmail(
+  businessId: string,
+  userId: string,
+  _prevState: { error?: string; ok?: boolean; notice?: string } | undefined,
+  formData: FormData
+) {
+  const admin = await requireAdmin();
+  const supabase = createAdminClient();
+
+  const newEmail = String(formData.get("new_email") ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    return { error: "Enter a valid email address." };
+  }
+
+  // Switch the login email (confirmed, so there's no separate confirm step to
+  // bounce the customer out).
+  const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+    email: newEmail,
+    email_confirm: true,
+  });
+  if (updateError) {
+    return { error: `Couldn't change the email: ${updateError.message}` };
+  }
+
+  // Send them straight into onboarding: a set-password link to the new email.
+  const { error: inviteError } = await supabase.auth.resetPasswordForEmail(
+    newEmail,
+    { redirectTo: `${getSiteUrl()}/auth/set-password` }
+  );
+
+  await logAdminAction({
+    actorId: admin.id,
+    action: "customer.email_changed",
+    targetBusinessId: businessId,
+    metadata: { userId, newEmail, invited: !inviteError },
+  });
+
+  revalidatePath(`/admin/customers/${businessId}`);
+  return inviteError
+    ? {
+        ok: true,
+        notice: `Email changed to ${newEmail}, but the invite send failed — use "Send login invite" to send it.`,
+      }
+    : { ok: true };
+}
+
 export async function resetUserPassword(userId: string, email: string) {
   const admin = await requireAdmin();
   const supabase = createAdminClient();
