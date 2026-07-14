@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Send, ExternalLink } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRows } from "@/lib/growth/db";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
@@ -65,15 +66,22 @@ export default async function DmListPage() {
 
   // Their social DM drafts (ready to send) and any already-sent social DMs
   // (so a prospect drops off the list once you've messaged them anywhere).
-  const { data: messages } = ids.length
-    ? await admin
-        .from("ge_messages")
-        .select("id, prospect_id, channel, status, body")
-        .in("prospect_id", ids)
-        .eq("direction", "outbound")
-        .in("channel", ["instagram", "facebook", "linkedin"])
-        .in("status", ["draft", "sent"])
-    : { data: [] as { id: string; prospect_id: string; channel: string; status: string; body: string }[] };
+  // Paged with selectAllRows: an unranged select silently caps at 1,000 rows,
+  // and a dropped "sent" row would put an already-DMd prospect BACK on the
+  // list — the one mistake this page exists to prevent.
+  type MessageRow = { id: string; prospect_id: string; channel: string; status: string; body: string };
+  const messages: MessageRow[] = ids.length
+    ? await selectAllRows<MessageRow>(() =>
+        admin
+          .from("ge_messages")
+          .select("id, prospect_id, channel, status, body")
+          .in("prospect_id", ids)
+          .eq("direction", "outbound")
+          .in("channel", ["instagram", "facebook", "linkedin"])
+          .in("status", ["draft", "sent"])
+          .order("id", { ascending: true })
+      )
+    : [];
 
   const draftByKey = new Map<string, { id: string; body: string }>();
   const alreadyDmd = new Set<string>();
