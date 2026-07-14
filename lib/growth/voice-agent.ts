@@ -82,7 +82,11 @@ export async function syncVoiceAgentKnowledge(
   businessName: string,
   fields: VoiceAgentFields
 ): Promise<{ synced: boolean; detail: string }> {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
+  // Trim: a trailing space or newline picked up when the key was pasted into
+  // Vercel is invisible but makes ElevenLabs reject it with a 401
+  // "invalid_api_key" — the single most common cause of "I redid the key and
+  // it still won't authenticate".
+  const apiKey = process.env.ELEVENLABS_API_KEY?.trim();
   if (!apiKey) return { synced: false, detail: "no ELEVENLABS_API_KEY configured" };
   if (!agentId) return { synced: false, detail: "no agent linked yet" };
 
