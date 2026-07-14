@@ -65,7 +65,10 @@ export async function syncStrategyBookingsCore(
       `Growth Engine: prospect booked a Strategy Session — ${prospect.company}`,
       [
         `${b.name} (${b.email}) booked an AI Strategy Session and matches Growth Engine prospect "${prospect.company}".`,
-        `Slot: ${new Date(b.slot_at).toLocaleString("en-IE", { timeZone: "Europe/Dublin" })} (Irish time)`,
+        // Booking slots store the Irish wall-clock time AS UTC (14:00 session
+        // = 14:00Z), so render in UTC — a Dublin conversion would email the
+        // time an hour late in summer.
+        `Slot: ${new Date(b.slot_at).toLocaleString("en-IE", { timeZone: "UTC" })} (Irish time)`,
         `Synced by ${opts.attributedTo}.`,
       ]
     );
