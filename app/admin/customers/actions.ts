@@ -261,8 +261,17 @@ export async function saveVoiceProvisioning(
     return { error: "Pick a valid status." };
   }
   const phone = String(formData.get("phone_number") ?? "").trim().slice(0, 40) || null;
-  const agentId =
-    String(formData.get("elevenlabs_agent_id") ?? "").trim().slice(0, 120) || null;
+  // Tolerate a pasted browser URL or a "?branchId=…" query suffix — ElevenLabs'
+  // agent page URL carries both, and the raw value 404s ("document_not_found")
+  // if that tail is kept. Reduce to the bare agent id: drop any query/fragment
+  // and, if it's a full URL, take the last path segment.
+  let agentId: string | null = String(formData.get("elevenlabs_agent_id") ?? "")
+    .trim()
+    .split(/[?#\s]/)[0];
+  if (agentId.includes("/")) {
+    agentId = agentId.split("/").filter(Boolean).pop() ?? "";
+  }
+  agentId = agentId.slice(0, 120) || null;
 
   const row: Record<string, unknown> = {
     business_id: businessId,
