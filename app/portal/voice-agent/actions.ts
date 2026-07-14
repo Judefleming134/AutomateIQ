@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/db/errors";
 import { syncVoiceAgentKnowledge } from "@/lib/growth/voice-agent";
 
@@ -129,6 +130,38 @@ export async function logVoiceTicket(
     subject: parsed.data.subject,
     detail: parsed.data.detail ?? "",
   });
+  if (error) {
+    return { error: isMissingTableError(error) ? SETUP_PENDING : error.message };
+  }
+
+  revalidatePath("/portal/voice-agent");
+  return { ok: true };
+}
+
+/**
+ * Remove a captured job from the feed — e.g. a test call, or a duplicate the
+ * customer wants tidied away. va_jobs is written by the service-role webhook
+ * and members only have a SELECT policy, so this deletes through the admin
+ * client but is STRICTLY scoped to the caller's own business (from their
+ * verified session) — a customer can never touch another business's jobs.
+ */
+export async function deleteVoiceJob(
+  _prev: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  const { profile } = await requireSession();
+  if (!(await requireProductEnabled(profile.business_id!, "voice-agent"))) {
+    return { error: "Voice Agent is not enabled on this account." };
+  }
+  const jobId = String(formData.get("job_id") ?? "").trim();
+  if (!jobId) return { error: "Missing job." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("va_jobs")
+    .delete()
+    .eq("id", jobId)
+    .eq("business_id", profile.business_id!); // tenant guard — never cross-business
   if (error) {
     return { error: isMissingTableError(error) ? SETUP_PENDING : error.message };
   }

@@ -14,6 +14,7 @@ import { isMissingTableError } from "@/lib/db/errors";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { StatCard } from "@/components/portal/stat-card";
+import { DeleteJobButton } from "@/components/portal/delete-job-button";
 import { updateVoiceConfig, logVoiceTicket } from "./actions";
 
 const STATUS_META: Record<string, { label: string; cls: string; blurb: string }> = {
@@ -292,7 +293,10 @@ export default async function VoiceAgentPage() {
                         <Phone size={12} /> {j.caller_phone}
                       </a>
                     )}
-                    <span style={{ marginLeft: "auto" }}>{timeAgo(j.created_at)}</span>
+                    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      {timeAgo(j.created_at)}
+                      <DeleteJobButton jobId={j.id} />
+                    </span>
                   </div>
                   {j.problem.trim() && (
                     <p style={{ margin: "6px 0 0", fontSize: 14 }}>{j.problem}</p>
