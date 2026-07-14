@@ -167,7 +167,10 @@ export async function sendQuote(
           business?.email_signature || businessName,
         ].join("\n"),
       },
-      { idempotencyKey: `quote-send-${quote.id}` }
+      // Key on quote AND recipient: a double-click to the same address is
+      // still deduped, but re-sending to a CORRECTED email actually goes out
+      // (a quote-only key silently swallowed the second send → lost deal).
+      { idempotencyKey: `quote-send-${quote.id}-${to.toLowerCase()}` }
     );
     if (result.error) {
       return { ok: false, error: `Email failed: ${result.error.message}` };
