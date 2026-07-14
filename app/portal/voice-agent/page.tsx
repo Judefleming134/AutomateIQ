@@ -20,7 +20,7 @@ const STATUS_META: Record<string, { label: string; cls: string; blurb: string }>
   provisioning: {
     label: "Setting up",
     cls: "badge-blue",
-    blurb: "We're connecting your number and building your agent. You'll get a text the moment it goes live.",
+    blurb: "We're connecting your number and building your agent. We'll let you know the moment it goes live.",
   },
   live: {
     label: "Live",
