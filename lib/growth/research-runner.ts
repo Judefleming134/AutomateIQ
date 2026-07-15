@@ -48,10 +48,16 @@ export function mapResearchError(err: unknown): {
   } else if (message === "BAD_JSON") {
     friendly = "The research came back malformed — run it again.";
   } else if (message.startsWith("HTTP 429")) {
-    dailyQuota = /perday|per_day|per day|daily|quota/i.test(message);
+    // CRITICAL: a per-MINUTE rate limit and a per-DAY quota are both 429 and
+    // both say "Quota exceeded". Only the daily one should stop the batch —
+    // the per-minute one clears in ~60s and must be retried, not treated as
+    // "you're out for the day". So require a per-day signal AND rule out the
+    // per-minute metric; a bare/ambiguous 429 defaults to a retryable throttle.
+    const perMinute = /per[\s_-]?minute/i.test(message);
+    dailyQuota = !perMinute && /per[\s_-]?day|daily/i.test(message);
     friendly = dailyQuota
-      ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily; adding ANTHROPIC_API_KEY in Vercel removes the cap."
-      : "AI rate limit — pausing a minute fixes this.";
+      ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily (around 8am Irish time); adding ANTHROPIC_API_KEY in Vercel removes the cap."
+      : "AI rate limit — pausing a minute fixes this (the batch retries automatically).";
   } else if (/^HTTP 5\d\d/.test(message)) {
     friendly = "AI service briefly overloaded — retry in a minute.";
   } else {
