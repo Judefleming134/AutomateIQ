@@ -176,10 +176,10 @@ export default async function SettingsPage() {
             </span>
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: "var(--body)" }}>
-            You currently receive email confirmations for review-request
-            activity, and your customers receive one polite reminder three
-            days after each request. Per-channel notification preferences are
-            on the roadmap — to change anything now, email{" "}
+            You get an email as your agents capture and complete work — new
+            jobs from your Voice Agent, review activity, website leads and more
+            — straight to your inbox, so nothing slips. Per-channel preferences
+            are on the roadmap; to change anything now, email{" "}
             <a href="mailto:hello@automateiq.ie" style={{ color: "var(--ac2)" }}>
               hello@automateiq.ie
             </a>
