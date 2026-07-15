@@ -10,6 +10,7 @@ import {
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { dublinDate } from "@/lib/growth/dates";
 import { ResearchQueue } from "@/components/growth/research-queue";
 import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
@@ -167,6 +168,11 @@ export default async function ProspectsPage({
   ].sort() as string[];
 
   const rows = prospects ?? [];
+  // Today in Irish time, to flag a follow-up whose chase date has arrived or
+  // passed — so scanning the dial list, an overdue chase jumps out instead of
+  // reading like any other date. Dates are stored YYYY-MM-DD, so a string
+  // compare is correct and cheap.
+  const todayDublin = dublinDate();
 
   // Pagination maths. Alphabetical order is preserved across pages (the query
   // sort is unchanged); we just window the rows.
@@ -598,7 +604,22 @@ export default async function ProspectsPage({
                     <td>{p.lead_score > 0 ? `${p.lead_score}` : "—"}</td>
                     <td>{p.assigned_to ? (teamById.get(p.assigned_to) ?? "—") : "—"}</td>
                     <td>{p.last_contact_at ? p.last_contact_at.slice(0, 10) : "—"}</td>
-                    <td>{p.next_follow_up_at ?? "—"}</td>
+                    <td>
+                      {p.next_follow_up_at ? (
+                        p.next_follow_up_at.slice(0, 10) <= todayDublin ? (
+                          <span
+                            className="badge badge-orange"
+                            title="This chase is due"
+                          >
+                            {p.next_follow_up_at.slice(0, 10)} · due
+                          </span>
+                        ) : (
+                          p.next_follow_up_at.slice(0, 10)
+                        )
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                   </tr>
                 );
               })}
