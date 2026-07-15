@@ -235,7 +235,10 @@ export function EmailAutopilot({
                   />
                   <strong>{c.company}</strong>
                   <span style={{ fontSize: 12, color: "var(--faint)" }}>
-                    {c.contactName} · {c.industry || "—"} · score {c.leadScore}
+                    {/* Guard the contact: company-only leads have no name, and
+                        an unguarded value left a dangling "· " before industry. */}
+                    {c.contactName ? `${c.contactName} · ` : ""}
+                    {c.industry || "—"} · score {c.leadScore}
                     {c.queued ? " · already queued" : ""}
                   </span>
                   {c.broken ? (
