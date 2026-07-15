@@ -38,13 +38,29 @@ export async function POST(
   }
 
   const newStatus = parsed.data.decision === "accept" ? "accepted" : "declined";
-  const { error } = await admin
+  // Atomic decide: only flip a quote that is still undecided, so two concurrent
+  // requests (or an accept then a fast decline) can never both apply — the DB
+  // arbitrates. If no row comes back, another request decided first; report
+  // that decision rather than overwriting it.
+  const { data: updated, error } = await admin
     .from("qa_quotes")
     .update({ status: newStatus, decided_at: new Date().toISOString() })
-    .eq("id", quote.id);
+    .eq("id", quote.id)
+    .in("status", ["draft", "sent", "viewed"])
+    .select("status")
+    .maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: "Update failed" }, { status: 502 });
+  }
+  if (!updated) {
+    // Lost the race — re-read the decision that won and return it as success.
+    const { data: current } = await admin
+      .from("qa_quotes")
+      .select("status")
+      .eq("id", quote.id)
+      .maybeSingle();
+    return NextResponse.json({ ok: true, status: current?.status ?? newStatus });
   }
 
   // Best-effort: notify the business that a decision was made. Never fails
