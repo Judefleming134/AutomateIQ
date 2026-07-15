@@ -29,7 +29,10 @@ function fmt(ts: string, fromBooking = false): string {
 /** Renders meeting notes with any URL (e.g. a pasted Zoom link) as a
  *  clickable link, so a call can be joined straight from the meeting card. */
 function NotesWithLinks({ text }: { text: string }) {
-  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  // Stop the URL before trailing sentence punctuation / a closing bracket, so
+  // a Zoom link pasted as "join https://zoom.us/j/123." doesn't become a link
+  // with a trailing "." that 404s. Real path/query chars are still included.
+  const parts = text.split(/(https?:\/\/[^\s]*[^\s.,;:!?)\]}'"<>])/g);
   return (
     <>
       {parts.map((part, i) =>
