@@ -64,6 +64,28 @@ const OBJECTIVE_RULES: Record<MessageObjective, string> = {
 };
 
 /**
+ * Pulls the subject + body out of an email draft's "SUBJECT: ..." first line.
+ * Tolerant on purpose: the model occasionally emits "Subject:" in title case,
+ * a leading blank line, or wraps the subject in quotes. The old strict regex
+ * (^SUBJECT:, case-sensitive, no leading space) failed those and leaked the
+ * literal "Subject:" line into the email body while falling back to the
+ * generic subject. Falls back to a safe generic subject only when there's
+ * genuinely no subject line.
+ */
+function parseEmailDraft(
+  raw: string,
+  company: string
+): { subject: string; body: string } {
+  const match = /^\s*subject:\s*(.+?)\s*\n+([\s\S]+)$/i.exec(raw);
+  if (match) {
+    const subject = match[1].trim().replace(/^["'“”]+|["'“”]+$/g, "").trim();
+    const body = match[2].trim();
+    if (subject && body) return { subject, body };
+  }
+  return { subject: `question about ${company}`, body: raw.trim() };
+}
+
+/**
  * Drafts a personalised outreach message for review — nothing generated here
  * is ever sent without a human reading and editing it first. Returns a
  * subject only for email; other channels have none.
@@ -112,12 +134,7 @@ export async function draftOutreach(
   ).trim();
 
   if (params.channel === "email") {
-    const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);
-    if (match) {
-      return { subject: match[1].trim(), body: match[2].trim() };
-    }
-    // Model skipped the SUBJECT line — keep the text, supply a fallback.
-    return { subject: `question about ${prospect.company}`, body: raw };
+    return parseEmailDraft(raw, prospect.company);
   }
   return { subject: null, body: raw };
 }
@@ -229,9 +246,7 @@ export async function draftStudioMessage(
   ).trim();
 
   if (params.channel === "email") {
-    const match = /^SUBJECT:\s*(.+)\n+([\s\S]+)$/.exec(raw);
-    if (match) return { subject: match[1].trim(), body: match[2].trim() };
-    return { subject: `question about ${prospect.company}`, body: raw };
+    return parseEmailDraft(raw, prospect.company);
   }
   return { subject: null, body: raw };
 }
