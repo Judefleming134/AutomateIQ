@@ -40,6 +40,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Paused by default: on the free Gemini tier, auto-researching all night
+  // burns the shared daily quota before the founder is even awake — and worse
+  // when they're working nights and want that quota for hands-on research.
+  // Flip OVERNIGHT_RESEARCH_ENABLED=1 in Vercel to switch it back on (e.g. once
+  // on a paid AI tier). The endpoint stays live + cheap; it just no-ops.
+  const enabled =
+    process.env.OVERNIGHT_RESEARCH_ENABLED === "1" ||
+    process.env.OVERNIGHT_RESEARCH_ENABLED === "true";
+  if (!enabled) {
+    return NextResponse.json({
+      ok: true,
+      skipped: "overnight auto-research is paused (set OVERNIGHT_RESEARCH_ENABLED=1 to enable)",
+    });
+  }
+
   const admin = createAdminClient();
 
   // Fresh leads only: never researched, not parked, not closed. Website
