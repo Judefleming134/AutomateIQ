@@ -231,12 +231,17 @@ export default async function ProspectWorkspacePage({
           </p>
           <h1 style={{ marginTop: 4 }}>{prospect.company}</h1>
           <p>
-            {prospect.contact_name}
-            {prospect.job_title ? ` · ${prospect.job_title}` : ""}
-            {prospect.location ? ` · ${prospect.location}` : ""}
+            {/* Build the meta line by joining only the parts that exist, so a
+                lead imported with just a company name never shows a dangling
+                "· CEO" with a leading separator. */}
+            {[prospect.contact_name, prospect.job_title, prospect.location]
+              .filter(Boolean)
+              .join(" · ")}
             {prospect.website ? (
               <>
-                {" · "}
+                {[prospect.contact_name, prospect.job_title, prospect.location].some(Boolean)
+                  ? " · "
+                  : ""}
                 <a href={/^https?:\/\//i.test(prospect.website) ? prospect.website : `https://${prospect.website}`} target="_blank" rel="noreferrer">
                   {prospect.website} <ExternalLink size={11} style={{ verticalAlign: "-1px" }} />
                 </a>
@@ -806,7 +811,7 @@ export default async function ProspectWorkspacePage({
                   aria-label="Call this prospect"
                 >
                   <h2 className="panel-title">
-                    <Phone size={15} style={{ verticalAlign: "-2px" }} /> Call {prospect.contact_name}
+                    <Phone size={15} style={{ verticalAlign: "-2px" }} /> Call {prospect.contact_name || prospect.company}
                   </h2>
                   {prospect.phone && (
                     <a
