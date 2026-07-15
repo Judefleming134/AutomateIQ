@@ -153,7 +153,10 @@ export default async function DmListPage() {
                     <strong>{it.prospect.company}</strong>
                   </Link>
                   <span style={{ fontSize: 12.5, color: "var(--faint)" }}>
-                    {it.prospect.contact_name} · score {it.prospect.lead_score ?? 0}
+                    {/* Guard the contact: company-only leads have no name, and
+                        an unguarded value left a dangling "· score" here. */}
+                    {it.prospect.contact_name ? `${it.prospect.contact_name} · ` : ""}
+                    score {it.prospect.lead_score ?? 0}
                   </span>
                   <span className="badge badge-blue">{CHANNEL_META[it.channel].label}</span>
                   <a
