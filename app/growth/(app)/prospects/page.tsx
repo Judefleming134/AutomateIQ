@@ -543,7 +543,11 @@ export default async function ProspectsPage({
             <BulkActions isOwner={member.role === "owner"} />
           </div>
           <div className="table-wrap">
-            <table>
+            {/* min-width forces the 11-column list to scroll horizontally
+                inside the wrapper on a phone, instead of crushing every column
+                to fit ~375px and becoming unreadable. No effect on desktop,
+                where the content area is already wider than this. */}
+            <table style={{ minWidth: 900 }}>
               <thead>
                 <tr>
                   <th style={{ width: 34 }}>
