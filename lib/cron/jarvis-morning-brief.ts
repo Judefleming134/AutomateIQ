@@ -289,13 +289,15 @@ export async function sendJarvisMorningBrief(): Promise<{
     const companyOf = (row: { ge_prospects: unknown }) =>
       (row.ge_prospects as { company?: string } | null)?.company ?? "unknown";
 
+    // Many leads are imported with just a company name, so guard the contact
+    // parens — otherwise the brief prints a literal "(null)" beside them.
     const dueLines = (due ?? []).map(
       (p) =>
-        `• ${p.company} (${p.contact_name}) — ${statusLabel(p.status)}, score ${p.lead_score ?? 0}, due ${p.next_follow_up_at}${p.phone ? `, ${p.phone}` : ""}`
+        `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${statusLabel(p.status)}, score ${p.lead_score ?? 0}, due ${p.next_follow_up_at}${p.phone ? `, ${p.phone}` : ""}`
     );
     const readyLines = (ready ?? []).map(
       (p) =>
-        `• ${p.company} (${p.contact_name}) — ${p.industry || "?"}, score ${p.lead_score ?? 0} — drafts ready${p.phone ? `, ${p.phone}` : ""}`
+        `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.industry || "?"}, score ${p.lead_score ?? 0} — drafts ready${p.phone ? `, ${p.phone}` : ""}`
     );
     const replyLines = (overnightReplies ?? []).map(
       (m) =>
