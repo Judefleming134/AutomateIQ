@@ -56,9 +56,15 @@ export default async function PublicQuotePage({
           ) : (
             <span className="quote-biz">{business?.name ?? "Your quote"}</span>
           )}
-          <span className={`quote-status quote-status-${quote.status}`}>
-            {quote.status}
-          </span>
+          {/* Only ever show the customer a status that means something to
+              THEM. Internal CRM states (draft / sent / viewed) must never
+              surface on the quote they're reading — "draft" reads as
+              unfinished, "viewed" is meaningless jargon. */}
+          {(quote.status === "accepted" || quote.status === "declined") && (
+            <span className={`quote-status quote-status-${quote.status}`}>
+              {quote.status === "accepted" ? "Accepted" : "Declined"}
+            </span>
+          )}
         </header>
 
         <h1>Quote for {quote.customer_name}</h1>
