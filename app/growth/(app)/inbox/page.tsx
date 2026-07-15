@@ -284,7 +284,9 @@ export default async function InboxPage({
                       >
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12, color: "var(--faint)", alignItems: "center" }}>
                           <strong style={{ color: "var(--text, #eee)" }}>
-                            {m.direction === "inbound" ? selected.contact_name : "AutomateIQ"}
+                            {m.direction === "inbound"
+                              ? selected.contact_name || selected.company || "Them"
+                              : "AutomateIQ"}
                           </strong>
                           <span>{CHANNEL_META[m.channel as Channel]?.label}</span>
                           <span className={`badge ${MESSAGE_STATUS_META[m.status as MessageStatus]?.badge}`}>
