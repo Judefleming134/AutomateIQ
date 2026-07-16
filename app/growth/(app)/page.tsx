@@ -114,6 +114,10 @@ export default async function GrowthDashboardPage() {
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
       .lt("next_follow_up_at", today)
+      // Live overdue = up to 7 days late (still auto-chased). Older than that
+      // has gone cold and lives in its own section below, so this list isn't
+      // a permanent wall of ancient follow-ups.
+      .gte("next_follow_up_at", dublinDate(-7))
       .not("status", "in", activeFilter)
       .order("next_follow_up_at", { ascending: true })
       .limit(10),
@@ -165,6 +169,25 @@ export default async function GrowthDashboardPage() {
       .from("ge_prospects")
       .select("id", { count: "exact", head: true })
       .lt("next_follow_up_at", today)
+      .gte("next_follow_up_at", dublinDate(-7))
+      .not("status", "in", activeFilter),
+  ]);
+
+  // Gone cold: follow-ups more than 7 days overdue. Parked out of the live
+  // lists (and out of the autopilot) so chasing stays timely — revived by
+  // setting a fresh follow-up date or sending a new angle from the Studio.
+  const [{ data: goneCold }, { count: goneColdCount }] = await Promise.all([
+    admin
+      .from("ge_prospects")
+      .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
+      .lt("next_follow_up_at", dublinDate(-7))
+      .not("status", "in", activeFilter)
+      .order("next_follow_up_at", { ascending: true })
+      .limit(10),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .lt("next_follow_up_at", dublinDate(-7))
       .not("status", "in", activeFilter),
   ]);
 
@@ -385,6 +408,32 @@ export default async function GrowthDashboardPage() {
           )}
         </section>
       </div>
+
+      {(goneColdCount ?? 0) > 0 && (
+        <section
+          className="panel panel-block"
+          style={{ marginTop: 20, borderLeft: "3px solid var(--faint, #6f6f7a)" }}
+          aria-labelledby="gc-title"
+        >
+          <h2 className="panel-title" id="gc-title">
+            🧊 Gone cold — follow-up overdue 7+ days ({goneColdCount})
+          </h2>
+          <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
+            Parked here so your due lists (and the 8am autopilot) stay timely —
+            these aren&apos;t chased automatically any more. Revive one with a
+            fresh follow-up date on its Details tab, or a new angle from the
+            Studio; or tick the dead ones in the list and bulk archive.
+          </p>
+          <ProspectList rows={goneCold ?? []} dateField="follow_up" />
+          {(goneColdCount ?? 0) > (goneCold ?? []).length && (
+            <p style={{ fontSize: 12, marginTop: 8 }}>
+              <Link href="/growth/prospects?sort=follow_up">
+                See all {goneColdCount} →
+              </Link>
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="grid-2" style={{ marginTop: 20 }}>
         <section className="panel panel-block" aria-labelledby="hot-title">

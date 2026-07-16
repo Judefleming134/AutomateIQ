@@ -252,6 +252,10 @@ export async function autoQueueDueFollowups(): Promise<{
     .select("id, company, email, lead_score")
     .in("status", ["contacted", "follow_up_sent"])
     .lte("next_follow_up_at", today)
+    // 7-day freshness window: a chase more than a week overdue has gone cold —
+    // auto-sending it now reads as spam, not persistence. Those leads park in
+    // the dashboard's "Gone cold" section for a deliberate revive instead.
+    .gte("next_follow_up_at", dublinDate(-7))
     .not("email", "is", null)
     .order("lead_score", { ascending: false, nullsFirst: false })
     .limit(80);

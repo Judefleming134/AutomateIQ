@@ -140,6 +140,10 @@ export async function sendJarvisMorningBrief(): Promise<{
         .from("ge_prospects")
         .select("company, contact_name, status, lead_score, next_follow_up_at, phone")
         .lte("next_follow_up_at", today)
+        // Same 7-day window as the autopilot: chases older than a week are
+        // "gone cold" and live in their own dashboard section, so the brief's
+        // due list stays a today-list, not a wall of ancient follow-ups.
+        .gte("next_follow_up_at", dublinDate(-7))
         .not("status", "in", activeFilter)
         .order("next_follow_up_at", { ascending: true })
         .limit(15),
@@ -284,6 +288,14 @@ export async function sendJarvisMorningBrief(): Promise<{
       .select("id", { count: "exact", head: true })
       .gte("created_at", since24h);
 
+    // Gone-cold tally (7+ days overdue, no longer auto-chased) — one line so
+    // the pile stays visible without flooding the due list.
+    const { count: goneColdCount } = await admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .lt("next_follow_up_at", dublinDate(-7))
+      .not("status", "in", activeFilter);
+
     const statusLabel = (s: string) =>
       PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
     const companyOf = (row: { ge_prospects: unknown }) =>
@@ -422,7 +434,10 @@ export async function sendJarvisMorningBrief(): Promise<{
         nightlyBlock,
         section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + replyDraftNote,
         section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
-        section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current."),
+        section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current.") +
+          ((goneColdCount ?? 0) > 0
+            ? `\n🧊 ${goneColdCount} gone cold (7+ days overdue) — parked on the dashboard's Gone-cold section, no longer auto-chased.`
+            : ""),
         section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
         [
           "THE NUMBERS",
