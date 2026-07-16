@@ -257,7 +257,11 @@ export default async function GrowthSettingsPage() {
                 </SubmitButton>
               </div>
             </ActionForm>
-            <ActionForm action={deleteTemplate} style={{ marginTop: 8 }}>
+            <ActionForm
+              action={deleteTemplate}
+              style={{ marginTop: 8 }}
+              confirmText={`Delete the template "${t.name}"? This can't be undone.`}
+            >
               <input type="hidden" name="template_id" value={t.id} />
               <SubmitButton className="btn btn-danger btn-sm" pendingText="Deleting…">
                 Delete
@@ -346,7 +350,10 @@ export default async function GrowthSettingsPage() {
                               {t.status === "active" ? "Suspend" : "Reactivate"}
                             </SubmitButton>
                           </ActionForm>
-                          <ActionForm action={removeTeamMember}>
+                          <ActionForm
+                            action={removeTeamMember}
+                            confirmText={`Remove ${t.name} from the Growth Engine? They lose access immediately.`}
+                          >
                             <input type="hidden" name="member_id" value={t.id} />
                             <SubmitButton className="btn btn-danger btn-sm" pendingText="…">
                               Remove
