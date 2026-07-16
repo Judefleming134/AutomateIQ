@@ -510,8 +510,13 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
   try {
     result = await runCompanyResearch(prospect);
   } catch (err) {
-    const { friendly } = mapResearchError(err);
-    await parkResearchFailure(admin, prospect, friendly, member.id);
+    const { friendly, accountDead, dailyQuota } = mapResearchError(err);
+    // Account-level failure (quota/credits) is not this lead's fault — don't
+    // park it in the failed group; the batch queue stops itself on this
+    // message and the lead stays fresh for when the quota resets.
+    if (!accountDead && !dailyQuota) {
+      await parkResearchFailure(admin, prospect, friendly, member.id);
+    }
     return { error: friendly };
   }
 
