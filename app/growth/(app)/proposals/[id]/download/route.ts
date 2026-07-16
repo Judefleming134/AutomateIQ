@@ -48,7 +48,13 @@ export async function GET(
 <body>
   <div class="masthead"><img src="https://automateiq.ie/logo-aiq.png" alt="AutomateIQ"/></div>
   <h1>${escapeHtml(proposal.title)}</h1>
-  <div class="meta">Prepared for ${escapeHtml(company)} · ${date} · automateiq.ie</div>
+  <div class="meta">${[
+    company ? `Prepared for ${escapeHtml(company)}` : "",
+    date,
+    "automateiq.ie",
+  ]
+    .filter(Boolean)
+    .join(" · ")}</div>
   ${markdownToHtml(proposal.content)}
 </body>
 </html>`;
