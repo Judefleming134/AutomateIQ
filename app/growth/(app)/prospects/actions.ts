@@ -249,6 +249,10 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     const { data: existingRows, error } = await admin
       .from("ge_prospects")
       .select("email, company")
+      // Stable unique order: an unordered range can skip rows between pages,
+      // and every skipped row is an existing lead the dedupe never sees —
+      // letting duplicates back in on re-imports.
+      .order("id", { ascending: true })
       .range(start, start + EXISTING_PAGE - 1);
     if (error) break; // dedupe degrades gracefully rather than blocking import
     for (const r of existingRows ?? []) {
