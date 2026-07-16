@@ -96,6 +96,9 @@ export async function GET(request: Request) {
         )
         .gte("created_at", sinceIso)
         .order("created_at", { ascending: false })
+        // Same unique tiebreak as the prospects export: rows sharing a
+        // timestamp must not be skipped/duplicated across page boundaries.
+        .order("id", { ascending: true })
     );
     rows = [
       ["created_at", "sent_at", "company", "contact", "channel", "direction", "status", "sentiment", "subject", "body"],
@@ -121,6 +124,7 @@ export async function GET(request: Request) {
         .select("scheduled_at, status, notes, created_at, ge_prospects(company, contact_name, email)")
         .gte("created_at", sinceIso)
         .order("scheduled_at", { ascending: false })
+        .order("id", { ascending: true })
     );
     rows = [
       ["scheduled_at", "status", "company", "contact", "email", "notes", "recorded_at"],
