@@ -78,10 +78,16 @@ export async function GET(request: NextRequest) {
   // mode the fresh queue can stay hundreds deep for weeks, and with both
   // slots always going to fresh research, due chases would never get drafted
   // — and so never send. If any chase is due, reserve one slot for it.
+  // EXACTLY the drafting section's predicate (7-day freshness window, must
+  // have an email) — a broader count here would reserve a slot for chases
+  // the drafter will never draft (gone-cold or email-less leads), silently
+  // halving research speed every run.
   const { count: dueFollowUps } = await admin
     .from("ge_prospects")
     .select("id", { count: "exact", head: true })
     .lte("next_follow_up_at", dublinDate())
+    .gte("next_follow_up_at", dublinDate(-7))
+    .not("email", "is", null)
     .in("status", ["contacted", "follow_up_sent"]);
   const freshCap = (dueFollowUps ?? 0) > 0 ? 1 : 2;
 
