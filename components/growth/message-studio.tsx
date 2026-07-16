@@ -95,21 +95,32 @@ export function MessageStudio({
   async function generate(transform?: StudioTransform) {
     setNotice(null);
     setBusy(transform ?? "generate");
-    const result = await studioDraft({
-      prospectId,
-      channel,
-      purpose,
-      tone,
-      currentText: transform ? active.body : undefined,
-      transform,
-    });
-    setBusy(null);
-    if (!result.ok) {
-      setNotice({ kind: "error", text: result.error });
-      return;
+    // try/finally: a thrown server action (network blip, redeploy mid-session)
+    // must never leave `busy` stuck — that freezes every studio button until
+    // a full page reload.
+    try {
+      const result = await studioDraft({
+        prospectId,
+        channel,
+        purpose,
+        tone,
+        currentText: transform ? active.body : undefined,
+        transform,
+      });
+      if (!result.ok) {
+        setNotice({ kind: "error", text: result.error });
+        return;
+      }
+      setActive({ body: result.body, ...(result.subject ? { subject: result.subject } : {}) });
+      setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
+    } catch {
+      setNotice({
+        kind: "error",
+        text: "Connection hiccup — the draft didn't come back. Your text is untouched; try again.",
+      });
+    } finally {
+      setBusy(null);
     }
-    setActive({ body: result.body, ...(result.subject ? { subject: result.subject } : {}) });
-    setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
   }
 
   function dispatch(mode: "draft" | "send_email" | "mark_sent") {
@@ -124,16 +135,27 @@ export function MessageStudio({
       return;
     }
     startTransition(async () => {
-      const result = await composeMessage({
-        prospectId,
-        channel,
-        subject: channel === "email" ? active.subject : null,
-        body: active.body,
-        mode,
-        purpose,
-        tone,
-        messageId: active.messageId ?? undefined,
-      });
+      let result: Awaited<ReturnType<typeof composeMessage>>;
+      try {
+        result = await composeMessage({
+          prospectId,
+          channel,
+          subject: channel === "email" ? active.subject : null,
+          body: active.body,
+          mode,
+          purpose,
+          tone,
+          messageId: active.messageId ?? undefined,
+        });
+      } catch {
+        // Thrown action (network blip) — nothing was confirmed sent; keep the
+        // text so the user can simply press the button again.
+        setNotice({
+          kind: "error",
+          text: "Connection hiccup — that didn't go through. Your draft is untouched; try again.",
+        });
+        return;
+      }
       if (!result.ok) {
         setNotice({ kind: "error", text: result.error });
         return;
@@ -192,18 +214,25 @@ export function MessageStudio({
     );
     if (!name) return;
     setNotice(null);
-    const result = await saveStudioTemplate({
-      name,
-      channel,
-      purpose,
-      subject: channel === "email" ? active.subject : null,
-      body: active.body,
-    });
-    setNotice(
-      result.ok
-        ? { kind: "ok", text: "Saved to templates (Settings → Templates)." }
-        : { kind: "error", text: result.error }
-    );
+    try {
+      const result = await saveStudioTemplate({
+        name,
+        channel,
+        purpose,
+        subject: channel === "email" ? active.subject : null,
+        body: active.body,
+      });
+      setNotice(
+        result.ok
+          ? { kind: "ok", text: "Saved to templates (Settings → Templates)." }
+          : { kind: "error", text: result.error }
+      );
+    } catch {
+      setNotice({
+        kind: "error",
+        text: "Connection hiccup — the template didn't save. Try again.",
+      });
+    }
   }
 
   const anyBusy = busy !== null || pending;
