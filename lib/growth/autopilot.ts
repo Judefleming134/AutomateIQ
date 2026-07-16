@@ -355,6 +355,29 @@ export async function sendAutopilotEmail(params: {
     return { ok: false, company: prospect?.company ?? "unknown", error: "No email address on file." };
   }
 
+  // A cold touch or chase must never fire at someone who has moved past it:
+  // a reply can land AFTER the 07:00 queueing but BEFORE the 8am send, and
+  // sending the queued chase then reads as ignoring what they just wrote.
+  // Re-check the LIVE status at send time; only cold purposes are held —
+  // deliberate sends (replies, meeting confirmations) pass through.
+  const COLD_PURPOSES = [null, "first", "follow_up", "second_follow_up"];
+  const PRE_REPLY_STATUSES = [
+    "new", "researching", "research_failed", "research_complete",
+    "outreach_ready", "contacted", "follow_up_sent",
+  ];
+  if (
+    COLD_PURPOSES.includes(message.purpose as string | null) &&
+    !PRE_REPLY_STATUSES.includes(prospect.status)
+  ) {
+    // Back to draft so tomorrow's run doesn't retry it forever.
+    await admin.from("ge_messages").update({ status: "draft" }).eq("id", message.id);
+    return {
+      ok: false,
+      company: prospect.company,
+      error: `held, not sent (they're now '${prospect.status}' — the queued cold touch was cancelled)`,
+    };
+  }
+
   // Hard gate: the full editorial review runs on every unattended send —
   // identity, length, subject quality, links. A held draft stays a draft
   // (never sent, never marked failed); regenerating in the Studio produces
