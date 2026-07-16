@@ -74,10 +74,21 @@ export async function GET(request: NextRequest) {
     .order("id", { ascending: true })
     .limit(400);
 
+  // Follow-ups must never starve behind a deep research queue: in full-auto
+  // mode the fresh queue can stay hundreds deep for weeks, and with both
+  // slots always going to fresh research, due chases would never get drafted
+  // — and so never send. If any chase is due, reserve one slot for it.
+  const { count: dueFollowUps } = await admin
+    .from("ge_prospects")
+    .select("id", { count: "exact", head: true })
+    .lte("next_follow_up_at", dublinDate())
+    .in("status", ["contacted", "follow_up_sent"]);
+  const freshCap = (dueFollowUps ?? 0) > 0 ? 1 : 2;
+
   const fresh = (candidates ?? [])
     .filter((p) => !researchedIds.has(p.id))
     .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)))
-    .slice(0, 2);
+    .slice(0, freshCap);
 
   let done = 0;
   const notes: string[] = [];
