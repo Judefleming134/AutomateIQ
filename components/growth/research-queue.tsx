@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { researchOne } from "@/app/growth/(app)/prospects/actions";
@@ -72,10 +72,15 @@ export function ResearchQueue({
   // total for the progress UI so the denominator can't fall below `done`
   // (which would show e.g. "40/10" and a >100% bar near the list's end).
   const [batchTotal, setBatchTotal] = useState(0);
+  // A ref, not state: workers read it mid-loop, and state would be stale
+  // inside their closures. Set by the Stop button; workers exit cleanly
+  // after the company they're on (nothing half-written).
+  const stopRequested = useRef(false);
 
   async function start(itemsOverride?: QueueItem[]) {
     // Default run = the next fresh batch; a retry run passes the failed list.
     const items = itemsOverride ?? batch;
+    stopRequested.current = false;
     setRunning(true);
     setFinished(false);
     setFailures([]);
@@ -107,6 +112,7 @@ export function ResearchQueue({
       await sleep(stagger);
       for (;;) {
         if (stopped) return;
+        if (stopRequested.current) return; // user pressed Stop — take no new work
         if (throttled && workerIndex > 0) return; // collapse to serial
         const i = nextIndex++;
         if (i >= items.length) return;
@@ -194,6 +200,11 @@ export function ResearchQueue({
     setRunning(false);
     setFinished(true);
     if (stopped) setStopReason(stopped);
+    else if (stopRequested.current) {
+      setStopReason(
+        "stopped by you — everything already researched is saved, and the rest of the batch stays queued for the next click."
+      );
+    }
     router.refresh();
   }
 
@@ -283,6 +294,16 @@ export function ResearchQueue({
             )}{" "}
             min left
           </span>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ marginLeft: 10 }}
+            onClick={() => {
+              stopRequested.current = true;
+            }}
+          >
+            Stop after these finish
+          </button>
           <div
             style={{
               marginTop: 8,
