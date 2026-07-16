@@ -12,6 +12,7 @@ import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
+import { selectAllRows } from "@/lib/growth/db";
 import type { ResearchReport } from "@/lib/growth/research";
 
 // Two researches (~20-40s each on Gemini) must fit one invocation.
@@ -59,11 +60,13 @@ export async function GET(request: NextRequest) {
 
   // Fresh leads only: never researched, not parked, not closed. Website
   // holders first — the engine reads the site, so they research best.
-  const { data: researched } = await admin
-    .from("ge_research")
-    .select("prospect_id")
-    .order("prospect_id");
-  const researchedIds = new Set((researched ?? []).map((r) => r.prospect_id));
+  // selectAllRows: an unranged select caps at 1,000 rows, and once research
+  // rows pass that the worker would re-offer (and re-research) leads that
+  // are already done — burning quota nightly and overwriting drafts.
+  const researched = await selectAllRows<{ prospect_id: string }>(() =>
+    admin.from("ge_research").select("prospect_id").order("prospect_id")
+  );
+  const researchedIds = new Set(researched.map((r) => r.prospect_id));
 
   const { data: candidates } = await admin
     .from("ge_prospects")

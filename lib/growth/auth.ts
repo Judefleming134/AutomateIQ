@@ -51,10 +51,15 @@ export async function requireGrowth(): Promise<{
 
   // Invited-by-email member logging in for the first time: link the row.
   if (!member && user.email) {
+    // Escape LIKE wildcards: ilike is used only for case-insensitivity, but
+    // % and _ are legal in email local parts — an unescaped pattern could
+    // match (and claim) a DIFFERENT pending invite row than the literal
+    // address. Backslash-escaping keeps the match exact.
+    const emailPattern = user.email.replace(/([%_\\])/g, "\\$1");
     const { data: byEmail } = await admin
       .from("ge_team_members")
       .select("id, auth_user_id, email, name, role, status")
-      .ilike("email", user.email)
+      .ilike("email", emailPattern)
       .is("auth_user_id", null)
       .maybeSingle();
     if (byEmail) {
