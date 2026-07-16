@@ -17,6 +17,7 @@ export function ActionForm({
   children,
   className,
   style,
+  confirmText,
 }: {
   action: (
     prevState: ActionResult,
@@ -25,11 +26,22 @@ export function ActionForm({
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
+  /** When set, the browser asks this question before submitting — a guard
+   *  for destructive one-click actions (deletes). Optional and additive:
+   *  forms without it behave exactly as before. */
+  confirmText?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
   return (
-    <form action={formAction} className={className} style={style}>
+    <form
+      action={formAction}
+      className={className}
+      style={style}
+      onSubmit={(e) => {
+        if (confirmText && !window.confirm(confirmText)) e.preventDefault();
+      }}
+    >
       {children}
       {state?.error && <p className="login-error">{state.error}</p>}
       {state?.ok && !pending && (
