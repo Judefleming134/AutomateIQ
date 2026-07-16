@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AtSign } from "lucide-react";
 import { harvestOne } from "@/app/growth/(app)/prospects/actions";
@@ -27,20 +27,27 @@ export function ContactHarvest({
   const [total, setTotal] = useState(0);
   const [current, setCurrent] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
+  // A ref, not state: the running loop reads it between sites, and a state
+  // value would be stale inside the loop's closure.
+  const stopRequested = useRef(false);
 
   if (pending.length === 0 && !summary) return null;
 
   async function start() {
     const items = pending; // freeze the list for this run
+    stopRequested.current = false;
     setRunning(true);
     setSummary(null);
     setDone(0);
     setTotal(items.length);
     let enriched = 0;
+    let checked = 0;
     for (let i = 0; i < items.length; i++) {
+      if (stopRequested.current) break; // finish cleanly after the current site
       const p = items[i];
       setCurrent(p.company);
       const res = await harvestOne(p.id).catch(() => null);
+      checked = i + 1;
       if (res && res.ok && !/nothing new|unreachable/.test(res.found)) enriched++;
       setDone(i + 1);
       await sleep(300);
@@ -48,7 +55,7 @@ export function ContactHarvest({
     setCurrent(null);
     setRunning(false);
     setSummary(
-      `✓ Checked ${items.length} website${items.length === 1 ? "" : "s"} — found new contact details for ${enriched}.`
+      `${stopRequested.current ? "Stopped — checked" : "✓ Checked"} ${checked} website${checked === 1 ? "" : "s"} — found new contact details for ${enriched}.`
     );
     router.refresh();
   }
@@ -79,10 +86,21 @@ export function ContactHarvest({
       )}
       {running && (
         <div>
-          <strong>
-            Checking {done}/{total}
-            {current ? ` — ${current}…` : "…"}
-          </strong>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <strong style={{ flex: "1 1 200px" }}>
+              Checking {done}/{total}
+              {current ? ` — ${current}…` : "…"}
+            </strong>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={() => {
+                stopRequested.current = true;
+              }}
+            >
+              Stop after this one
+            </button>
+          </div>
           <div
             style={{
               marginTop: 8,
