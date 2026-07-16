@@ -231,9 +231,14 @@ export async function sendAssistantMessage(
       /HTTP 40[13]/.test(message) ||
       (message.startsWith("HTTP 400") && /invalid_request_error/i.test(message));
     const geminiKey = process.env.GEMINI_API_KEY;
-    if (provider.kind === "anthropic" && accountDead && geminiKey) {
+    // Only fail over if NO tool has run yet. Account-level failures normally
+    // fail the very first call (nothing executed), so this is the common path.
+    // But if Claude already executed a side-effecting tool (e.g. sent a review
+    // request) and a LATER round then failed, re-running the whole conversation
+    // on Gemini could fire that same tool AGAIN — a real double-send to the
+    // customer. In that case surface an error instead of silently re-executing.
+    if (provider.kind === "anthropic" && accountDead && geminiKey && actions.length === 0) {
       console.error("Assistant: Anthropic account-level failure — failing over to Gemini.");
-      actions.length = 0; // discard any partial actions from the failed attempt
       try {
         reply = await runGemini(geminiKey, system, turns, tools, ctx, actions);
       } catch (err2) {
