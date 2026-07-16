@@ -141,6 +141,11 @@ export async function GET(request: NextRequest) {
         .from("ge_prospects")
         .select("id, company, contact_name, job_title, industry, website, location, notes, campaign_id")
         .lte("next_follow_up_at", today)
+        // Same 7-day freshness window as the auto-queue: don't spend AI calls
+        // drafting chases for leads that have gone cold, and only for leads
+        // that can actually be emailed.
+        .gte("next_follow_up_at", dublinDate(-7))
+        .not("email", "is", null)
         .in("status", ["contacted", "follow_up_sent"])
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(20);
