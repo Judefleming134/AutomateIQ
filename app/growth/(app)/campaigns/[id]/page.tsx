@@ -213,7 +213,11 @@ export default async function CampaignDetailPage({
           </div>
         </ActionForm>
         {member.role === "owner" && (
-          <ActionForm action={deleteCampaign} style={{ marginTop: 14 }}>
+          <ActionForm
+            action={deleteCampaign}
+            style={{ marginTop: 14 }}
+            confirmText={`Delete the campaign "${campaign.name}"? Its prospects are kept, but the campaign and its grouping are gone for good.`}
+          >
             <input type="hidden" name="id" value={campaign.id} />
             <SubmitButton className="btn btn-danger btn-sm" pendingText="Deleting…">
               Delete campaign (prospects are kept)

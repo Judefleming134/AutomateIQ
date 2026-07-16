@@ -1128,7 +1128,10 @@ export default async function ProspectWorkspacePage({
             {member.role === "owner" && (
               <section className="panel panel-block" style={{ marginTop: 16 }}>
                 <h2 className="panel-title">Danger zone</h2>
-                <ActionForm action={deleteProspect}>
+                <ActionForm
+                  action={deleteProspect}
+                  confirmText={`Delete ${prospect.company} and their whole history (messages, research, timeline)? This can't be undone.`}
+                >
                   <input type="hidden" name="id" value={prospect.id} />
                   <SubmitButton className="btn btn-danger btn-sm" pendingText="Deleting…">
                     Delete prospect
