@@ -102,11 +102,18 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       const { friendly, accountDead, dailyQuota } = mapResearchError(err);
+      // Account-level failure (daily quota spent, credits dead) is not the
+      // LEAD's fault — park nothing, touch nothing, stop the run. Otherwise,
+      // on a quota-exhausted night, every 10-minute run would park one more
+      // innocent lead into the Research-failed group, draining the fresh
+      // queue into the failed pile by morning. The next scheduled run
+      // re-probes cheaply; once the quota resets, everything just continues.
+      if (accountDead || dailyQuota) {
+        notes.push(`stopped: ${friendly.slice(0, 80)}`);
+        break;
+      }
       await parkResearchFailure(admin, prospect, friendly, null);
       notes.push(`${prospect.company}: ${friendly.slice(0, 80)}`);
-      // Account-level failure fails EVERY call identically — stop now,
-      // don't burn the second slot. The next scheduled run re-probes.
-      if (accountDead || dailyQuota) break;
     }
   }
 
