@@ -9,10 +9,12 @@ name: Morning brief (fire the 8am dispatch)
 
 on:
   schedule:
-    # 07:00 UTC = 08:00 Irish in summer (IST). In winter (GMT) it lands at
-    # 07:00 Irish — same behaviour as the existing Vercel cron. Adjust to
-    # "0 8 * * *" over winter if you want a fixed 8am wall-clock.
-    - cron: "0 7 * * *"
+    # Target: brief in Jude's inbox ~09:00 Irish. 07:45 UTC = 08:45 Irish in
+    # summer (07:45 in winter). The :45 offset matters — GitHub delays
+    # on-the-hour scheduled runs by minutes-to-HOURS at peak (the old
+    # "0 7" slot was landing the brief at 1pm), while off-peak minutes fire
+    # near-promptly. GitHub's own few-minute lag lands this right on ~9am.
+    - cron: "45 7 * * *"
   workflow_dispatch: {} # lets you fire it manually from the Actions tab too
 
 # Never let two scheduled runs overlap.
