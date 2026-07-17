@@ -1,32 +1,63 @@
 name: Morning brief (fire the 8am dispatch)
 
-# Why this exists: Vercel Hobby cron jobs only run *within an hour* of the
-# scheduled time and can skip a day, which made the 8am morning brief
-# unreliable. This GitHub Action hits the same /api/cron/dispatch endpoint on
-# a schedule (much tighter timing, free), so the brief + autopilot fire
-# dependably. The endpoint is idempotent for outreach (queued emails are
-# marked sent, so a second run sends nothing extra).
+# The ONLY scheduler for the morning dispatch (queue top-up + send + brief).
+# The Vercel cron was removed: it needs a CRON_SECRET env var INSIDE Vercel to
+# authenticate, and the evidence (briefs only ever arriving when this action's
+# delayed schedule fired at ~noon) says it was 401-ing silently. One scheduler,
+# one source of truth.
+#
+# GitHub delays scheduled runs on this repo by minutes-to-HOURS, so instead of
+# one shot we fire SEVERAL through the morning. A guard step makes whichever
+# shot runs first do the real dispatch and every later shot no-op — the
+# dispatch must run exactly once per day (auto-queue tops the queue back up,
+# so an unguarded second run would send a whole second batch).
+#
+# Manual runs (workflow_dispatch) count toward the guard, so firing it by hand
+# also stops that day's later scheduled shots from double-sending.
 
 on:
   schedule:
-    # Target: brief in Jude's inbox ~09:00 Irish. 07:45 UTC = 08:45 Irish in
-    # summer (07:45 in winter). The :45 offset matters — GitHub delays
-    # on-the-hour scheduled runs by minutes-to-HOURS at peak (the old
-    # "0 7" slot was landing the brief at 1pm), while off-peak minutes fire
-    # near-promptly. GitHub's own few-minute lag lands this right on ~9am.
+    # Multiple morning shots, off-peak minutes (UTC). Whichever GitHub honours
+    # first wins; the rest no-op via the guard. 07:45 UTC = 08:45 Irish summer.
     - cron: "45 7 * * *"
-  workflow_dispatch: {} # lets you fire it manually from the Actions tab too
+    - cron: "20 8 * * *"
+    - cron: "55 8 * * *"
+    - cron: "40 9 * * *"
+  workflow_dispatch: {} # manual fire from the Actions tab (counts in the guard)
 
-# Never let two scheduled runs overlap.
+# Never let two runs overlap.
 concurrency:
   group: morning-brief
   cancel-in-progress: false
+
+permissions:
+  actions: read
 
 jobs:
   fire:
     runs-on: ubuntu-latest
     steps:
+      - name: Skip if today's dispatch already ran
+        id: guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          # Any successful run of THIS workflow that started today (scheduled
+          # or manual), other than the current run, means the dispatch is done.
+          COUNT=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/morning-brief.yml/runs?status=success&created=%3E%3D${TODAY}T00:00:00Z&per_page=20" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})] | length")
+          echo "successful runs already today: ${COUNT}"
+          if [ "${COUNT}" -gt 0 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Dispatch already ran today — no-op."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Hit /api/cron/dispatch
+        if: steps.guard.outputs.skip == 'false'
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
