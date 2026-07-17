@@ -215,6 +215,52 @@ async function fetchOnce(
   return text.length >= 60 ? { text: text.slice(0, 9000), found } : null;
 }
 
+/**
+ * SSRF guard: website URLs arrive from bulk-imported CSVs (scraper output),
+ * so the server must refuse to fetch anything that isn't a public website —
+ * loopback/link-local/private addresses, cloud metadata endpoints, bare
+ * hostnames and non-standard ports could otherwise probe infrastructure
+ * from inside the deployment ~100×/night.
+ */
+function isPublicWebHost(u: URL): boolean {
+  const host = u.hostname.toLowerCase();
+  // Only default web ports.
+  if (u.port && !["80", "443"].includes(u.port)) return false;
+  // Named hosts must be real public FQDNs: no localhost, no single-label
+  // intranet names, no .local/.internal style suffixes.
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".lan")
+  ) {
+    return false;
+  }
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (ipv4) {
+    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
+    // Loopback, RFC1918 private, link-local/metadata (169.254.x — includes
+    // 169.254.169.254), carrier-NAT, 0.x and multicast/reserved.
+    if (
+      a === 127 || a === 10 || a === 0 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254) ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      a >= 224
+    ) {
+      return false;
+    }
+    return true; // other literal IPs: unusual for an SME site but harmless
+  }
+  // IPv6 literals ([::1] etc.) — no legitimate SME website is imported this
+  // way; refuse them all rather than parse scopes.
+  if (host.includes(":")) return false;
+  // Must look like a domain with a real TLD.
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host);
+}
+
 export async function fetchWebsiteText(
   rawUrl: string
 ): Promise<{ text: string; found: FoundContacts } | null> {
@@ -227,6 +273,7 @@ export async function fetchWebsiteText(
     return null;
   }
   if (!["http:", "https:"].includes(parsed.protocol)) return null;
+  if (!isPublicWebHost(parsed)) return null;
 
   // Try the URL as given, then the www/non-www variant, then http — a slow
   // or picky host that fails one shape often serves another. First success
