@@ -1,3 +1,4 @@
+import { escapeLike } from "@/lib/growth/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notifyGrowthTeam } from "@/lib/growth/email";
 
@@ -38,7 +39,7 @@ export async function syncStrategyBookingsCore(
     const { data: prospect } = await admin
       .from("ge_prospects")
       .select("id, company, status")
-      .ilike("email", b.email)
+      .ilike("email", escapeLike(b.email))
       .maybeSingle();
     if (!prospect) continue;
 

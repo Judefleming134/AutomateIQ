@@ -1,5 +1,6 @@
 "use server";
 
+import { escapeLike } from "@/lib/growth/db";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
@@ -80,7 +81,7 @@ export async function importContacts(): Promise<
       const { data } = await supabase
         .from("crm_contacts")
         .select("id")
-        .ilike("email", item.email)
+        .ilike("email", escapeLike(item.email))
         .maybeSingle();
       contactId = data?.id ?? null;
     }

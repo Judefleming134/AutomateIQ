@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
+import { escapeLike } from "@/lib/growth/db";
 import { dublinDate } from "@/lib/growth/dates";
 import { cleanSocialUrl, fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
 import {
@@ -123,7 +124,7 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
     const { data: existing } = await admin
       .from("ge_prospects")
       .select("id")
-      .ilike("email", parsed.data.email)
+      .ilike("email", escapeLike(parsed.data.email))
       .maybeSingle();
     if (existing) return { error: "A prospect with this email already exists." };
   }
@@ -636,7 +637,7 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
     const { data: existing } = await admin
       .from("ge_prospects")
       .select("id")
-      .ilike("email", emailRaw)
+      .ilike("email", escapeLike(emailRaw))
       .maybeSingle();
     if (existing) redirect(`/growth/prospects/${existing.id}`);
   }
