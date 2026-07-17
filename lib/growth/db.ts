@@ -54,3 +54,14 @@ export async function selectAllRows<T>(
   }
   return rows;
 }
+
+/**
+ * Escapes LIKE/ILIKE wildcards in a value that should match LITERALLY —
+ * ilike is used across the codebase purely for case-insensitivity, but
+ * % and _ are wildcards, and _ is common in real email addresses. An
+ * unescaped `.ilike("email", addr)` can match (or scrub) a DIFFERENT
+ * row than the literal address.
+ */
+export function escapeLike(value: string): string {
+  return value.replace(/([%_\\])/g, "\\$1");
+}
