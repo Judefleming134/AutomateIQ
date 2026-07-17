@@ -98,6 +98,10 @@ async function callAnthropic(
     outputConfig.format = { type: "json_schema", schema: opts.schema };
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
+    // Bounded: an unbounded hang burns a whole serverless invocation (and
+    // can kill a cron tick mid-persist). 55s sits under every caller's
+    // maxDuration=60 while leaving generous room for a real generation.
+    signal: AbortSignal.timeout(55_000),
     headers: {
       "x-api-key": apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
@@ -139,6 +143,9 @@ async function callGemini(
 ): Promise<string> {
   const res = await fetch(geminiGenerateUrl(), {
     method: "POST",
+    // Same 55s bound as the Anthropic call — a hung request must never
+    // outlive the serverless budget of the caller.
+    signal: AbortSignal.timeout(55_000),
     headers: {
       "x-goog-api-key": apiKey,
       "content-type": "application/json",
