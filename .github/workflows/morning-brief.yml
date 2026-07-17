@@ -45,9 +45,17 @@ jobs:
           TODAY=$(date -u +%Y-%m-%d)
           # Any successful run of THIS workflow that started today (scheduled
           # or manual), other than the current run, means the dispatch is done.
+          #
+          # FAIL-OPEN: if this API check errors for any reason, COUNT falls
+          # back to 0 and the dispatch RUNS. A guard failure must never cause
+          # a silent no-send morning (worst case of failing open is a
+          # duplicate brief; worst case of failing closed is no emails and no
+          # brief all day — which is the outage this guard exists to prevent).
           COUNT=$(gh api \
-            "repos/${{ github.repository }}/actions/workflows/morning-brief.yml/runs?status=success&created=%3E%3D${TODAY}T00:00:00Z&per_page=20" \
-            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }})] | length")
+            "repos/${{ github.repository }}/actions/workflows/morning-brief.yml/runs?status=success&created=%3E%3D${TODAY}&per_page=20" \
+            --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }}) | select(.run_started_at >= \"${TODAY}\")] | length" \
+            2>/dev/null || echo 0)
+          case "$COUNT" in ''|*[!0-9]*) COUNT=0;; esac
           echo "successful runs already today: ${COUNT}"
           if [ "${COUNT}" -gt 0 ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
