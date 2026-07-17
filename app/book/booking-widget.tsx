@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Calendar, Clock, ArrowRight, Loader2 } from "lucide-react";
 import type { BookingDay } from "@/lib/booking/slots";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
 export function BookingWidget({ days }: { days: BookingDay[] }) {
+  const router = useRouter();
   const [activeDate, setActiveDate] = useState<string>(days[0]?.date ?? "");
   const [slot, setSlot] = useState<{ iso: string; label: string; dayLabel: string } | null>(null);
   const [status, setStatus] = useState<Status>("idle");
@@ -63,8 +65,16 @@ export function BookingWidget({ days }: { days: BookingDay[] }) {
       if (!res.ok) {
         setStatus("error");
         setError(data.error ?? "Something went wrong. Please try again.");
-        // A taken/expired slot means the calendar is stale — nudge a refresh.
-        if (res.status === 409) setSlot(null);
+        // A taken/expired slot means the calendar is stale: clear the pick
+        // AND re-render the server component so the taken slot actually
+        // disappears from the grid — otherwise the visitor can re-tap the
+        // same dead slot into a 409 loop. The page is force-dynamic, so
+        // refresh() rebuilds availability live; their typed details are
+        // client state and survive untouched.
+        if (res.status === 409) {
+          setSlot(null);
+          router.refresh();
+        }
         return;
       }
       setStatus("success");
