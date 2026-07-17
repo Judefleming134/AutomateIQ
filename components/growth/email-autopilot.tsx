@@ -98,7 +98,7 @@ export function EmailAutopilot({
           <p style={{ fontSize: 13, color: "var(--faint)", margin: 0 }}>
             <Clock size={13} style={{ verticalAlign: "-2px" }} /> {queuedCount}{" "}
             email{queuedCount === 1 ? "" : "s"} queued — they go out
-            automatically on the 8am run.
+            automatically on the morning run (~9am).
           </p>
           <button
             type="button"
@@ -194,7 +194,7 @@ export function EmailAutopilot({
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 10px" }}>
             {candidates.length} researched prospect
             {candidates.length === 1 ? " has" : "s have"} a first-touch email
-            ready to add to the run. Queue them and they move onto the 8am run;
+            ready to add to the run. Queue them and they move onto the morning run (~9am);
             research more leads and the next ones appear here automatically.
             Untick any to hold back, expand a row to read the email, then fire.
           </p>
@@ -293,7 +293,7 @@ export function EmailAutopilot({
               className="btn btn-secondary"
               disabled={pending || ticked === 0}
             >
-              <Clock size={14} /> Queue {ticked} for the 8am run
+              <Clock size={14} /> Queue {ticked} for the morning run
             </button>
             {state?.error && (
               <span style={{ fontSize: 12, color: "var(--red, #f87171)" }}>{state.error}</span>
