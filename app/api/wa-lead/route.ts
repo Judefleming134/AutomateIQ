@@ -61,8 +61,22 @@ export async function POST(request: NextRequest) {
   // product is enabled for this business and the contact is an email.
   // Best-effort — the lead is already stored, so nothing here may fail the
   // request.
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) {
+  const sendStlReply = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) return;
     try {
+      // Abuse guard: this public endpoint would otherwise let a bot make
+      // automateiq.ie email ANY address it types in ("thanks for your
+      // enquiry" spam to a victim = deliverability damage). One auto-reply
+      // per address per 24h, checked against the send log; the lead row
+      // itself is still stored either way.
+      const { data: recentReply } = await supabase
+        .from("stl_replies")
+        .select("id")
+        .eq("sent_to", contact)
+        .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (recentReply) return;
       const { data: stlEnabled } = await supabase
         .from("business_products")
         .select("business_id, products!inner(key)")
@@ -108,11 +122,12 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error("Speed-to-Lead reply failed:", err);
     }
-  }
+  };
 
   // Best-effort owner notification — the lead is already stored, so an
   // email failure must never fail the request.
-  if (page.contact_email) {
+  const notifyOwner = async () => {
+    if (!page.contact_email) return;
     try {
       const business = page.businesses as unknown as { name: string } | null;
       const resend = getResendClient();
@@ -138,7 +153,11 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       console.error("Lead notification email failed:", err);
     }
-  }
+  };
+
+  // Ferrari: the two emails are independent — sending them in parallel
+  // shaves ~one full email round-trip off every visitor's form submit.
+  await Promise.allSettled([sendStlReply(), notifyOwner()]);
 
   return NextResponse.json({ ok: true });
 }
