@@ -159,6 +159,42 @@ export default async function GrowthSettingsPage() {
               </p>
             </div>
             <div>
+              <strong>Reply auto-capture</strong> —{" "}
+              {process.env.INBOUND_EMAIL_SECRET ? (
+                <span className="badge badge-green">Connected</span>
+              ) : (
+                <span className="badge badge-orange">One step left</span>
+              )}
+              <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>
+                {process.env.INBOUND_EMAIL_SECRET ? (
+                  <>
+                    Prospect replies forwarded to the webhook land straight in
+                    the inbox: status flips to Replied, chases stop, and a
+                    suggested response is drafted — no manual logging.
+                  </>
+                ) : (
+                  <>
+                    The last unwired piece of full-auto: right now email
+                    replies only reach the CRM when you paste them in via
+                    &quot;Log their reply&quot;. To automate it — 1) add an{" "}
+                    <code style={{ fontSize: 12 }}>INBOUND_EMAIL_SECRET</code>{" "}
+                    env var in Vercel (any long random string) and redeploy;
+                    2) create a free Zapier/Make flow &quot;new email in
+                    inbox → webhook POST&quot; to{" "}
+                    <code style={{ fontSize: 12, wordBreak: "break-all" }}>
+                      automateiq.ie/api/webhooks/inbound-email?secret=YOUR-SECRET
+                    </code>{" "}
+                    sending JSON{" "}
+                    <code style={{ fontSize: 12 }}>
+                      {"{from, subject, text}"}
+                    </code>
+                    . Until then, keep logging replies by hand — everything
+                    else stays automatic.
+                  </>
+                )}
+              </p>
+            </div>
+            <div>
               <strong>Booking page</strong> — <span className="badge badge-green">Connected</span>
               <p style={{ color: "var(--faint)", margin: "4px 0 0" }}>
                 The public AI Strategy Session calendar handles slots,
