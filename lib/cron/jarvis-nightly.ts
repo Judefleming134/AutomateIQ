@@ -5,6 +5,7 @@ import { cleanSocialUrl, fetchWebsiteText } from "@/lib/growth/research";
 import { draftStudioMessage } from "@/lib/growth/ai";
 import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { PURPOSES, type MessagePurpose } from "@/lib/growth/constants";
 import type { ResearchReport } from "@/lib/growth/research";
 
 const ACTIVE_FILTER = '("won","lost","do_not_contact","archived")';
@@ -115,7 +116,7 @@ export async function runJarvisNightly(): Promise<{
   try {
     const { data: drafts } = await admin
       .from("ge_messages")
-      .select("id, prospect_id, body, status")
+      .select("id, prospect_id, body, status, purpose")
       .eq("channel", "email")
       .eq("direction", "outbound")
       .in("status", ["draft", "queued"])
@@ -144,10 +145,16 @@ export async function runJarvisNightly(): Promise<{
               .filter((k): k is string => Boolean(k))
           : [];
         try {
+          // Preserve what the draft IS: rewriting a broken follow-up as a
+          // "first touch" would send the prospect a second cold intro as
+          // their chase. Unknown/legacy purposes fall back to first.
+          const purpose = PURPOSES.includes(d.purpose as MessagePurpose)
+            ? (d.purpose as MessagePurpose)
+            : "first";
           const draft = await draftStudioMessage(
             prospect,
             (research?.report as ResearchReport | undefined) ?? null,
-            { channel: "email", purpose: "first", tone: "professional" },
+            { channel: "email", purpose, tone: "professional" },
             settings.bookingUrl,
             pricingLines(keys)
           );
