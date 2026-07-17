@@ -244,8 +244,23 @@ export function JarvisChat() {
         if (voiceOnRef.current) speak(res.answer);
       } else {
         setError(res.error);
-        // Put the failed question back so one tap retries it.
-        setTurns((t) => t.slice(0, -1));
+        // Put the failed question back so one tap retries it — and sync the
+        // rollback to storage explicitly: the persist effect skips empty
+        // arrays (so mount can't wipe a saved chat), which would otherwise
+        // leave the failed question as a ghost turn after a reload.
+        setTurns((t) => {
+          const next = t.slice(0, -1);
+          try {
+            if (next.length > 0) {
+              localStorage.setItem(MEMORY_KEY, JSON.stringify(next.slice(-40)));
+            } else {
+              localStorage.removeItem(MEMORY_KEY);
+            }
+          } catch {
+            /* storage blocked — in-memory state is still correct */
+          }
+          return next;
+        });
         setInput(question);
       }
       requestAnimationFrame(() =>
