@@ -419,7 +419,7 @@ export default async function GrowthDashboardPage() {
             🧊 Gone cold — follow-up overdue 7+ days ({goneColdCount})
           </h2>
           <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
-            Parked here so your due lists (and the 8am autopilot) stay timely —
+            Parked here so your due lists (and the morning autopilot) stay timely —
             these aren&apos;t chased automatically any more. Revive one with a
             fresh follow-up date on its Details tab, or a new angle from the
             Studio; or tick the dead ones in the list and bulk archive.

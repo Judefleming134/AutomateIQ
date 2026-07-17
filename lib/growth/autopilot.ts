@@ -210,7 +210,7 @@ export async function autoQueueTopDrafts(): Promise<{
     await admin.from("ge_activities").insert({
       prospect_id: c.prospectId,
       type: "system",
-      content: `Jarvis nightly: auto-queued the first-touch email for the 8am run (score ${c.leadScore})`,
+      content: `Jarvis nightly: auto-queued the first-touch email for the morning run (score ${c.leadScore})`,
       created_by: null,
     });
   }
@@ -318,7 +318,7 @@ export async function autoQueueDueFollowups(): Promise<{
     await admin.from("ge_activities").insert({
       prospect_id: p.id,
       type: "system",
-      content: `Jarvis nightly: auto-queued the follow-up email for the 8am run (chase was due ${today})`,
+      content: `Jarvis nightly: auto-queued the follow-up email for the morning run (chase was due ${today})`,
       created_by: null,
     });
   }
