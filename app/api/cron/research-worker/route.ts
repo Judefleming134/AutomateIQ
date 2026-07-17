@@ -99,9 +99,42 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)))
     .slice(0, freshCap);
 
+  // Auto-retry the Research-failed group — full-auto means nobody is around
+  // to click "Retry failed". STRICTLY bounded so a permanently-broken lead
+  // can't drain quota: only when the fresh queue is EMPTY (spare capacity),
+  // one lead per run, only after its last failure is >48h old (sites that
+  // were down come back; hard failures get natural backoff because each
+  // failed retry re-stamps the failure activity), and never beyond 3 total
+  // attempts (after that it genuinely needs a human look or an archive).
+  const retries: NonNullable<typeof candidates> = [];
+  if (fresh.length === 0) {
+    const { data: parked } = await admin
+      .from("ge_prospects")
+      .select("*")
+      .eq("status", "research_failed")
+      .order("created_at", { ascending: true })
+      .limit(12);
+    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    for (const p of parked ?? []) {
+      const { data: fails } = await admin
+        .from("ge_activities")
+        .select("created_at")
+        .eq("prospect_id", p.id)
+        .ilike("content", "Research failed:%")
+        .order("created_at", { ascending: false })
+        .limit(3);
+      const lastFail = fails?.[0]?.created_at;
+      if ((fails ?? []).length >= 3) continue; // 3 strikes — human's call now
+      if (lastFail && lastFail > cutoff) continue; // too soon — back off
+      retries.push(p);
+      break; // one retry per run
+    }
+  }
+  const toResearch = [...fresh, ...retries];
+
   let done = 0;
   const notes: string[] = [];
-  for (const prospect of fresh) {
+  for (const prospect of toResearch) {
     try {
       const result = await runCompanyResearch(prospect);
       const persisted = await persistResearchResult(
@@ -142,7 +175,7 @@ export async function GET(request: NextRequest) {
   // has arrived and who don't already have an unsent follow-up draft. Come
   // morning, every due chase greets Jude pre-written in the Studio.
   let followUpsDrafted = 0;
-  const slots = 2 - fresh.length;
+  const slots = 2 - toResearch.length;
   if (slots > 0) {
     try {
       const today = dublinDate();
