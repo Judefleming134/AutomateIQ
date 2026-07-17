@@ -1,20 +1,33 @@
 name: Overnight research worker
 
-# The self-driving pipeline: every 10 minutes through the night (21:00–06:50
-# UTC) this hits /api/cron/research-worker, which researches up to 2 fresh
-# prospects per call using the same runner as the on-page Research button —
-# report, score, contact backfill, first-touch drafts. ~110 researches a
-# night, paced to sit comfortably inside Gemini free-tier limits (and the
-# endpoint stops itself instantly on account-level AI failures, so a dead
-# key never burns the night). Import leads, sleep, wake to a researched
-# pipeline; the morning brief lists what it did.
+# The self-driving pipeline. Each TICK hits /api/cron/research-worker, which
+# researches up to 2 fresh prospects (or drafts due follow-ups) using the same
+# runner as the on-page Research button.
+#
+# WHY A LOOP, NOT A 10-MINUTE SCHEDULE: GitHub delays this repo's scheduled
+# runs by hours — the old "*/10 21-06" schedule fired exactly TWICE on the
+# night of 16 Jul (59 expected ticks → 2), which meant 4 researched leads and
+# an 8am run with only 4 emails. Schedules here are only STARTERS now: once
+# any of them fires (even hours late), the job itself loops — tick, sleep
+# ~9 min, tick — until 07:35 UTC, immune to scheduler delays. Public repo =
+# runner minutes are free.
+#
+# The 6h job cap can't cover a 10.5h night, so two starters chain: the late
+# starter queues behind the running job (concurrency group) and picks up when
+# it ends. A daytime manual dispatch runs a 1-hour boost loop instead — a
+# safe way to top up research by hand.
+#
+# The endpoint still stops itself instantly on account-level AI failures
+# (daily quota / dead key), so a capped night just means quiet ticks.
 
 on:
   schedule:
-    - cron: "*/10 21-23 * * *"
-    - cron: "*/10 0-6 * * *"
-  workflow_dispatch: {} # manual kick from the Actions tab
+    - cron: "5 21 * * *" # night starter (21:05 UTC; may fire late — fine)
+    - cron: "35 1 * * *" # second-half starter, queues behind the first
+    - cron: "20 4 * * *" # late catch-up if GitHub skipped both
+  workflow_dispatch: {} # manual: runs a 1-hour boost loop
 
+# One loop at a time; late starters queue rather than overlap.
 concurrency:
   group: research-worker
   cancel-in-progress: false
@@ -22,8 +35,9 @@ concurrency:
 jobs:
   research:
     runs-on: ubuntu-latest
+    timeout-minutes: 350 # just under GitHub's 6h job cap
     steps:
-      - name: Hit /api/cron/research-worker
+      - name: Tick loop (every ~9 min until 07:35 UTC)
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
@@ -31,7 +45,32 @@ jobs:
             echo "::error::CRON_SECRET repo secret is not set — add it in Settings → Secrets and variables → Actions."
             exit 1
           fi
-          curl -fsS --retry 2 --retry-delay 15 --max-time 90 \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
-            "https://automateiq.ie/api/cron/research-worker"
-          echo "Research worker fired."
+          NOW=$(date -u +%s)
+          H=$(date -u +%H)
+          # End of the loop: overnight runs go until 07:35 UTC; a daytime
+          # manual kick runs for one hour.
+          if [ "$H" -ge 21 ]; then
+            END=$(date -u -d "tomorrow 07:35" +%s)
+          elif [ "$H" -lt 8 ]; then
+            END=$(date -u -d "today 07:35" +%s)
+          else
+            END=$(( NOW + 3600 ))
+          fi
+          # Hard safety: never outlive the runner cap; a queued starter
+          # (or tomorrow's) continues where this run stopped.
+          CAP=$(( NOW + 20400 )) # 5h40m
+          [ "$END" -gt "$CAP" ] && END=$CAP
+          echo "Looping until $(date -u -d "@$END" '+%H:%M UTC')"
+          TICK=0
+          while [ "$(date -u +%s)" -lt "$END" ]; do
+            TICK=$(( TICK + 1 ))
+            echo "— tick ${TICK} at $(date -u '+%H:%M:%S UTC')"
+            curl -fsS --retry 2 --retry-delay 15 --max-time 120 \
+              -H "Authorization: Bearer ${CRON_SECRET}" \
+              "https://automateiq.ie/api/cron/research-worker" \
+              || echo "tick ${TICK} failed — continuing (next tick retries)"
+            # Stop sleeping if the window is about to close.
+            [ "$(( $(date -u +%s) + 540 ))" -ge "$END" ] && break
+            sleep 540
+          done
+          echo "Loop finished after ${TICK} ticks."
