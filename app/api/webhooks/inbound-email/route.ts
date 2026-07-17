@@ -68,12 +68,16 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  // Escape LIKE wildcards (ilike is only for case-insensitivity): _ is a
+  // single-char wildcard and common in emails — unescaped, a reply from
+  // john_smith@ could attach to the john.smith@ prospect instead.
+  const senderPattern = senderEmail.replace(/([%_\\])/g, "\\$1");
   const { data: prospect } = await admin
     .from("ge_prospects")
     .select(
       "id, campaign_id, status, company, contact_name, job_title, industry, website, location, notes"
     )
-    .ilike("email", senderEmail)
+    .ilike("email", senderPattern)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();

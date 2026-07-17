@@ -80,10 +80,15 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  // Escape LIKE wildcards: ilike is only for case-insensitivity, but _ is a
+  // single-char wildcard AND common in email addresses — unescaped, a bounce
+  // for john_smith@ would also match (and below, SCRUB the email off)
+  // john.smith@, silently dropping a different valid lead out of auto-email.
+  const toPattern = to.replace(/([%_\\])/g, "\\$1");
   const { data: prospect } = await admin
     .from("ge_prospects")
     .select("id, company, email, notes, status")
-    .ilike("email", to)
+    .ilike("email", toPattern)
     .limit(1)
     .maybeSingle();
   // Not a growth-engine recipient (booking emails etc.) — acknowledge and move on.
@@ -122,7 +127,7 @@ export async function POST(request: NextRequest) {
     // across duplicate rows, and any leftover copy would let the autopilot
     // re-fire at a known-bad address and rack up more bounces (reputation
     // damage). One update covers all matches.
-    await admin.from("ge_prospects").update({ email: null }).ilike("email", to);
+    await admin.from("ge_prospects").update({ email: null }).ilike("email", toPattern);
     // A BOUNCE means the email never reached them — so the CRM must NOT keep
     // claiming it did. Roll the status set by that send back to a truthful
     // state: a bounced follow-up → back to Contacted (an earlier touch may
