@@ -134,6 +134,36 @@ export async function GET(request: NextRequest) {
 
   let done = 0;
   const notes: string[] = [];
+
+  // Self-heal zombie leads: a serverless timeout mid-persist can leave a
+  // lead WITH a research row but status still new/researching — invisible
+  // to the autopilot (which only offers research_complete/outreach_ready)
+  // despite having drafts ready. Cheap idempotent sweep every tick; the
+  // conditional update means an actually-in-flight research can't be
+  // clobbered (its own persist sets the status moments later anyway).
+  const { data: maybeZombies } = await admin
+    .from("ge_prospects")
+    .select("id, company, status")
+    .in("status", ["new", "researching"])
+    .limit(50);
+  for (const z of (maybeZombies ?? []).filter((p) => researchedIds.has(p.id))) {
+    const { error } = await admin
+      .from("ge_prospects")
+      .update({ status: "research_complete" })
+      .eq("id", z.id)
+      .in("status", ["new", "researching"]);
+    if (!error) {
+      notes.push(`${z.company}: healed — research existed but the status was stuck`);
+      await admin.from("ge_activities").insert({
+        prospect_id: z.id,
+        type: "system",
+        content:
+          "Jarvis nightly: healed a stuck lead — research was done but the status never advanced (likely an interrupted run); now visible to the autopilot",
+        created_by: null,
+      });
+    }
+  }
+
   for (const prospect of toResearch) {
     try {
       const result = await runCompanyResearch(prospect);
