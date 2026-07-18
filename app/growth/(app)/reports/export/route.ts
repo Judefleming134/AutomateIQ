@@ -1,7 +1,7 @@
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
-import { selectAllRows } from "@/lib/growth/db";
+import { escapeLike, selectAllRows } from "@/lib/growth/db";
 import { toCsv } from "@/lib/growth/csv";
 
 /**
@@ -51,12 +51,15 @@ export async function GET(request: Request) {
           // Unique tiebreak keeps paged reads exact when rows share a timestamp.
           .order("id", { ascending: true });
         if (q) {
+          // Same LIKE-wildcard escaping as the page, so the CSV matches the
+          // list on screen even when the search contains _ or %.
+          const like = escapeLike(q);
           query = query.or(
-            `company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%,job_title.ilike.%${q}%`
+            `company.ilike.%${like}%,contact_name.ilike.%${like}%,email.ilike.%${like}%,job_title.ilike.%${like}%`
           );
         }
         if (status) query = query.eq("status", status);
-        if (industry) query = query.ilike("industry", industry);
+        if (industry) query = query.ilike("industry", escapeLike(industry));
         if (campaign) query = query.eq("campaign_id", campaign);
         if (phoneOnly) query = query.not("phone", "is", null);
         return query;

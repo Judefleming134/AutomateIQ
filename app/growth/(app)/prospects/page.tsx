@@ -16,7 +16,7 @@ import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
 import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
-import { selectAllRows } from "@/lib/growth/db";
+import { escapeLike, selectAllRows } from "@/lib/growth/db";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -74,12 +74,15 @@ export default async function ProspectsPage({
     .order("id", { ascending: true })
     .range(from, from + PAGE_SIZE - 1);
   if (q) {
+    // Escape LIKE wildcards so "john_smith@…" matches literally instead of
+    // treating _ / % as wildcards (underscores are common in emails).
+    const like = escapeLike(q);
     query = query.or(
-      `company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%,job_title.ilike.%${q}%`
+      `company.ilike.%${like}%,contact_name.ilike.%${like}%,email.ilike.%${like}%,job_title.ilike.%${like}%`
     );
   }
   if (status) query = query.eq("status", status);
-  if (industry) query = query.ilike("industry", industry);
+  if (industry) query = query.ilike("industry", escapeLike(industry));
   if (campaign) query = query.eq("campaign_id", campaign);
   if (phoneOnly) query = query.not("phone", "is", null);
 
