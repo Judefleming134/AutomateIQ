@@ -83,6 +83,24 @@ function fmt(ts: string | null | undefined, fromBooking = false): string {
   });
 }
 
+/**
+ * Same labelled timestamp as the inbox thread: "did this actually send?" must
+ * be unmistakable — a SENT message shows its real send time, a draft shows
+ * when it was written. The bare time alone silently mixed the two.
+ */
+function stampLabel(m: {
+  direction: string;
+  status: string;
+  sent_at: string | null;
+  created_at: string;
+}): string {
+  if (m.direction === "inbound") return `Received ${fmt(m.created_at)}`;
+  if (m.status === "sent") return `Sent ${fmt(m.sent_at ?? m.created_at)}`;
+  if (m.status === "queued") return `Queued ${fmt(m.created_at)}`;
+  if (m.status === "failed") return `Failed ${fmt(m.created_at)}`;
+  return `Drafted ${fmt(m.created_at)}`;
+}
+
 /** Renders a stored social URL as a click-through link (opens the profile in
  *  a new tab), so DMing a prospect doesn't need copy-paste. Falls back to —. */
 function SocialLink({ url }: { url: string | null | undefined }) {
@@ -769,7 +787,7 @@ export default async function ProspectWorkspacePage({
                               {SENTIMENT_META[entry.m.sentiment as Sentiment].label}
                             </span>
                           )}
-                          <span>{fmt(entry.m.sent_at ?? entry.m.created_at)}</span>
+                          <span>{stampLabel(entry.m)}</span>
                         </div>
                         {entry.m.subject && <div style={{ fontWeight: 600, marginTop: 6 }}>{entry.m.subject}</div>}
                         <p style={{ whiteSpace: "pre-wrap", margin: "6px 0 0", fontSize: 14 }}>{entry.m.body}</p>
