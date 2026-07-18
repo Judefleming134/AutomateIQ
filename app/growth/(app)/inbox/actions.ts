@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail, sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
+import { COLD_PURPOSES, PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
 import { pricingLines } from "@/lib/growth/pricing";
@@ -240,6 +241,18 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
 
   const prospect = await loadProspect(message.prospect_id);
   if (!prospect?.email) return { error: "This prospect has no email address on file." };
+
+  // Same reply-race gate as the 8am autopilot: if they replied (or booked,
+  // opted out…) AFTER this cold touch was queued, sending it now reads as
+  // ignoring what they wrote. Deliberate sends (replies, confirmations) pass.
+  if (
+    COLD_PURPOSES.includes(message.purpose as string | null) &&
+    !PRE_REPLY_STATUSES.includes(prospect.status)
+  ) {
+    return {
+      error: `Held — ${prospect.company} is now '${prospect.status}', so this queued cold touch looks stale. Check the conversation first; reply from there instead.`,
+    };
+  }
 
   // Same hard broken-draft guard the 8am autopilot runs: a leftover
   // [placeholder], an invented sender name or a made-up job title must never
