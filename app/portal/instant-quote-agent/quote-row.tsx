@@ -36,10 +36,18 @@ export function QuoteRow({ quote }: { quote: Quote }) {
     if (sending) return;
     setSending(true);
     setError(null);
-    const res = await sendQuote(quote.id, email.trim() || undefined);
-    setSending(false);
-    if (res.ok) router.refresh();
-    else setError(res.error);
+    // try/finally: a network blip must never leave the button stuck on
+    // "Sending…" — the send is idempotency-keyed server-side, so retrying
+    // after a hiccup can't double-send.
+    try {
+      const res = await sendQuote(quote.id, email.trim() || undefined);
+      if (res.ok) router.refresh();
+      else setError(res.error);
+    } catch {
+      setError("Connection hiccup — check the history before retrying.");
+    } finally {
+      setSending(false);
+    }
   }
 
   const decided = quote.status === "accepted" || quote.status === "declined";
