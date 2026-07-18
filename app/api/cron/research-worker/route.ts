@@ -94,9 +94,17 @@ export async function GET(request: NextRequest) {
     .in("status", ["contacted", "follow_up_sent"]);
   const freshCap = (dueFollowUps ?? 0) > 0 ? 1 : 2;
 
+  // Ferrari ordering: the 9am run can only SEND prospects that have an
+  // email, so research those first or overnight slots produce drafts that
+  // can't go out while sendable leads sit waiting. Within that, website
+  // holders first (the engine reads the site, so they research best):
+  //   email+website → email only → website only (feeds the DM list) → rest.
+  // Array.sort is stable, so created_at-desc order holds within each group.
+  const researchRank = (p: { email: string | null; website: string | null }) =>
+    p.email && p.website ? 0 : p.email ? 1 : p.website ? 2 : 3;
   const fresh = (candidates ?? [])
     .filter((p) => !researchedIds.has(p.id))
-    .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)))
+    .sort((a, b) => researchRank(a) - researchRank(b))
     .slice(0, freshCap);
 
   // Auto-retry the Research-failed group — full-auto means nobody is around
