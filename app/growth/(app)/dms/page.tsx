@@ -104,8 +104,13 @@ export default async function DmListPage() {
       const link = rawUrl ? cleanSocialUrl(rawUrl) : null;
       const draft = draftByKey.get(`${p.id}:${channel}`);
       if (!link || !draft) continue;
-      const broken = draftLooksBroken(sanitizeOutreachBody(draft.body));
-      const item: WorkItem = { prospect: p, channel, link, messageId: draft.id, body: draft.body, broken };
+      // Show and COPY the sanitized text: the scrubber quietly fixes what it
+      // can (e.g. "[Your Name]" → "Jude"), and that fixed version is what the
+      // broken-check approves — copying the raw body would paste the
+      // unfixed placeholder straight into a DM.
+      const body = sanitizeOutreachBody(draft.body);
+      const broken = draftLooksBroken(body);
+      const item: WorkItem = { prospect: p, channel, link, messageId: draft.id, body, broken };
       if (!broken) { clean = item; break; }
       if (!flagged) flagged = item;
     }
