@@ -87,6 +87,9 @@ async function sendInstagramReply(
       `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(pageToken)}`,
       {
         method: "POST",
+        // Bounded: a stalled Graph call would hold the webhook open past
+        // Meta's patience and trigger redelivery retries (duplicate DMs).
+        signal: AbortSignal.timeout(10_000),
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           recipient: { id: recipientIgUserId },
