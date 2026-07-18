@@ -129,8 +129,8 @@ export async function sendJarvisMorningBrief(): Promise<{
     const [
       metrics,
       week,
-      { data: due },
-      { data: ready },
+      { data: due, count: dueCount },
+      { data: ready, count: readyCount },
       { data: overnightReplies },
       { data: meetingsToday },
     ] = await Promise.all([
@@ -138,7 +138,9 @@ export async function sendJarvisMorningBrief(): Promise<{
       loadGrowthMetrics(admin, 7),
       admin
         .from("ge_prospects")
-        .select("company, contact_name, status, lead_score, next_follow_up_at, phone")
+        // count: the TRUE total, not the 15-row display cap — the brief was
+        // reporting "15 due" whenever the real number was higher.
+        .select("company, contact_name, status, lead_score, next_follow_up_at, phone", { count: "exact" })
         .lte("next_follow_up_at", today)
         // Same 7-day window as the autopilot: chases older than a week are
         // "gone cold" and live in their own dashboard section, so the brief's
@@ -149,7 +151,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         .limit(15),
       admin
         .from("ge_prospects")
-        .select("company, contact_name, industry, lead_score, phone, email")
+        .select("company, contact_name, industry, lead_score, phone, email", { count: "exact" })
         .in("status", ["research_complete", "outreach_ready"])
         .order("lead_score", { ascending: false })
         .limit(10),
@@ -311,6 +313,18 @@ export async function sendJarvisMorningBrief(): Promise<{
       (p) =>
         `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.industry || "?"}, score ${p.lead_score ?? 0} — drafts ready${p.phone ? `, ${p.phone}` : ""}`
     );
+    // True totals vs the display caps (15 due / 10 ready shown): the header
+    // and subject must report the REAL number, with a "…and N more" tail.
+    const dueTotal = dueCount ?? dueLines.length;
+    const readyTotal = readyCount ?? readyLines.length;
+    const dueMore =
+      dueTotal > dueLines.length
+        ? `\n• …and ${dueTotal - dueLines.length} more — full list on the dashboard.`
+        : "";
+    const readyMore =
+      readyTotal > readyLines.length
+        ? `\n• …and ${readyTotal - readyLines.length} more researched and waiting.`
+        : "";
     const replyLines = (overnightReplies ?? []).map(
       (m) =>
         `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
@@ -350,8 +364,8 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
             `Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
             `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
-            `Follow-ups due (${dueLines.length}):\n${dueLines.join("\n") || "none"}`,
-            `Ready to send (${readyLines.length}):\n${readyLines.join("\n") || "none"}`,
+            `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
+            `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
             `Meetings today (${meetingLines.length}):\n${meetingLines.join("\n") || "none"}`,
           ].join("\n\n"),
           700,
@@ -434,11 +448,13 @@ export async function sendJarvisMorningBrief(): Promise<{
         nightlyBlock,
         section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + replyDraftNote,
         section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
-        section(`FOLLOW-UPS DUE (${dueLines.length})`, dueLines, "Nothing due — pipeline is current.") +
+        section(`FOLLOW-UPS DUE (${dueTotal})`, dueLines, "Nothing due — pipeline is current.") +
+          dueMore +
           ((goneColdCount ?? 0) > 0
             ? `\n🧊 ${goneColdCount} gone cold (7+ days overdue) — parked on the dashboard's Gone-cold section, no longer auto-chased.`
             : ""),
-        section(`READY TO SEND (${readyLines.length})`, readyLines, "Nothing researched and waiting — import or research leads."),
+        section(`READY TO SEND (${readyTotal})`, readyLines, "Nothing researched and waiting — import or research leads.") +
+          readyMore,
         [
           "THE NUMBERS",
           `• Pipeline value: €${metrics.pipelineValue.toLocaleString("en-IE")}`,
@@ -449,7 +465,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       ]
         .filter(Boolean)
         .join("\n\n");
-      subject = `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueLines.length} due, ${readyLines.length} ready to send`;
+      subject = `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueTotal} due, ${readyTotal} ready to send`;
     }
 
     const { sent, detail } = await deliverBrief(subject, bodyText);
