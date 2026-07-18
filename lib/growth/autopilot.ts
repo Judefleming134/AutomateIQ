@@ -18,6 +18,21 @@ import { dublinDate } from "@/lib/growth/dates";
  * send (recordOutreachSent), so tracking stays complete.
  */
 
+/**
+ * The send-time reply-race gate, shared with the inbox's manual Send button:
+ * a message with one of these purposes is a COLD touch/chase, and it only
+ * makes sense while the prospect is still in a PRE-reply status. Once they've
+ * replied (or booked, won, opted out…), a queued cold touch is stale and must
+ * be held, not sent — deliberate sends (replies, confirmations) pass through.
+ */
+export const COLD_PURPOSES: (string | null)[] = [
+  null, "first", "follow_up", "second_follow_up",
+];
+export const PRE_REPLY_STATUSES = [
+  "new", "researching", "research_failed", "research_complete",
+  "outreach_ready", "contacted", "follow_up_sent",
+];
+
 export type AutopilotCandidate = {
   messageId: string;
   prospectId: string;
@@ -364,11 +379,6 @@ export async function sendAutopilotEmail(params: {
   // sending the queued chase then reads as ignoring what they just wrote.
   // Re-check the LIVE status at send time; only cold purposes are held —
   // deliberate sends (replies, meeting confirmations) pass through.
-  const COLD_PURPOSES = [null, "first", "follow_up", "second_follow_up"];
-  const PRE_REPLY_STATUSES = [
-    "new", "researching", "research_failed", "research_complete",
-    "outreach_ready", "contacted", "follow_up_sent",
-  ];
   if (
     COLD_PURPOSES.includes(message.purpose as string | null) &&
     !PRE_REPLY_STATUSES.includes(prospect.status)
