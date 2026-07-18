@@ -85,7 +85,7 @@ export default async function GrowthDashboardPage() {
 
   const [
     metrics,
-    { data: readyToSend },
+    { data: readyToSend, count: readyStatusCount },
     { data: dueToday },
     { data: overdue },
     { data: hot },
@@ -99,7 +99,9 @@ export default async function GrowthDashboardPage() {
     loadGrowthMetrics(admin, 30),
     admin
       .from("ge_prospects")
-      .select("id, company, contact_name, industry, lead_score, status")
+      // count: the TRUE ready total — the list caps at 50, and once the
+      // overnight engine researches in bulk the heading must not undercount.
+      .select("id, company, contact_name, industry, lead_score, status", { count: "exact" })
       .in("status", ["research_complete", "outreach_ready"])
       .order("lead_score", { ascending: false })
       .limit(50),
@@ -211,6 +213,24 @@ export default async function GrowthDashboardPage() {
   const readyList = (readyToSend ?? []).filter(
     (p) => !queuedProspectIds.has(p.id)
   );
+  // True "ready" total = every ready-status prospect minus those already
+  // queued for the autopilot (they're handled). The fetched rows only cover
+  // the top 50, so subtract the queued∩ready overlap counted server-side.
+  let readyTotal = readyList.length;
+  if ((readyStatusCount ?? 0) > (readyToSend ?? []).length) {
+    const queuedIds = [...queuedProspectIds];
+    const { count: queuedReadyCount } = queuedIds.length
+      ? await admin
+          .from("ge_prospects")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["research_complete", "outreach_ready"])
+          .in("id", queuedIds)
+      : { count: 0 };
+    readyTotal = Math.max(
+      readyList.length,
+      (readyStatusCount ?? 0) - (queuedReadyCount ?? 0)
+    );
+  }
 
   return (
     <>
@@ -325,7 +345,7 @@ export default async function GrowthDashboardPage() {
         >
           <h2 className="panel-title" id="rts-title">
             <Send size={15} style={{ verticalAlign: "-2px" }} /> Ready to send —
-            researched, drafts waiting ({readyList.length})
+            researched, drafts waiting ({readyTotal})
           </h2>
           <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
             Highest score first. Open → skim the report → copy the draft →
@@ -357,10 +377,10 @@ export default async function GrowthDashboardPage() {
               </tbody>
             </table>
           </div>
-          {readyList.length > 12 && (
+          {readyTotal > 12 && (
             <p style={{ fontSize: 12, marginTop: 8 }}>
               <Link href="/growth/prospects?status=research_complete&sort=score">
-                See all {readyList.length} →
+                See all {readyTotal} →
               </Link>
             </p>
           )}
