@@ -30,14 +30,21 @@ export function ContentGenerator() {
     setError(null);
     setResult(null);
 
-    const res = await generateContent(contentType, topic.trim(), notes.trim());
-    setPending(false);
-    if (res.ok) {
-      setResult(res.content);
-      // Refresh the server-rendered library below.
-      router.refresh();
-    } else {
-      setError(res.error);
+    // try/finally: a network blip mid-generation must never leave the button
+    // stuck on the pending label — pending always clears.
+    try {
+      const res = await generateContent(contentType, topic.trim(), notes.trim());
+      if (res.ok) {
+        setResult(res.content);
+        // Refresh the server-rendered library below.
+        router.refresh();
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("Connection hiccup — nothing was lost. Try again.");
+    } finally {
+      setPending(false);
     }
   }
 

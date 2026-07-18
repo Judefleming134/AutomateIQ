@@ -32,22 +32,29 @@ export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
     setSendState("idle");
     setSendError(null);
 
-    const res = await createQuote(
-      customerName.trim(),
-      jobDescription.trim(),
-      customerEmail.trim() || undefined
-    );
-    setPending(false);
-    if (res.ok) {
-      setResult({
-        quoteId: res.quoteId,
-        lines: res.lines,
-        total: res.total,
-        notes: res.notes,
-      });
-      router.refresh();
-    } else {
-      setError(res.error);
+    // try/finally: a network blip mid-call must never leave the button stuck
+    // on "Building the quote…" — pending always clears.
+    try {
+      const res = await createQuote(
+        customerName.trim(),
+        jobDescription.trim(),
+        customerEmail.trim() || undefined
+      );
+      if (res.ok) {
+        setResult({
+          quoteId: res.quoteId,
+          lines: res.lines,
+          total: res.total,
+          notes: res.notes,
+        });
+        router.refresh();
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("Connection hiccup — nothing was lost. Try again.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -55,13 +62,20 @@ export function QuoteGenerator({ hasPriceGuide }: { hasPriceGuide: boolean }) {
     if (!result?.quoteId || sendState === "sending") return;
     setSendState("sending");
     setSendError(null);
-    const res = await sendQuote(result.quoteId, customerEmail.trim() || undefined);
-    if (res.ok) {
-      setSendState("sent");
-      router.refresh();
-    } else {
+    // Same guard: the send is idempotency-keyed server-side, so a retry
+    // after a dropped connection can't double-send the quote.
+    try {
+      const res = await sendQuote(result.quoteId, customerEmail.trim() || undefined);
+      if (res.ok) {
+        setSendState("sent");
+        router.refresh();
+      } else {
+        setSendState("idle");
+        setSendError(res.error);
+      }
+    } catch {
       setSendState("idle");
-      setSendError(res.error);
+      setSendError("Connection hiccup — check the quote list before retrying.");
     }
   }
 

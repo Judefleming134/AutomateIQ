@@ -20,16 +20,23 @@ export function CampaignBuilder() {
     setPending(true);
     setMsg(null);
     setError(null);
-    const res = await buildCampaign(name.trim(), goal.trim(), theme.trim());
-    setPending(false);
-    if (res.ok) {
-      setMsg(`✓ Generated and scheduled ${res.created} pieces across the next week.`);
-      setName("");
-      setGoal("");
-      setTheme("");
-      router.refresh();
-    } else {
-      setError(res.error);
+    // try/finally: a network blip mid-call must never leave the button
+    // stuck on "Building…" — pending always clears.
+    try {
+      const res = await buildCampaign(name.trim(), goal.trim(), theme.trim());
+      if (res.ok) {
+        setMsg(`✓ Generated and scheduled ${res.created} pieces across the next week.`);
+        setName("");
+        setGoal("");
+        setTheme("");
+        router.refresh();
+      } else {
+        setError(res.error);
+      }
+    } catch {
+      setError("Connection hiccup — nothing was lost. Try again.");
+    } finally {
+      setPending(false);
     }
   }
 
@@ -81,7 +88,9 @@ export function ScheduleControl({ id, scheduledFor }: { id: string; scheduledFor
       onChange={(e) => {
         const date = e.target.value;
         start(async () => {
-          await scheduleContent(id, date);
+          // Swallow a network hiccup: the transition still ends, the page
+          // refresh shows the true stored state either way.
+          await scheduleContent(id, date).catch(() => {});
           router.refresh();
         });
       }}
@@ -101,7 +110,7 @@ export function PublishButton({ id }: { id: string }) {
       onClick={(e) => {
         e.stopPropagation();
         start(async () => {
-          await markPublished(id);
+          await markPublished(id).catch(() => {});
           router.refresh();
         });
       }}
