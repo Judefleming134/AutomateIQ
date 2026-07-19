@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Rocket, Clock, RefreshCw, Send } from "lucide-react";
 import {
@@ -66,9 +66,20 @@ export function EmailAutopilot({
     (c) => !c.queued && !c.broken && c.staleKind !== "research"
   ).length;
   // Live count of ticked boxes so the buttons say exactly what they'll do
-  // ("Queue 20 for the 8am run"). Re-syncs when the list refreshes.
+  // ("Queue 20 for the 8am run"). After a refresh, recount from the REAL
+  // form DOM: React preserves checkbox state for rows whose key survives a
+  // router.refresh(), so a count derived from the default-tick rule drifts
+  // after any manual untick — the buttons would promise "Queue 20" while
+  // the form actually held 17.
+  const formRef = useRef<HTMLFormElement>(null);
   const [ticked, setTicked] = useState(defaultTicked);
-  useEffect(() => setTicked(defaultTicked), [defaultTicked, candidates.length]);
+  useEffect(() => {
+    if (formRef.current) {
+      setTicked(new FormData(formRef.current).getAll("message_id").length);
+    } else {
+      setTicked(defaultTicked);
+    }
+  }, [defaultTicked, candidates]);
 
   if (candidates.length === 0 && queuedCount === 0) return null;
 
@@ -170,6 +181,7 @@ export function EmailAutopilot({
 
       {candidates.length > 0 && (
         <form
+          ref={formRef}
           action={formAction}
           onSubmit={(e) => {
             const n = new FormData(e.currentTarget).getAll("message_id").length;
