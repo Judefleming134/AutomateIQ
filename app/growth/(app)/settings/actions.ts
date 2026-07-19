@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { qualificationFromScore } from "@/lib/growth/scoring";
+import { selectAllRows } from "@/lib/growth/db";
 import { CHANNELS } from "@/lib/growth/constants";
 
 type Result = { ok?: boolean; error?: string } | undefined;
@@ -41,18 +42,40 @@ export async function saveGrowthSettings(_prev: Result, formData: FormData): Pro
 
   // Re-derive every prospect's qualification status under the new rules so
   // the pipeline never shows stale verdicts (manual disqualifications stick).
-  const { data: prospects } = await admin
-    .from("ge_prospects")
-    .select("id, lead_score, qualification_status")
-    .neq("qualification_status", "disqualified");
+  // Page past the 1,000-row PostgREST cap: with imports up to the ~5k soft
+  // cap, a plain select would silently re-score only the first 1,000 and
+  // leave the rest showing the OLD verdict against the NEW thresholds.
+  const prospects = await selectAllRows<{
+    id: string;
+    lead_score: number;
+    qualification_status: string;
+  }>(() =>
+    admin
+      .from("ge_prospects")
+      .select("id, lead_score, qualification_status")
+      .neq("qualification_status", "disqualified")
+      .order("id", { ascending: true })
+  );
   const thresholds = { qualifyThreshold, reviewThreshold };
-  for (const p of prospects ?? []) {
+  // Group the rows that actually change by their new status, then issue ONE
+  // update per status (three at most) instead of a round-trip per prospect —
+  // at 5k rows that's the difference between 3 queries and thousands.
+  const toUpdate = new Map<string, string[]>();
+  for (const p of prospects) {
     const next = qualificationFromScore(p.lead_score, thresholds);
     if (next !== p.qualification_status) {
+      const ids = toUpdate.get(next) ?? [];
+      ids.push(p.id);
+      toUpdate.set(next, ids);
+    }
+  }
+  for (const [status, ids] of toUpdate) {
+    // Chunk the id list so a very large IN(...) never overruns URL limits.
+    for (let i = 0; i < ids.length; i += 500) {
       await admin
         .from("ge_prospects")
-        .update({ qualification_status: next })
-        .eq("id", p.id);
+        .update({ qualification_status: status })
+        .in("id", ids.slice(i, i + 500));
     }
   }
 
