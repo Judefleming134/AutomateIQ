@@ -160,6 +160,14 @@ export function JarvisChat() {
   const [canListen, setCanListen] = useState(false);
   const recRef = useRef<SpeechRec | null>(null);
 
+  // Pin the transcript to its latest line. Runs on the next frame so the
+  // just-appended turn (or restored history) has painted before we scroll.
+  function scrollToBottom(behavior: ScrollBehavior = "smooth") {
+    requestAnimationFrame(() =>
+      scrollRef.current?.scrollTo({ top: 99999, behavior })
+    );
+  }
+
   // Memory: restore this browser's Jarvis conversation on mount so it
   // survives a refresh/navigation. Being able to scroll back to a past
   // answer means Jude doesn't re-ask the same question — which is what
@@ -169,7 +177,11 @@ export function JarvisChat() {
       const saved = localStorage.getItem(MEMORY_KEY);
       if (saved) {
         const parsed = JSON.parse(saved) as JarvisTurn[];
-        if (Array.isArray(parsed) && parsed.length > 0) setTurns(parsed.slice(-40));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTurns(parsed.slice(-40));
+          // Open on the most recent answer, not scrolled up to the top.
+          scrollToBottom("auto");
+        }
       }
     } catch {
       /* corrupt/blocked storage — start fresh */
@@ -234,6 +246,10 @@ export function JarvisChat() {
     setInput("");
     const history = turns;
     setTurns((t) => [...t, { role: "user", text: question }]);
+    // Reveal the new question and the "checking the live numbers…" indicator
+    // straight away — on a long chat they'd otherwise sit below the fold
+    // until the answer lands.
+    scrollToBottom();
     startTransition(async () => {
       const res = await askJarvis(history, question).catch(() => ({
         ok: false as const,
