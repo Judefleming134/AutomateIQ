@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -34,13 +35,16 @@ export default async function CampaignsPage() {
 
   // Per-campaign "what needs doing": researched-and-ready-to-contact vs
   // still-to-research — so at a glance Jude sees which niche to work next.
-  const READY = new Set(["research_complete", "outreach_ready"]);
+  // ready/approved are tracked SEPARATELY because each is a click-through to
+  // a single-status filter — the number shown must equal the rows the click
+  // lands on, or the page looks broken ("12 ready" → 9 rows).
   const TO_RESEARCH = new Set(["new", "researching"]);
-  const todo = new Map<string, { ready: number; toResearch: number }>();
+  const todo = new Map<string, { ready: number; approved: number; toResearch: number }>();
   for (const p of statusRows) {
     if (!p.campaign_id) continue;
-    const t = todo.get(p.campaign_id) ?? { ready: 0, toResearch: 0 };
-    if (READY.has(p.status)) t.ready += 1;
+    const t = todo.get(p.campaign_id) ?? { ready: 0, approved: 0, toResearch: 0 };
+    if (p.status === "research_complete") t.ready += 1;
+    else if (p.status === "outreach_ready") t.approved += 1;
     else if (TO_RESEARCH.has(p.status)) t.toResearch += 1;
     todo.set(p.campaign_id, t);
   }
@@ -140,25 +144,44 @@ export default async function CampaignsPage() {
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                       {(() => {
                         const t = todo.get(c.id);
-                        if (!t || (t.ready === 0 && t.toResearch === 0)) return "—";
-                        return (
-                          <>
-                            {t.ready > 0 && (
-                              <Link
-                                href={`/growth/prospects?campaign=${c.id}&status=research_complete`}
-                                style={{ color: "var(--green, #34d399)" }}
-                              >
-                                {t.ready} ready
-                              </Link>
-                            )}
-                            {t.ready > 0 && t.toResearch > 0 ? " · " : ""}
-                            {t.toResearch > 0 && (
-                              <span style={{ color: "var(--faint)" }}>
-                                {t.toResearch} to research
-                              </span>
-                            )}
-                          </>
-                        );
+                        if (!t || (t.ready === 0 && t.approved === 0 && t.toResearch === 0))
+                          return "—";
+                        const parts: React.ReactNode[] = [];
+                        if (t.ready > 0) {
+                          parts.push(
+                            <Link
+                              key="r"
+                              href={`/growth/prospects?campaign=${c.id}&status=research_complete`}
+                              style={{ color: "var(--green, #34d399)" }}
+                            >
+                              {t.ready} ready
+                            </Link>
+                          );
+                        }
+                        if (t.approved > 0) {
+                          parts.push(
+                            <Link
+                              key="a"
+                              href={`/growth/prospects?campaign=${c.id}&status=outreach_ready`}
+                              style={{ color: "var(--green, #34d399)" }}
+                            >
+                              {t.approved} approved
+                            </Link>
+                          );
+                        }
+                        if (t.toResearch > 0) {
+                          parts.push(
+                            <span key="t" style={{ color: "var(--faint)" }}>
+                              {t.toResearch} to research
+                            </span>
+                          );
+                        }
+                        return parts.map((el, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 ? " · " : ""}
+                            {el}
+                          </React.Fragment>
+                        ));
                       })()}
                     </td>
                     <td>{perf?.prospects ?? 0}</td>
