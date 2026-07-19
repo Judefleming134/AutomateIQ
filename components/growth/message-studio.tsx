@@ -297,7 +297,13 @@ export function MessageStudio({
           <select
             id="ms-purpose"
             value={purpose}
-            onChange={(e) => setPurpose(e.target.value as MessagePurpose)}
+            onChange={(e) => {
+              // Clear the status line too (same as switching channel): a
+              // "Draft saved"/"Email sent ✓" from the previous message type
+              // must not linger over a different, often-empty draft.
+              setPurpose(e.target.value as MessagePurpose);
+              setNotice(null);
+            }}
             style={{ width: "100%" }}
           >
             {PURPOSES.map((p) => (
