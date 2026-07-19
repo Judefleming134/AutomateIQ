@@ -38,6 +38,7 @@ export async function GET(
   body { font-family: Georgia, 'Times New Roman', serif; color: #1a1d24; max-width: 720px; margin: 0 auto; padding: 0 28px 48px; line-height: 1.65; font-size: 15px; }
   .masthead { background: #0b0f17; margin: 0 -28px 26px; padding: 18px 28px; border-bottom: 3px solid #3B82F6; display: flex; align-items: center; }
   .masthead img { height: 28px; width: auto; }
+  .masthead .wordmark { display: none; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 800; font-size: 20px; letter-spacing: -0.01em; }
   h1 { font-size: 26px; margin: 8px 0 2px; }
   .meta { color: #6b7280; font-size: 13px; margin-bottom: 32px; }
   h2 { font-size: 18px; margin-top: 28px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
@@ -46,7 +47,7 @@ export async function GET(
 </style>
 </head>
 <body>
-  <div class="masthead"><img src="https://automateiq.ie/logo-aiq.png" alt="AutomateIQ"/></div>
+  <div class="masthead"><img src="https://automateiq.ie/logo-aiq.png" alt="AutomateIQ" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"/><span class="wordmark">AutomateIQ</span></div>
   <h1>${escapeHtml(proposal.title)}</h1>
   <div class="meta">${[
     company ? `Prepared for ${escapeHtml(company)}` : "",
