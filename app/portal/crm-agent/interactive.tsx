@@ -45,11 +45,26 @@ export function ImportButton() {
 export function StageSelect({ contactId, stage }: { contactId: string; stage: string }) {
   const [value, setValue] = useState(stage);
   const [pending, start] = useTransition();
+  const [failed, setFailed] = useState(false);
 
   function change(next: string) {
+    // Optimistic, but honest: if the save doesn't land, roll the dropdown back
+    // to what's actually stored and flag it — never leave it showing a stage
+    // (e.g. "won") that silently didn't persist.
+    const prev = value;
     setValue(next);
+    setFailed(false);
     start(async () => {
-      await updateStage(contactId, next);
+      try {
+        const res = await updateStage(contactId, next);
+        if (!res?.ok) {
+          setValue(prev);
+          setFailed(true);
+        }
+      } catch {
+        setValue(prev);
+        setFailed(true);
+      }
     });
   }
 
@@ -58,6 +73,8 @@ export function StageSelect({ contactId, stage }: { contactId: string; stage: st
       className={`stage-select stage-${value}`}
       value={value}
       disabled={pending}
+      title={failed ? "Couldn't save that change — please try again." : undefined}
+      style={failed ? { outline: "2px solid var(--orange, #fb923c)" } : undefined}
       onChange={(e) => change(e.target.value)}
       onClick={(e) => e.stopPropagation()}
     >
@@ -79,9 +96,17 @@ export function TaskCheckbox({ taskId, done }: { taskId: string; done: boolean }
       checked={checked}
       onChange={(e) => {
         const next = e.target.checked;
+        const prev = checked;
         setChecked(next);
         start(async () => {
-          await toggleTask(taskId, next);
+          // Roll the tick back if the save didn't land, so a task never looks
+          // done (or undone) when the database says otherwise.
+          try {
+            const res = await toggleTask(taskId, next);
+            if (!res?.ok) setChecked(prev);
+          } catch {
+            setChecked(prev);
+          }
         });
       }}
       style={{ width: 16, height: 16, flex: "none", cursor: "pointer" }}

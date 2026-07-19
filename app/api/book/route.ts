@@ -73,16 +73,19 @@ export async function POST(request: NextRequest) {
   }
 
   // Emails are best-effort — the booking is already stored, so a mail failure
-  // must not fail the request or lose the booking.
-  try {
-    await sendBookingConfirmation(booking);
-  } catch (err) {
-    console.error("Booking confirmation email failed:", err);
+  // must not fail the request or lose the booking. Fire both in parallel:
+  // they're independent (visitor confirmation vs owner alert), and the owner
+  // alert does its own admin-email lookup first, so running them concurrently
+  // trims the visitor's wait from the sum of both to the slower of the two.
+  const [confirmation, ownerNotify] = await Promise.allSettled([
+    sendBookingConfirmation(booking),
+    sendOwnerNotification(booking),
+  ]);
+  if (confirmation.status === "rejected") {
+    console.error("Booking confirmation email failed:", confirmation.reason);
   }
-  try {
-    await sendOwnerNotification(booking);
-  } catch (err) {
-    console.error("Owner notification failed:", err);
+  if (ownerNotify.status === "rejected") {
+    console.error("Owner notification failed:", ownerNotify.reason);
   }
 
   return NextResponse.json({ ok: true });
