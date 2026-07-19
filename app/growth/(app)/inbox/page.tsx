@@ -178,6 +178,7 @@ export default async function InboxPage({
             {queue.map((m) => {
               const p = prospects.get(m.prospect_id);
               const statusMeta = MESSAGE_STATUS_META[m.status as MessageStatus];
+              const body = String(m.body ?? "");
               return (
                 <div key={m.id} className="panel panel-block">
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", fontSize: 13 }}>
@@ -198,9 +199,11 @@ export default async function InboxPage({
                   {/* Full bodies made the queue a wall of text at 20+ items —
                       a one-line preview scans; the full message is one tap.
                       FAILED messages stay fully expanded: they need reading
-                      before a retry decision. */}
-                  {m.status === "failed" ? (
-                    <p style={{ whiteSpace: "pre-wrap", fontSize: 14, margin: "6px 0 10px" }}>{m.body}</p>
+                      before a retry decision. A short draft shows in full too:
+                      collapsing it behind a "…" that reveals identical text is
+                      just a pointless extra tap. */}
+                  {m.status === "failed" || body.length <= 130 ? (
+                    <p style={{ whiteSpace: "pre-wrap", fontSize: 14, margin: "6px 0 10px" }}>{body}</p>
                   ) : (
                     <details style={{ margin: "6px 0 10px" }}>
                       <summary
@@ -214,9 +217,9 @@ export default async function InboxPage({
                           maxWidth: "72ch",
                         }}
                       >
-                        {String(m.body ?? "").slice(0, 110)}…
+                        {body.slice(0, 110)}…
                       </summary>
-                      <p style={{ whiteSpace: "pre-wrap", fontSize: 14, margin: "8px 0 0" }}>{m.body}</p>
+                      <p style={{ whiteSpace: "pre-wrap", fontSize: 14, margin: "8px 0 0" }}>{body}</p>
                     </details>
                   )}
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
