@@ -66,6 +66,11 @@ export function ResearchQueue({
   const [finished, setFinished] = useState(false);
   const [pauseNote, setPauseNote] = useState<string | null>(null);
   const [stopReason, setStopReason] = useState<string | null>(null);
+  // Mirrors the loop-local `throttled` flag into render state ONLY so the
+  // "min left" estimate can reflect that the queue collapsed to serial after
+  // a rate-limit — otherwise the ETA reads ~half the real remaining time
+  // during exactly the batch a user is anxiously watching.
+  const [throttledUi, setThrottledUi] = useState(false);
   // Frozen at run start: `batch` recomputes from live `pending` on every
   // router.refresh(), so it shrinks as prospects get researched — but the
   // running loop targets the batch captured at click-time. Use this fixed
@@ -87,6 +92,7 @@ export function ResearchQueue({
     setDone(0);
     setStopReason(null);
     setPauseNote(null);
+    setThrottledUi(false);
     setBatchTotal(items.length);
 
     const failed: string[] = [];
@@ -138,7 +144,10 @@ export function ResearchQueue({
             break;
           }
           const isThrottle = /rate limit|overloaded|429|quota/i.test(msg);
-          if (isThrottle) throttled = true;
+          if (isThrottle) {
+            throttled = true;
+            setThrottledUi(true);
+          }
           // A 4xx is a rejected request — retrying the identical request
           // can never succeed. Fail immediately, move on.
           if (!isThrottle && /\(HTTP 4\d\d/.test(msg)) break;
@@ -173,6 +182,7 @@ export function ResearchQueue({
         if (result.ok) {
           // Success clears the throttle flag so speed recovers.
           throttled = false;
+          setThrottledUi(false);
           successCount++;
           failStreak = 0;
         }
@@ -290,9 +300,15 @@ export function ResearchQueue({
             ≈{" "}
             {Math.max(
               1,
-              Math.ceil(((batchTotal - done) * SECONDS_PER_COMPANY) / 60 / CONCURRENCY)
+              Math.ceil(
+                ((batchTotal - done) * SECONDS_PER_COMPANY) /
+                  60 /
+                  // Rate-limited runs go one-at-a-time, so the estimate must
+                  // stop assuming two lanes or it reads ~half the real time.
+                  (throttledUi ? 1 : CONCURRENCY)
+              )
             )}{" "}
-            min left
+            min left{throttledUi ? " (rate-limited — going slower)" : ""}
           </span>
           <button
             type="button"
