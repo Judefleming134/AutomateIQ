@@ -163,13 +163,19 @@ export default async function MeetingsPage() {
           {past.length > 0 && (
             <>
               <h2 className="section-title" style={{ marginTop: 24 }}>
-                Past &amp; closed
+                Past &amp; closed ({past.length})
               </h2>
               <div style={{ display: "grid", gap: 12 }}>
                 {past.slice(0, 30).map((m) => (
                   <MeetingRow key={m.id} m={m} />
                 ))}
               </div>
+              {past.length > 30 && (
+                <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 10 }}>
+                  Showing the 30 most recent of {past.length}. Nothing is lost —
+                  older meetings stay on each prospect&apos;s page.
+                </p>
+              )}
             </>
           )}
         </div>
