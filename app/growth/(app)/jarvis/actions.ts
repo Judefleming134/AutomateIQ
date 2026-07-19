@@ -16,8 +16,11 @@ import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { dublinDate } from "@/lib/growth/dates";
 import {
   PROSPECT_STATUS_META,
+  PURPOSES,
+  type MessagePurpose,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { escapeLike } from "@/lib/growth/db";
 
 export type JarvisTurn = { role: "user" | "jarvis"; text: string };
 
@@ -55,7 +58,7 @@ async function latestEmailDraft(
 ) {
   const { data } = await admin
     .from("ge_messages")
-    .select("id, status, body")
+    .select("id, status, body, purpose")
     .eq("prospect_id", prospectId)
     .eq("channel", "email")
     .eq("direction", "outbound")
@@ -77,7 +80,9 @@ async function runJarvisAction(
   memberId: string,
   a: JarvisAction
 ): Promise<string> {
-  const companyQuery = a.company.trim().replace(/[%_]/g, "");
+  // Escape LIKE wildcards rather than stripping them: a company literally
+  // named "Smith_Bros" must still match (stripping made it unfindable).
+  const companyQuery = escapeLike(a.company.trim());
   if (!companyQuery) return `✗ ${a.type}: no company given`;
   const { data: prospect } = await admin
     .from("ge_prospects")
@@ -91,10 +96,16 @@ async function runJarvisAction(
     case "regenerate_email": {
       const draft = await latestEmailDraft(admin, prospect.id);
       if (!draft) return `✗ ${prospect.company}: no email draft to rewrite`;
+      // Preserve what the draft IS: rewriting a follow-up chase as a cold
+      // first-touch ("came across your company…") to someone already
+      // contacted would read as having forgotten the whole thread.
+      const purpose = PURPOSES.includes(draft.purpose as MessagePurpose)
+        ? (draft.purpose as MessagePurpose)
+        : "first";
       const res = await studioDraft({
         prospectId: prospect.id,
         channel: "email",
-        purpose: "first",
+        purpose,
         tone: "professional",
       });
       if (!res.ok) return `✗ ${prospect.company}: ${res.error}`;
@@ -177,7 +188,7 @@ export async function regenerateFlaggedDrafts(
   for (const id of ids) {
     const { data: msg } = await admin
       .from("ge_messages")
-      .select("id, prospect_id, status, direction, channel, ge_prospects(company)")
+      .select("id, prospect_id, status, direction, channel, purpose, ge_prospects(company)")
       .eq("id", id)
       .maybeSingle();
     if (
@@ -190,10 +201,15 @@ export async function regenerateFlaggedDrafts(
     }
     const company =
       (msg.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+    // Same purpose-preservation as the nightly repair: a flagged follow-up
+    // must be rewritten AS a follow-up, not as a cold first-touch.
+    const purpose = PURPOSES.includes(msg.purpose as MessagePurpose)
+      ? (msg.purpose as MessagePurpose)
+      : "first";
     const res = await studioDraft({
       prospectId: msg.prospect_id,
       channel: "email",
-      purpose: "first",
+      purpose,
       tone: "professional",
     });
     if (!res.ok) {
