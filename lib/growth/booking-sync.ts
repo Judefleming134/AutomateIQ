@@ -36,11 +36,18 @@ export async function syncStrategyBookingsCore(
   let matched = 0;
   for (const b of bookings ?? []) {
     if (!b.email) continue;
-    const { data: prospect } = await admin
+    // NOT maybeSingle: imported data can hold two prospects with the same
+    // email, and maybeSingle ERRORS on >1 row — silently skipping the booking
+    // forever. Take the most-recently-created match instead (the row Jude is
+    // actually working); the older duplicate is dedupe cleanup, not a reason
+    // to lose a booked meeting.
+    const { data: prospectRows } = await admin
       .from("ge_prospects")
       .select("id, company, status")
       .ilike("email", escapeLike(b.email))
-      .maybeSingle();
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const prospect = prospectRows?.[0];
     if (!prospect) continue;
 
     const { error: insertError } = await admin
