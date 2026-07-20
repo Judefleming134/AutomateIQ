@@ -180,9 +180,14 @@ export function ResearchQueue({
           }
         }
         if (result.ok) {
-          // Success clears the throttle flag so speed recovers.
+          // Recover PACING on a success — the surviving worker drops the 8s
+          // throttle wait back to the normal idle gap. But DON'T clear
+          // throttledUi: the first rate-limit already collapsed the run to a
+          // single worker (the second returned for good above), so the batch
+          // stays serial to the end. The ETA must keep dividing by one lane —
+          // snapping back to two here made "min left" read ~half the real
+          // remaining time for the rest of a rate-limited batch.
           throttled = false;
-          setThrottledUi(false);
           successCount++;
           failStreak = 0;
         }
