@@ -103,14 +103,20 @@ export default async function GrowthDashboardPage() {
       // overnight engine researches in bulk the heading must not undercount.
       .select("id, company, contact_name, industry, lead_score, status", { count: "exact" })
       .in("status", ["research_complete", "outreach_ready"])
-      .order("lead_score", { ascending: false })
+      // nullsFirst:false so unscored leads don't outrank scored ones —
+      // Postgres sorts NULLS FIRST on DESC by default, which would float
+      // score-less prospects to the top of these "best first" lists.
+      .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(50),
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
       .eq("next_follow_up_at", today)
       .not("status", "in", activeFilter)
-      .order("lead_score", { ascending: false })
+      // nullsFirst:false so unscored leads don't outrank scored ones —
+      // Postgres sorts NULLS FIRST on DESC by default, which would float
+      // score-less prospects to the top of these "best first" lists.
+      .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(10),
     admin
       .from("ge_prospects")
@@ -127,7 +133,10 @@ export default async function GrowthDashboardPage() {
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
       .in("status", ["replied", "qualified", "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation"])
-      .order("lead_score", { ascending: false })
+      // nullsFirst:false so unscored leads don't outrank scored ones —
+      // Postgres sorts NULLS FIRST on DESC by default, which would float
+      // score-less prospects to the top of these "best first" lists.
+      .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(8),
     admin
       .from("ge_prospects")
