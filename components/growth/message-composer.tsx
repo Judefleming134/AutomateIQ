@@ -66,22 +66,32 @@ export function MessageComposer({
   async function handleDraft() {
     setNotice(null);
     setDrafting(true);
-    const result = await draftGrowthMessage({
-      prospectId,
-      channel,
-      objective,
-      tone,
-      instructions: instructions || undefined,
-      replyContext: objective === "reply" ? replyContext : undefined,
-    });
-    setDrafting(false);
-    if (!result.ok) {
-      setNotice({ kind: "error", text: result.error });
-      return;
+    // try/finally: a thrown action (network blip, redeploy mid-session) must
+    // never leave the button stuck on "Drafting…" until a full page reload.
+    try {
+      const result = await draftGrowthMessage({
+        prospectId,
+        channel,
+        objective,
+        tone,
+        instructions: instructions || undefined,
+        replyContext: objective === "reply" ? replyContext : undefined,
+      });
+      if (!result.ok) {
+        setNotice({ kind: "error", text: result.error });
+        return;
+      }
+      if (result.subject) setSubject(result.subject);
+      setBody(result.body);
+      setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
+    } catch {
+      setNotice({
+        kind: "error",
+        text: "Connection hiccup — the draft didn't come back. Your text is untouched; try again.",
+      });
+    } finally {
+      setDrafting(false);
     }
-    if (result.subject) setSubject(result.subject);
-    setBody(result.body);
-    setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
   }
 
   function applyTemplate(id: string) {
@@ -106,17 +116,28 @@ export function MessageComposer({
       return;
     }
     startTransition(async () => {
-      const result = await composeMessage({
-        prospectId,
-        channel,
-        subject: channel === "email" ? subject : null,
-        body,
-        mode,
-        scheduledAt:
-          mode === "queue" && scheduledAt
-            ? new Date(scheduledAt).toISOString()
-            : null,
-      });
+      let result: Awaited<ReturnType<typeof composeMessage>>;
+      try {
+        result = await composeMessage({
+          prospectId,
+          channel,
+          subject: channel === "email" ? subject : null,
+          body,
+          mode,
+          scheduledAt:
+            mode === "queue" && scheduledAt
+              ? new Date(scheduledAt).toISOString()
+              : null,
+        });
+      } catch {
+        // Thrown action (network blip) — nothing was confirmed; keep the text
+        // so the user can simply press the button again.
+        setNotice({
+          kind: "error",
+          text: "Connection hiccup — that didn't go through. Your draft is untouched; try again.",
+        });
+        return;
+      }
       if (!result.ok) {
         setNotice({ kind: "error", text: result.error });
         return;
