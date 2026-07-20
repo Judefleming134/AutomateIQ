@@ -284,7 +284,15 @@ export function MessageStudio({
             }}
           >
             {CHANNEL_META[c].label}
-            {savedDrafts.some((d) => d.channel === c) ? " •" : ""}
+            {/* Live "draft in progress" dot: reads current state (which is
+                seeded from savedDrafts) so it matches the message-type
+                dropdown's dot — a draft you just generated shows immediately,
+                and one you've sent/cleared stops showing, without a refresh. */}
+            {Object.keys(drafts).some(
+              (k) => k.startsWith(`${c}:`) && drafts[k].body.trim()
+            )
+              ? " •"
+              : ""}
           </button>
         ))}
       </div>
