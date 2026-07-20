@@ -110,6 +110,11 @@ export default async function GrowthSettingsPage() {
                 />
               </div>
             </div>
+            <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
+              A lead reads as <strong>Qualified</strong> at or above the first
+              score and <strong>In review</strong> at or above the second, so
+              &quot;In review&quot; must be lower than &quot;Qualified&quot;.
+            </p>
             {isOwner ? (
               <div className="form-actions">
                 <SubmitButton pendingText="Saving…">Save settings</SubmitButton>
