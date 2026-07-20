@@ -23,14 +23,14 @@ function escapeHtml(text: string): string {
  */
 const DATED_REMINDERS: Record<string, string[]> = {
   "2026-07-21": [
-    "FULL DAY — work it in this order, don't skip:",
-    "① FEED THE MACHINE (first 15 min): Prospects → research the next batch (website-havers first) + retry any failed. Leave it running while you do everything below.",
-    "② REPLIES FIRST: Inbox → answer everyone who came back, warmest first. The suggested replies are already drafted — review and send while they're warm. Nothing new goes out before the replies are cleared.",
-    "③ QUEUE TOMORROW'S 8AM: Jarvis autopilot → tick the ~20 best clean drafts → queue them, so Wednesday's run is loaded before you touch the phones.",
-    "④ DIAL BLOCK (~90 min, the core): Prospects → tick 'Has phone' → sort by Lead score → top 30. Phone-first, log EVERY call (that auto-schedules the follow-up). The ask on every good call: a 15-minute Zoom this week.",
-    "⑤ DM BLOCK (~60 min): DM list → Copy → Open → paste → Mark sent. Target 15–20.",
-    "⑥ PUSH THE LIVE DEAL one concrete step — send the quote, confirm the demo, or set them up on billing.",
-    "END OF DAY scoreboard: replies cleared · ~30 calls logged · 15–20 DMs sent · ~20 emails queued for the 8am run. Then an early night.",
+    "ONE JOB TODAY: land the first customer. Not volume — CLOSING. Sell first, admin last.",
+    "① SET THE TRAP BEFORE YOU DIAL (15 min): have your demo flow, a quote, and the order form/checkout all one click away, and know the founding offer cold (first 10 customers only, rates rise after — that's your closer + your urgency).",
+    "② WARMEST FIRST: dashboard 'Hot prospects' + Inbox replies + anyone qualified / with a meeting booked / a proposal out. These are the ones that close THIS WEEK — work every one before you touch anything cold. Goal for each: pin the next step to a DATE (a call today/tomorrow, or the yes).",
+    "③ THE CLOSEST DEAL (Castleknock or whoever's furthest along): drive it to a decision today. Get them on a call, walk the value, ASK FOR THE YES. On a yes → set them up on the call, same day: quote + order form + billing.",
+    "④ DIAL FOR DEMOS (~90 min, the engine of a first sale): Prospects → 'Has phone' → sort by Lead score → top 25. Phone-first. The ONLY goal of each call is to book a 15-min demo this week. Log every call so the follow-up schedules itself.",
+    "⑤ Warm DMs to anyone who's engaged — nudge them to a call, not a chat.",
+    "⑥ Background only (don't let it eat selling hours): research the next batch + queue ~20 for the 8am run.",
+    "THE WIN = one booked demo you can close, or a customer set up today. One job in changes everything — go get it.",
   ],
   "2026-07-08": [
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
