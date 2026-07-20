@@ -108,12 +108,20 @@ function MessageBody({ text }: { text: string }) {
   return (
     <div style={{ display: "grid", gap: 2 }}>
       {lines.map((line, i) => {
+        // Leading whitespace (captured BEFORE trimming) carries the intended
+        // nesting: Jarvis is asked to hang a prospect's phone/email/link on
+        // indented bullets under the company line, and flattening them all to
+        // one level made a dial list or prospect breakdown a wall to scan.
+        // Treat 2+ leading spaces (or a tab) as a sub-item and nudge it right;
+        // with no indentation this is a no-op, so plain replies look unchanged.
+        const indent = (/^(\s+)/.exec(line)?.[1] ?? "").replace(/\t/g, "  ");
+        const nested = indent.length >= 2;
         const trimmed = line.trim();
         if (!trimmed) return <div key={i} style={{ height: 8 }} />;
         const bullet = /^([•·]|-|\d+[.)])\s+(.*)$/.exec(trimmed);
         if (bullet) {
           return (
-            <div key={i} style={{ display: "flex", gap: 7, paddingLeft: 4 }}>
+            <div key={i} style={{ display: "flex", gap: 7, paddingLeft: nested ? 22 : 4 }}>
               <span style={{ flexShrink: 0, color: "var(--faint)" }}>
                 {/^\d/.test(bullet[1]) ? bullet[1] : "•"}
               </span>
@@ -124,7 +132,7 @@ function MessageBody({ text }: { text: string }) {
           );
         }
         return (
-          <div key={i}>
+          <div key={i} style={nested ? { paddingLeft: 18 } : undefined}>
             <TextWithLinks text={trimmed} />
           </div>
         );
