@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,7 +8,10 @@ import { LeadForm } from "./lead-form";
 // client — published pages only. Never exposes anything beyond what the
 // business chose to publish.
 
-async function getPage(slug: string) {
+// cache(): generateMetadata and the page component both need the page, and
+// they run in the same request — wrapping the query dedupes it to a single
+// DB round-trip per view instead of two.
+const getPage = cache(async (slug: string) => {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("wa_pages")
@@ -16,7 +20,7 @@ async function getPage(slug: string) {
     .eq("published", true)
     .maybeSingle();
   return data;
-}
+});
 
 export async function generateMetadata({
   params,
@@ -61,7 +65,7 @@ export default async function PublicBusinessPage({
         <h1>{business?.name}</h1>
         {page.headline && <p className="wa-headline">{page.headline}</p>}
         {page.phone && (
-          <a href={`tel:${page.phone}`} className="wa-phone">
+          <a href={`tel:${page.phone.replace(/[^\d+]/g, "")}`} className="wa-phone">
             📞 {page.phone}
           </a>
         )}
