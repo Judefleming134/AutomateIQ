@@ -23,13 +23,22 @@ export function CsvFileField() {
   async function handleFile(file: File | undefined | null) {
     setNotice(null);
     if (!file) return;
-    if (/\.(xlsx|xls)$/i.test(file.name)) {
+    // Catch the common wrong-file drops (spreadsheets, docs, PDFs) before we
+    // read them — otherwise file.text() decodes the binary as garbage and
+    // dumps it into the paste box with no explanation.
+    if (/\.(xlsx?|numbers|ods|pdf|docx?|pages|key|pptx?)$/i.test(file.name)) {
       setNotice(
-        "That's an Excel file — in Google Sheets use File → Download → Comma Separated Values (.csv), then drop that file here."
+        "That's not a CSV file. Export it as Comma Separated Values first — in Google Sheets: File → Download → .csv (or Excel/Numbers: Save As / Export → CSV) — then drop that file here."
       );
       return;
     }
-    const content = await file.text();
+    let content: string;
+    try {
+      content = await file.text();
+    } catch {
+      setNotice("Couldn't read that file — try again, or paste the rows below instead.");
+      return;
+    }
     setText(content);
     setFileName(file.name);
   }
