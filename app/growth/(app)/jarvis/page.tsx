@@ -42,6 +42,10 @@ export default async function JarvisPage() {
       .from("ge_prospects")
       .select("id", { count: "exact", head: true })
       .lte("next_follow_up_at", today)
+      // Same live window as the dashboard + autopilot: chases 7+ days overdue
+      // have "gone cold" and are parked separately, so "chase these first"
+      // counts only the follow-ups still worth chasing today — not the cold pile.
+      .gte("next_follow_up_at", dublinDate(-7))
       .not("status", "in", activeFilter),
     admin
       .from("ge_prospects")
