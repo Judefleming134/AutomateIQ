@@ -134,7 +134,7 @@ export default async function CampaignDetailPage({
 
       <section className="panel panel-block" aria-labelledby="cp-title">
         <h2 className="panel-title" id="cp-title">
-          Prospects in this campaign{" "}
+          Prospects in this campaign ({(prospects ?? []).length}){" "}
           <Link href={`/growth/prospects?campaign=${campaign.id}`}>Filter view →</Link>
         </h2>
         {(prospects ?? []).length === 0 ? (
@@ -152,7 +152,12 @@ export default async function CampaignDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {(prospects ?? []).map((p) => {
+                {/* Preview the first 50 — a bulk-imported niche campaign can hold
+                    hundreds of prospects, and rendering them all builds a giant
+                    DOM that stutters. The funnel counts above still cover every
+                    prospect; the full, paginated list is one tap away via
+                    "Filter view →". */}
+                {(prospects ?? []).slice(0, 50).map((p) => {
                   const meta = PROSPECT_STATUS_META[p.status as ProspectStatus];
                   return (
                     <tr key={p.id}>
@@ -173,6 +178,14 @@ export default async function CampaignDetailPage({
                 })}
               </tbody>
             </table>
+            {(prospects ?? []).length > 50 && (
+              <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 8 }}>
+                Showing the first 50 of {(prospects ?? []).length} —{" "}
+                <Link href={`/growth/prospects?campaign=${campaign.id}`}>
+                  open the full list →
+                </Link>
+              </p>
+            )}
           </div>
         )}
       </section>
