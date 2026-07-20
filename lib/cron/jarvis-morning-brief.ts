@@ -22,6 +22,16 @@ function escapeHtml(text: string): string {
  * created from inside the app.
  */
 const DATED_REMINDERS: Record<string, string[]> = {
+  "2026-07-21": [
+    "FULL DAY — work it in this order, don't skip:",
+    "① FEED THE MACHINE (first 15 min): Prospects → research the next batch (website-havers first) + retry any failed. Leave it running while you do everything below.",
+    "② REPLIES FIRST: Inbox → answer everyone who came back, warmest first. The suggested replies are already drafted — review and send while they're warm. Nothing new goes out before the replies are cleared.",
+    "③ QUEUE TOMORROW'S 8AM: Jarvis autopilot → tick the ~20 best clean drafts → queue them, so Wednesday's run is loaded before you touch the phones.",
+    "④ DIAL BLOCK (~90 min, the core): Prospects → tick 'Has phone' → sort by Lead score → top 30. Phone-first, log EVERY call (that auto-schedules the follow-up). The ask on every good call: a 15-minute Zoom this week.",
+    "⑤ DM BLOCK (~60 min): DM list → Copy → Open → paste → Mark sent. Target 15–20.",
+    "⑥ PUSH THE LIVE DEAL one concrete step — send the quote, confirm the demo, or set them up on billing.",
+    "END OF DAY scoreboard: replies cleared · ~30 calls logged · 15–20 DMs sent · ~20 emails queued for the 8am run. Then an early night.",
+  ],
   "2026-07-08": [
     "Scrape a NEW NICHE today: blinds installers (Google Maps, same drill as the cleaners) — paste the list to Claude to clean and format.",
   ],
