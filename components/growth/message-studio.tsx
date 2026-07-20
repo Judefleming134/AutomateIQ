@@ -65,8 +65,16 @@ export function MessageStudio({
   savedDrafts?: StudioDraftRow[];
 }) {
   const router = useRouter();
-  const [channel, setChannel] = useState<Channel>(defaultChannel);
-  const [purpose, setPurpose] = useState<MessagePurpose>("first");
+  // Open on the most recent existing draft (savedDrafts is newest-first), so
+  // "Review the drafted reply" / "Prep the follow-up" land straight on that
+  // draft instead of an empty First-message tab that hides it behind the
+  // channel/purpose dropdowns. Falls back to the default channel + first touch
+  // when there are no drafts yet.
+  const opener = savedDrafts[0];
+  const [channel, setChannel] = useState<Channel>(opener?.channel ?? defaultChannel);
+  const [purpose, setPurpose] = useState<MessagePurpose>(
+    (opener?.purpose as MessagePurpose | null) ?? "first"
+  );
   const [tone, setTone] = useState<Tone>("professional");
   // Drafts are kept per channel+purpose so switching tabs never loses work.
   const [drafts, setDrafts] = useState<Record<string, DraftState>>(() => {
