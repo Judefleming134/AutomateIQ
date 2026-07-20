@@ -153,7 +153,10 @@ export async function sendJarvisMorningBrief(): Promise<{
         .from("ge_prospects")
         .select("company, contact_name, industry, lead_score, phone, email", { count: "exact" })
         .in("status", ["research_complete", "outreach_ready"])
-        .order("lead_score", { ascending: false })
+        // nullsFirst:false so unscored leads don't outrank your best ones —
+        // Postgres sorts NULLS FIRST on DESC by default, which would put
+        // score-less leads at the top of this "hit these first" list.
+        .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(10),
       admin
         .from("ge_messages")
