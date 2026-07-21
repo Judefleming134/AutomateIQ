@@ -565,8 +565,36 @@ export async function harvestOne(
   if (!p) return { ok: false, error: "Prospect not found." };
   if (!p.website) return { ok: false, error: "No website on file." };
 
+  // Park a prospect out of the "Find emails" finder once its site has been
+  // checked and yielded no email — otherwise the same dead-ends re-scan on
+  // every load and crowd out fresh leads. Recorded once, as a timeline note
+  // too, and only for a prospect that has no email to fill in the first place.
+  const markHarvestedNoEmail = async (note: string) => {
+    if (p.email) return;
+    const { data: existing } = await admin
+      .from("ge_activities")
+      .select("id")
+      .eq("prospect_id", id)
+      .eq("type", "system")
+      .ilike("content", "Contact harvest:%")
+      .limit(1)
+      .maybeSingle();
+    if (existing) return;
+    await admin.from("ge_activities").insert({
+      prospect_id: id,
+      type: "system",
+      content: `Contact harvest: ${note}`,
+      created_by: null,
+    });
+  };
+
   const site = await fetchWebsiteText(p.website);
-  if (!site) return { ok: true, found: "site unreachable" };
+  if (!site) {
+    await markHarvestedNoEmail(
+      "website was unreachable — no email found (parked from the email finder; retry from the prospect if the site comes back)."
+    );
+    return { ok: true, found: "site unreachable" };
+  }
 
   const update: Record<string, string | null> = {};
   for (const key of ["email", "phone"] as const) {
@@ -585,6 +613,14 @@ export async function harvestOne(
     // No revalidate here on purpose: the sweep runs this in a loop, and a
     // page refresh per hit makes the driving component's list shrink mid-run
     // (progress read 64/40). The queue does one refresh when it finishes.
+  }
+  // Site was reachable but published no email — park it from the finder so the
+  // list refills with fresh leads instead of re-scanning this same dead-end.
+  // (A phone/social may still have been found and saved above.)
+  if (!update.email) {
+    await markHarvestedNoEmail(
+      "checked the website, no email published there (parked from the email finder)."
+    );
   }
   return {
     ok: true,
