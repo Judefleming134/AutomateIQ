@@ -93,7 +93,7 @@ export default async function ProspectsPage({
     { data: team },
     allProspects,
     researched,
-    { data: missingEmail },
+    { data: missingEmailRaw },
     { count: grandTotal },
   ] = await Promise.all([
     query,
@@ -126,6 +126,8 @@ export default async function ProspectsPage({
       // unordered range can skip a row, which would re-offer a researched lead.
       admin.from("ge_research").select("prospect_id").order("prospect_id")
     ),
+    // Over-fetch (300, not the ~100 shown) so that after dropping prospects
+    // already checked with no email, there's still a full page of fresh leads.
     admin
       .from("ge_prospects")
       .select("id, company")
@@ -133,7 +135,7 @@ export default async function ProspectsPage({
       .is("email", null)
       .not("status", "in", '("won","lost","do_not_contact","archived")')
       .order("lead_score", { ascending: false, nullsFirst: false })
-      .limit(100),
+      .limit(300),
     // Active working-set size (excludes archived + closed) — drives the
     // "nearing 5k" advisory, so archiving cold leads actually clears it.
     // head:true fetches only the count, no rows, so it's cheap at any scale.
@@ -165,6 +167,25 @@ export default async function ProspectsPage({
   // browser is wasted payload. It refills from the server on each refresh.
   const unresearchedTotal = unresearched.length;
   const unresearchedBatch = unresearched.slice(0, 300);
+
+  // The email finder: drop prospects already checked with no email (they carry
+  // a "Contact harvest:" timeline note) so the list refills with fresh leads
+  // instead of re-scanning the same dead-ends every load. A fresh import has no
+  // such note, so it flows straight in.
+  const missingEmailCandidates = missingEmailRaw ?? [];
+  const missingIds = missingEmailCandidates.map((p) => p.id);
+  const { data: harvestedActs } = missingIds.length
+    ? await admin
+        .from("ge_activities")
+        .select("prospect_id")
+        .eq("type", "system")
+        .ilike("content", "Contact harvest:%")
+        .in("prospect_id", missingIds)
+    : { data: [] as { prospect_id: string }[] };
+  const harvestedSet = new Set((harvestedActs ?? []).map((a) => a.prospect_id));
+  const missingEmail = missingEmailCandidates
+    .filter((p) => !harvestedSet.has(p.id))
+    .slice(0, 100);
 
   const industries = [
     ...new Set(industriesRaw.map((r) => r.industry?.trim()).filter(Boolean)),
@@ -319,7 +340,7 @@ export default async function ProspectsPage({
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
       />
 
-      <ContactHarvest pending={missingEmail ?? []} />
+      <ContactHarvest pending={missingEmail} />
 
       <details className="panel panel-block" style={{ marginBottom: 12 }} open={rows.length === 0}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>
