@@ -153,7 +153,7 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
  * email, phone, linkedin_url, instagram_url, notes.
  * Rows whose email already exists are skipped, not duplicated.
  */
-export async function importProspects(_prev: Result, formData: FormData): Promise<Result & { imported?: number; skipped?: number }> {
+export async function importProspects(_prev: Result, formData: FormData): Promise<Result & { imported?: number; skipped?: number; notice?: string }> {
   const { member } = await requireGrowth();
   const csv = String(formData.get("csv") ?? "").trim();
   const campaignSel = String(formData.get("campaign_id") ?? "").trim();
@@ -389,7 +389,18 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
     };
   }
-  return { ok: true, imported, skipped };
+  return {
+    ok: true,
+    imported,
+    skipped,
+    // Surfaced to the user via ActionForm's notice — a bare "Done" left them
+    // guessing whether 5 or 500 landed and how many were duplicates.
+    notice: `Imported ${imported.toLocaleString("en-IE")} new prospect${imported === 1 ? "" : "s"}${
+      skipped > 0
+        ? ` · skipped ${skipped.toLocaleString("en-IE")} (duplicate or no contact method)`
+        : ""
+    }. Research them below to score + draft outreach.`,
+  };
 }
 
 /**
