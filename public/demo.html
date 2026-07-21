@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AutomateIQ — See the agents work</title>
+<meta name="description" content="Live, interactive demos of the AutomateIQ agents — receptionist, reviews, speed-to-lead, instant quotes, AI assistant and content — running for a sample business."/>
+<meta name="robots" content="noindex,follow"/>
+<meta property="og:title" content="AutomateIQ — See the agents work"/>
+<meta property="og:description" content="Watch each AI agent do its job, live."/>
+<meta property="og:image" content="https://automateiq.ie/og-aiq.png"/>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCA2NCA2NCc+PHJlY3Qgd2lkdGg9JzY0JyBoZWlnaHQ9JzY0JyByeD0nMTQnIGZpbGw9JyMwYjBmMTcnLz48ZyB0cmFuc2Zvcm09J3RyYW5zbGF0ZSg4LDgpIHNjYWxlKDIpJyBmaWxsPScjM2I4YmZmJz48cGF0aCBmaWxsLXJ1bGU9J2V2ZW5vZGQnIGQ9J00xOS40MyAxMi45OGMuMDQtLjMyLjA3LS42NS4wNy0uOThzLS4wMy0uNjYtLjA3LS45OGwyLjExLTEuNjVhLjUuNSAwIDAgMCAuMTItLjY0bC0yLTMuNDZhLjUuNSAwIDAgMC0uNjEtLjIybC0yLjQ5IDFhNy4zIDcuMyAwIDAgMC0xLjY5LS45OGwtLjM4LTIuNjVBLjQ5LjQ5IDAgMCAwIDE0IDJoLTRhLjQ5LjQ5IDAgMCAwLS40OS40MmwtLjM4IDIuNjVjLS42MS4yNS0xLjE3LjU5LTEuNjkuOThsLTIuNDktMWEuNS41IDAgMCAwLS42MS4yMmwtMiAzLjQ2YS41LjUgMCAwIDAgLjEyLjY0TDQuNTcgMTFjLS4wNC4zMi0uMDcuNjUtLjA3Ljk4cy4wMy42Ni4wNy45OGwtMi4xMSAxLjY1YS41LjUgMCAwIDAtLjEyLjY0bDIgMy40NmMuMTQuMjQuNDMuMzQuNjkuMjJsMi40OS0xYy41Mi4zOSAxLjA4LjczIDEuNjkuOThsLjM4IDIuNjVjLjA0LjI0LjI1LjQyLjQ5LjQyaDRjLjI0IDAgLjQ1LS4xOC40OS0uNDJsLjM4LTIuNjVjLjYxLS4yNSAxLjE3LS41OSAxLjY5LS45OGwyLjQ5IDFjLjI2LjEyLjU1LjAyLjY5LS4yMmwyLTMuNDZhLjUuNSAwIDAgMC0uMTItLjY0bC0yLjExLTEuNjV6TTEyIDE1LjVBMy41IDMuNSAwIDEgMSAxMiA4LjVhMy41IDMuNSAwIDAgMSAwIDd6Jy8+PC9nPjwvc3ZnPg=="/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#151314;--bg2:#1a1819;--panel:#18171a;
+ --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.2);
+ --heading:#FAFAFA;--body:#A1A1AA;--bright:#FFFFFF;--faint:#71717A;
+ --ac:#1369CE;--ac2:#3B82F6;--ac-dim:rgba(19,105,206,.12);--ac-line:rgba(59,130,246,.35);--ac-glow:rgba(59,130,246,.25);
+ --ok:#36e0a6;--warn:#f3b14c;--gold:#f5b93e;
+ --display:'Space Grotesk',sans-serif;--body-f:'Inter',sans-serif;--mono:'Space Mono',ui-monospace,monospace;
+ --wrap:1180px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--body);font-family:var(--body-f);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.025em;line-height:1.06;color:var(--heading)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 24px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint)}
+.mono{font-family:var(--mono)}
+.hl{color:var(--bright);font-weight:600}
+.ac{color:var(--ac2)}
+
+/* nav */
+.nav{position:sticky;top:0;z-index:50;background:rgba(21,19,20,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.nav-in{max-width:var(--wrap);margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.brandimg{height:30px;width:auto;display:block}
+.btn{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--heading);border:1px solid var(--line2);padding:12px 20px;border-radius:8px;transition:.2s;cursor:pointer;background:transparent}
+.btn:hover{border-color:var(--ac-line);color:#fff;box-shadow:0 0 0 4px var(--ac-glow)}
+.btn.primary{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.primary:hover{background:#1a7ae8}
+.btn.sm{padding:10px 16px;font-size:11px}
+
+/* hero */
+.hero{padding:70px 0 26px;text-align:center;position:relative}
+.hero::before{content:"";position:absolute;left:50%;top:-40px;width:900px;height:520px;transform:translateX(-50%);background:radial-gradient(ellipse at 50% 30%,var(--ac-dim),transparent 62%);pointer-events:none}
+.hero h1{font-size:clamp(2.3rem,6vw,4rem);position:relative}
+.hero p{max-width:60ch;margin:20px auto 0;font-size:clamp(1rem,1.5vw,1.18rem)}
+.hero .tagrow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.tag{font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--body);border:1px solid var(--line);border-radius:20px;padding:7px 14px;background:rgba(255,255,255,.02)}
+.tag b{color:var(--ok);margin-right:6px}
+
+/* agent card */
+.agents{padding:36px 0 60px;display:grid;gap:26px}
+.card{background:linear-gradient(180deg,var(--panel),#141313);border:1px solid var(--line);border-radius:20px;padding:26px;display:grid;grid-template-columns:1fr;gap:22px}
+@media(min-width:880px){.card{grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);align-items:center;padding:34px}.card.rev{direction:rtl}.card.rev>*{direction:ltr}}
+.card .pitch .num{font-family:var(--mono);font-size:12px;color:var(--ac2);letter-spacing:.14em}
+.card .pitch h2{font-size:clamp(1.6rem,3vw,2.2rem);margin:12px 0 12px}
+.card .pitch p{font-size:15.5px;max-width:46ch}
+.card .pitch .does{margin-top:16px;display:grid;gap:8px}
+.does .d{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--body)}
+.does .d svg{flex:0 0 auto;margin-top:2px}
+.runrow{margin-top:20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.hint{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+/* device frames */
+.stage{position:relative;min-height:430px;display:flex;align-items:center;justify-content:center}
+.phone{width:288px;background:#0c0b0c;border:1px solid var(--line2);border-radius:34px;padding:12px;box-shadow:0 40px 90px rgba(0,0,0,.6)}
+.phone .screen{background:#0a0e16;border-radius:24px;height:520px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{height:26px;display:flex;align-items:center;justify-content:center}
+.notch::after{content:"";width:90px;height:6px;border-radius:4px;background:#26262b}
+.smshead{padding:10px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+.smshead .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,var(--ac2),#1a4fb0);display:grid;place-items:center;font-family:var(--display);font-weight:700;color:#fff;font-size:14px}
+.smshead .nm{font-weight:600;color:var(--heading);font-size:14px}
+.smshead .sub{font-size:11px;color:var(--faint)}
+.thread{flex:1;overflow-y:auto;padding:14px 14px 18px;display:flex;flex-direction:column;gap:10px}
+.bub{max-width:78%;padding:10px 13px;border-radius:16px;font-size:13.5px;line-height:1.45;opacity:0;transform:translateY(10px);animation:pop .35s forwards}
+.bub.them{align-self:flex-start;background:#20232b;color:#e9edf5;border-bottom-left-radius:5px}
+.bub.us{align-self:flex-end;background:var(--ac);color:#fff;border-bottom-right-radius:5px}
+.bub .meta{display:block;font-size:10px;opacity:.6;margin-top:5px;font-family:var(--mono)}
+@keyframes pop{to{opacity:1;transform:translateY(0)}}
+.typing{align-self:flex-start;background:#20232b;border-radius:16px;padding:12px 14px;display:inline-flex;gap:4px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#8a8f9c;animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.3}30%{opacity:1}}
+
+/* browser frame */
+.win{width:100%;max-width:440px;background:#0c0b0c;border:1px solid var(--line2);border-radius:14px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.55)}
+.winbar{height:38px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#111013;border-bottom:1px solid var(--line)}
+.winbar i{width:11px;height:11px;border-radius:50%;background:#33313a}
+.winurl{margin-left:8px;font-family:var(--mono);font-size:11px;color:var(--faint);background:#0a0a0c;border-radius:6px;padding:5px 12px;flex:1}
+.winbody{padding:20px;min-height:360px;position:relative}
+.applogo{display:flex;align-items:center;gap:9px;margin-bottom:16px}
+.applogo b{font-family:var(--display);color:var(--heading);font-weight:700}
+.field{background:#111116;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:13.5px;color:#e7ebf3;margin-bottom:10px;min-height:42px}
+.field .lb{font-size:10px;font-family:var(--mono);color:var(--faint);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+.quoteline{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px;opacity:0;animation:fade .4s forwards}
+.quoteline b{color:var(--heading)}
+@keyframes fade{to{opacity:1}}
+.qtot{display:flex;justify-content:space-between;padding:14px 0 2px;font-family:var(--display);font-weight:700;font-size:22px;color:var(--heading)}
+.stars{display:flex;gap:5px}
+.stars svg{width:26px;height:26px}
+.ratbig{font-family:var(--display);font-weight:700;font-size:44px;color:var(--heading);line-height:1}
+.badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;letter-spacing:.05em;padding:6px 12px;border-radius:20px;border:1px solid var(--line)}
+.badge.ok{color:var(--ok);border-color:rgba(54,224,166,.35);background:rgba(54,224,166,.08)}
+.badge.wait{color:var(--warn);border-color:rgba(243,177,76,.3);background:rgba(243,177,76,.07)}
+.timer{font-family:var(--mono);font-size:12px;color:var(--ac2)}
+.leadrow{display:flex;align-items:center;gap:11px;background:#111116;border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-top:9px;opacity:0;transform:translateX(-14px);animation:slidein .45s forwards}
+@keyframes slidein{to{opacity:1;transform:translateX(0)}}
+.leadrow .av{width:30px;height:30px;border-radius:50%;background:linear-gradient(140deg,var(--ac2),#1a4fb0);flex:0 0 auto}
+.post{background:#111116;border:1px solid var(--line);border-radius:12px;padding:16px;font-size:14px;line-height:1.55;color:#dfe4ee;white-space:pre-wrap;min-height:120px}
+.hashtag{color:var(--ac2)}
+.cursor{display:inline-block;width:8px;height:16px;background:var(--ac2);vertical-align:-2px;animation:cb .8s steps(1) infinite}
+@keyframes cb{50%{opacity:0}}
+
+/* close band */
+.close{padding:60px 0 90px;text-align:center}
+.close h2{font-size:clamp(2rem,4.5vw,3.2rem)}
+.close p{max-width:52ch;margin:16px auto 26px}
+.foot{border-top:1px solid var(--line);padding:26px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.foot .mono{font-size:12px;color:var(--faint)}
+.pulse{animation:pl 2s ease-in-out infinite}
+@keyframes pl{0%,100%{opacity:.5}50%{opacity:1}}
+</style>
+</head>
+<body>
+<header class="nav"><div class="nav-in">
+ <a href="/"><img class="brandimg" src="logo-aiq.png" alt="AutomateIQ"/></a>
+ <a href="/#book" class="btn primary sm">Book a strategy call</a>
+</div></header>
+
+<section class="hero"><div class="wrap">
+ <div class="eyebrow" style="justify-content:center;display:flex">SEE IT WORK · LIVE DEMOS</div>
+ <h1 style="margin-top:16px">The agents that <span class="ac">run the busywork</span>.</h1>
+ <p>Every one of these does a real job a local business is doing by hand right now — answering, quoting, chasing, replying. Hit <span class="hl">Run</span> on each and watch it work. This is a sample plumbing business; yours is set up around your own price book and knowledge.</p>
+ <div class="tagrow">
+  <span class="tag"><b>1</b>connected system</span>
+  <span class="tag"><b>6</b>agents working</span>
+  <span class="tag"><b>0</b>jobs slipping</span>
+ </div>
+</div></section>
+
+<main class="agents wrap" id="agents"></main>
+
+<section class="close"><div class="wrap">
+ <h2>One system. It just <span class="ac">runs</span>.</h2>
+ <p>Every agent shares the same business data — your price book, your knowledge, your contacts — so they work together, not in silos. Founding-customer rates for the first ten businesses.</p>
+ <a href="/#book" class="btn primary">Book your AI strategy session</a>
+ <div class="foot">
+  <img class="brandimg" src="logo-aiq.png" alt="AutomateIQ" style="height:26px;opacity:.85"/>
+  <span class="mono">automateiq.ie · jude@automateiq.ie</span>
+ </div>
+</div></section>
+
+<script>
+const star=(f)=>`<svg viewBox="0 0 24 24" fill="${f?'#f5b93e':'none'}" stroke="${f?'#f5b93e':'#4a4a52'}" stroke-width="1.5"><path d="M12 2 14.9 8.6 22 9.3 16.7 14 18.3 21 12 17.3 5.7 21 7.3 14 2 9.3 9.1 8.6Z"/></svg>`;
+const check=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>`;
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+// ---- Agent definitions ----------------------------------------------------
+const AGENTS = [
+ {
+  id:"reception", num:"AGENT 01", h:"AI Receptionist",
+  p:"Answers the calls you miss — on your existing number. Takes the job, texts you the details in seconds. Every missed call becomes a booked job.",
+  does:["Picks up day, night or mid-job","Captures name, address & the problem","Texts you the job the moment it hangs up"],
+  device:"phone", run:runReception, cta:"Run the call"
+ },
+ {
+  id:"stl", num:"AGENT 02", h:"Speed-to-Lead",
+  p:"A new web enquiry gets a personal text back in under 60 seconds — while you're still on the tools. First to reply wins the job.",
+  does:["Fires within 60s of the enquiry","Personal, from your business name","Books the reply before a rival even sees it"],
+  device:"phone", run:runSTL, cta:"New enquiry lands"
+ },
+ {
+  id:"quote", num:"AGENT 03", h:"Instant Quote Agent",
+  p:"A customer describes the job in plain English and gets a clear, itemised quote in seconds — priced from your own price book, never invented.",
+  does:["Reads the job like a human would","Prices it from your book, to the euro","Sends a tidy quote while it's hot"],
+  device:"win", run:runQuote, cta:"Quote a job"
+ },
+ {
+  id:"review", num:"AGENT 04", h:"Review Agent",
+  p:"Asks every happy customer for a review at the perfect moment, then chases the ones who forget. Your star rating climbs on autopilot.",
+  does:["Sent automatically after the job","One gentle reminder after 3 days","More five-star proof, zero chasing by you"],
+  device:"win", run:runReview, cta:"Send a request"
+ },
+ {
+  id:"assistant", num:"AGENT 05", h:"AI Assistant",
+  p:"Answers customer questions on your site instantly — from your own knowledge — and always steers toward a booking.",
+  does:["Knows your services, hours & policies","Answers in seconds, day or night","Turns questions into booked work"],
+  device:"phone", run:runAssistant, cta:"Ask a question"
+ },
+ {
+  id:"content", num:"AGENT 06", h:"Content Agent",
+  p:"Turns one line into a ready-to-post update for your socials — on brand, in your voice — so your business looks alive without the effort.",
+  does:["One idea in, a finished post out","Your tone, your services","Never stare at a blank caption again"],
+  device:"win", run:runContent, cta:"Write a post"
+ },
+];
+
+// ---- Render cards ----------------------------------------------------------
+const root=document.getElementById("agents");
+AGENTS.forEach((a,i)=>{
+ const card=document.createElement("div");
+ card.className="card"+(i%2?" rev":"");
+ card.innerHTML=`
+  <div class="pitch">
+   <div class="num">${a.num}</div>
+   <h2>${a.h}</h2>
+   <p>${a.p}</p>
+   <div class="does">${a.does.map(d=>`<div class="d">${check}<span>${d}</span></div>`).join("")}</div>
+   <div class="runrow">
+    <button class="btn primary" data-run="${a.id}">▶ ${a.cta}</button>
+    <span class="hint" id="hint-${a.id}">click to play</span>
+   </div>
+  </div>
+  <div class="stage" id="stage-${a.id}">${a.device==="phone"?phoneShell(a.id):winShell(a.id)}</div>`;
+ root.appendChild(card);
+});
+
+function phoneShell(id){return `<div class="phone"><div class="screen" id="scr-${id}"><div class="notch"></div><div style="flex:1;display:grid;place-items:center;color:var(--faint);font-family:var(--mono);font-size:12px;padding:20px;text-align:center" id="ph-${id}">press play to run this demo</div></div></div>`;}
+function winShell(id){return `<div class="win"><div class="winbar"><i></i><i></i><i></i><span class="winurl" id="url-${id}">app.automateiq.ie</span></div><div class="winbody" id="wb-${id}"><div style="display:grid;place-items:center;height:320px;color:var(--faint);font-family:var(--mono);font-size:12px">press play to run this demo</div></div></div>`;}
+
+let busy={};
+document.addEventListener("click",e=>{
+ const b=e.target.closest("[data-run]"); if(!b)return;
+ const id=b.getAttribute("data-run"); if(busy[id])return;
+ busy[id]=true; b.disabled=true; b.style.opacity=.6;
+ const hint=document.getElementById("hint-"+id); if(hint)hint.textContent="running…";
+ const agent=AGENTS.find(a=>a.id===id);
+ Promise.resolve(agent.run()).finally(()=>{busy[id]=false;b.disabled=false;b.style.opacity=1;b.textContent="▶ Replay";if(hint)hint.textContent="done";});
+});
+
+// ---- helpers ---------------------------------------------------------------
+function smsScreen(id,name,initial,sub){
+ const s=document.getElementById("scr-"+id);
+ s.innerHTML=`<div class="notch"></div>
+  <div class="smshead"><div class="av">${initial}</div><div><div class="nm">${name}</div><div class="sub">${sub||"iMessage"}</div></div></div>
+  <div class="thread" id="th-${id}"></div>`;
+ return document.getElementById("th-"+id);
+}
+async function bubble(th,side,html,meta,delay=650){
+ const t=document.createElement("div"); t.className="typing"; t.innerHTML="<i></i><i></i><i></i>";
+ if(side==="us")t.style.alignSelf="flex-end";
+ th.appendChild(t); th.scrollTop=th.scrollHeight; await sleep(delay);
+ t.remove();
+ const b=document.createElement("div"); b.className="bub "+side; b.innerHTML=html+(meta?`<span class="meta">${meta}</span>`:"");
+ th.appendChild(b); th.scrollTop=th.scrollHeight; await sleep(360);
+}
+async function typeInto(el,text,spd=26){el.innerHTML="";const c=document.createElement("span");c.className="cursor";el.appendChild(c);for(let i=0;i<text.length;i++){c.insertAdjacentText("beforebegin",text[i]);await sleep(spd);}c.remove();}
+
+// ---- 01 Reception ----------------------------------------------------------
+async function runReception(){
+ const th=smsScreen("reception","Riverside Plumbing","RP","AI receptionist · live");
+ await bubble(th,"them","📞 <b>Incoming call</b> — 087 4 •• •• ••<br>You're on a job. It rings out to your AI.","now",500);
+ await bubble(th,"them","“Hi, you're through to Riverside Plumbing — how can I help?”","AI · answered in 2 rings",900);
+ await bubble(th,"us","“My boiler's leaking in Castle­gate, can someone come today?”","caller",900);
+ await bubble(th,"them","“I can get that booked. Can I take your name, address and a number to reach you?”","AI",1100);
+ await bubble(th,"us","“Mary Doyle, 14 Castlegate, 087 ••• ••••.”","caller",900);
+ await bubble(th,"them","✅ <b>Job captured & texted to you</b><br>Mary Doyle · 14 Castlegate · boiler leak · <b>URGENT</b> · callback 087 ••• ••••","to your phone, instantly",1100);
+ const hint=document.getElementById("hint-reception"); if(hint)hint.innerHTML='<span style="color:var(--ok)">that missed call is now a booked job</span>';
+}
+
+// ---- 02 Speed-to-Lead ------------------------------------------------------
+async function runSTL(){
+ const s=document.getElementById("scr-stl");
+ s.innerHTML=`<div class="notch"></div><div style="padding:16px 16px 8px"><span class="badge wait" id="stl-b"><span class="pulse">●</span> web enquiry received</span><div class="timer" id="stl-t" style="margin-top:10px">auto-reply in 00:58</div></div><div class="thread" id="th-stl" style="padding-top:6px"></div>`;
+ const th=document.getElementById("th-stl");
+ await bubble(th,"them","<b>New website enquiry</b><br>John — “Need a quote for a new bathroom, Swords area.”","riverside-plumbing.ie",700);
+ const t=document.getElementById("stl-t"); let n=57;
+ const iv=setInterval(()=>{n--;t.textContent="auto-reply in 00:"+String(Math.max(n,0)).padStart(2,"0");if(n<=52)clearInterval(iv);},22);
+ await sleep(1100); clearInterval(iv); t.textContent="replied in 41 seconds";
+ document.getElementById("stl-b").className="badge ok"; document.getElementById("stl-b").innerHTML=check+" replied automatically";
+ await bubble(th,"us","“Hi John, Riverside Plumbing here — thanks for the enquiry! Happy to quote the bathroom. Are you free for a quick call today or tomorrow?”","sent · 41s later",900);
+ await bubble(th,"them","“Wow that was fast — tomorrow morning works 👍”","John",1100);
+ await bubble(th,"us","✅ <b>Booked in</b> — added to your calendar & CRM.","AI",700);
+ const hint=document.getElementById("hint-stl"); if(hint)hint.innerHTML='<span style="color:var(--ok)">first to reply — before a rival saw it</span>';
+}
+
+// ---- 03 Instant Quote ------------------------------------------------------
+async function runQuote(){
+ const wb=document.getElementById("wb-quote"); document.getElementById("url-quote").textContent="riverside-plumbing.ie/quote";
+ wb.innerHTML=`<div class="applogo"><img src="logo-aiq.png" style="height:22px"><b>Instant Quote</b></div>
+  <div class="field"><span class="lb">The job (in your words)</span><span id="q-in"></span></div>
+  <div id="q-out"></div>`;
+ await sleep(300);
+ await typeInto(document.getElementById("q-in"),"Replace an old cylinder with a new 210L unvented, kitchen tap swap too. Malahide.",20);
+ await sleep(300);
+ const out=document.getElementById("q-out");
+ out.innerHTML=`<div class="badge wait" style="margin:4px 0 12px"><span class="pulse">●</span> pricing from your book…</div>`;
+ await sleep(1100);
+ const lines=[["Unvented cylinder — 210L supply & fit","€1,180"],["Labour — cylinder changeover (est.)","€420"],["Kitchen tap — supply & fit","€145"],["Sundries & fittings","€65"]];
+ let html=`<div class="badge ok" style="margin:4px 0 12px">${check} quote ready · 6 seconds</div>`;
+ lines.forEach((l,i)=>{html+=`<div class="quoteline" style="animation-delay:${i*.18}s"><span>${l[0]}</span><b>${l[1]}</b></div>`;});
+ html+=`<div class="qtot"><span>Estimate</span><span>€1,810</span></div><div style="font-size:11px;color:var(--faint);margin-top:8px;font-family:var(--mono)">prices from your own price book · confirmed on site</div>`;
+ out.innerHTML=html;
+ const hint=document.getElementById("hint-quote"); if(hint)hint.innerHTML='<span style="color:var(--ok)">priced & sent while the customer\'s keen</span>';
+}
+
+// ---- 04 Review Agent -------------------------------------------------------
+async function runReview(){
+ const wb=document.getElementById("wb-review"); document.getElementById("url-review").textContent="app.automateiq.ie/reviews";
+ wb.innerHTML=`<div class="applogo"><img src="logo-aiq.png" style="height:22px"><b>Review Agent</b></div>
+  <div style="display:flex;align-items:center;gap:16px;margin:6px 0 16px"><div><div class="ratbig" id="rv-num">4.2</div><div class="stars" id="rv-stars"></div></div><div style="font-size:12px;color:var(--faint);font-family:var(--mono)">Google rating<br><span id="rv-cnt">31 reviews</span></div></div>
+  <div id="rv-log"></div>`;
+ const stars=document.getElementById("rv-stars"); stars.innerHTML=star(1)+star(1)+star(1)+star(1)+star(0);
+ const log=document.getElementById("rv-log");
+ const add=(html,cls)=>{const d=document.createElement("div");d.className="leadrow";d.innerHTML=html;if(cls)d.style.borderColor=cls;log.appendChild(d);};
+ add(`<div class="av"></div><div style="font-size:13px"><b style="color:var(--heading)">Request sent</b> to Mary D. — job completed today</div>`); await sleep(900);
+ add(`<div class="av"></div><div style="font-size:13px"><b style="color:var(--warn)">Reminder</b> nudged 2 who forgot — after 3 days</div>`); await sleep(1000);
+ add(`<div class="av"></div><div style="font-size:13px">Mary left <b style="color:var(--gold)">★★★★★</b> “Fast, tidy, sorted it same day.”</div>`,"rgba(245,185,62,.4)"); await sleep(700);
+ // rating ticks up
+ const num=document.getElementById("rv-num"), cnt=document.getElementById("rv-cnt");
+ const steps=[["4.3","32 reviews"],["4.5","33 reviews"],["4.7","34 reviews"]];
+ for(const st of steps){await sleep(450);num.textContent=st[0];cnt.textContent=st[1];num.style.color="#f5b93e";setTimeout(()=>num.style.color="",300);}
+ stars.innerHTML=star(1).repeat?"":""; stars.innerHTML=star(1)+star(1)+star(1)+star(1)+star(1);
+ const hint=document.getElementById("hint-review"); if(hint)hint.innerHTML='<span style="color:var(--ok)">4.2 → 4.7, hands-off</span>';
+}
+
+// ---- 05 AI Assistant -------------------------------------------------------
+async function runAssistant(){
+ const th=smsScreen("assistant","Riverside Assistant","RA","on your website · online");
+ await bubble(th,"us","“Do you do emergency callouts at the weekend?”","visitor",600);
+ await bubble(th,"them","“We do — 24/7 emergency cover across Fingal & north Dublin, including weekends. For a burst or major leak we aim to be with you as fast as possible. Want me to book a callout now?”","AI · from your knowledge",1200);
+ await bubble(th,"us","“Yes please, kitchen's flooding.”","visitor",900);
+ await bubble(th,"them","“On it. Can I take your address and a mobile? I'll flag it as urgent and the team will call you straight back.”","AI",1100);
+ await bubble(th,"them","✅ <b>Callout logged</b> — urgent, team notified.","captured to your CRM",900);
+ const hint=document.getElementById("hint-assistant"); if(hint)hint.innerHTML='<span style="color:var(--ok)">a question became a booked callout</span>';
+}
+
+// ---- 06 Content Agent ------------------------------------------------------
+async function runContent(){
+ const wb=document.getElementById("wb-content"); document.getElementById("url-content").textContent="app.automateiq.ie/content";
+ wb.innerHTML=`<div class="applogo"><img src="logo-aiq.png" style="height:22px"><b>Content Agent</b></div>
+  <div class="field"><span class="lb">Your idea</span><span id="c-in"></span></div>
+  <div class="badge wait" id="c-b" style="margin:2px 0 12px;display:none"><span class="pulse">●</span> writing in your voice…</div>
+  <div class="post" id="c-out" style="display:none"></div>`;
+ await sleep(300);
+ await typeInto(document.getElementById("c-in"),"Remind people we do boiler servicing before winter",20);
+ const b=document.getElementById("c-b"); b.style.display="inline-flex"; await sleep(1200); b.style.display="none";
+ const out=document.getElementById("c-out"); out.style.display="block";
+ const post=`❄️ Winter's coming — is your boiler ready?\n\nA quick service now means no cold-morning breakdowns later. Riverside Plumbing covers boiler servicing & repairs right across Fingal and north Dublin.\n\nBook this week and beat the winter rush. Tap the link or DM us. `;
+ await typeInto(out,post,14);
+ out.innerHTML+=`<span class="hashtag">#Plumbing #BoilerService #Fingal #Dublin</span>`;
+ const hint=document.getElementById("hint-content"); if(hint)hint.innerHTML='<span style="color:var(--ok)">post ready — copy, tweak, publish</span>';
+}
+</script>
+</body>
+</html>
