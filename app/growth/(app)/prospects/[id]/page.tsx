@@ -113,8 +113,12 @@ function SocialLink({ url }: { url: string | null | undefined }) {
   );
 }
 
+/** Coerce a value from the AI-generated report JSON to a string array — a
+ *  legacy or malformed report can be missing a list field entirely. */
+const asArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
+
 function ListSection({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
+  if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <div style={{ marginTop: 14 }}>
       <h3 style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", margin: "0 0 6px" }}>
@@ -201,7 +205,24 @@ export default async function ProspectWorkspacePage({
     loadGrowthSettings(),
   ]);
 
-  const report = (research?.report as ResearchReport | undefined) ?? null;
+  // Normalise the stored report's list fields to real arrays up front — it's
+  // AI-generated JSONB cast (not validated) on read, so a legacy or
+  // field-evolved report could be missing one, which would otherwise crash the
+  // research tab, the studio's "From the research" panel and the call script
+  // (all do report.<list>.length / .map).
+  const rawReport = (research?.report as ResearchReport | undefined) ?? null;
+  const report: ResearchReport | null = rawReport
+    ? {
+        ...rawReport,
+        services: asArr(rawReport.services),
+        operational_observations: asArr(rawReport.operational_observations),
+        manual_processes: asArr(rawReport.manual_processes),
+        inefficiencies: asArr(rawReport.inefficiencies),
+        ai_opportunities: asArr(rawReport.ai_opportunities),
+        conversation_starters: asArr(rawReport.conversation_starters),
+        discovery_questions: asArr(rawReport.discovery_questions),
+      }
+    : null;
   const solutions = sanitizeRecommendations(research?.solutions);
   const statusMeta = PROSPECT_STATUS_META[prospect.status as ProspectStatus];
   const qualMeta =
