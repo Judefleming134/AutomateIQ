@@ -938,6 +938,7 @@ export default async function ProspectWorkspacePage({
                     </span>
                     <ActionForm action={completeTask}>
                       <input type="hidden" name="task_id" value={t.id} />
+                      <input type="hidden" name="prospect_id" value={prospect.id} />
                       <SubmitButton className="btn btn-ghost btn-sm" pendingText="…">
                         Done
                       </SubmitButton>
