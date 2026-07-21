@@ -62,6 +62,11 @@ export function reviewOutreachEmail(input: {
 /** Returns the reason a draft must NOT be auto-sent, or null if it's clean. */
 export function draftLooksBroken(body: string): string | null {
   if (/\[[^\]\n]{2,40}\]/.test(body)) return "still contains a [placeholder]";
+  // A leftover {{template_key}} — a template merged for a prospect missing that
+  // field, or a mistyped key — would otherwise paste literally into a real DM
+  // or email. AI-drafted outreach never uses {{}} syntax, so this only ever
+  // fires on a genuinely unfilled template token.
+  if (/\{\{\s*[a-z_]+\s*\}\}/i.test(body)) return "still contains an unfilled {{placeholder}}";
   const name = /\b(?:i'?m|this is|my name is)\s+([A-Z][a-z]{1,20})\s+(?:from|at|with)\s+automate\s?iq/i.exec(body);
   if (name && name[1].toLowerCase() !== "jude") {
     return `signed by an invented name ("${name[1]}")`;
