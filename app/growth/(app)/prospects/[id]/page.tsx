@@ -247,7 +247,15 @@ export default async function ProspectWorkspacePage({
   };
   const outreachTouches: Touch[] = [
     ...(messages ?? [])
-      .filter((m) => m.status === "sent" || m.direction === "inbound")
+      // A logged call is recorded as BOTH a "call" message (which holds the
+      // script, not what was said) and a "Call made" activity — count it once,
+      // as the activity below, so a call isn't listed twice (and never as its
+      // own script). Every other channel's message stands as the touch.
+      .filter(
+        (m) =>
+          (m.status === "sent" || m.direction === "inbound") &&
+          m.channel !== "call"
+      )
       .map((m) => ({
         key: `m-${m.id}`,
         at: m.sent_at ?? m.created_at,
