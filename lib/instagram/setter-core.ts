@@ -101,7 +101,20 @@ export async function generateSetterReply(params: {
   const ctx = await loadContext(params.supabase, params.businessId);
   const system = buildSystemPrompt(ctx);
 
-  const transcript = params.history
+  // Callers build `history` from the stored conversation, which by this point
+  // already includes the just-received inbound message. That same message is
+  // passed separately as `latestMessage` (shown below as "New message from the
+  // lead"), so a trailing inbound turn that duplicates it would put the lead's
+  // newest DM in the prompt twice — hurting reply quality and wasting tokens.
+  // Drop that duplicate trailing turn; a no-op when a caller passes clean prior
+  // history.
+  let turns = params.history;
+  const last = turns[turns.length - 1];
+  if (last && last.direction === "inbound" && last.text === params.latestMessage) {
+    turns = turns.slice(0, -1);
+  }
+
+  const transcript = turns
     .map((t) => `${t.direction === "inbound" ? "Lead" : "You"}: ${t.text}`)
     .join("\n");
 

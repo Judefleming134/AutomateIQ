@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runJarvisNightly } from "@/lib/cron/jarvis-nightly";
+import { isAuthorizedCron } from "@/lib/cron/auth";
 
 // Website fetches + a few AI rewrites need the full function budget.
 export const maxDuration = 60;
@@ -11,8 +12,7 @@ export const maxDuration = 60;
  * dispatch: Vercel signs cron requests, we verify the secret ourselves.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
