@@ -833,6 +833,7 @@ export async function addTask(_prev: Result, formData: FormData): Promise<Result
 export async function completeTask(_prev: Result, formData: FormData): Promise<Result> {
   await requireGrowth();
   const id = String(formData.get("task_id") ?? "");
+  const prospectId = String(formData.get("prospect_id") ?? "").trim();
   if (!id) return { error: "Missing task." };
 
   const admin = createAdminClient();
@@ -844,6 +845,10 @@ export async function completeTask(_prev: Result, formData: FormData): Promise<R
 
   revalidatePath("/growth");
   revalidatePath("/growth/prospects");
+  // Also refresh the prospect workspace the task is shown on, so ticking it
+  // "Done" drops it from the list immediately instead of lingering until a
+  // manual reload.
+  if (prospectId) revalidatePath(`/growth/prospects/${prospectId}`);
   return { ok: true };
 }
 
