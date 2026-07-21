@@ -54,11 +54,6 @@ export default async function InboxPage({
   const params = await searchParams;
   const admin = createAdminClient();
   const view = params.view === "queue" ? "queue" : "conversations";
-  // Whether the inbound-email forwarder is wired. When it isn't, email replies
-  // sit in Jude's mailbox and only reach this inbox when he pastes them via
-  // "Log their reply" — so an empty inbox could just mean "not forwarded yet",
-  // not "no replies". Surface that so it's never mistaken for silence.
-  const autoCapture = Boolean(process.env.INBOUND_EMAIL_SECRET);
 
   const { data: allMessages } = await admin
     .from("ge_messages")
@@ -170,20 +165,6 @@ export default async function InboxPage({
           </Link>
         </div>
       </div>
-
-      {!autoCapture && view === "conversations" && (
-        <div
-          className="panel panel-block"
-          style={{ marginBottom: 12, borderLeft: "3px solid var(--orange, #fb923c)", fontSize: 13 }}
-        >
-          <strong>Heads up:</strong> email reply auto-capture isn&apos;t wired
-          yet, so replies land in your mailbox first — they only show here once
-          you paste them with <em>Log their reply</em> on the prospect&apos;s
-          page (or set up forwarding in{" "}
-          <Link href="/growth/settings">Settings → Reply auto-capture</Link>).
-          So if this looks empty, check your email too — nothing&apos;s lost.
-        </div>
-      )}
 
       {view === "queue" ? (
         queue.length === 0 ? (
