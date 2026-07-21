@@ -1076,6 +1076,19 @@ export default async function ProspectWorkspacePage({
               document, send it yourself, then mark it sent — the prospect
               moves to <em>Proposal sent</em> with a follow-up in 7 days.
             </p>
+            {!report && (
+              <p
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--orange, #fb923c)",
+                  margin: "0 0 10px",
+                }}
+              >
+                No research on file yet — the proposal will be general and
+                hedged. Run research first (Research tab) for one grounded in
+                their site, pain points and a real quote.
+              </p>
+            )}
             <ActionForm action={generateProposal}>
               <input type="hidden" name="prospect_id" value={prospect.id} />
               <SubmitButton pendingText="Writing the proposal draft (30–60s)…">
