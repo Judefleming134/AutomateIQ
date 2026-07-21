@@ -379,7 +379,7 @@ export default async function VoiceAgentPage() {
               id="greeting"
               type="text"
               name="greeting"
-              placeholder="Thanks for calling Castleknock Plumbing, how can I help?"
+              placeholder="Thanks for calling [Your Business], how can I help?"
               defaultValue={config?.greeting ?? ""}
             />
           </div>
@@ -409,7 +409,7 @@ export default async function VoiceAgentPage() {
               id="serviceArea"
               type="text"
               name="serviceArea"
-              placeholder="Castleknock, Blanchardstown & Dublin 15"
+              placeholder="The towns and areas you cover"
               defaultValue={config?.service_area ?? ""}
             />
           </div>

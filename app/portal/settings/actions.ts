@@ -77,7 +77,7 @@ export async function updateBusinessKnowledge(
 
   if (error) {
     if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0005.sql (see HANDOFF.md)." };
+      return { error: "Database update required — run supabase/manual_update_0005.sql." };
     }
     return { error: error.message };
   }
