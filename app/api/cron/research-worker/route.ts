@@ -10,6 +10,7 @@ import { draftStudioMessage } from "@/lib/growth/ai";
 import { loadGrowthSettings } from "@/lib/growth/auth";
 import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
+import { isAuthorizedCron } from "@/lib/cron/auth";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
 import { selectAllRows } from "@/lib/growth/db";
@@ -36,8 +37,7 @@ export const maxDuration = 60;
  *   slot — the next scheduled call probes again cheaply.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

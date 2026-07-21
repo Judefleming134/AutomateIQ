@@ -8,6 +8,7 @@ import {
 } from "@/lib/growth/autopilot";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { syncStrategyBookingsCore } from "@/lib/growth/booking-sync";
+import { isAuthorizedCron } from "@/lib/cron/auth";
 
 /**
  * Single Vercel Cron entry, dispatching to every registered task. Adding
@@ -35,8 +36,7 @@ async function isolated<T>(name: string, task: () => Promise<T>): Promise<T | { 
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
