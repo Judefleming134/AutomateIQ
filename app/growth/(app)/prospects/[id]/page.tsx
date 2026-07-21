@@ -360,6 +360,11 @@ export default async function ProspectWorkspacePage({
           proposal_sent: { msg: "Proposal with them — nudge for a decision before it cools.", cta: "Send the nudge", href: `${base}?tab=studio` },
           negotiation: { msg: "Negotiation — hold the price book; the founding offer is the closer.", cta: "Open the conversation", href: `${base}?tab=conversation` },
           won: { msg: "Won 🎉 — deliver brilliantly, then ask for the review and a referral.", cta: "Log next steps", href: `${base}?tab=details` },
+          future_opportunity: {
+            msg: `Parked as a future opportunity${prospect.next_follow_up_at ? ` — it resurfaces on your due list around ${prospect.next_follow_up_at}` : ""}. Nothing to chase now; bring it forward with a fresh follow-up date or a new angle if the timing changes.`,
+            cta: "Adjust the timing",
+            href: `${base}?tab=details`,
+          },
         };
         const action = nba[prospect.status];
         if (!action) return null;
