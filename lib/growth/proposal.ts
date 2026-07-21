@@ -28,6 +28,34 @@ export async function generateProposalMarkdown(
     "Output ONLY the proposal as clean Markdown. Use ## for section headings.",
   ].join("\n");
 
+  // The report is AI-generated JSONB cast (not validated) on read, so a
+  // legacy or field-evolved report can have `overview` set but be missing a
+  // list field entirely. Coerce to real arrays before .length/.join so a
+  // malformed report degrades to "less detail" instead of throwing — a throw
+  // here surfaces to Jude as a misleading "try again in a moment" that never
+  // clears (the data is the same on retry).
+  const arr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
+  const services = arr(report?.services);
+  const manualProcesses = arr(report?.manual_processes);
+  const inefficiencies = arr(report?.inefficiencies);
+  const researchBlock = report?.overview
+    ? [
+        "RESEARCH:",
+        `- Overview: ${report.overview}`,
+        `- Business model: ${report.business_model}`,
+        services.length ? `- Services: ${services.join("; ")}` : "",
+        manualProcesses.length
+          ? `- Likely manual processes: ${manualProcesses.join("; ")}`
+          : "",
+        inefficiencies.length
+          ? `- Likely inefficiencies: ${inefficiencies.join("; ")}`
+          : "",
+        report.proposal_angle ? `- Strongest angle: ${report.proposal_angle}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "RESEARCH: none on file — keep the overview and challenges general and hedged.";
+
   const prompt = [
     `Write a proposal for ${prospect.company} with EXACTLY these sections:`,
     "## Company Overview",
@@ -45,23 +73,7 @@ export async function generateProposalMarkdown(
     prospect.industry ? `- Industry: ${prospect.industry}` : "",
     prospect.location ? `- Location: ${prospect.location}` : "",
     "",
-    report?.overview
-      ? [
-          "RESEARCH:",
-          `- Overview: ${report.overview}`,
-          `- Business model: ${report.business_model}`,
-          report.services.length ? `- Services: ${report.services.join("; ")}` : "",
-          report.manual_processes.length
-            ? `- Likely manual processes: ${report.manual_processes.join("; ")}`
-            : "",
-          report.inefficiencies.length
-            ? `- Likely inefficiencies: ${report.inefficiencies.join("; ")}`
-            : "",
-          report.proposal_angle ? `- Strongest angle: ${report.proposal_angle}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n")
-      : "RESEARCH: none on file — keep the overview and challenges general and hedged.",
+    researchBlock,
     "",
     solutions.length
       ? `RECOMMENDED SOLUTIONS (structure the two recommendation sections around these):\n${solutions
