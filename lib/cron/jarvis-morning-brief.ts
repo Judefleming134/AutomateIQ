@@ -22,6 +22,16 @@ function escapeHtml(text: string): string {
  * created from inside the app.
  */
 const DATED_REMINDERS: Record<string, string[]> = {
+  "2026-07-22": [
+    "DIAL DAY — one job: get 15-min demos BOOKED. Today is the phones. You've a stack of leads already contacted and chased, so they know the name — this is WARM dialling, not cold. Aim for volume: 30+ dials.",
+    "① SET UP FIRST (10 min): demo flow, a quote and the order form all one click away; know the founding offer cold (first 10 customers, rates rise after — that's your urgency). Water, headphones, and a rule: 20 dials before you judge the day.",
+    "② THE LIST (your warm phone list): Prospects → tick 'Has phone' → sort by Lead score. Work Status = 'Contacted' first, then switch to 'Follow-up sent'. These already got your email/DM — warmest numbers you own. Every row is tap-to-call.",
+    "③ OPEN WITH CONTEXT: each prospect page opens with 'Outreach so far' — glance it, then lead with 'I emailed you on the 17th about X, wanted to put a voice to it.' Warm beats cold every time.",
+    "④ THE ASK on every call: a 15-minute demo THIS WEEK — you're booking the meeting, not pitching on the phone. Pin it to a date. LOG EVERY CALL (the Call panel / 'Mark call made') so the follow-up auto-schedules and nothing leaks.",
+    "⑤ REPLIES FIRST: anyone who wrote back gets answered before the next dial — a reply is warmer than any cold call.",
+    "⑥ VOICEMAIL = a touch, not a miss: leave a 15-sec 'who I am / why / I'll try you again', log it, move on. The email autopilot keeps chasing in the background.",
+    "TARGET: 30+ dials, every one logged, 2–3 demos booked for this week. Booked calls tomorrow = closes next week. Pick up the phone and don't stop.",
+  ],
   "2026-07-21": [
     "ONE JOB TODAY: land the first customer. Not volume — CLOSING. Sell first, admin last.",
     "① SET THE TRAP BEFORE YOU DIAL (15 min): have your demo flow, a quote, and the order form/checkout all one click away, and know the founding offer cold (first 10 customers only, rates rise after — that's your closer + your urgency).",
