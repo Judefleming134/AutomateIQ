@@ -29,6 +29,7 @@ import {
   MEETING_STATUS_META,
   CHANNEL_META,
   CHANNELS,
+  PURPOSE_META,
   SENTIMENT_META,
   type ProspectStatus,
   type QualificationStatus,
@@ -230,6 +231,47 @@ export default async function ProspectWorkspacePage({
   const lastInbound = (messages ?? []).find((m) => m.direction === "inbound");
   const openTasks = (tasks ?? []).filter((t) => t.status === "open");
 
+  // "Outreach so far" — a scannable history of every touch that actually went
+  // out (sent messages + logged calls/meetings), oldest first, with the gist,
+  // so on a call Jude can say "we emailed you on the 14th about X, then chased
+  // on the 17th" instead of hunting the full timeline. Read-only from data
+  // already loaded above.
+  type Touch = {
+    key: string;
+    at: string;
+    channelLabel: string;
+    purposeLabel: string | null;
+    subject: string | null;
+    preview: string;
+    inbound?: boolean;
+  };
+  const outreachTouches: Touch[] = [
+    ...(messages ?? [])
+      .filter((m) => m.status === "sent" || m.direction === "inbound")
+      .map((m) => ({
+        key: `m-${m.id}`,
+        at: m.sent_at ?? m.created_at,
+        channelLabel: CHANNEL_META[m.channel as Channel]?.label ?? m.channel,
+        purposeLabel: m.direction === "inbound"
+          ? "Their reply"
+          : PURPOSE_META[(m.purpose as MessagePurpose) ?? "first"]?.label ?? null,
+        subject: m.subject,
+        preview: (m.body ?? "").trim(),
+        inbound: m.direction === "inbound",
+      })),
+    ...(activities ?? [])
+      .filter((a) => a.type === "call" || a.type === "meeting")
+      .map((a) => ({
+        key: `a-${a.id}`,
+        at: a.created_at,
+        channelLabel: a.type === "call" ? "Call" : "Meeting",
+        purposeLabel: null,
+        subject: null,
+        preview: (a.content ?? "").trim(),
+      })),
+  ].sort((x, y) => (x.at < y.at ? -1 : 1));
+  const outboundTouchCount = outreachTouches.filter((t) => !t.inbound).length;
+
   const studioDrafts: StudioDraftRow[] = (messages ?? [])
     .filter((m) => m.direction === "outbound" && m.status === "draft")
     .map((m) => ({
@@ -383,6 +425,68 @@ export default async function ProspectWorkspacePage({
           </div>
         );
       })()}
+
+      {/* Outreach history at a glance — what actually went out and when, so the
+          call opens with "we've reached out N times" instead of a hunt. */}
+      {outreachTouches.length > 0 && (
+        <details
+          className="panel panel-block"
+          open
+          style={{ marginBottom: 14, borderLeft: "3px solid var(--ac1, #8b5cf6)" }}
+        >
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+            📨 Outreach so far — {outboundTouchCount} touch
+            {outboundTouchCount === 1 ? "" : "es"} sent
+            {outreachTouches.length > outboundTouchCount
+              ? ` · ${outreachTouches.length - outboundTouchCount} reply back`
+              : ""}
+          </summary>
+          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            {outreachTouches.map((t, i) => (
+              <div
+                key={t.key}
+                style={{
+                  fontSize: 13,
+                  borderLeft: `2px solid ${t.inbound ? "var(--green, #34d399)" : "var(--ac2, #3b82f6)"}`,
+                  paddingLeft: 10,
+                }}
+              >
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+                  <strong>
+                    {t.inbound ? "" : `${i + 1}. `}
+                    {t.channelLabel}
+                  </strong>
+                  {t.purposeLabel && (
+                    <span style={{ color: "var(--faint)" }}>· {t.purposeLabel}</span>
+                  )}
+                  <span style={{ color: "var(--faint)", marginLeft: "auto" }}>
+                    {fmt(t.at)}
+                  </span>
+                </div>
+                {t.subject && (
+                  <div style={{ fontWeight: 600, marginTop: 3 }}>{t.subject}</div>
+                )}
+                {t.preview && (
+                  <div
+                    style={{
+                      color: "var(--body)",
+                      marginTop: 3,
+                      whiteSpace: "pre-wrap",
+                      maxHeight: 120,
+                      overflowY: "auto",
+                    }}
+                  >
+                    {t.preview}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 11.5, color: "var(--faint)", margin: "10px 0 0" }}>
+            Full thread with statuses is under the Conversation tab.
+          </p>
+        </details>
+      )}
 
       <nav role="tablist" aria-label="Prospect workspace" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
         {TABS.map((t) => (
