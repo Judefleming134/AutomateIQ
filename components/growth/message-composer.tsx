@@ -15,8 +15,22 @@ import {
   TONES,
   type Channel,
   type MessageObjective,
+  type MessagePurpose,
   type Tone,
 } from "@/lib/growth/constants";
+
+// The composer picks an OBJECTIVE; the message stores a PURPOSE. Map them so a
+// follow-up sent from the inbox is actually tracked as a follow-up (status
+// advancement, the follow-up autopilot's counting) and a queued cold touch is
+// caught by the reply-race gate — the Studio already records purpose; the inbox
+// used to drop it (stored null).
+const OBJECTIVE_TO_PURPOSE: Record<MessageObjective, MessagePurpose> = {
+  initial: "first",
+  follow_up: "follow_up",
+  re_engagement: "follow_up",
+  confirmation: "meeting_confirmation",
+  reply: "reply",
+};
 
 export type ComposerTemplate = {
   id: string;
@@ -124,6 +138,8 @@ export function MessageComposer({
           subject: channel === "email" ? subject : null,
           body,
           mode,
+          purpose: OBJECTIVE_TO_PURPOSE[objective],
+          tone,
           scheduledAt:
             mode === "queue" && scheduledAt
               ? new Date(scheduledAt).toISOString()
