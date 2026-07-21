@@ -24,6 +24,7 @@ import {
 } from "@/lib/growth/constants";
 import { dublinDate, dublinHour } from "@/lib/growth/dates";
 import { quickResearch } from "./prospects/actions";
+import { sendDueFollowups } from "./actions";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -132,13 +133,17 @@ export default async function GrowthDashboardPage() {
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
-      .in("status", ["replied", "qualified", "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation"])
+      // The live working set: everyone replied or actively being worked
+      // (contacted / chasing) plus the committed later stages. Ranked by stage
+      // then score below and capped at 20, so it's the leads worth working now
+      // — and it auto-refills as deals close and drop out.
+      .in("status", ["replied", "contacted", "follow_up_sent", "qualified", "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation"])
       // Pre-order by score, but the real hot ranking is by pipeline STAGE
-      // (done in JS below). Fetch a wider slice than the 8 shown so a
+      // (done in JS below). Fetch a wider slice than the 20 shown so a
       // late-stage lead with a modest cold score still makes the cut before
       // the stage sort runs. nullsFirst:false so unscored leads don't float up.
       .order("lead_score", { ascending: false, nullsFirst: false })
-      .limit(40),
+      .limit(120),
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
@@ -206,15 +211,19 @@ export default async function GrowthDashboardPage() {
   // "Hot prospects" = the deals closest to a yes, so lead with pipeline STAGE,
   // not the research-time cold score: a lead in negotiation or with a proposal
   // out should sit above a fresh reply that happens to have a higher cold
-  // score. Within a stage, the higher score comes first. Matches how the
-  // morning brief tells Jude to work — furthest-along first.
+  // score. Within a stage, the higher score comes first. Replied leads and the
+  // committed later stages rank highest; the ones you're actively chasing
+  // (contacted / follow-up sent) fill the rest by score. Capped at 20 and
+  // auto-refilling as deals close.
   const HOT_STAGE_RANK: Record<string, number> = {
-    negotiation: 6,
-    proposal_sent: 5,
-    proposal_in_progress: 4,
-    meeting_booked: 3,
-    qualified: 2,
-    replied: 1,
+    negotiation: 8,
+    proposal_sent: 7,
+    proposal_in_progress: 6,
+    meeting_booked: 5,
+    qualified: 4,
+    replied: 3,
+    follow_up_sent: 2,
+    contacted: 1,
   };
   const hotSorted = [...(hot ?? [])]
     .sort(
@@ -222,7 +231,7 @@ export default async function GrowthDashboardPage() {
         (HOT_STAGE_RANK[b.status] ?? 0) - (HOT_STAGE_RANK[a.status] ?? 0) ||
         (b.lead_score ?? 0) - (a.lead_score ?? 0)
     )
-    .slice(0, 8);
+    .slice(0, 20);
 
   // Tally the overnight automation into a one-line "what the engine did".
   const nightlyLines = (nightly ?? []).map((a) => String(a.content));
@@ -415,6 +424,37 @@ export default async function GrowthDashboardPage() {
               </Link>
             </p>
           )}
+        </section>
+      )}
+
+      {((dueTodayCount ?? 0) + (overdueCount ?? 0)) > 0 && (
+        <section
+          className="panel panel-block"
+          style={{
+            marginTop: 20,
+            marginBottom: 4,
+            borderLeft: "3px solid var(--ac2, #3b82f6)",
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+          aria-label="Send due follow-ups"
+        >
+          <div style={{ fontSize: 13, flex: "1 1 260px" }}>
+            <strong>Fire the due email follow-ups.</strong>{" "}
+            <span style={{ color: "var(--faint)" }}>
+              Sends every due chase that has an email and a ready draft — same
+              review as the 8am run, capped, gone-cold leads left parked. The
+              ones without an email are yours to call.
+            </span>
+          </div>
+          <ActionForm action={sendDueFollowups}>
+            <SubmitButton className="btn btn-primary btn-sm" pendingText="Sending…">
+              <Send size={13} /> Send due email follow-ups
+            </SubmitButton>
+          </ActionForm>
         </section>
       )}
 

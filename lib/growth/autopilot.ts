@@ -346,6 +346,83 @@ export async function autoQueueDueFollowups(): Promise<{
   };
 }
 
+/**
+ * On-demand twin of the follow-up autopilot: sends every DUE email follow-up
+ * that already has a clean drafted reply, right now (the dashboard button),
+ * through the exact same gates as the 8am run — per-send editorial review,
+ * a LIVE status re-check (a lead who just replied is held, not chased), the
+ * hard touch cap, and the 7-day freshness window (gone-cold leads stay parked).
+ * Leads whose overnight draft isn't written yet are counted and left for the
+ * 8am run rather than drafted on the spot. Bounded per click.
+ */
+export async function sendDueEmailFollowupsNow(
+  senderName: string,
+  senderId: string
+): Promise<{ sent: number; held: number; noDraft: number; due: number }> {
+  const flag = (process.env.GROWTH_AUTOFOLLOWUP ?? "").toLowerCase();
+  if (flag === "0" || flag === "off") {
+    return { sent: 0, held: 0, noDraft: 0, due: 0 };
+  }
+  const admin = createAdminClient();
+  const today = dublinDate();
+  const maxTouches = Math.max(1, Number(process.env.GROWTH_MAX_FOLLOWUPS ?? 2));
+
+  const { data: due } = await admin
+    .from("ge_prospects")
+    .select("id, lead_score")
+    .in("status", ["contacted", "follow_up_sent"])
+    .lte("next_follow_up_at", today)
+    // Same 7-day window as the 8am run: older chases are "gone cold" and stay
+    // parked, never auto-fired — sending them now would read as spam.
+    .gte("next_follow_up_at", dublinDate(-7))
+    .not("email", "is", null)
+    .order("lead_score", { ascending: false, nullsFirst: false })
+    .limit(40);
+
+  let sent = 0;
+  let held = 0;
+  let noDraft = 0;
+  const dueList = due ?? [];
+  for (const p of dueList) {
+    if (sent >= 20) break; // bound the per-click send burst
+
+    const { count: sentFollowups } = await admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("prospect_id", p.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "follow_up")
+      .eq("status", "sent");
+    if ((sentFollowups ?? 0) >= maxTouches) continue;
+
+    const { data: draft } = await admin
+      .from("ge_messages")
+      .select("id")
+      .eq("prospect_id", p.id)
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .eq("purpose", "follow_up")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!draft) {
+      noDraft += 1;
+      continue;
+    }
+
+    const res = await sendAutopilotEmail({
+      messageId: draft.id,
+      senderName,
+      senderId,
+    });
+    if (res.ok) sent += 1;
+    else held += 1;
+  }
+  return { sent, held, noDraft, due: dueList.length };
+}
+
 /** Sends ONE draft/queued email message with full CRM bookkeeping. */
 export async function sendAutopilotEmail(params: {
   messageId: string;
