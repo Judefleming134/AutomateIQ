@@ -133,11 +133,12 @@ export default async function GrowthDashboardPage() {
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
       .in("status", ["replied", "qualified", "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation"])
-      // nullsFirst:false so unscored leads don't outrank scored ones —
-      // Postgres sorts NULLS FIRST on DESC by default, which would float
-      // score-less prospects to the top of these "best first" lists.
+      // Pre-order by score, but the real hot ranking is by pipeline STAGE
+      // (done in JS below). Fetch a wider slice than the 8 shown so a
+      // late-stage lead with a modest cold score still makes the cut before
+      // the stage sort runs. nullsFirst:false so unscored leads don't float up.
       .order("lead_score", { ascending: false, nullsFirst: false })
-      .limit(8),
+      .limit(40),
     admin
       .from("ge_prospects")
       .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
@@ -201,6 +202,27 @@ export default async function GrowthDashboardPage() {
       .lt("next_follow_up_at", dublinDate(-7))
       .not("status", "in", activeFilter),
   ]);
+
+  // "Hot prospects" = the deals closest to a yes, so lead with pipeline STAGE,
+  // not the research-time cold score: a lead in negotiation or with a proposal
+  // out should sit above a fresh reply that happens to have a higher cold
+  // score. Within a stage, the higher score comes first. Matches how the
+  // morning brief tells Jude to work — furthest-along first.
+  const HOT_STAGE_RANK: Record<string, number> = {
+    negotiation: 6,
+    proposal_sent: 5,
+    proposal_in_progress: 4,
+    meeting_booked: 3,
+    qualified: 2,
+    replied: 1,
+  };
+  const hotSorted = [...(hot ?? [])]
+    .sort(
+      (a, b) =>
+        (HOT_STAGE_RANK[b.status] ?? 0) - (HOT_STAGE_RANK[a.status] ?? 0) ||
+        (b.lead_score ?? 0) - (a.lead_score ?? 0)
+    )
+    .slice(0, 8);
 
   // Tally the overnight automation into a one-line "what the engine did".
   const nightlyLines = (nightly ?? []).map((a) => String(a.content));
@@ -469,10 +491,10 @@ export default async function GrowthDashboardPage() {
           <h2 className="panel-title" id="hot-title">
             <Flame size={15} style={{ verticalAlign: "-2px", color: "var(--orange, #fb923c)" }} /> Hot prospects
           </h2>
-          {(hot ?? []).length === 0 ? (
+          {hotSorted.length === 0 ? (
             <p className="empty-state">No live conversations yet — research and reach out above.</p>
           ) : (
-            <ProspectList rows={hot ?? []} />
+            <ProspectList rows={hotSorted} />
           )}
         </section>
 
