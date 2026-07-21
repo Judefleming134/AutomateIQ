@@ -28,9 +28,23 @@ export const maxDuration = 45;
  * guaranteed fallback — this is the automation on top, not the safety net.
  */
 
-function extractEmail(from: string): string | null {
-  const angled = /<([^>]+)>/.exec(from);
-  const candidate = (angled ? angled[1] : from).trim().toLowerCase();
+function extractEmail(from: unknown): string | null {
+  // `from` may arrive as a raw string ("Jane <jane@acme.ie>") or, from a
+  // provider webhook, as an object ({ address }/{ email }/{ value }). Normalise
+  // to a string before pulling the address out.
+  const raw =
+    typeof from === "string"
+      ? from
+      : from && typeof from === "object"
+        ? String(
+            (from as { address?: string; email?: string; value?: string }).address ??
+              (from as { email?: string }).email ??
+              (from as { value?: string }).value ??
+              ""
+          )
+        : "";
+  const angled = /<([^>]+)>/.exec(raw);
+  const candidate = (angled ? angled[1] : raw).trim().toLowerCase();
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(candidate) ? candidate : null;
 }
 
@@ -50,16 +64,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const payload = (await request.json().catch(() => null)) as {
-    from?: unknown;
-    subject?: unknown;
-    text?: unknown;
-  } | null;
-  const from = typeof payload?.from === "string" ? payload.from : "";
-  const subject = typeof payload?.subject === "string" ? payload.subject : "";
-  const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+  const payload = (await request.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  // Accept several forwarder shapes without breaking the documented one:
+  // fields at the top level ({from, subject, text}), or wrapped one level down
+  // under `data` / `email` (Resend inbound, SendGrid, Mailgun and similar all
+  // nest the message). Pick from the top level first, then the nested object.
+  const src = (payload ?? {}) as Record<string, unknown>;
+  const nested =
+    ((src.data as Record<string, unknown> | undefined) ??
+      (src.email as Record<string, unknown> | undefined) ??
+      {}) as Record<string, unknown>;
+  const pick = (key: string): unknown => src[key] ?? nested[key];
 
-  const senderEmail = extractEmail(from);
+  const subjectRaw = pick("subject");
+  const subject = typeof subjectRaw === "string" ? subjectRaw : "";
+  // Prefer plain text; fall back to common body field names, then to stripped
+  // HTML, so a forwarder that only sends an html body still captures the reply.
+  const textRaw =
+    pick("text") ?? pick("plain") ?? pick("body") ?? pick("text_body");
+  let text = typeof textRaw === "string" ? textRaw.trim() : "";
+  if (!text) {
+    const html = pick("html");
+    if (typeof html === "string") {
+      text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  const senderEmail = extractEmail(pick("from"));
   if (!senderEmail || !text) {
     return NextResponse.json(
       { error: "Need a valid 'from' address and non-empty 'text'." },
