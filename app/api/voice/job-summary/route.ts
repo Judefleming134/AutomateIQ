@@ -379,7 +379,7 @@ export async function POST(request: NextRequest) {
   }
 
   const lines = [
-    `🔧 NEW JOB — ${businessName || "Castleknock Plumbing"}`,
+    `🔧 NEW JOB — ${businessName || "your business"}`,
     "",
     `Name: ${name}`,
     `Phone: ${phone}`,

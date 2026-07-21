@@ -38,7 +38,7 @@ const VOICE_STARTER: Record<string, string> = {
     "Thanks for calling — you're through to our reception line. How can I help today?",
   business_hours: "Mon–Fri 8am–6pm, Sat 9am–1pm. 24/7 emergency callout.",
   service_area:
-    "Castleknock, Blanchardstown, Clonsilla, Dublin 15 and surrounding areas.",
+    "Your main town, the neighbouring areas and surrounds — list the places you cover.",
   services:
     "Emergency callouts, burst pipes & leaks, boiler repair & servicing, blocked drains, taps & toilets, bathroom installs, general plumbing & heating.",
   knowledge:
@@ -46,7 +46,7 @@ const VOICE_STARTER: Record<string, string> = {
 };
 const ASSISTANT_STARTER: Record<string, string> = {
   knowledge:
-    "Plumbing & heating business serving Castleknock, Blanchardstown and Dublin 15. Services: emergency callouts, burst pipes & leaks, boiler repair & servicing, blocked drains, bathroom installs, general plumbing & heating. Hours: Mon–Fri 8am–6pm, Sat 9am–1pm, 24/7 emergency. We never quote firm prices upfront — the team confirms on site. Always collect the customer's name, phone, address and the problem.",
+    "Plumbing & heating business serving your town and the surrounding areas. Services: emergency callouts, burst pipes & leaks, boiler repair & servicing, blocked drains, bathroom installs, general plumbing & heating. Hours: Mon–Fri 8am–6pm, Sat 9am–1pm, 24/7 emergency. We never quote firm prices upfront — the team confirms on site. Always collect the customer's name, phone, address and the problem.",
 };
 
 type VoiceProvisioning = {
@@ -584,7 +584,7 @@ export default async function AdminCustomerDetailPage({
                 id="va-greeting"
                 type="text"
                 name="greeting"
-                placeholder="Thanks for calling Castleknock Plumbing, how can I help?"
+                placeholder="Thanks for calling [Your Business], how can I help?"
                 defaultValue={voiceConfig?.greeting ?? ""}
               />
             </div>
@@ -612,7 +612,7 @@ export default async function AdminCustomerDetailPage({
                   id="va-area"
                   type="text"
                   name="service_area"
-                  placeholder="Castleknock, Blanchardstown & Dublin 15"
+                  placeholder="The towns and areas you cover"
                   defaultValue={voiceConfig?.service_area ?? ""}
                 />
               </div>
@@ -682,7 +682,7 @@ export default async function AdminCustomerDetailPage({
                 id="aa-knowledge"
                 name="knowledge"
                 rows={6}
-                placeholder="Castleknock Plumbing — plumbing & heating in Dublin 15. Services: emergency callouts, boiler repair & servicing, leaks, bathroom installs. Hours: Mon–Fri 8–6, emergency 24/7. Owner: [name]. Never quote firm prices — the team confirms on site."
+                placeholder="[Your Business] — plumbing & heating in your area. Services: emergency callouts, boiler repair & servicing, leaks, bathroom installs. Hours: Mon–Fri 8–6, emergency 24/7. Owner: [name]. Never quote firm prices — the team confirms on site."
                 defaultValue={assistant?.knowledge ?? ""}
               />
             </div>

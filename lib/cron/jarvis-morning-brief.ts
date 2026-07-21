@@ -26,7 +26,7 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "ONE JOB TODAY: land the first customer. Not volume — CLOSING. Sell first, admin last.",
     "① SET THE TRAP BEFORE YOU DIAL (15 min): have your demo flow, a quote, and the order form/checkout all one click away, and know the founding offer cold (first 10 customers only, rates rise after — that's your closer + your urgency).",
     "② WARMEST FIRST: dashboard 'Hot prospects' + Inbox replies + anyone qualified / with a meeting booked / a proposal out. These are the ones that close THIS WEEK — work every one before you touch anything cold. Goal for each: pin the next step to a DATE (a call today/tomorrow, or the yes).",
-    "③ THE CLOSEST DEAL (Castleknock or whoever's furthest along): drive it to a decision today. Get them on a call, walk the value, ASK FOR THE YES. On a yes → set them up on the call, same day: quote + order form + billing.",
+    "③ THE CLOSEST DEAL (whoever's furthest along): drive it to a decision today. Get them on a call, walk the value, ASK FOR THE YES. On a yes → set them up on the call, same day: quote + order form + billing.",
     "④ DIAL FOR DEMOS (~90 min, the engine of a first sale): Prospects → 'Has phone' → sort by Lead score → top 25. Phone-first. The ONLY goal of each call is to book a 15-min demo this week. Log every call so the follow-up schedules itself.",
     "⑤ Warm DMs to anyone who's engaged — nudge them to a call, not a chat.",
     "⑥ Background only (don't let it eat selling hours): research the next batch + queue ~20 for the 8am run.",
@@ -38,21 +38,21 @@ const DATED_REMINDERS: Record<string, string[]> = {
   "2026-07-10": [
     "TODAY'S PLAN, in order —",
     "① Import the new CSVs → research the top 40 (website-havers go first). Refills the pipeline for dialling + the 8am run.",
-    "② Castleknock finishing touches — sharpen the voice agent (fast, urgent, books the job), run the 3 test calls, confirm Tuesday 14:00 Zoom + quote/order form ready.",
+    "② Closest-deal finishing touches — sharpen the voice agent (fast, urgent, books the job), run the 3 test calls, confirm Tuesday 14:00 Zoom + quote/order form ready.",
     "③ DIAL — prime business-hours work: hammer the top-scored researched list, phone-first, log every call so the follow-up auto-schedules.",
     "④ Last night's scans & catches — skim the Jarvis overnight section below and action anything flagged.",
     "⑤ Draft the weekend plan — which niches to scrape, who to chase, what to prep for next week.",
     "⑥ Before you finish — queue ~20 best emails for the next 8am run.",
   ],
   // ── Redemption weekend: OUTREACH VOLUME (research done Fri night), then
-  // Mon = tweaks + dial, Tue = close Castleknock. Set by Jude Fri night.
+  // Mon = tweaks + dial, Tue = close the closest deal. Set by Jude Fri night.
   "2026-07-11": [
     "SATURDAY — SEND DAY. Last night you researched, queued and read the scans — today the weekend is spent SENDING. Work these:",
     "① The 8am autopilot just fired what you queued — check the SENT list below, then keep the machine fed: queue the next ~20 best emails so tomorrow's 8am run is loaded too.",
     "② DMs — work through the researched list's Instagram/Facebook/LinkedIn drafts: copy, send in the app, Mark as sent (keeps tracking + follow-ups honest). Aim for 15–20 DMs.",
     "③ Any replies (email or DM) — answer SAME DAY, replies first before new sends.",
     "④ If the drafted pile runs low, run one research batch to refill, then straight back to sending.",
-    "⑤ Quick Castleknock check: 1 test call on the agent, confirm Tuesday 14:00 Zoom + quote/order form ready.",
+    "⑤ Quick closest-deal check: 1 test call on the agent, confirm Tuesday 14:00 Zoom + quote/order form ready.",
     "END OF DAY: 20 emails queued for Sunday 8am + 15–20 DMs sent. Volume today = replies Monday.",
   ],
   "2026-07-12": [
@@ -66,12 +66,12 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "⑦ Early night again — Monday you dial sharp and Tuesday you close.",
   ],
   "2026-07-13": [
-    "MONDAY — FINAL TWEAKS + DIAL TOP PROSPECTS. Goal: ONE MORE BOOKING for next week, so Castleknock isn't the only iron in the fire:",
+    "MONDAY — FINAL TWEAKS + DIAL TOP PROSPECTS. Goal: ONE MORE BOOKING for next week, so the closest deal isn't the only iron in the fire:",
     "① Morning: final tweaks only (agent, demo flow, anything the weekend surfaced) — timebox it, no rabbit-holes.",
     "② Then DIAL the top-scored prospects, best scores first, tap-to-call. Log EVERY call so follow-ups auto-schedule.",
     "③ The ask on every good call: a 15-minute Zoom next week. One booked meeting today = mission accomplished.",
     "④ Answer every reply from the weekend's sends same day — those are your warmest calls.",
-    "⑤ Last 30 mins: Castleknock ready-check for tomorrow (agent test, quote + order form open, Stripe/billing ready to set them up).",
+    "⑤ Last 30 mins: closest-deal ready-check for tomorrow (agent test, quote + order form open, Stripe/billing ready to set them up).",
   ],
   "2026-07-14": [
     "TUESDAY — CLOSE CASTLEKNOCK, 14:00. Demo → yes → SET UP THAT DAY:",
