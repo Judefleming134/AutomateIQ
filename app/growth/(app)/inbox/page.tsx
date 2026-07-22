@@ -296,8 +296,8 @@ export default async function InboxPage({
                             {MESSAGE_STATUS_META[m.status as MessageStatus]?.label}
                           </span>
                           {m.sentiment && (
-                            <span className={`badge ${SENTIMENT_META[m.sentiment as Sentiment].badge}`}>
-                              {SENTIMENT_META[m.sentiment as Sentiment].label}
+                            <span className={`badge ${SENTIMENT_META[m.sentiment as Sentiment]?.badge ?? "badge-gray"}`}>
+                              {SENTIMENT_META[m.sentiment as Sentiment]?.label ?? m.sentiment}
                             </span>
                           )}
                           <span>{stampLabel(m)}</span>
