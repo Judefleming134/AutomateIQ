@@ -22,6 +22,29 @@ function escapeHtml(text: string): string {
  * created from inside the app.
  */
 const DATED_REMINDERS: Record<string, string[]> = {
+  // Jude's week: nights until Saturday, Sunday OFF, dial Mon + Tue all day,
+  // back at the day job Wednesday. The engine runs itself all week (overnight
+  // research + 8am autopilot), so Monday he wakes to a warm, full dial list.
+  "2026-07-26": [
+    "SUNDAY — OFF. You've been on nights all week; today you rest, and that's the plan, not a guilt trip. The engine doesn't rest: overnight research kept refilling the pipeline and the 8am autopilot kept sending, so Monday you wake to a warm, full dial list.",
+    "If you touch anything at all, cap it at 10 minutes: glance any replies, queue ~20 best drafts for Monday's 8am run, then step away. Rest is what makes Monday's calls sharp — protect it.",
+  ],
+  "2026-07-27": [
+    "MONDAY — DIAL DAY 1 of 2. One job: get 15-minute demos BOOKED. Warm dialling — every name already had your email or DM, so they know AutomateIQ. Aim for volume: 30+ dials.",
+    "① SET UP FIRST (10 min): demo flow, a quote and the order form all one click away; know the founding offer cold (first 10 customers, rates rise after — that's your urgency). Water, headphones, and a rule: 20 dials before you judge the day.",
+    "② THE LIST: Prospects → tick 'Has phone' → sort by Lead score. Work Status='Contacted' first, then 'Follow-up sent'. Every row is tap-to-call. Each prospect page opens with 'Outreach so far' — glance it, then open with 'I emailed you on X about Y, wanted to put a voice to it.'",
+    "③ THE ASK on every call: a 15-minute demo THIS WEEK — you're booking the meeting, not pitching on the phone. Pin it to a date. LOG EVERY CALL with the one-tap 'Log call' button in the call panel so the follow-up auto-schedules and nothing leaks.",
+    "④ REPLIES FIRST: anyone who wrote back gets answered before the next dial. Voicemail = a touch, not a miss: leave a 15-sec 'who/why/I'll try again', log it, move on.",
+    "TARGET: 30+ dials, every one logged, 2–3 demos booked. Tomorrow you dial again AND start closing the earliest bookings.",
+  ],
+  "2026-07-28": [
+    "TUESDAY — DIAL DAY 2 of 2. Two jobs today: keep dialling for new demos, AND drive the warmest deal to a yes. You've got Monday's bookings to build on.",
+    "① CLOSEST DEAL FIRST: whoever's furthest along (replied / demo booked / proposal out) — get them on a call, walk the value, ASK FOR THE YES. On a yes → set them up the same day: quote + order form + billing.",
+    "② THEN DIAL: Prospects → 'Has phone' → sort by Lead score → keep working 'Contacted' then 'Follow-up sent'. 30+ dials again, tap-to-call, log every one.",
+    "③ THE ASK: a 15-minute demo this week. Book the meeting, don't pitch on the phone. Replies answered before the next dial.",
+    "④ LAST 30 MIN: tidy up — log any stragglers, then queue ~20 best drafts for Wednesday's 8am run so the machine keeps feeding while you're back at the day job.",
+    "TARGET: one deal closed or set up, plus 2–3 more demos booked. Two dial days done = a full week of calls lined up.",
+  ],
   "2026-07-22": [
     "DIAL DAY — one job: get 15-min demos BOOKED. Today is the phones. You've a stack of leads already contacted and chased, so they know the name — this is WARM dialling, not cold. Aim for volume: 30+ dials.",
     "① SET UP FIRST (10 min): demo flow, a quote and the order form all one click away; know the founding offer cold (first 10 customers, rates rise after — that's your urgency). Water, headphones, and a rule: 20 dials before you judge the day.",
