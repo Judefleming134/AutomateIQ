@@ -34,7 +34,9 @@ type ProspectRow = {
   company: string;
   contact_name: string;
   status: string;
-  lead_score: number;
+  // Nullable: a replied/contacted lead that was added manually and never
+  // researched has no score — rendering must not print "null/100".
+  lead_score: number | null;
   next_follow_up_at: string | null;
   last_contact_at: string | null;
 };
@@ -64,7 +66,9 @@ function ProspectList({ rows, dateField }: { rows: ProspectRow[]; dateField?: "f
                     ? p.next_follow_up_at
                     : dateField === "last_contact"
                       ? (p.last_contact_at?.slice(0, 10) ?? "—")
-                      : `${p.lead_score}/100`}
+                      : p.lead_score != null && p.lead_score > 0
+                        ? `${p.lead_score}/100`
+                        : "—"}
                 </td>
               </tr>
             );
