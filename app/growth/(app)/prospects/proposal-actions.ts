@@ -158,6 +158,10 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
       .from("ge_prospects")
       .update({
         status: "proposal_sent",
+        // Sending a proposal IS contacting them — stamp last_contact_at like
+        // every other outreach action (recordOutreachSent) so "Recently
+        // contacted" and the last-contact display stay accurate.
+        last_contact_at: new Date().toISOString(),
         // Chase the proposal if there's no word within a week.
         next_follow_up_at: dublinDate(7),
       })
