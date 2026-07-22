@@ -997,9 +997,28 @@ export default async function ProspectWorkspacePage({
                       Generate a call script in the Studio → Call tab.
                     </p>
                   )}
+                  {/* One-tap call logger, right where you dial: records a call
+                      activity and auto-schedules the +3-day follow-up. Add an
+                      optional note; leave it blank and it logs "Call made". No
+                      dropdown to remember, so a call can't leak. */}
+                  <ActionForm action={addActivity} style={{ marginTop: 12 }}>
+                    <input type="hidden" name="id" value={prospect.id} />
+                    <input type="hidden" name="type" value="call" />
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <input
+                        name="content"
+                        placeholder="What happened? (optional)"
+                        maxLength={4000}
+                        style={{ flex: "1 1 180px" }}
+                        aria-label="Call outcome (optional)"
+                      />
+                      <SubmitButton className="btn btn-primary btn-sm" pendingText="Logging…">
+                        <Phone size={13} /> Log call
+                      </SubmitButton>
+                    </div>
+                  </ActionForm>
                   <p style={{ fontSize: 11, color: "var(--faint)", margin: "8px 0 0" }}>
-                    After the call, log the outcome with the box on the left
-                    (Call) — it schedules the follow-up automatically.
+                    Logging the call schedules the follow-up automatically.
                   </p>
                 </section>
               );

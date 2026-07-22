@@ -777,14 +777,20 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   const id = String(formData.get("id") ?? "");
   const type = String(formData.get("type") ?? "note");
   const content = String(formData.get("content") ?? "").trim();
-  if (!id || !content) return { error: "Write something first." };
+  if (!id) return { error: "Missing prospect." };
   if (!["note", "call", "meeting"].includes(type)) return { error: "Invalid type." };
+  // A call/meeting can be logged with one tap on a busy dial day — an empty
+  // note gets a sensible default so the touch (and its auto-scheduled
+  // follow-up) is still recorded. Notes always need something written.
+  const fallback = type === "call" ? "Call made" : "Meeting logged";
+  const finalContent = content || (type === "note" ? "" : fallback);
+  if (!finalContent) return { error: "Write something first." };
 
   const admin = createAdminClient();
   const { error } = await admin.from("ge_activities").insert({
     prospect_id: id,
     type,
-    content: content.slice(0, 4000),
+    content: finalContent.slice(0, 4000),
     created_by: member.id,
   });
   if (error) return { error: error.message };
