@@ -921,8 +921,8 @@ export default async function ProspectWorkspacePage({
                             {MESSAGE_STATUS_META[entry.m.status as MessageStatus]?.label ?? entry.m.status}
                           </span>
                           {entry.m.sentiment && (
-                            <span className={`badge ${SENTIMENT_META[entry.m.sentiment as Sentiment].badge}`}>
-                              {SENTIMENT_META[entry.m.sentiment as Sentiment].label}
+                            <span className={`badge ${SENTIMENT_META[entry.m.sentiment as Sentiment]?.badge ?? "badge-gray"}`}>
+                              {SENTIMENT_META[entry.m.sentiment as Sentiment]?.label ?? entry.m.sentiment}
                             </span>
                           )}
                           <span>{stampLabel(entry.m)}</span>
