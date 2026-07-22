@@ -641,8 +641,8 @@ export default async function ProspectWorkspacePage({
                         <div key={s.key} className="panel" style={{ padding: "12px 14px" }}>
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <strong>{s.name}</strong>
-                            <span className={`badge ${COMPLEXITY_META[s.complexity].badge}`}>
-                              {COMPLEXITY_META[s.complexity].label}
+                            <span className={`badge ${COMPLEXITY_META[s.complexity]?.badge ?? "badge-gray"}`}>
+                              {COMPLEXITY_META[s.complexity]?.label ?? s.complexity}
                             </span>
                           </div>
                           <p style={{ fontSize: 14, margin: "6px 0 0" }}>{s.why}</p>
