@@ -60,7 +60,7 @@ export async function recordMeeting(_prev: Result, formData: FormData): Promise<
 }
 
 export async function setMeetingStatus(_prev: Result, formData: FormData): Promise<Result> {
-  await requireGrowth();
+  const { member } = await requireGrowth();
   const id = String(formData.get("meeting_id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["booked", "completed", "cancelled", "no_show"].includes(status)) {
@@ -68,8 +68,33 @@ export async function setMeetingStatus(_prev: Result, formData: FormData): Promi
   }
 
   const admin = createAdminClient();
+  const { data: meeting } = await admin
+    .from("ge_meetings")
+    .select("id, prospect_id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!meeting) return { error: "Meeting not found." };
+
   const { error } = await admin.from("ge_meetings").update({ status }).eq("id", id);
   if (error) return { error: error.message };
+
+  // Log the outcome to the prospect's timeline so the call record stays
+  // complete — a completed / no-show / cancelled outcome was previously
+  // invisible on the prospect page Jude reads before the next call.
+  if (meeting.prospect_id && status !== meeting.status && status !== "booked") {
+    const label: Record<string, string> = {
+      completed: "Meeting completed",
+      no_show: "Meeting no-show",
+      cancelled: "Meeting cancelled",
+    };
+    await admin.from("ge_activities").insert({
+      prospect_id: meeting.prospect_id,
+      type: "meeting",
+      content: `${label[status] ?? status} — marked by ${member.name}`,
+      created_by: member.id,
+    });
+    revalidatePath(`/growth/prospects/${meeting.prospect_id}`);
+  }
 
   revalidatePath("/growth/meetings");
   return { ok: true };
