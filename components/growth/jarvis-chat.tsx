@@ -154,6 +154,9 @@ const STARTERS = [
  * always answers from live data.
  */
 const MEMORY_KEY = "aiq-jarvis-chat";
+// Remember whether Jude muted Jarvis's voice, so a refresh or navigation
+// doesn't turn it talking again mid-call.
+const VOICE_KEY = "aiq-jarvis-voice";
 
 export function JarvisChat() {
   const [turns, setTurns] = useState<JarvisTurn[]>([]);
@@ -212,6 +215,14 @@ export function JarvisChat() {
   // asynchronously in most browsers — warm them and re-pick when ready.
   useEffect(() => {
     setCanListen(getRecognitionCtor() !== null);
+    // Restore the saved voice preference (default stays "on" when never set),
+    // so muting sticks across refreshes and page navigations.
+    try {
+      const savedVoice = localStorage.getItem(VOICE_KEY);
+      if (savedVoice !== null) setVoiceOn(savedVoice === "1");
+    } catch {
+      /* storage blocked — keep the default */
+    }
     if (typeof window !== "undefined" && window.speechSynthesis) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
@@ -303,9 +314,15 @@ export function JarvisChat() {
           type="button"
           className="btn btn-secondary btn-sm"
           onClick={() => {
-            if (voiceOn && typeof window !== "undefined")
+            const next = !voiceOn;
+            if (!next && typeof window !== "undefined")
               window.speechSynthesis?.cancel();
-            setVoiceOn(!voiceOn);
+            setVoiceOn(next);
+            try {
+              localStorage.setItem(VOICE_KEY, next ? "1" : "0");
+            } catch {
+              /* storage blocked — preference just won't persist this session */
+            }
           }}
           title={voiceOn ? "Jarvis speaks its answers — tap to mute" : "Muted — tap so Jarvis speaks"}
         >
