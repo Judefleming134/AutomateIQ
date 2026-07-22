@@ -73,6 +73,12 @@ export function BulkActions({ isOwner }: { isOwner: boolean }) {
       {state?.ok && !pending && (
         <span style={{ fontSize: 12, color: "var(--green, #34d399)" }}>✓ Done</span>
       )}
+      {/* "Select all" only ticks the rows on THIS page — spell it out so a
+          filtered list of hundreds isn't half-archived by surprise. */}
+      <span style={{ fontSize: 11, color: "var(--faint)", flexBasis: "100%" }}>
+        Applies to the ticked rows on this page. To act on more, work page by
+        page.
+      </span>
     </form>
   );
 }
@@ -82,7 +88,8 @@ export function SelectAll() {
   return (
     <input
       type="checkbox"
-      aria-label="Select all prospects"
+      aria-label="Select all prospects on this page"
+      title="Selects every prospect on this page"
       onChange={(e) => {
         const checked = e.currentTarget.checked;
         document
