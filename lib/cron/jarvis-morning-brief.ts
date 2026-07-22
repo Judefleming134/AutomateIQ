@@ -22,9 +22,16 @@ function escapeHtml(text: string): string {
  * created from inside the app.
  */
 const DATED_REMINDERS: Record<string, string[]> = {
-  // Jude's week: nights until Saturday, Sunday OFF, dial Mon + Tue all day,
-  // back at the day job Wednesday. The engine runs itself all week (overnight
-  // research + 8am autopilot), so Monday he wakes to a warm, full dial list.
+  // Jude's week (on nights): 1-hour call bursts Wed + Fri, Sunday OFF, full
+  // dial days Mon + Tue. The engine runs itself all week (overnight research +
+  // 8am autopilot), so Monday he wakes to a warm, full dial list.
+  "2026-07-24": [
+    "FRIDAY — POWER HOUR. One focused hour on the phones (you're on nights, so this is a sharp burst, not a marathon). Quality over volume: warmest numbers only, ask fast, then clock off.",
+    "① THE LIST (2 min): Prospects → 'Has phone' → sort by Lead score. Take the top of 'Contacted' then 'Follow-up sent' — the warmest names you own. Aim to actually talk to 8–12 in the hour.",
+    "② EVERY CALL, ONE ASK: a 15-minute demo for next week (you're dialling full days Mon + Tue — offer those slots). Book the meeting, don't pitch. Log every call with the one-tap 'Log call' so the follow-up schedules itself.",
+    "③ Replies first: anyone who wrote back gets answered before you dial. Voicemail = a touch: 15 seconds, log it, next.",
+    "TARGET: one focused hour, 2–3 demos pencilled onto Monday/Tuesday. Then step away — the engine keeps sending and researching while you sleep.",
+  ],
   "2026-07-26": [
     "SUNDAY — OFF. You've been on nights all week; today you rest, and that's the plan, not a guilt trip. The engine doesn't rest: overnight research kept refilling the pipeline and the 8am autopilot kept sending, so Monday you wake to a warm, full dial list.",
     "If you touch anything at all, cap it at 10 minutes: glance any replies, queue ~20 best drafts for Monday's 8am run, then step away. Rest is what makes Monday's calls sharp — protect it.",
