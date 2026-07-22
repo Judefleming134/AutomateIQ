@@ -91,7 +91,7 @@ export default async function JarvisPage() {
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 16 }}>
-        <StatCard icon={<Euro />} label="Pipeline value" value={`€${metrics.pipelineValue.toLocaleString("en-IE")}`} />
+        <StatCard icon={<Euro />} label="Pipeline value" value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`} />
         <StatCard icon={<Users />} label="Prospects" value={String(metrics.prospectsTotal)} />
         <StatCard icon={<Send />} label="Sent (7 days)" value={String(week.outreachSent)} />
         <StatCard icon={<MessageSquare />} label="Reply rate" value={`${metrics.replyRate}%`} />
