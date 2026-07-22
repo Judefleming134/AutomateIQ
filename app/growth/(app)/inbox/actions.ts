@@ -478,11 +478,17 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
     ["new", "researching", "research_complete", "outreach_ready",
      "contacted", "follow_up_sent"].includes(prospect.status)
   ) {
-    // A reply resets the clock: answer within a day, not on the old
-    // +3-day chase schedule.
+    // A reply resets the clock: answer within a day, not on the old +3-day
+    // chase schedule. But a NEGATIVE reply ("not interested", "remove me")
+    // must NOT schedule an automatic chase — clear the follow-up so the
+    // engine never nudges Jude to pester someone who just declined. It still
+    // moves to "replied" so the conversation stays visible in the inbox.
     await admin
       .from("ge_prospects")
-      .update({ status: "replied", next_follow_up_at: dublinDate(1) })
+      .update({
+        status: "replied",
+        next_follow_up_at: sentiment === "negative" ? null : dublinDate(1),
+      })
       .eq("id", prospect.id);
   }
 
