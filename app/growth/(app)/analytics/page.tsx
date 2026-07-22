@@ -195,7 +195,20 @@ export default async function AnalyticsPage({
                       <td style={{ textTransform: "capitalize" }}>{t.tone}</td>
                       <td>{t.sent}</td>
                       <td>{t.replied}</td>
-                      <td>{t.replyRate}%</td>
+                      <td>
+                        {t.replyRate}%
+                        {/* A rate off a handful of sends is noise — a 1/1 = 100%
+                            would otherwise read as the "best style". Flag it so
+                            the ranking isn't trusted before there's real data. */}
+                        {t.sent < 10 && (
+                          <span
+                            style={{ color: "var(--faint)", fontSize: 11, marginLeft: 6 }}
+                            title="Too few sends to be reliable yet"
+                          >
+                            small sample
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
