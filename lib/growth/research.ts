@@ -176,11 +176,12 @@ export function cleanSocialUrl(raw: string): string | null {
  *  set — SME sites behind Cloudflare/WAFs routinely 403 a "compatible;
  *  Bot" agent, which was silently failing half of Jude's reads. */
 async function fetchOnce(
-  target: string
+  target: string,
+  timeoutMs: number
 ): Promise<{ text: string; found: FoundContacts } | null> {
   const res = await fetch(target, {
     redirect: "follow",
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -285,12 +286,24 @@ export async function fetchWebsiteText(
     `${parsed.protocol}//${altHost}${parsed.pathname}${parsed.search}`,
     `http://${host}${parsed.pathname}${parsed.search}`,
   ];
+  // Hard cap on the WHOLE fetch effort. The website read is best-effort —
+  // research proceeds (hedged) without it — but the previous 3×12s serial
+  // budget could spend 36s here before the AI call even started, and a slow
+  // site plus a real generation then blew past the 60s serverless limit, so
+  // the platform killed the request and the lead was recorded as a FAILED
+  // scan. Bounding total fetch time to ~10s keeps the whole research pass
+  // (fetch + generation) comfortably inside the budget: a dead/slow site is
+  // dropped fast instead of taking the lead down with it.
+  const FETCH_BUDGET_MS = 10_000;
+  const deadline = Date.now() + FETCH_BUDGET_MS;
   for (const candidate of candidates) {
+    const remaining = deadline - Date.now();
+    if (remaining < 1500) break; // not enough time for a fair attempt
     try {
-      const result = await fetchOnce(candidate);
+      const result = await fetchOnce(candidate, Math.min(7000, remaining));
       if (result) return result;
     } catch {
-      // try the next candidate
+      // try the next candidate while budget remains
     }
   }
   return null;
@@ -485,16 +498,22 @@ export async function runCompanyResearch(
     .filter(Boolean)
     .join("\n");
 
-  // effort "medium": this is grounded analysis + writing, not deep multi-step
-  // reasoning — sonnet-5's default ("high") thinks for minutes per company
-  // for no material quality gain on this task.
+  // effort "low": the website text + prospect notes are already in the prompt
+  // and the JSON schema pins the output shape, so this is grounded extraction
+  // + drafting, not open-ended reasoning. "medium" made sonnet-5 think long
+  // enough that, stacked on the website fetch, calls ran past the 60s
+  // serverless limit and the platform killed them (recorded as failed scans).
+  // "low" returns markedly faster with no material quality loss on this task,
+  // which is what actually makes a 40-lead batch finish without cutting out.
+  // timeoutMs 42s: fetch (≤10s) + generation (≤42s) + DB writes stay under 60.
   // Track who ACTUALLY answered: with account-failover live, the configured
   // provider and the serving provider can differ, and the stored engine
   // label must tell the truth.
   let servedBy: "anthropic" | "gemini" | null = null;
   const raw = await aiComplete(system, prompt, 8000, {
     json: true,
-    effort: "medium",
+    effort: "low",
+    timeoutMs: 42_000,
     schema: researchSchema(),
     onProvider: (p) => {
       servedBy = p;
