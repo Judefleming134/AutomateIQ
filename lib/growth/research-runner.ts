@@ -57,7 +57,12 @@ export function mapResearchError(err: unknown): {
     dailyQuota = !perMinute && /per[\s_-]?day|daily/i.test(message);
     friendly = dailyQuota
       ? "DAILY AI QUOTA reached — the free tier has used its calls for today. It resets daily (around 8am Irish time); adding ANTHROPIC_API_KEY in Vercel removes the cap."
-      : "AI rate limit — pausing a minute fixes this (the batch retries automatically).";
+      : // Ambiguous 429 (Gemini free tier returns a bare RESOURCE_EXHAUSTED for
+        // BOTH its per-minute AND per-day limits). Stay retryable — but don't
+        // promise "a minute fixes this", because if it's the daily cap a minute
+        // won't, and that false reassurance sent Jude chasing a transient blip
+        // when the real fix was the API key. Say both honestly.
+        "AI rate limit or quota — pausing and retrying. If it's a per-minute burst this clears in ~60s; if EVERY lead keeps failing, the free tier's daily cap is spent (resets ~8am Irish) and the fix is adding ANTHROPIC_API_KEY in Vercel.";
   } else if (/^HTTP 5\d\d/.test(message)) {
     friendly = "AI service briefly overloaded — retry in a minute.";
   } else {
