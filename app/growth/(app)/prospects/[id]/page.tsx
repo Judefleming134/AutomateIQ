@@ -978,6 +978,36 @@ export default async function ProspectWorkspacePage({
                       <Phone size={13} /> {prospect.phone}
                     </a>
                   )}
+                  {/* What to pitch, right at the dial button — the top recommended
+                      systems + headline quote from the research, so the pitch is
+                      on-screen during the call without flipping to the Research tab. */}
+                  {solutions.length > 0 && (() => {
+                    const q = buildQuote(solutions);
+                    return (
+                      <div
+                        style={{
+                          margin: "0 0 10px",
+                          fontSize: 12.5,
+                          background: "var(--bg2, rgba(255,255,255,.03))",
+                          border: "1px solid var(--line, rgba(255,255,255,.08))",
+                          borderRadius: 8,
+                          padding: "8px 10px",
+                        }}
+                      >
+                        <div>
+                          <strong>Pitch:</strong>{" "}
+                          {solutions.slice(0, 3).map((s) => s.name).join(" · ")}
+                        </div>
+                        {q && (
+                          <div style={{ color: "var(--green, #34d399)", marginTop: 3 }}>
+                            {q.hasFrom ? "from " : ""}
+                            {formatEuro(q.setupTotal)} setup
+                            {q.monthlyTotal > 0 ? ` + ${formatEuro(q.monthlyTotal)}/month` : ""}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {script ? (
                     <div>
                       <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 4 }}>
