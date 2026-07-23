@@ -129,7 +129,20 @@ export default async function AnalyticsPage({
                       <td>{i.industry}</td>
                       <td>{i.prospects}</td>
                       <td>{i.sent}</td>
-                      <td>{i.replies}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        {i.replies}
+                        {/* "Top-performing" only means something with the rate:
+                            10 sent / 3 replies beats 100 / 5. Show it inline so
+                            the niche to scrape next is obvious. Shown once
+                            anything's been sent; the Sent column gives the
+                            sample size for judging a small-N rate. */}
+                        {i.sent > 0 && (
+                          <span style={{ color: "var(--faint)", fontSize: 11 }}>
+                            {" "}
+                            ({Math.round((i.replies / i.sent) * 100)}%)
+                          </span>
+                        )}
+                      </td>
                       <td>{i.meetings}</td>
                     </tr>
                   ))}
