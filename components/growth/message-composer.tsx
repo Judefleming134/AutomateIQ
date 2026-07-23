@@ -290,8 +290,23 @@ export function MessageComposer({
 
       {channel === "email" && (
         <div style={{ marginTop: 12 }}>
-          <label htmlFor="mc-subject" style={{ fontSize: 12, color: "var(--faint)" }}>
-            Subject
+          <label
+            htmlFor="mc-subject"
+            style={{ fontSize: 12, color: "var(--faint)", display: "flex", justifyContent: "space-between", gap: 8 }}
+          >
+            <span>Subject</span>
+            {/* Inboxes cut a subject off around 78 chars, so a longer one gets
+                truncated in the preview and reads worse — a subtle live hint
+                nudges Jude to keep it tight without blocking anything. */}
+            {subject.length > 0 && (
+              <span
+                style={{
+                  color: subject.length > 78 ? "var(--orange, #fb923c)" : "var(--faint)",
+                }}
+              >
+                {subject.length}/78{subject.length > 78 ? " · may truncate in inboxes" : ""}
+              </span>
+            )}
           </label>
           <input
             id="mc-subject"
