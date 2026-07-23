@@ -51,19 +51,21 @@ export async function GET(request: NextRequest) {
   // unattended overnight worker is paused.
   const boost = request.nextUrl.searchParams.get("boost") === "1";
 
-  // Paused by default: on the free Gemini tier, auto-researching all night
-  // burns the shared daily quota before the founder is even awake — and worse
-  // when they're working nights and want that quota for hands-on research.
-  // Flip OVERNIGHT_RESEARCH_ENABLED=1 in Vercel to switch it back on (e.g. once
-  // on a paid AI tier). The endpoint stays live + cheap; it just no-ops.
-  // A manual boost bypasses the pause — the human is asking for it right now.
-  const enabled =
-    process.env.OVERNIGHT_RESEARCH_ENABLED === "1" ||
-    process.env.OVERNIGHT_RESEARCH_ENABLED === "true";
-  if (!enabled && !boost) {
+  // Self-researching by default: leads research themselves overnight so nobody
+  // has to click "research next batch" each day. On the free Gemini tier this
+  // spends the day's quota overnight — which is the intent (a hands-off
+  // pipeline that's full by morning); it stops itself cleanly the moment the
+  // daily cap is hit, and never breaks the 07:00 send (that path needs no AI).
+  // Set OVERNIGHT_RESEARCH_ENABLED=0 (or "false") to pause it — e.g. to reserve
+  // the day's Gemini quota for hands-on research instead. A manual boost always
+  // runs regardless.
+  const disabled =
+    process.env.OVERNIGHT_RESEARCH_ENABLED === "0" ||
+    process.env.OVERNIGHT_RESEARCH_ENABLED === "false";
+  if (disabled && !boost) {
     return NextResponse.json({
       ok: true,
-      skipped: "overnight auto-research is paused (set OVERNIGHT_RESEARCH_ENABLED=1 to enable, or call with ?boost=1 for a manual drain)",
+      skipped: "overnight auto-research is paused (OVERNIGHT_RESEARCH_ENABLED=0) — remove it or set 1 to resume, or call with ?boost=1 for a manual drain",
     });
   }
 
