@@ -149,6 +149,9 @@ export default async function DmListPage() {
         <>
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 12px" }}>
             {items.length} ready to send · highest score first
+            {items.length === MAX_ITEMS
+              ? ` · this is a rolling top ${MAX_ITEMS} — mark them sent and the next batch loads`
+              : ""}
           </p>
           <div style={{ display: "grid", gap: 12 }}>
             {items.map((it) => (
