@@ -280,14 +280,17 @@ export async function autoQueueDueFollowups(): Promise<{
   for (const p of due ?? []) {
     if (queued >= PER_RUN_CAP) break;
 
-    // Hard chase cap: stop once we've SENT this many follow-ups.
+    // Hard chase cap: stop once we've SENT this many follow-ups. Both chase
+    // touches (follow_up = touch 2, second_follow_up = touch 3) count toward
+    // it, so the 3-touch sequence can't run past GROWTH_MAX_FOLLOWUPS.
+    const CHASE_PURPOSES = ["follow_up", "second_follow_up"];
     const { count: sentFollowups } = await admin
       .from("ge_messages")
       .select("id", { count: "exact", head: true })
       .eq("prospect_id", p.id)
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("purpose", "follow_up")
+      .in("purpose", CHASE_PURPOSES)
       .eq("status", "sent");
     if ((sentFollowups ?? 0) >= maxTouches) continue;
 
@@ -298,20 +301,21 @@ export async function autoQueueDueFollowups(): Promise<{
       .eq("prospect_id", p.id)
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("purpose", "follow_up")
+      .in("purpose", CHASE_PURPOSES)
       .eq("status", "queued")
       .limit(1)
       .maybeSingle();
     if (pending) continue;
 
-    // The clean follow-up draft the worker wrote overnight.
+    // The clean chase draft the worker wrote overnight (whichever touch is
+    // next — the worker picks follow_up then second_follow_up in order).
     const { data: draft } = await admin
       .from("ge_messages")
       .select("id, subject, body")
       .eq("prospect_id", p.id)
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("purpose", "follow_up")
+      .in("purpose", CHASE_PURPOSES)
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(1)

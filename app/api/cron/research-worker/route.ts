@@ -336,14 +336,29 @@ export async function GET(request: NextRequest) {
       const settings = await loadGrowthSettings();
       for (const p of due ?? []) {
         if (followUpsDrafted >= slots) break;
-        // Skip anyone who already has an unsent follow-up draft waiting.
+        // 3-touch sequence: touch 1 = the first email, touch 2 = follow_up
+        // (a NEW angle / value), touch 3 = second_follow_up (direct "grab a
+        // slot" with the booking link). Count chases already SENT to pick the
+        // next one; after two chases the sequence is complete — stop, don't
+        // harass. (autoQueueDueFollowups enforces the same cap at send time.)
+        const { count: sentChases } = await admin
+          .from("ge_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("prospect_id", p.id)
+          .eq("channel", "email")
+          .eq("direction", "outbound")
+          .in("purpose", ["follow_up", "second_follow_up"])
+          .eq("status", "sent");
+        if ((sentChases ?? 0) >= 2) continue; // sequence done
+        const nextPurpose = (sentChases ?? 0) === 0 ? "follow_up" : "second_follow_up";
+        // Skip anyone who already has an unsent chase draft waiting.
         const { data: existing } = await admin
           .from("ge_messages")
           .select("id")
           .eq("prospect_id", p.id)
           .eq("channel", "email")
           .eq("direction", "outbound")
-          .eq("purpose", "follow_up")
+          .in("purpose", ["follow_up", "second_follow_up"])
           .in("status", ["draft", "queued"])
           .limit(1)
           .maybeSingle();
@@ -362,7 +377,7 @@ export async function GET(request: NextRequest) {
           const draft = await draftStudioMessage(
             p,
             (research?.report as ResearchReport | undefined) ?? null,
-            { channel: "email", purpose: "follow_up", tone: "professional" },
+            { channel: "email", purpose: nextPurpose, tone: "professional" },
             settings.bookingUrl,
             pricingLines(keys)
           );
@@ -374,18 +389,19 @@ export async function GET(request: NextRequest) {
             channel: "email",
             direction: "outbound",
             status: "draft",
-            purpose: "follow_up",
+            purpose: nextPurpose,
             tone: "professional",
             subject: draft.subject,
             body: clean,
             created_by: null,
           });
           followUpsDrafted += 1;
-          notes.push(`${p.company}: follow-up drafted`);
+          const touchLabel = nextPurpose === "follow_up" ? "follow-up (touch 2)" : "final follow-up (touch 3)";
+          notes.push(`${p.company}: ${touchLabel} drafted`);
           await admin.from("ge_activities").insert({
             prospect_id: p.id,
             type: "system",
-            content: `Jarvis nightly: drafted the follow-up email (chase was due ${today}) — ready in the Studio`,
+            content: `Jarvis nightly: drafted the ${touchLabel} email (chase was due ${today}) — ready in the Studio`,
             created_by: null,
           });
         } catch (err) {
