@@ -358,10 +358,17 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     // Many leads are imported with just a company name, so guard the contact
     // parens — otherwise the brief prints a literal "(null)" beside them.
-    const dueLines = (due ?? []).map(
-      (p) =>
-        `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${statusLabel(p.status)}, score ${p.lead_score ?? 0}, due ${p.next_follow_up_at}${p.phone ? `, ${p.phone}` : ""}`
-    );
+    const dueLines = (due ?? []).map((p) => {
+      // Flag how overdue each chase is so the brief's due list is a priority
+      // order, not a flat wall of dates — mirrors the prospects table. The due
+      // query already bounds these to today..7 days ago, so daysOver is 0–7.
+      const fu = String(p.next_follow_up_at ?? "").slice(0, 10);
+      const daysOver = fu
+        ? Math.round((Date.parse(today) - Date.parse(fu)) / 86_400_000)
+        : 0;
+      const overdue = daysOver > 0 ? ` (${daysOver}d overdue)` : " (today)";
+      return `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${statusLabel(p.status)}, score ${p.lead_score ?? 0}, due ${fu}${overdue}${p.phone ? `, ${p.phone}` : ""}`;
+    });
     const readyLines = (ready ?? []).map(
       (p) =>
         `• ${p.company}${p.contact_name ? ` (${p.contact_name})` : ""} — ${p.industry || "?"}, score ${p.lead_score ?? 0} — drafts ready${p.phone ? `, ${p.phone}` : ""}`
