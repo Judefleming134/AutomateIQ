@@ -12,6 +12,7 @@ import {
 } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
 import { activeEngineLabel } from "@/lib/ai/config";
+import { cleanSocialUrl } from "@/lib/growth/research";
 import { ResearchQueue } from "@/components/growth/research-queue";
 import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
@@ -65,7 +66,7 @@ export default async function ProspectsPage({
   let query = admin
     .from("ge_prospects")
     .select(
-      "id, company, contact_name, job_title, industry, location, email, phone, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to",
+      "id, company, contact_name, job_title, industry, location, email, phone, status, lead_score, qualification_status, last_contact_at, next_follow_up_at, campaign_id, assigned_to, linkedin_url, instagram_url, facebook_url",
       { count: "exact" }
     )
     .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
@@ -613,6 +614,33 @@ export default async function ProspectsPage({
                         {p.contact_name}
                         {p.email ? ` · ${p.email}` : ""}
                       </div>
+                      {/* Social quick-links so a LinkedIn/DM session can open the
+                          profile straight from the list — no click into each
+                          prospect. Junk links (bare facebook.com, share URLs) are
+                          hidden via cleanSocialUrl rather than shown dead. */}
+                      {(() => {
+                        const socials = [
+                          ["in", cleanSocialUrl(p.linkedin_url ?? "")],
+                          ["IG", cleanSocialUrl(p.instagram_url ?? "")],
+                          ["FB", cleanSocialUrl(p.facebook_url ?? "")],
+                        ].filter(([, url]) => url) as [string, string][];
+                        if (socials.length === 0) return null;
+                        return (
+                          <div style={{ display: "flex", gap: 8, marginTop: 3 }}>
+                            {socials.map(([label, url]) => (
+                              <a
+                                key={label}
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{ fontSize: 11, color: "var(--ac2, #3b82f6)" }}
+                              >
+                                {label} ↗
+                              </a>
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td>{p.job_title ?? "—"}</td>
                     <td>{p.industry ?? "—"}</td>
