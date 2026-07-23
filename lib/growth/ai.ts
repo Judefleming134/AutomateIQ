@@ -145,7 +145,7 @@ const PURPOSE_RULES: Record<MessagePurpose, string> = {
   follow_up:
     "First follow-up after no reply. Brief, add one NEW angle or piece of value from the research (don't repeat the first message), easy to answer.",
   second_follow_up:
-    "Second and final follow-up. Very short, gracious, zero pressure — leave the door open and make clear you won't keep chasing.",
+    "Final follow-up (touch 3 of 3). Short and direct: one line of concrete value, then a clear ask to grab a quick 15-minute call — and include the booking link so they can pick a slot themselves. Warm, not pushy, but make the path to booking effortless; this is the last touch.",
   meeting_confirmation:
     "They're ready to book. Warmly confirm, give them the booking link with one line on what the free AI Strategy Session covers.",
   thank_you:
@@ -232,7 +232,14 @@ export async function draftStudioMessage(
   if (pricing.length > 0) {
     lines.push("", "PRICING (founding-customer rates — the only figures permitted):", ...pricing);
   }
-  if (params.purpose === "meeting_confirmation" || params.purpose === "thank_you") {
+  // Every booking-oriented touch gets the link so the prospect can self-book —
+  // including the follow-up chases (the whole point of the 3-touch sequence is
+  // to drive a booked call, and a chase with no link is a dead end).
+  if (
+    ["follow_up", "second_follow_up", "meeting_confirmation", "thank_you"].includes(
+      params.purpose
+    )
+  ) {
     lines.push("", `BOOKING LINK (free AI Strategy Session): ${bookingUrl}`);
   }
   if (params.transform && params.currentText) {
