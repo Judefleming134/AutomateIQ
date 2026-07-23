@@ -55,6 +55,7 @@ export function ResearchQueue({
   failedRecently = [],
   failedTotal,
   claude = false,
+  engine,
 }: {
   /** A bounded working slice of unresearched prospects (the server sends a
    *  few hundred, not the whole database). Server-sorted: fresh leads first,
@@ -73,6 +74,11 @@ export function ResearchQueue({
   /** True when the server runs on the Anthropic key: no daily cap and no
    *  10-requests-per-minute wall, so the queue paces itself tighter. */
   claude?: boolean;
+  /** Human-readable name of the AI engine actually serving research, e.g.
+   *  "Claude (claude-sonnet-5)" or "Gemini (gemini-2.5-flash, free tier)".
+   *  Shown as a small badge so it's never a mystery which provider (and
+   *  therefore which speed/rate limits) is in play. */
+  engine?: string;
 }) {
   // Observed per-company wall time (fetch + model + pacing), for the ETA.
   const SECONDS_PER_COMPANY = claude ? 35 : 40;
@@ -306,6 +312,11 @@ export function ResearchQueue({
             <strong>
               {total} prospect{total === 1 ? "" : "s"} not researched yet
             </strong>
+            {engine && (
+              <div style={{ fontSize: 11, color: "var(--faint)", margin: "3px 0 0" }}>
+                Engine: <span style={{ color: "var(--heading)" }}>{engine}</span>
+              </div>
+            )}
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
               Each run researches up to {BATCH_SIZE} — reports, solution
               recommendations, lead scores and outreach drafts. This batch:{" "}

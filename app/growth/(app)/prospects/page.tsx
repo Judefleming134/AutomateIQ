@@ -11,6 +11,7 @@ import {
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
+import { activeEngineLabel } from "@/lib/ai/config";
 import { ResearchQueue } from "@/components/growth/research-queue";
 import { ContactHarvest } from "@/components/growth/contact-harvest";
 import { CsvFileField } from "@/components/growth/csv-file-field";
@@ -338,6 +339,7 @@ export default async function ProspectsPage({
         failedRecently={failedGroup.slice(0, 60)}
         failedTotal={failedGroup.length}
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
+        engine={activeEngineLabel()}
       />
 
       <ContactHarvest pending={missingEmail} />
