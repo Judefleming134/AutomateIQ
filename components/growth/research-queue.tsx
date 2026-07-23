@@ -16,10 +16,15 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * between calls to stay inside free-tier AI rate limits, and one automatic
  * retry per company before moving on. The tab must stay open while it runs.
  */
-/** Two researches in flight at once: each call spends most of its life
- *  waiting on the website + the model, so pairing them roughly halves the
- *  batch without straining free-tier AI rate limits. */
-const CONCURRENCY = 2;
+/** How many researches run in flight at once. Each call spends most of its
+ *  life waiting on the website + the model, so lanes overlap cleanly. The
+ *  free tier is held at 2 to stay under the 10-req/min wall, but the paid
+ *  Anthropic key has no such wall, so it gets more lanes — the single biggest
+ *  lever on how long "Research next 40" takes. The throttle-collapse guard
+ *  below still drops the run to serial the moment a 429 appears, so extra
+ *  lanes never turn a rate-limit into a failure storm. */
+const CONCURRENCY_FREE = 2;
+const CONCURRENCY_CLAUDE = 4;
 /** One click researches at most this many. A big import (hundreds of leads)
  *  researched in one go would run for hours with the tab open and cost real
  *  money — so research goes in deliberate batches: run, work them, run the
@@ -53,6 +58,11 @@ export function ResearchQueue({
 }) {
   // Observed per-company wall time (fetch + model + pacing), for the ETA.
   const SECONDS_PER_COMPANY = claude ? 35 : 40;
+  // More lanes on the paid key (no rate wall) — the main speed lever. Free
+  // tier stays at 2. The per-worker startup stagger tightens to match, so the
+  // extra lanes actually ramp up instead of trickling in 4s apart.
+  const CONCURRENCY = claude ? CONCURRENCY_CLAUDE : CONCURRENCY_FREE;
+  const STAGGER_MS = claude ? 1500 : 4000;
   const total = totalPending ?? pending.length;
   // This run researches at most BATCH_SIZE; the rest wait for the next click.
   const batch = pending.slice(0, BATCH_SIZE);
@@ -206,7 +216,7 @@ export function ResearchQueue({
 
     await Promise.all(
       Array.from({ length: Math.min(CONCURRENCY, items.length) }, (_, w) =>
-        worker(w * 4000, w)
+        worker(w * STAGGER_MS, w)
       )
     );
 
