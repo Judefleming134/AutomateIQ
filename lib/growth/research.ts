@@ -7,6 +7,7 @@ import {
   type SolutionRecommendation,
 } from "@/lib/growth/solutions";
 import { CRITERIA, type CriterionKey } from "@/lib/growth/scoring";
+import { loadGrowthSettings } from "@/lib/growth/auth";
 import type { ProspectContext } from "@/lib/growth/ai";
 
 export type ResearchReport = {
@@ -411,6 +412,12 @@ function researchSchema(): Record<string, unknown> {
 export async function runCompanyResearch(
   prospect: ProspectContext & { email?: string | null; phone?: string | null }
 ): Promise<ResearchResult> {
+  // The booking link is what turns a first touch into a self-booked call:
+  // a prospect who's interested can grab a slot without waiting for a reply.
+  // Loaded here (not threaded through every caller) so the on-page button, the
+  // overnight worker and the boost drain all bake it into their drafts.
+  const bookingUrl = (await loadGrowthSettings()).bookingUrl;
+
   const site = prospect.website
     ? await fetchWebsiteText(prospect.website)
     : null;
@@ -485,13 +492,16 @@ export async function runCompanyResearch(
   ],
   "ratings": { ${ratingGuide} },
   "drafts": {
-    "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject, from Jude",
-    "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal, sign as Jude from AutomateIQ",
-    "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel, sign as Jude from AutomateIQ",
-    "email": { "subject": "cold-email subject built for opens: 3-6 words, under 40 chars, lowercase except proper nouns, naming ONE specific thing about THIS business (missed calls / reviews / no website / their trade + area) — reads like a note from someone they know, never salesy; no exclamation marks, no 'free/offer/deal'", "body": "80-140 word first-touch email, sign off as Jude, AutomateIQ" },
-    "sms": "first-touch SMS under 320 characters, sign as AutomateIQ"
+    "linkedin": "first-touch LinkedIn DM, under 500 characters, no subject, from Jude. NO links (LinkedIn penalises links in cold DMs) — end by inviting a quick reply/chat instead",
+    "instagram": "first-touch Instagram DM, 2-3 sentences, warm and informal, sign as Jude from AutomateIQ. End with a soft booking nudge and the booking link",
+    "facebook": "first-touch Facebook page message, 2-4 sentences, plain-spoken and local in feel, sign as Jude from AutomateIQ. End with a soft booking nudge and the booking link",
+    "email": { "subject": "cold-email subject built for opens: 3-6 words, under 40 chars, lowercase except proper nouns, naming ONE specific thing about THIS business (missed calls / reviews / no website / their trade + area) — reads like a note from someone they know, never salesy; no exclamation marks, no 'free/offer/deal'", "body": "80-140 word first-touch email, sign off as Jude, AutomateIQ. Close with a low-pressure call to action to book a free 15-30 min call, and put the booking link on its own line so they can self-book — e.g. 'If it's worth a look, grab a slot here: <link>'" },
+    "sms": "first-touch SMS under 320 characters, sign as AutomateIQ. Include the booking link so they can book in one tap"
   }
 }`,
+    "",
+    `BOOKING LINK (free AI Strategy Session) — use THIS EXACT url wherever a draft above asks for the booking link, never invent another: ${bookingUrl}`,
+    "The goal of every first touch is a booked call: make the ask low-pressure and specific, and include the link so an interested prospect can book themselves with no back-and-forth. The ONLY exception is LinkedIn (no links there).",
     "",
     "3 to 6 solutions, ordered by fit. Ratings reflect what the research supports; use 0 where unknown (budget and timeline are usually 0 before a conversation).",
   ]
