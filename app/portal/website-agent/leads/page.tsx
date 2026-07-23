@@ -2,6 +2,7 @@ import { Users, CalendarDays, Sun, Mail, Phone } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatCard } from "@/components/portal/stat-card";
+import { escapeLike } from "@/lib/growth/db";
 
 function contactAction(contact: string) {
   const trimmed = contact.trim();
@@ -23,6 +24,13 @@ export default async function WebsiteAgentLeadsPage({
   await requireSession();
   const supabase = await createClient();
   const { q = "" } = await searchParams;
+  const rawQ = q.trim();
+  // Sanitise before the term goes into a PostgREST .or() filter (same guard as
+  // the growth prospects search): strip the clause delimiters that would break
+  // out of the intended filter (comma/parens), then escape LIKE wildcards — so
+  // "O'Brien (plumbing)" or an email with "_" searches literally instead of
+  // erroring or matching everything.
+  const term = escapeLike(rawQ.replace(/[,()]/g, " ").trim());
 
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const dayStart = new Date();
@@ -34,9 +42,9 @@ export default async function WebsiteAgentLeadsPage({
     .select("id, name, contact, message, created_at")
     .order("created_at", { ascending: false })
     .limit(200);
-  if (q.trim()) {
+  if (term) {
     leadQuery = leadQuery.or(
-      `name.ilike.%${q.trim()}%,contact.ilike.%${q.trim()}%`
+      `name.ilike.%${term}%,contact.ilike.%${term}%`
     );
   }
 
@@ -101,7 +109,7 @@ export default async function WebsiteAgentLeadsPage({
       <div className="table-wrap">
         {(leads ?? []).length === 0 ? (
           <p className="empty-state">
-            {q.trim()
+            {rawQ
               ? "No leads match that search."
               : "No leads yet — publish your page and share the link to start collecting enquiries."}
           </p>
