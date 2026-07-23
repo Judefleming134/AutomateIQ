@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { researchOne } from "@/app/growth/(app)/prospects/actions";
@@ -8,6 +8,24 @@ import { researchOne } from "@/app/growth/(app)/prospects/actions";
 export type QueueItem = { id: string; company: string };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Race a promise against a wall-clock timeout. The batch runs as a loop in
+ *  the browser tab; if a research request hangs (a phone that locked and woke
+ *  can leave the in-flight fetch dead but never rejecting), the whole loop
+ *  would sit frozen forever waiting on it. 80s is past the server's own 60s
+ *  ceiling, so anything still pending by then is genuinely stuck — abort it,
+ *  count it as a miss (it stays queued), and keep the batch moving. */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("CLIENT_TIMEOUT")), ms)
+    ),
+  ]);
+}
+
+/** Screen Wake Lock sentinel type (not in older TS DOM libs). */
+type WakeSentinel = { release: () => Promise<void> } | null;
 
 /**
  * "Import, press one button, come back to a researched pipeline."
@@ -92,10 +110,46 @@ export function ResearchQueue({
   // after the company they're on (nothing half-written).
   const stopRequested = useRef(false);
 
+  // Screen Wake Lock: the batch is a loop living in THIS tab, and on a phone
+  // the browser suspends a tab whose screen has locked — freezing the loop
+  // dead, no error, mid-batch (the #1 cause of "it just cut out"). Holding a
+  // screen wake lock keeps the display awake so the loop can run to the end.
+  // The OS releases the lock whenever the tab is hidden, so it's re-acquired
+  // on every return to visible while a run is active.
+  const wakeLock = useRef<WakeSentinel>(null);
+  const acquireWakeLock = async () => {
+    try {
+      const nav = navigator as Navigator & {
+        wakeLock?: { request: (t: "screen") => Promise<WakeSentinel> };
+      };
+      if (nav.wakeLock && !wakeLock.current) {
+        wakeLock.current = await nav.wakeLock.request("screen");
+      }
+    } catch {
+      // Wake Lock unsupported or denied — the batch still runs; the user just
+      // has to keep the screen awake themselves (the on-screen note says so).
+    }
+  };
+  const releaseWakeLock = () => {
+    void wakeLock.current?.release().catch(() => {});
+    wakeLock.current = null;
+  };
+  // Re-acquire the lock each time the tab comes back to the foreground during
+  // a run (the OS drops it on hide).
+  useEffect(() => {
+    if (!running) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void acquireWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [running]);
+
   async function start(itemsOverride?: QueueItem[]) {
     // Default run = the next fresh batch; a retry run passes the failed list.
     const items = itemsOverride ?? batch;
     stopRequested.current = false;
+    void acquireWakeLock(); // keep the screen awake so the tab can't freeze
     setRunning(true);
     setFinished(false);
     setFailures([]);
@@ -137,10 +191,15 @@ export function ResearchQueue({
         setActive([...inFlight]);
 
         const tryOnce = () =>
-          researchOne(p.id).catch(() => ({
-            ok: false as const,
-            error: "Network hiccup",
-          }));
+          withTimeout(researchOne(p.id), 80_000).catch(
+            (e: unknown): { ok: false; error: string } => ({
+              ok: false,
+              error:
+                e instanceof Error && e.message === "CLIENT_TIMEOUT"
+                  ? "Timed out in the browser — the tab may have been backgrounded"
+                  : "Network hiccup",
+            })
+          );
 
         let result = await tryOnce();
         let tries = 1;
@@ -220,6 +279,7 @@ export function ResearchQueue({
       )
     );
 
+    releaseWakeLock();
     setActive([]);
     setPauseNote(null);
     setRunning(false);
@@ -357,7 +417,8 @@ export function ResearchQueue({
             />
           </div>
           <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
-            {pauseNote ?? "Keep this tab open. You can work in another tab meanwhile."}
+            {pauseNote ??
+              "Keep this screen open and awake — on a phone, don't switch apps or let the screen lock, or the browser pauses the batch. The screen is held awake automatically while it runs."}
           </p>
         </div>
       )}
