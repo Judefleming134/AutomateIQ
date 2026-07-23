@@ -2,6 +2,21 @@ import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/portal/status-badge";
 
+// Format timestamps in Irish time — bare toLocaleString() rendered in the
+// server's locale/timezone (US format, UTC), so an Irish customer saw the
+// wrong format an hour off. Match the rest of the app (en-IE / Europe/Dublin).
+function fmt(ts: string | null): string {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleString("en-IE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Dublin",
+  });
+}
+
 export default async function ReviewAgentHistoryPage() {
   await requireSession();
   const supabase = await createClient();
@@ -45,9 +60,9 @@ export default async function ReviewAgentHistoryPage() {
                     <td>
                       <StatusBadge status={r.status} />
                     </td>
-                    <td>{r.sent_at ? new Date(r.sent_at).toLocaleString() : "—"}</td>
-                    <td>{r.reminder_sent_at ? new Date(r.reminder_sent_at).toLocaleString() : "—"}</td>
-                    <td>{r.clicked_at ? new Date(r.clicked_at).toLocaleString() : "—"}</td>
+                    <td>{fmt(r.sent_at)}</td>
+                    <td>{fmt(r.reminder_sent_at)}</td>
+                    <td>{fmt(r.clicked_at)}</td>
                   </tr>
                 );
               })}

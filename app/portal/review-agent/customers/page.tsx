@@ -105,7 +105,13 @@ export default async function ReviewAgentCustomersPage({
                         <span style={{ color: "var(--faint)" }}>—</span>
                       )}
                     </td>
-                    <td>{new Date(c.created_at).toLocaleDateString()}</td>
+                    <td>
+                      {new Date(c.created_at).toLocaleDateString("en-IE", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
                   </tr>
                 );
               })}
