@@ -186,7 +186,13 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   const admin = createAdminClient();
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let imported = 0;
-  let skipped = 0;
+  // Track WHY a row was skipped separately — a clean sheet that's already in
+  // the pipeline (all duplicates) is a very different message from a sheet
+  // with malformed rows. Lumping them together made a successful de-dupe read
+  // like a data error ("Nothing imported (22 rows skipped)").
+  let skippedDuplicate = 0; // already in the database / repeated in this paste
+  let skippedIncomplete = 0; // no company, bad email, or no contact method
+  const skipped = () => skippedDuplicate + skippedIncomplete;
 
   // Auto-grouping: campaign per industry value, resolved once per industry.
   // Match order: campaign.industry (case-insensitive) → campaign name
@@ -273,12 +279,12 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     };
     const company = cell("company");
     if (!company) {
-      skipped++;
+      skippedIncomplete++;
       continue;
     }
     const email = cell("email");
     if (email && !emailRe.test(email)) {
-      skipped++;
+      skippedIncomplete++;
       continue;
     }
     // A lead must be reachable: company alone (no website/email/phone/social)
@@ -293,7 +299,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
         facebook_url: cell("facebook_url"),
       })
     ) {
-      skipped++;
+      skippedIncomplete++;
       continue;
     }
     // Dedupe: by email when present, otherwise by company name — so
@@ -303,13 +309,13 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     const companyKey = company.trim().toLowerCase();
     if (emailKey) {
       if (seenEmails.has(emailKey)) {
-        skipped++;
+        skippedDuplicate++;
         continue;
       }
       seenEmails.add(emailKey);
     } else {
       if (seenCompanies.has(companyKey)) {
-        skipped++;
+        skippedDuplicate++;
         continue;
       }
       seenCompanies.add(companyKey);
@@ -361,7 +367,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
           .select("id")
           .single();
         if (e2 || !created) {
-          skipped++;
+          skippedIncomplete++;
           continue;
         }
         pushActivity(created.id as string);
@@ -385,20 +391,38 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   revalidatePath("/growth/jarvis");
   revalidatePath("/growth/analytics");
   if (imported === 0) {
+    // Distinguish "already in your pipeline" from "bad data" — a clean sheet
+    // re-pasted is the de-dupe working, not an error, so don't scold the user
+    // about missing contact methods when every row was simply a duplicate.
+    if (skippedDuplicate > 0 && skippedIncomplete === 0) {
+      return {
+        error: `Nothing new to add — all ${skippedDuplicate.toLocaleString("en-IE")} lead${skippedDuplicate === 1 ? " is" : "s are"} already in your pipeline. Find them in Prospects below to research or queue.`,
+      };
+    }
+    if (skippedDuplicate > 0) {
+      return {
+        error: `Nothing imported — ${skippedDuplicate.toLocaleString("en-IE")} already in your pipeline and ${skippedIncomplete.toLocaleString("en-IE")} row${skippedIncomplete === 1 ? "" : "s"} missing a company or contact method (website, email, phone or social URL).`,
+      };
+    }
     return {
-      error: `Nothing imported (${skipped} row${skipped === 1 ? "" : "s"} skipped) — every row needs a company plus at least one contact method (website, email, phone or social URL), and emails that already exist are skipped.`,
+      error: `Nothing imported — ${skippedIncomplete.toLocaleString("en-IE")} row${skippedIncomplete === 1 ? "" : "s"} skipped. Every row needs a company plus at least one contact method (website, email, phone or social URL).`,
     };
   }
+  // Build the skipped breakdown so the notice names the reason, not a vague
+  // "duplicate or no contact method" for both.
+  const parts: string[] = [];
+  if (skippedDuplicate > 0)
+    parts.push(`${skippedDuplicate.toLocaleString("en-IE")} already in pipeline`);
+  if (skippedIncomplete > 0)
+    parts.push(`${skippedIncomplete.toLocaleString("en-IE")} missing a contact method`);
   return {
     ok: true,
     imported,
-    skipped,
+    skipped: skipped(),
     // Surfaced to the user via ActionForm's notice — a bare "Done" left them
     // guessing whether 5 or 500 landed and how many were duplicates.
     notice: `Imported ${imported.toLocaleString("en-IE")} new prospect${imported === 1 ? "" : "s"}${
-      skipped > 0
-        ? ` · skipped ${skipped.toLocaleString("en-IE")} (duplicate or no contact method)`
-        : ""
+      parts.length > 0 ? ` · skipped ${parts.join(", ")}` : ""
     }. Research them below to score + draft outreach.`,
   };
 }
