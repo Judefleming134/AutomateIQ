@@ -22,9 +22,13 @@ export default async function ReportsPage({
   const admin = createAdminClient();
   const metrics = await loadGrowthMetrics(admin, days);
 
+  // Most rows are scoped to the selected window, but a few are all-time or
+  // current-state snapshots that DON'T change when you toggle 7/30/90 —
+  // labelling them keeps "Last N days at a glance" honest (otherwise a total
+  // of 400 prospects reads as "400 in 7 days").
   const summaryRows: [string, string | number][] = [
     ["Leads added", metrics.leadsAdded],
-    ["Prospects total", metrics.prospectsTotal],
+    ["Prospects total (all-time)", metrics.prospectsTotal],
     ["Companies researched", metrics.companiesResearched],
     ["Proposals sent", metrics.proposalsSent],
     ["Outreach sent", metrics.outreachSent],
@@ -34,11 +38,11 @@ export default async function ReportsPage({
     ["Positive response rate", `${metrics.positiveRate}%`],
     ["Meetings booked", metrics.meetingsBooked],
     ["Conversion rate (contacted → meeting)", `${metrics.conversionRate}%`],
-    ["Qualified leads", metrics.qualified],
+    ["Qualified leads (all-time)", metrics.qualified],
     ["Deals won", metrics.won],
-    ["Pipeline value", `€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`],
-    ["Outreach in queue", metrics.queuedOutreach],
-    ["Outreach in draft", metrics.draftOutreach],
+    ["Pipeline value (open, all-time)", `€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`],
+    ["Outreach in queue (now)", metrics.queuedOutreach],
+    ["Outreach in draft (now)", metrics.draftOutreach],
   ];
 
   return (
