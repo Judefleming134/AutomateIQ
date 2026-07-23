@@ -55,16 +55,44 @@ export default async function InboxPage({
   const admin = createAdminClient();
   const view = params.view === "queue" ? "queue" : "conversations";
 
+  const MSG_COLS =
+    "id, prospect_id, channel, direction, status, subject, body, sentiment, scheduled_at, sent_at, created_at";
   const { data: allMessages } = await admin
     .from("ge_messages")
-    .select(
-      "id, prospect_id, channel, direction, status, subject, body, sentiment, scheduled_at, sent_at, created_at"
-    )
+    .select(MSG_COLS)
     .order("created_at", { ascending: false })
     .limit(1000);
 
   const messages = allMessages ?? [];
-  const prospectIds = [...new Set(messages.map((m) => m.prospect_id))];
+
+  // A blind "newest 1000 messages" is a trap for the Conversations view: the
+  // engine writes ~5 drafts per researched prospect, so a fresh research or
+  // autopilot batch can fill that window with new DRAFTS and push a real
+  // inbound reply out of it — silently hiding the whole conversation from the
+  // inbox. Inbound messages are far fewer than outbound, so fetch them
+  // directly and load the FULL threads for those prospects. That guarantees
+  // every reply shows up and every open thread is complete, regardless of how
+  // much outreach volume has built up.
+  const { data: inboundRows } = await admin
+    .from("ge_messages")
+    .select("prospect_id")
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  const inboundPids = [...new Set((inboundRows ?? []).map((r) => r.prospect_id))];
+  const { data: threadRows } = inboundPids.length
+    ? await admin.from("ge_messages").select(MSG_COLS).in("prospect_id", inboundPids)
+    : { data: [] as typeof messages };
+  // Newest-first, matching the global fetch's ordering the conversation
+  // builder relies on (thread[0] = latest).
+  const convMessages = (threadRows ?? [])
+    .slice()
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+  // Prospect lookup covers everything shown: conversation threads + the queue.
+  const prospectIds = [
+    ...new Set([...convMessages, ...messages].map((m) => m.prospect_id)),
+  ];
   const { data: prospectsRaw } = prospectIds.length
     ? await admin
         .from("ge_prospects")
@@ -78,9 +106,9 @@ export default async function InboxPage({
   // conversations; they'd flood this list with Jude's own sends the moment a
   // batch is queued. They live in the Outreach queue view instead. Newest
   // message per prospect, unanswered replies first.
-  const conversations = prospectIds
+  const conversations = inboundPids
     .map((pid) => {
-      const thread = messages.filter((m) => m.prospect_id === pid);
+      const thread = convMessages.filter((m) => m.prospect_id === pid);
       const latest = thread[0];
       // "Who spoke last" must only count messages that actually happened —
       // inbound, or outbound that genuinely SENT. The engine auto-drafts a
@@ -107,9 +135,15 @@ export default async function InboxPage({
   const selectedId =
     params.p && prospects.has(params.p) ? params.p : conversations[0]?.pid ?? null;
   const selected = selectedId ? prospects.get(selectedId) : null;
-  const selectedThread = selectedId
-    ? messages.filter((m) => m.prospect_id === selectedId)
-    : [];
+  // From the complete per-prospect threads, not the capped global window, so
+  // the open conversation always shows its full history. An outbound-only
+  // prospect opened via ?p= won't be in the inbound threads — fall back to the
+  // global window for that rare case so nothing regresses.
+  const selectedThread = !selectedId
+    ? []
+    : convMessages.some((m) => m.prospect_id === selectedId)
+      ? convMessages.filter((m) => m.prospect_id === selectedId)
+      : messages.filter((m) => m.prospect_id === selectedId);
   const lastInbound = selectedThread.find((m) => m.direction === "inbound");
 
   // Surface what needs a decision first: a FAILED send (retry or delete) then
