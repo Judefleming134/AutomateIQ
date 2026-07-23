@@ -337,6 +337,21 @@ export default async function ProspectWorkspacePage({
               </>
             ) : null}
           </p>
+          {/* One-tap dial at the top of the lead — on a call day the number was
+              buried in the Studio/details sections, a scroll-and-hunt every
+              time Jude opened a prospect to phone them. tel: is sanitised the
+              same way as everywhere else in this page. */}
+          {prospect.phone && (
+            <p style={{ margin: "8px 0 0" }}>
+              <a
+                href={`tel:${prospect.phone.replace(/[^\d+]/g, "")}`}
+                className="btn btn-secondary btn-sm"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                ☎ Call {prospect.phone}
+              </a>
+            </p>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span className={`badge ${statusMeta?.badge ?? "badge-gray"}`}>
