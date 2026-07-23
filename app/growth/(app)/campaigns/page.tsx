@@ -186,7 +186,18 @@ export default async function CampaignsPage() {
                     </td>
                     <td>{perf?.prospects ?? 0}</td>
                     <td>{perf?.sent ?? 0}</td>
-                    <td>{perf?.replies ?? 0}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {perf?.replies ?? 0}
+                      {/* Reply rate is the real signal of which niche responds —
+                          show it inline (only once something's been sent) so Jude
+                          doesn't have to do replies÷sent in his head. */}
+                      {(perf?.sent ?? 0) > 0 && (
+                        <span style={{ color: "var(--faint)", fontSize: 11 }}>
+                          {" "}
+                          ({Math.round(((perf?.replies ?? 0) / (perf!.sent || 1)) * 100)}%)
+                        </span>
+                      )}
+                    </td>
                     <td>{perf?.qualified ?? 0}</td>
                     <td>{perf?.meetings ?? 0}</td>
                   </tr>
