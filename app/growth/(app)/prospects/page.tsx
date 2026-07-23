@@ -635,20 +635,30 @@ export default async function ProspectsPage({
                     <td>{p.assigned_to ? (teamById.get(p.assigned_to) ?? "—") : "—"}</td>
                     <td>{p.last_contact_at ? p.last_contact_at.slice(0, 10) : "—"}</td>
                     <td>
-                      {p.next_follow_up_at ? (
-                        p.next_follow_up_at.slice(0, 10) <= todayDublin ? (
-                          <span
-                            className="badge badge-orange"
-                            title="This chase is due"
-                          >
-                            {p.next_follow_up_at.slice(0, 10)} · due
-                          </span>
-                        ) : (
-                          p.next_follow_up_at.slice(0, 10)
-                        )
-                      ) : (
-                        "—"
-                      )}
+                      {p.next_follow_up_at
+                        ? (() => {
+                            const fu = p.next_follow_up_at.slice(0, 10);
+                            if (fu > todayDublin) return fu;
+                            // Due or overdue: separate them so a chase that's
+                            // slipping doesn't hide behind one due today. Days
+                            // overdue is computed from the date-only strings.
+                            const daysOver = Math.round(
+                              (Date.parse(todayDublin) - Date.parse(fu)) / 86_400_000
+                            );
+                            return daysOver > 0 ? (
+                              <span
+                                className="badge badge-red"
+                                title={`This chase is ${daysOver} day${daysOver === 1 ? "" : "s"} overdue`}
+                              >
+                                {fu} · {daysOver}d overdue
+                              </span>
+                            ) : (
+                              <span className="badge badge-orange" title="This chase is due today">
+                                {fu} · due today
+                              </span>
+                            );
+                          })()
+                        : "—"}
                     </td>
                   </tr>
                 );
