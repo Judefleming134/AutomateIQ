@@ -129,9 +129,12 @@ export default async function JarvisPage() {
 
       <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 12 }}>
         <Sparkles size={12} style={{ verticalAlign: "-2px" }} /> Jarvis reads
-        the live CRM on every answer. It preps and advises — emails send from
-        the platform when you press send; DMs and calls stay yours, with
-        drafts and scripts ready in each prospect&apos;s workspace.
+        the live CRM on every answer. <strong>Emails go out on autopilot every
+        morning (~8am, booking link included)</strong> — the best researched
+        drafts are auto-queued and sent for you, so you don&apos;t have to be
+        here. You can still send any email now from the panel above; DMs and
+        calls stay yours, with drafts and scripts ready in each prospect&apos;s
+        workspace.
       </p>
     </>
   );
