@@ -118,20 +118,48 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => researchRank(a) - researchRank(b));
   const fresh = freshSorted.slice(0, freshCap);
 
+  // ── MAINTENANCE: requeue the research-failed group ───────────────────────
+  // ?requeue_failed=1 flips leads out of research_failed back to 'new' so they
+  // can be researched again. Needed because a bad drain (or an AI outage) can
+  // park a whole batch as "failed" through no fault of the lead — this undoes
+  // that in bulk instead of clicking Retry hundreds of times. Bounded per call;
+  // the dispatch loop / repeat calls handle larger piles.
+  if (request.nextUrl.searchParams.get("requeue_failed") === "1") {
+    const { data: parked } = await admin
+      .from("ge_prospects")
+      .select("id")
+      .eq("status", "research_failed")
+      .limit(500);
+    const ids = (parked ?? []).map((p) => p.id);
+    if (ids.length > 0) {
+      await admin.from("ge_prospects").update({ status: "new" }).in("id", ids);
+    }
+    return NextResponse.json({ ok: true, requeued: ids.length });
+  }
+
   // ── BOOST DRAIN ──────────────────────────────────────────────────────────
   // Research several fresh leads THIS TICK, in parallel, then return how many
   // are still queued. Bounded so the whole tick stays inside the 60s
   // serverless ceiling: each lead is website-fetch (≤10s) + one AI call
   // (≤42s), and 3 in parallel finish in roughly the time of one. The
   // dispatch loop calls back every ~30s, so the queue drains steadily without
-  // any browser tab. Account-level AI failure (dead key / daily quota) stops
-  // the tick immediately — the loop's next call re-probes cheaply.
+  // any browser tab.
+  //
+  // Crucially, a manual drain does NOT park failures into research_failed: a
+  // transient AI outage (free-tier daily quota, a 5xx blip) fails EVERY lead
+  // it touches, and parking would dump the whole queue into the failed pile
+  // through no fault of the leads (which is exactly what happened the first
+  // time). Instead, failures leave the lead untouched ('new'), the tick
+  // reports them, and if a WHOLE tick fails to research anything the loop is
+  // told to stop (`more:false`) — so a systemic problem halts the drain after
+  // one wasted tick rather than shredding 300 leads.
   if (boost) {
     const BOOST_PER_TICK = 3;
     const batch = freshSorted.slice(0, BOOST_PER_TICK);
     let researched = 0;
     let halted: string | null = null;
     const done: string[] = [];
+    const failures: string[] = [];
     const results = await Promise.allSettled(
       batch.map(async (prospect) => {
         const result = await runCompanyResearch(prospect);
@@ -156,13 +184,17 @@ export async function GET(request: NextRequest) {
         done.push(batch[i].company);
       } else {
         const { friendly, accountDead, dailyQuota } = mapResearchError(r.reason);
-        if (accountDead || dailyQuota) {
-          halted = friendly;
-        } else {
-          await parkResearchFailure(admin, batch[i], friendly, null);
-        }
+        failures.push(`${batch[i].company}: ${friendly.slice(0, 100)}`);
+        if (accountDead || dailyQuota) halted = friendly;
+        // NOTE: deliberately NOT parking — leave the lead 'new' so a transient
+        // outage doesn't dump it into the failed group.
       }
     }
+    // Systemic-failure circuit breaker: if this tick touched leads but
+    // researched none, the problem is the AI provider, not the leads — stop
+    // the loop so it can't keep hammering (and, before this fix, shredding)
+    // the queue. A productive tick (researched > 0) keeps the drain going.
+    const systemicFailure = batch.length > 0 && researched === 0;
     const remaining = Math.max(0, freshSorted.length - researched);
     return NextResponse.json({
       ok: true,
@@ -170,10 +202,11 @@ export async function GET(request: NextRequest) {
       researched,
       remaining,
       done,
-      // The loop reads this: stop early once nothing's left or the account is
-      // out, otherwise keep ticking.
-      more: halted ? false : remaining > 0,
-      halted: halted ?? undefined,
+      failures: failures.slice(0, 3),
+      halted: halted ?? (systemicFailure ? failures[0] ?? "every lead failed to research" : undefined),
+      // The loop reads this: stop when nothing's left, the account is out, or a
+      // whole tick failed (systemic AI problem); otherwise keep ticking.
+      more: halted || systemicFailure ? false : remaining > 0,
     });
   }
   // ── end boost drain ──────────────────────────────────────────────────────
