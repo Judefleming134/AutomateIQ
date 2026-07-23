@@ -42,14 +42,22 @@ export async function aiComplete(
     /** Called with the provider that ACTUALLY answered — with failover live,
      *  resolveProvider() alone can't tell callers who served the response. */
     onProvider?: (provider: "anthropic" | "gemini") => void;
+    /** Hard cap on the upstream call, ms. Defaults to 55s (just under the
+     *  usual maxDuration=60). A caller that ALSO spends time before the call
+     *  (e.g. research fetches the website first) passes a tighter value so
+     *  the fetch + generation together still finish inside the 60s budget —
+     *  otherwise the platform kills the whole request and the work is lost. */
+    timeoutMs?: number;
   } = {}
 ): Promise<string> {
   const provider = resolveProvider();
   if (provider.kind === "none") throw new Error("NO_PROVIDER");
 
+  const timeoutMs = opts.timeoutMs ?? 55_000;
+
   if (provider.kind === "anthropic") {
     try {
-      const text = await callAnthropic(provider.apiKey, system, prompt, maxTokens, opts);
+      const text = await callAnthropic(provider.apiKey, system, prompt, maxTokens, { ...opts, timeoutMs });
       opts.onProvider?.("anthropic");
       return text;
     } catch (err) {
@@ -72,7 +80,7 @@ export async function aiComplete(
           "aiComplete: Anthropic account-level failure — failing over to Gemini:",
           msg.slice(0, 160)
         );
-        const text = await callGemini(geminiKey, system, prompt, maxTokens, opts);
+        const text = await callGemini(geminiKey, system, prompt, maxTokens, { ...opts, timeoutMs });
         opts.onProvider?.("gemini");
         return text;
       }
@@ -80,7 +88,7 @@ export async function aiComplete(
     }
   }
 
-  const text = await callGemini(provider.apiKey, system, prompt, maxTokens, opts);
+  const text = await callGemini(provider.apiKey, system, prompt, maxTokens, { ...opts, timeoutMs });
   opts.onProvider?.("gemini");
   return text;
 }
@@ -90,7 +98,7 @@ async function callAnthropic(
   system: string,
   prompt: string,
   maxTokens: number,
-  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown> }
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number }
 ): Promise<string> {
   const outputConfig: Record<string, unknown> = {};
   if (opts.effort) outputConfig.effort = opts.effort;
@@ -99,9 +107,9 @@ async function callAnthropic(
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     // Bounded: an unbounded hang burns a whole serverless invocation (and
-    // can kill a cron tick mid-persist). 55s sits under every caller's
-    // maxDuration=60 while leaving generous room for a real generation.
-    signal: AbortSignal.timeout(55_000),
+    // can kill a cron tick mid-persist). Defaults to 55s (under every
+    // caller's maxDuration=60); callers that also fetch first pass tighter.
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 55_000),
     headers: {
       "x-api-key": apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
@@ -139,13 +147,13 @@ async function callGemini(
   system: string,
   prompt: string,
   maxTokens: number,
-  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown> }
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number }
 ): Promise<string> {
   const res = await fetch(geminiGenerateUrl(), {
     method: "POST",
-    // Same 55s bound as the Anthropic call — a hung request must never
-    // outlive the serverless budget of the caller.
-    signal: AbortSignal.timeout(55_000),
+    // Same bound as the Anthropic call — a hung request must never outlive
+    // the serverless budget of the caller.
+    signal: AbortSignal.timeout(opts.timeoutMs ?? 55_000),
     headers: {
       "x-goog-api-key": apiKey,
       "content-type": "application/json",
