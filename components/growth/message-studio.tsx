@@ -362,8 +362,22 @@ export function MessageStudio({
 
       {channel === "email" && (
         <div style={{ marginTop: 12 }}>
-          <label htmlFor="ms-subject" style={{ fontSize: 12, color: "var(--faint)" }}>
-            Subject
+          <label
+            htmlFor="ms-subject"
+            style={{ fontSize: 12, color: "var(--faint)", display: "flex", justifyContent: "space-between", gap: 8 }}
+          >
+            <span>Subject</span>
+            {/* Inboxes cut a subject off around 78 chars; a subtle live hint
+                keeps it tight (matches the inbox composer). */}
+            {active.subject.length > 0 && (
+              <span
+                style={{
+                  color: active.subject.length > 78 ? "var(--orange, #fb923c)" : "var(--faint)",
+                }}
+              >
+                {active.subject.length}/78{active.subject.length > 78 ? " · may truncate in inboxes" : ""}
+              </span>
+            )}
           </label>
           <input
             id="ms-subject"
