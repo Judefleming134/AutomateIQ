@@ -47,14 +47,27 @@ jobs:
           fi
           NOW=$(date -u +%s)
           H=$(date -u +%H)
-          # End of the loop: overnight runs go until 07:35 UTC; a daytime
-          # manual kick runs for one hour.
-          if [ "$H" -ge 21 ]; then
-            END=$(date -u -d "tomorrow 07:35" +%s)
-          elif [ "$H" -lt 8 ]; then
-            END=$(date -u -d "today 07:35" +%s)
-          else
+          # A MANUAL run (workflow_dispatch) is a fast, hands-off BOOST drain:
+          # tick every 30s against ?boost=1 (3 leads/tick, in parallel) for up
+          # to one hour, so a big import researches itself in ~1h with no
+          # browser tab. A SCHEDULED run is the gentle overnight trickle:
+          # 2 leads every ~9 min until 07:35 UTC, protecting free-tier quota.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            URL="https://automateiq.ie/api/cron/research-worker?boost=1"
+            SLEEP=30
             END=$(( NOW + 3600 ))
+            echo "MANUAL BOOST: draining fast (30s ticks, ?boost=1) for 1 hour."
+          else
+            URL="https://automateiq.ie/api/cron/research-worker"
+            SLEEP=540
+            # Overnight runs go until 07:35 UTC.
+            if [ "$H" -ge 21 ]; then
+              END=$(date -u -d "tomorrow 07:35" +%s)
+            elif [ "$H" -lt 8 ]; then
+              END=$(date -u -d "today 07:35" +%s)
+            else
+              END=$(( NOW + 3600 ))
+            fi
           fi
           # Hard safety: never outlive the runner cap; a queued starter
           # (or tomorrow's) continues where this run stopped.
@@ -65,12 +78,18 @@ jobs:
           while [ "$(date -u +%s)" -lt "$END" ]; do
             TICK=$(( TICK + 1 ))
             echo "— tick ${TICK} at $(date -u '+%H:%M:%S UTC')"
-            curl -fsS --retry 2 --retry-delay 15 --max-time 120 \
+            # Capture the body so a boost drain can stop the instant the queue
+            # is empty (more:false) instead of ticking uselessly for the hour.
+            BODY=$(curl -fsS --retry 2 --retry-delay 15 --max-time 120 \
               -H "Authorization: Bearer ${CRON_SECRET}" \
-              "https://automateiq.ie/api/cron/research-worker" \
-              || echo "tick ${TICK} failed — continuing (next tick retries)"
+              "${URL}" \
+              || echo '{"tick":"failed"}')
+            echo "  ${BODY}"
+            case "$BODY" in
+              *'"more":false'*) echo "Queue drained (or AI account out) — stopping."; break ;;
+            esac
             # Stop sleeping if the window is about to close.
-            [ "$(( $(date -u +%s) + 540 ))" -ge "$END" ] && break
-            sleep 540
+            [ "$(( $(date -u +%s) + SLEEP ))" -ge "$END" ] && break
+            sleep "$SLEEP"
           done
           echo "Loop finished after ${TICK} ticks."

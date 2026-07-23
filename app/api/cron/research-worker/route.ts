@@ -41,18 +41,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // BOOST (manual drain): ?boost=1 turns this from the gentle overnight
+  // trickle (2 leads/tick) into a fast, hands-off queue-drainer. It's driven
+  // by the workflow_dispatch loop ticking every ~30s, so a founder can kick
+  // it, close the app, and come back to a researched pipeline — no browser
+  // tab held open. Boost researches several leads PER TICK in parallel and
+  // skips the overnight follow-up/reply drafting (that's polish, not the job
+  // here). Because it's an explicit human request, it runs even while the
+  // unattended overnight worker is paused.
+  const boost = request.nextUrl.searchParams.get("boost") === "1";
+
   // Paused by default: on the free Gemini tier, auto-researching all night
   // burns the shared daily quota before the founder is even awake — and worse
   // when they're working nights and want that quota for hands-on research.
   // Flip OVERNIGHT_RESEARCH_ENABLED=1 in Vercel to switch it back on (e.g. once
   // on a paid AI tier). The endpoint stays live + cheap; it just no-ops.
+  // A manual boost bypasses the pause — the human is asking for it right now.
   const enabled =
     process.env.OVERNIGHT_RESEARCH_ENABLED === "1" ||
     process.env.OVERNIGHT_RESEARCH_ENABLED === "true";
-  if (!enabled) {
+  if (!enabled && !boost) {
     return NextResponse.json({
       ok: true,
-      skipped: "overnight auto-research is paused (set OVERNIGHT_RESEARCH_ENABLED=1 to enable)",
+      skipped: "overnight auto-research is paused (set OVERNIGHT_RESEARCH_ENABLED=1 to enable, or call with ?boost=1 for a manual drain)",
     });
   }
 
@@ -102,10 +113,70 @@ export async function GET(request: NextRequest) {
   // Array.sort is stable, so created_at-desc order holds within each group.
   const researchRank = (p: { email: string | null; website: string | null }) =>
     p.email && p.website ? 0 : p.email ? 1 : p.website ? 2 : 3;
-  const fresh = (candidates ?? [])
+  const freshSorted = (candidates ?? [])
     .filter((p) => !researchedIds.has(p.id))
-    .sort((a, b) => researchRank(a) - researchRank(b))
-    .slice(0, freshCap);
+    .sort((a, b) => researchRank(a) - researchRank(b));
+  const fresh = freshSorted.slice(0, freshCap);
+
+  // ── BOOST DRAIN ──────────────────────────────────────────────────────────
+  // Research several fresh leads THIS TICK, in parallel, then return how many
+  // are still queued. Bounded so the whole tick stays inside the 60s
+  // serverless ceiling: each lead is website-fetch (≤10s) + one AI call
+  // (≤42s), and 3 in parallel finish in roughly the time of one. The
+  // dispatch loop calls back every ~30s, so the queue drains steadily without
+  // any browser tab. Account-level AI failure (dead key / daily quota) stops
+  // the tick immediately — the loop's next call re-probes cheaply.
+  if (boost) {
+    const BOOST_PER_TICK = 3;
+    const batch = freshSorted.slice(0, BOOST_PER_TICK);
+    let researched = 0;
+    let halted: string | null = null;
+    const done: string[] = [];
+    const results = await Promise.allSettled(
+      batch.map(async (prospect) => {
+        const result = await runCompanyResearch(prospect);
+        const persisted = await persistResearchResult(
+          admin,
+          prospect,
+          result,
+          null,
+          (score) =>
+            `Background research: ${prospect.company} researched (${
+              result.websiteFetched ? "website analysed" : "website unreachable — inferred from details"
+            }) — scored ${score}/100, outreach drafts ready`
+        );
+        if (!persisted.ok) throw new Error(persisted.error);
+        return prospect;
+      })
+    );
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (r.status === "fulfilled") {
+        researched += 1;
+        done.push(batch[i].company);
+      } else {
+        const { friendly, accountDead, dailyQuota } = mapResearchError(r.reason);
+        if (accountDead || dailyQuota) {
+          halted = friendly;
+        } else {
+          await parkResearchFailure(admin, batch[i], friendly, null);
+        }
+      }
+    }
+    const remaining = Math.max(0, freshSorted.length - researched);
+    return NextResponse.json({
+      ok: true,
+      boost: true,
+      researched,
+      remaining,
+      done,
+      // The loop reads this: stop early once nothing's left or the account is
+      // out, otherwise keep ticking.
+      more: halted ? false : remaining > 0,
+      halted: halted ?? undefined,
+    });
+  }
+  // ── end boost drain ──────────────────────────────────────────────────────
 
   // Auto-retry the Research-failed group — full-auto means nobody is around
   // to click "Retry failed". STRICTLY bounded so a permanently-broken lead
