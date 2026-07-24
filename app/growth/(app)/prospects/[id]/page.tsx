@@ -244,6 +244,9 @@ export default async function ProspectWorkspacePage({
     subject: string | null;
     preview: string;
     inbound?: boolean;
+    /** 1-based position among SENT touches only — assigned after sort so the
+     *  list reads 1, 2, 3 even when replies are interleaved. */
+    sentNo?: number;
   };
   const outreachTouches: Touch[] = [
     ...(messages ?? [])
@@ -278,7 +281,12 @@ export default async function ProspectWorkspacePage({
         preview: (a.content ?? "").trim(),
       })),
   ].sort((x, y) => (x.at < y.at ? -1 : 1));
-  const outboundTouchCount = outreachTouches.filter((t) => !t.inbound).length;
+  // Number the SENT touches 1, 2, 3… in time order. Using the array index
+  // instead skipped numbers once a reply sat between two sends (1, 3, 5), which
+  // read like a touch had gone missing.
+  let sentSeq = 0;
+  for (const t of outreachTouches) if (!t.inbound) t.sentNo = ++sentSeq;
+  const outboundTouchCount = sentSeq;
 
   const studioDrafts: StudioDraftRow[] = (messages ?? [])
     .filter((m) => m.direction === "outbound" && m.status === "draft")
@@ -465,7 +473,7 @@ export default async function ProspectWorkspacePage({
               : ""}
           </summary>
           <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-            {outreachTouches.map((t, i) => (
+            {outreachTouches.map((t) => (
               <div
                 key={t.key}
                 style={{
@@ -476,7 +484,7 @@ export default async function ProspectWorkspacePage({
               >
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
                   <strong>
-                    {t.inbound ? "" : `${i + 1}. `}
+                    {t.inbound ? "" : `${t.sentNo}. `}
                     {t.channelLabel}
                   </strong>
                   {t.purposeLabel && (
