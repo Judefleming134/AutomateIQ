@@ -712,6 +712,19 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
       .maybeSingle();
     if (existing) redirect(`/growth/prospects/${existing.id}`);
   }
+  // Also dedupe by company name (same rule as CSV import) — quick research
+  // burns an AI call, so re-researching a company already in the pipeline
+  // wastes the daily quota AND spawns a duplicate. If one exists, open it
+  // instead of making another. (redirect() throws, so it can't fall through.)
+  {
+    const { data: byCompany } = await admin
+      .from("ge_prospects")
+      .select("id")
+      .ilike("company", escapeLike(company))
+      .limit(1)
+      .maybeSingle();
+    if (byCompany) redirect(`/growth/prospects/${byCompany.id}`);
+  }
 
   const { data: created, error } = await admin
     .from("ge_prospects")
