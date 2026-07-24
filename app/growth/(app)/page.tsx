@@ -241,11 +241,16 @@ export default async function GrowthDashboardPage() {
   const nightlyLines = (nightly ?? []).map((a) => String(a.content));
   const autoStats = {
     researched: nightlyLines.filter((c) => /researched .* while you slept/i.test(c)).length,
-    followUpsDrafted: nightlyLines.filter((c) => /drafted the follow-up/i.test(c)).length,
+    // Match BOTH chase drafts: touch 2 logs "drafted the follow-up (touch 2)"
+    // and touch 3 logs "drafted the final follow-up (touch 3)" — the old
+    // /drafted the follow-up/ missed every touch-3 draft, so the panel
+    // under-reported the engine's overnight work.
+    followUpsDrafted: nightlyLines.filter((c) => /drafted the (?:final )?follow-up/i.test(c)).length,
     firstQueued: nightlyLines.filter((c) => /auto-queued the first-touch/i.test(c)).length,
     followUpsQueued: nightlyLines.filter((c) => /auto-queued the follow-up/i.test(c)).length,
     harvested: nightlyLines.filter((c) => /found .* on their website/i.test(c)).length,
-    fixed: nightlyLines.filter((c) => /rewrote an outdated|repaired dead social/i.test(c)).length,
+    // "healed a stuck lead" is a fix too — count it with the draft repairs.
+    fixed: nightlyLines.filter((c) => /rewrote an outdated|repaired dead social|healed a stuck lead/i.test(c)).length,
   };
   const autoTotal = Object.values(autoStats).reduce((a, b) => a + b, 0);
 
