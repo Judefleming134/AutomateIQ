@@ -64,7 +64,10 @@ export default async function JarvisPage() {
   if ((dueCount ?? 0) > 0)
     priorities.push({
       label: `${dueCount} follow-up${dueCount === 1 ? "" : "s"} due or overdue — chase these first, they already know you`,
-      href: "/growth?",
+      // Sort by next follow-up (ascending) so the most-overdue chases land at
+      // the top of the list, each flagged with its overdue badge — a real chase
+      // list, not the bare dashboard the old dangling "/growth?" link dropped on.
+      href: "/growth/prospects?sort=follow_up",
     });
   if ((readyCount ?? 0) > 0)
     priorities.push({
