@@ -26,6 +26,23 @@ function fmt(ts: string | null | undefined): string {
   });
 }
 
+/** Compact "how long ago" for the conversation list, so a fresh reply is
+ *  obvious next to a stale one at a glance. Falls back to a short date past a
+ *  week. */
+function relTime(ts: string | null | undefined): string {
+  if (!ts) return "";
+  const diffMs = Date.now() - new Date(ts).getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "";
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(ts).toLocaleDateString("en-IE", { day: "numeric", month: "short", timeZone: "Europe/Dublin" });
+}
+
 /**
  * A labelled timestamp for a thread message so "did this actually send?" is
  * unmistakable: a SENT email shows its real send time ("Sent 10 Jul 14:32"),
@@ -377,8 +394,11 @@ export default async function InboxPage({
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-                        <strong style={{ fontSize: 14 }}>{p.company}</strong>
-                        {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
+                        <strong style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.company}</strong>
+                        <span style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                          {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
+                          <span style={{ fontSize: 11, color: "var(--faint)" }}>{relTime(c.latestReal.created_at)}</span>
+                        </span>
                       </div>
                       {/* Preview the last message actually exchanged — an
                           unsent auto-draft would read as "You: …" for a reply
