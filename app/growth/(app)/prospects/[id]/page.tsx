@@ -1295,6 +1295,11 @@ export default async function ProspectWorkspacePage({
               </select>
               <label htmlFor="ep-followup">Next follow-up</label>
               <input id="ep-followup" type="date" name="next_follow_up_at" defaultValue={prospect.next_follow_up_at ?? ""} />
+              <p style={{ fontSize: 11.5, color: "var(--faint)", margin: "4px 0 0" }}>
+                For a contacted lead, this is when the automatic follow-up email
+                is due. Clear it or push it out to hold the auto-chase — e.g. if
+                you&apos;re calling them yourself instead.
+              </p>
               <label htmlFor="ep-pipeline">Pipeline value (€)</label>
               <input id="ep-pipeline" name="pipeline_value" inputMode="decimal" defaultValue={prospect.pipeline_value ?? ""} />
               <label htmlFor="ep-notes">Notes</label>
