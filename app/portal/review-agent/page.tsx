@@ -63,6 +63,12 @@ export default async function ReviewAgentOverviewPage() {
   ]);
 
   const delivered = (sent ?? 0) + (reminded ?? 0) + (clicked ?? 0);
+  // The headline "Review requests" count is every request made, matching the
+  // status donut's centre total (which sums all five states). Using `delivered`
+  // here left the card and the donut showing two different "requests" totals on
+  // the same screen whenever anything was still pending or had failed.
+  const totalRequests =
+    (pending ?? 0) + (sent ?? 0) + (reminded ?? 0) + (clicked ?? 0) + (failed ?? 0);
   const clickRate =
     delivered > 0 ? `${Math.round(((clicked ?? 0) / delivered) * 100)}%` : "—";
 
@@ -86,7 +92,7 @@ export default async function ReviewAgentOverviewPage() {
       <div className="stat-grid">
         <StatCard
           label="Review requests"
-          value={delivered}
+          value={totalRequests}
           icon={<Send />}
           accent="#7C3AED"
           hint="all time"

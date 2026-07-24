@@ -88,6 +88,25 @@ export default async function GrowthDashboardPage() {
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
+  // Gone cold: follow-ups more than 7 days overdue (list + true count). These
+  // don't depend on the main batch, so kick them off HERE and await after — a
+  // second `await Promise.all` below would run them as a wasted extra round-trip
+  // on every dashboard load. Parked out of the live lists and the autopilot.
+  const goneColdQuery = Promise.all([
+    admin
+      .from("ge_prospects")
+      .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
+      .lt("next_follow_up_at", dublinDate(-7))
+      .not("status", "in", activeFilter)
+      .order("next_follow_up_at", { ascending: true })
+      .limit(10),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .lt("next_follow_up_at", dublinDate(-7))
+      .not("status", "in", activeFilter),
+  ]);
+
   const [
     metrics,
     { data: readyToSend, count: readyStatusCount },
@@ -194,23 +213,8 @@ export default async function GrowthDashboardPage() {
       .not("status", "in", activeFilter),
   ]);
 
-  // Gone cold: follow-ups more than 7 days overdue. Parked out of the live
-  // lists (and out of the autopilot) so chasing stays timely — revived by
-  // setting a fresh follow-up date or sending a new angle from the Studio.
-  const [{ data: goneCold }, { count: goneColdCount }] = await Promise.all([
-    admin
-      .from("ge_prospects")
-      .select("id, company, contact_name, status, lead_score, next_follow_up_at, last_contact_at")
-      .lt("next_follow_up_at", dublinDate(-7))
-      .not("status", "in", activeFilter)
-      .order("next_follow_up_at", { ascending: true })
-      .limit(10),
-    admin
-      .from("ge_prospects")
-      .select("id", { count: "exact", head: true })
-      .lt("next_follow_up_at", dublinDate(-7))
-      .not("status", "in", activeFilter),
-  ]);
+  // Issued above alongside the main batch so both waves run concurrently.
+  const [{ data: goneCold }, { count: goneColdCount }] = await goneColdQuery;
 
   // "Hot prospects" = the deals closest to a yes, so lead with pipeline STAGE,
   // not the research-time cold score: a lead in negotiation or with a proposal
