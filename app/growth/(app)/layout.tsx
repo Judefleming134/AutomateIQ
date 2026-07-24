@@ -10,6 +10,7 @@ import {
   FileText,
   Settings,
   Send,
+  Phone,
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { AppShell } from "@/components/shell/app-shell";
@@ -39,6 +40,7 @@ export default async function GrowthLayout({
         { href: "/growth/jarvis", label: "Jarvis", icon: <Bot /> },
         { href: "/growth", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/growth/prospects", label: "Prospects", icon: <Users /> },
+        { href: "/growth/call-list", label: "Call list", icon: <Phone /> },
         { href: "/growth/dms", label: "DM list", icon: <Send /> },
         { href: "/growth/inbox", label: "Inbox", icon: <Inbox /> },
       ],
