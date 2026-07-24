@@ -424,7 +424,8 @@ export async function runCompanyResearch(
   const websiteText = site?.text ?? null;
 
   const catalog = SOLUTION_CATALOG.map(
-    (s) => `- key: ${s.key} — ${s.name}: ${s.blurb}`
+    (s) =>
+      `- key: ${s.key} — ${s.name}: ${s.blurb}${s.flagship ? "  [FLAGSHIP — lead with this where it fits]" : ""}`
   ).join("\n");
 
   const ratingGuide = CRITERIA.map(
@@ -504,6 +505,7 @@ export async function runCompanyResearch(
     "The goal of every first touch is a booked call: make the ask low-pressure and specific, and include the link so an interested prospect can book themselves with no back-and-forth. The ONLY exception is LinkedIn (no links there).",
     "",
     "3 to 6 solutions, ordered by fit. Ratings reflect what the research supports; use 0 where unknown (budget and timeline are usually 0 before a conversation).",
+    "LEAD WITH THE FLAGSHIP WEDGE: the catalogue items marked [FLAGSHIP] — the AI Receptionist (missed after-hours calls), Speed-to-Lead Agent (slow lead response) and Review Agent (thin/stale Google reviews) — are AutomateIQ's proven first-customer tools: quick to deploy, immediate ROI, and relevant to almost every SMB with a phone and a Google listing. Where any of them plausibly fits this business (they usually do), put it FIRST in the solutions list and build the proposal_angle, conversation_starters and every draft around the sharp pain it removes. Only leave a flagship out when it genuinely does not apply (e.g. a purely wholesale operation with no inbound calls or public reviews). Never force a bad fit or oversell — honesty still wins the call — but when the fit is real, these lead.",
   ]
     .filter(Boolean)
     .join("\n");

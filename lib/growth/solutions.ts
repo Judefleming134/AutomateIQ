@@ -11,6 +11,13 @@ export type Solution = {
   key: string;
   name: string;
   blurb: string;
+  /**
+   * The proven "first-customer" wedge — fast to deploy, immediate ROI, and
+   * relevant to almost every SMB with a phone and a Google listing. The
+   * research matcher leads its recommendations (and therefore the pitch, the
+   * quote and the drafts) with these wherever they honestly fit.
+   */
+  flagship?: boolean;
 };
 
 export const SOLUTION_CATALOG: Solution[] = [
@@ -19,6 +26,7 @@ export const SOLUTION_CATALOG: Solution[] = [
     name: "AI Receptionist",
     blurb:
       "Answers calls and enquiries 24/7, captures every lead, books appointments and routes urgent matters to a human.",
+    flagship: true,
   },
   {
     key: "voice-ai",
@@ -79,6 +87,7 @@ export const SOLUTION_CATALOG: Solution[] = [
     name: "Review Agent",
     blurb:
       "Automated Google-review collection with perfectly timed requests and one polite reminder.",
+    flagship: true,
   },
   {
     key: "instant-quote-agent",
@@ -91,6 +100,7 @@ export const SOLUTION_CATALOG: Solution[] = [
     name: "Speed-to-Lead Agent",
     blurb:
       "Replies personally to every new website lead within seconds, before a competitor does.",
+    flagship: true,
   },
   {
     key: "ai-assistant",
@@ -105,6 +115,16 @@ export const SOLUTION_CATALOG: Solution[] = [
       "Custom-built AI systems for processes no off-the-shelf tool fits — designed around how the business actually works.",
   },
 ];
+
+/**
+ * The flagship "lead-with" keys, in the order they should be pitched — the
+ * receptionist (missed after-hours calls), speed-to-lead (slow response) and
+ * review agent (thin Google reviews). Each removes a sharp, felt pain with a
+ * quick install, which is what lands first customers.
+ */
+export const FLAGSHIP_SOLUTION_KEYS: string[] = SOLUTION_CATALOG.filter(
+  (s) => s.flagship
+).map((s) => s.key);
 
 export type SolutionRecommendation = {
   key: string;
