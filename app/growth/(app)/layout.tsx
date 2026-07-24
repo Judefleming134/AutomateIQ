@@ -7,7 +7,6 @@ import {
   CalendarClock,
   BarChart3,
   Bot,
-  FileText,
   Settings,
   Send,
   Phone,
@@ -56,7 +55,6 @@ export default async function GrowthLayout({
       label: "Insight & setup",
       items: [
         { href: "/growth/analytics", label: "Analytics", icon: <BarChart3 /> },
-        { href: "/growth/reports", label: "Reports", icon: <FileText /> },
         { href: "/growth/settings", label: "Settings", icon: <Settings /> },
       ],
     },
