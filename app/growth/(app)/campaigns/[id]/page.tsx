@@ -36,7 +36,7 @@ export default async function CampaignDetailPage({
   // (drafts/queued/sent/replies) and prospect tallies count EVERY row — a
   // campaign with a few hundred prospects easily passes 1,000 messages once
   // first touches and follow-ups are drafted, silently truncating the numbers.
-  const [prospects, messages, meetings] = await Promise.all([
+  const [prospects, messages] = await Promise.all([
     selectAllRows<{
       id: string;
       company: string;
@@ -54,12 +54,22 @@ export default async function CampaignDetailPage({
     selectAllRows<{ id: string; direction: string; status: string }>(() =>
       admin.from("ge_messages").select("id, direction, status").eq("campaign_id", id)
     ),
-    selectAllRows<{ id: string; prospect_id: string; status: string }>(() =>
-      admin.from("ge_meetings").select("id, prospect_id, status").neq("status", "cancelled")
-    ),
   ]);
 
-  const prospectIds = new Set((prospects ?? []).map((p) => p.id));
+  const prospectIds = (prospects ?? []).map((p) => p.id);
+  // Meetings for THIS campaign's prospects only. ge_meetings has no campaign_id,
+  // so scope by prospect_id rather than paging the entire meetings table on
+  // every campaign view just to filter it down to a handful in memory.
+  const meetings = prospectIds.length
+    ? await selectAllRows<{ id: string; prospect_id: string; status: string }>(() =>
+        admin
+          .from("ge_meetings")
+          .select("id, prospect_id, status")
+          .neq("status", "cancelled")
+          .in("prospect_id", prospectIds)
+      )
+    : [];
+
   const outbound = (messages ?? []).filter((m) => m.direction === "outbound");
   const funnel = {
     drafts: outbound.filter((m) => m.status === "draft").length,
@@ -67,7 +77,8 @@ export default async function CampaignDetailPage({
     sent: outbound.filter((m) => m.status === "sent").length,
     replies: (messages ?? []).filter((m) => m.direction === "inbound").length,
     qualified: (prospects ?? []).filter((p) => p.qualification_status === "qualified").length,
-    meetings: (meetings ?? []).filter((m) => prospectIds.has(m.prospect_id)).length,
+    // Already scoped to this campaign's prospects by the query above.
+    meetings: meetings.length,
   };
 
   const statusMeta = CAMPAIGN_STATUS_META[campaign.status as CampaignStatus];
