@@ -80,9 +80,16 @@ export default async function MeetingsPage() {
   const upcoming = (meetings ?? []).filter(
     (m) => m.status === "booked" && m.scheduled_at >= nowIso
   );
-  const past = (meetings ?? []).filter(
-    (m) => !(m.status === "booked" && m.scheduled_at >= nowIso)
+  // A meeting still marked "booked" whose time has passed happened but was
+  // never closed out (completed / no-show / cancelled). Previously these fell
+  // into the generic "Past & closed" list — mixed among finished meetings and
+  // cut off at 30 — so a call Jude forgot to mark could drop off the page
+  // entirely. Pull them into their own "Awaiting outcome" section up top so
+  // they never get lost and the outcome buttons are always one tap away.
+  const awaitingOutcome = (meetings ?? []).filter(
+    (m) => m.status === "booked" && m.scheduled_at < nowIso
   );
+  const past = (meetings ?? []).filter((m) => m.status !== "booked");
 
   const MeetingRow = ({ m }: { m: NonNullable<typeof meetings>[number] }) => {
     const p = prospectById.get(m.prospect_id);
@@ -158,6 +165,23 @@ export default async function MeetingsPage() {
                 <MeetingRow key={m.id} m={m} />
               ))}
             </div>
+          )}
+
+          {awaitingOutcome.length > 0 && (
+            <>
+              <h2 className="section-title" style={{ marginTop: 24 }}>
+                Awaiting outcome ({awaitingOutcome.length})
+              </h2>
+              <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "0 0 12px" }}>
+                These calls have passed but aren&apos;t marked yet — tap the
+                result so your pipeline and analytics stay accurate.
+              </p>
+              <div style={{ display: "grid", gap: 12 }}>
+                {awaitingOutcome.map((m) => (
+                  <MeetingRow key={m.id} m={m} />
+                ))}
+              </div>
+            </>
           )}
 
           {past.length > 0 && (
