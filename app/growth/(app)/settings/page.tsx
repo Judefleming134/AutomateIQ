@@ -82,6 +82,19 @@ export default async function GrowthSettingsPage() {
               Where prospects book their AI Strategy Session — used in AI
               drafts, templates and the meetings sync.
             </p>
+            {/* The autopilot's send-review gate only allows automateiq.ie links,
+                and the booking link is now baked into every auto-email — so an
+                external booking URL (e.g. Calendly) would make the autopilot
+                HOLD every email. Warn only when the saved URL actually isn't on
+                the domain, so a normal automateiq.ie/book setup sees nothing. */}
+            {!/automateiq\.ie/i.test(settings.bookingUrl) && (
+              <p style={{ fontSize: 12, color: "var(--orange, #fb923c)", margin: "-4px 0 10px" }}>
+                ⚠ This booking link isn&apos;t on automateiq.ie. Auto-sent emails
+                only allow automateiq.ie links, so the autopilot will hold any
+                email that includes it. Use your <strong>automateiq.ie/book</strong>{" "}
+                page (or another automateiq.ie link) so daily emails can send.
+              </p>
+            )}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <div>
                 <label htmlFor="st-qualify">Qualified at score ≥</label>
