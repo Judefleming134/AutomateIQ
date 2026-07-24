@@ -151,6 +151,15 @@ export default async function AnalyticsPage({
               </table>
             </div>
           )}
+          {/* Prospects is a lifetime count (it comes from the full prospect
+              set); Sent/Replies/Meetings honour the window above. Flag it only
+              when a window is active, so "12 prospects · 2 sent" doesn't read as
+              a barely-worked niche when the 12 is all-time. */}
+          {days !== null && metrics.topIndustries.length > 0 && (
+            <p style={{ fontSize: 11.5, color: "var(--faint)", margin: "8px 0 0" }}>
+              Prospects is an all-time total; Sent, Replies and Meetings are for the selected period.
+            </p>
+          )}
         </section>
       </div>
 
@@ -269,6 +278,11 @@ export default async function AnalyticsPage({
               </tbody>
             </table>
           </div>
+        )}
+        {days !== null && metrics.topCampaigns.length > 0 && (
+          <p style={{ fontSize: 11.5, color: "var(--faint)", margin: "8px 0 0" }}>
+            Prospects and Qualified are all-time totals; Sent, Replies and Meetings are for the selected period.
+          </p>
         )}
       </section>
 
