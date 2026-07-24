@@ -593,10 +593,26 @@ export default async function ProspectWorkspacePage({
                     </table>
                   </div>
                   <ListSection title="Services" items={report.services} />
-                  <ListSection title="Operational observations" items={report.operational_observations} />
-                  <ListSection title="Likely manual processes" items={report.manual_processes} />
-                  <ListSection title="Likely inefficiencies" items={report.inefficiencies} />
-                  <ListSection title="AI opportunities" items={report.ai_opportunities} />
+                  {/* Collapse the deep analysis so the report reads as a scannable
+                      summary, not a wall — the actionable bits (services, the
+                      call script below) stay open; the detail is one click away,
+                      nothing removed. */}
+                  {[
+                    report.operational_observations,
+                    report.manual_processes,
+                    report.inefficiencies,
+                    report.ai_opportunities,
+                  ].some((a) => Array.isArray(a) && a.length > 0) && (
+                    <details style={{ marginTop: 14 }}>
+                      <summary style={{ cursor: "pointer", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)" }}>
+                        🔍 Full analysis — observations, manual processes, inefficiencies, AI opportunities
+                      </summary>
+                      <ListSection title="Operational observations" items={report.operational_observations} />
+                      <ListSection title="Likely manual processes" items={report.manual_processes} />
+                      <ListSection title="Likely inefficiencies" items={report.inefficiencies} />
+                      <ListSection title="AI opportunities" items={report.ai_opportunities} />
+                    </details>
+                  )}
                   <ListSection title="Conversation starters" items={report.conversation_starters} />
                   <ListSection title="Discovery questions" items={report.discovery_questions} />
                   <ActionForm action={researchProspect} style={{ marginTop: 16 }}>
