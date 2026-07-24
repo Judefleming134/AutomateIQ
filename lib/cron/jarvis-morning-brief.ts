@@ -343,6 +343,21 @@ export async function sendJarvisMorningBrief(): Promise<{
       .select("id", { count: "exact", head: true })
       .gte("created_at", since24h);
 
+    // How many leads the self-research worker got through overnight — the
+    // headline proof that "it worked itself" while Jude slept.
+    const { count: researchedOvernight } = await admin
+      .from("ge_research")
+      .select("prospect_id", { count: "exact", head: true })
+      .gte("updated_at", since24h);
+    // Chase drafts (touch 2/3) the worker wrote overnight, ready to send.
+    const { count: chaseDraftsOvernight } = await admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "outbound")
+      .in("purpose", ["follow_up", "second_follow_up"])
+      .eq("status", "draft")
+      .gte("created_at", since24h);
+
     // Gone-cold tally (7+ days overdue, no longer auto-chased) — one line so
     // the pile stays visible without flooding the due list.
     const { count: goneColdCount } = await admin
@@ -422,7 +437,7 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Date: ${today}`,
             `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
-            `Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
+            `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
             `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
             `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
@@ -465,6 +480,17 @@ export async function sendJarvisMorningBrief(): Promise<{
       ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyLines.length})\n${nightlyLines.join("\n")}`
       : "";
 
+    // "It worked itself" headline — the first thing Jude sees: what the engine
+    // did overnight/this morning with zero input from him, so logging on = just
+    // working the lists below.
+    const overnightHeadline = [
+      "🌙 WHILE YOU SLEPT — the engine ran itself:",
+      `• ${researchedOvernight ?? 0} lead${(researchedOvernight ?? 0) === 1 ? "" : "s"} researched — report, score + drafts ready`,
+      `• ${chaseDraftsOvernight ?? 0} follow-up${(chaseDraftsOvernight ?? 0) === 1 ? "" : "s"} written for the 3-touch sequence`,
+      `• ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning — booking link included, so they can self-book`,
+      "Just work the lists below: dial the due list, copy-paste the DMs.",
+    ].join("\n");
+
     let bodyText: string;
     let subject: string;
 
@@ -473,6 +499,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       // fixes the nightly routine applied. No pipeline dump, no needle-mover.
       const changedLine =
         `📈 WHAT CHANGED\n• ${leadsAdded24h ?? 0} new lead${(leadsAdded24h ?? 0) === 1 ? "" : "s"} added` +
+        `${(researchedOvernight ?? 0) ? ` · ${researchedOvernight} researched overnight` : ""}` +
         `${(sentToday ?? []).length ? ` · ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning` : ""}` +
         `${replyLines.length ? ` · ${replyLines.length} new repl${replyLines.length === 1 ? "y" : "ies"}` : ""}`;
       bodyText = [
@@ -498,6 +525,7 @@ export async function sendJarvisMorningBrief(): Promise<{
     } else {
       // Weekday: the full attack plan.
       bodyText = [
+        overnightHeadline,
         plan,
         nmScoreBlock,
         reminders.length
