@@ -31,19 +31,29 @@ export default async function CallListPage() {
   const { data: prospectsRaw } = await admin
     .from("ge_prospects")
     .select(
-      "id, company, contact_name, lead_score, status, phone, next_follow_up_at, industry, location, linkedin_url, instagram_url, facebook_url"
+      "id, company, contact_name, lead_score, status, phone, next_follow_up_at, last_contact_at, industry, location, linkedin_url, instagram_url, facebook_url"
     )
     .not("phone", "is", null)
     .in("status", ["contacted", "follow_up_sent", "outreach_ready", "research_complete"])
     .order("lead_score", { ascending: false, nullsFirst: false })
-    .limit(120);
+    .limit(160);
 
   const isDue = (p: { next_follow_up_at: string | null }) =>
     !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) <= today;
 
+  // Drop anyone already called today so the list is always "who's LEFT" and
+  // shrinks as you work down it (the DM list does the same for sent DMs). A
+  // logged call sets last_contact_at, so they fall off on the next load — no
+  // re-dialling the person you just spoke to. They stay in Prospects if needed.
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const calledToday = (p: { last_contact_at: string | null }) =>
+    !!p.last_contact_at && p.last_contact_at >= todayStart.toISOString();
+
   // Chases that are due/overdue rise to the top (those are slipping), then the
   // rest by lead score. Array.sort is stable, so score order holds within each.
   const prospects = [...(prospectsRaw ?? [])]
+    .filter((p) => !calledToday(p))
     .sort((a, b) => (isDue(a) === isDue(b) ? 0 : isDue(a) ? -1 : 1))
     .slice(0, MAX_ITEMS);
 
@@ -74,8 +84,9 @@ export default async function CallListPage() {
             Call list
           </h1>
           <p>
-            Your warm phone list on one page — tap to call, the pitch and script
-            are right here, log the call in a tap. No opening a tab per prospect.
+            Who&apos;s left to call today, on one page — tap to call, the pitch
+            and script are right here, log the call in a tap. Anyone you log
+            drops off the list, so you just work down it. No tab per prospect.
           </p>
         </div>
       </div>
@@ -83,14 +94,15 @@ export default async function CallListPage() {
       {prospects.length === 0 ? (
         <div className="panel panel-block">
           <p className="empty-state" style={{ margin: 0 }}>
-            No prospects with a phone number to call yet. Import leads with phone
-            numbers, or research some — they&apos;ll appear here, warmest first.
+            Nothing left to call right now — either you&apos;ve worked today&apos;s
+            list (nice one), or there are no phone prospects yet. Uncalled ones
+            appear here warmest first; import or research more to top it up.
           </p>
         </div>
       ) : (
         <>
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 12px" }}>
-            {prospects.length} to work · due chases first, then best score
+            {prospects.length} left to call · due chases first, then best score
           </p>
           <div style={{ display: "grid", gap: 12 }}>
             {prospects.map((p) => {
