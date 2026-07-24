@@ -11,6 +11,7 @@ import {
   Sparkles,
   FileText,
   PenLine,
+  Download,
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -269,6 +270,33 @@ export default async function AnalyticsPage({
             </table>
           </div>
         )}
+      </section>
+
+      {/* CSV exports — folded in from the old Reports page so all the numbers
+          (view + download) live in one place. The export route only spans
+          7/30/90 days, so "All time" downloads the widest window (90d);
+          the prospect export is always the full database. */}
+      <section className="panel panel-block" style={{ marginTop: 20 }} aria-labelledby="an-exports">
+        <h2 className="panel-title" id="an-exports">
+          CSV exports
+        </h2>
+        <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
+          Downloads reflect the selected period{days === null ? " (all-time views export the last 90 days)" : ""} — the prospect export is always the full database.
+        </p>
+        <div style={{ display: "grid", gap: 8 }}>
+          <a className="btn btn-secondary" href={`/growth/reports/export?type=summary&days=${days ?? 90}`}>
+            <Download size={14} /> Summary report
+          </a>
+          <a className="btn btn-secondary" href="/growth/reports/export?type=prospects">
+            <Download size={14} /> Prospect database
+          </a>
+          <a className="btn btn-secondary" href={`/growth/reports/export?type=messages&days=${days ?? 90}`}>
+            <Download size={14} /> Messages &amp; replies
+          </a>
+          <a className="btn btn-secondary" href={`/growth/reports/export?type=meetings&days=${days ?? 90}`}>
+            <Download size={14} /> Meetings
+          </a>
+        </div>
       </section>
     </>
   );

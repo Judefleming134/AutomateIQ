@@ -1,116 +1,15 @@
-import Link from "next/link";
-import { Download } from "lucide-react";
-import { requireGrowth } from "@/lib/growth/auth";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { redirect } from "next/navigation";
 
-const WINDOWS = [
-  { days: 7, label: "7 days" },
-  { days: 30, label: "30 days" },
-  { days: 90, label: "90 days" },
-] as const;
-
+/**
+ * Reports was merged into Analytics — the numbers and the CSV exports now live
+ * on one page. This route stays as a permanent redirect so old links,
+ * bookmarks and the morning brief keep working; the period carries across.
+ */
 export default async function ReportsPage({
   searchParams,
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
-  await requireGrowth();
-  const params = await searchParams;
-  const days = [7, 30, 90].includes(Number(params.days)) ? Number(params.days) : 30;
-
-  const admin = createAdminClient();
-  const metrics = await loadGrowthMetrics(admin, days);
-
-  // Most rows are scoped to the selected window, but a few are all-time or
-  // current-state snapshots that DON'T change when you toggle 7/30/90 —
-  // labelling them keeps "Last N days at a glance" honest (otherwise a total
-  // of 400 prospects reads as "400 in 7 days").
-  const summaryRows: [string, string | number][] = [
-    ["Leads added", metrics.leadsAdded],
-    ["Prospects total (all-time)", metrics.prospectsTotal],
-    ["Companies researched", metrics.companiesResearched],
-    ["Proposals sent", metrics.proposalsSent],
-    ["Outreach sent", metrics.outreachSent],
-    ["Prospects contacted", metrics.contacted],
-    ["Replies received", metrics.replies],
-    ["Reply rate", `${metrics.replyRate}%`],
-    ["Positive response rate", `${metrics.positiveRate}%`],
-    ["Meetings booked", metrics.meetingsBooked],
-    ["Conversion rate (contacted → meeting)", `${metrics.conversionRate}%`],
-    ["Qualified leads (all-time)", metrics.qualified],
-    ["Deals won", metrics.won],
-    ["Pipeline value (open, all-time)", `€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`],
-    ["Outreach in queue (now)", metrics.queuedOutreach],
-    ["Outreach in draft (now)", metrics.draftOutreach],
-  ];
-
-  return (
-    <>
-      <div className="page-header">
-        <div>
-          <h1>Reporting</h1>
-          <p>
-            Period summaries and CSV exports for record-keeping or a
-            spreadsheet deep-dive.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {WINDOWS.map((w) => (
-            <Link
-              key={w.days}
-              href={`/growth/reports?days=${w.days}`}
-              className={`btn btn-sm ${days === w.days ? "btn-primary" : "btn-secondary"}`}
-            >
-              {w.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid-main-side">
-        <section className="panel panel-block" aria-labelledby="rp-summary">
-          <h2 className="panel-title" id="rp-summary">
-            Last {days} days at a glance
-          </h2>
-          <div className="table-wrap">
-            <table>
-              <tbody>
-                {summaryRows.map(([label, value]) => (
-                  <tr key={label}>
-                    <td>{label}</td>
-                    <td style={{ textAlign: "right", fontWeight: 600 }}>{value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="panel panel-block" aria-labelledby="rp-exports">
-          <h2 className="panel-title" id="rp-exports">
-            CSV exports
-          </h2>
-          <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
-            Downloads reflect the selected period (prospects export is always
-            the full database).
-          </p>
-          <div style={{ display: "grid", gap: 8 }}>
-            <a className="btn btn-secondary" href={`/growth/reports/export?type=summary&days=${days}`}>
-              <Download size={14} /> Summary report
-            </a>
-            <a className="btn btn-secondary" href="/growth/reports/export?type=prospects">
-              <Download size={14} /> Prospect database
-            </a>
-            <a className="btn btn-secondary" href={`/growth/reports/export?type=messages&days=${days}`}>
-              <Download size={14} /> Messages &amp; replies
-            </a>
-            <a className="btn btn-secondary" href={`/growth/reports/export?type=meetings&days=${days}`}>
-              <Download size={14} /> Meetings
-            </a>
-          </div>
-        </section>
-      </div>
-    </>
-  );
+  const { days } = await searchParams;
+  redirect(days ? `/growth/analytics?days=${days}` : "/growth/analytics");
 }
