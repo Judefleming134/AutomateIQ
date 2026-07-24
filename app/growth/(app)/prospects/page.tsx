@@ -33,6 +33,16 @@ const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last"
   company: { column: "company", ascending: true },
 };
 
+// How the active sort reads in the "page X of Y" line — a hardcoded
+// "alphabetical by company" there was wrong (and looked like the sort hadn't
+// applied) the moment Jude sorted by score or follow-up.
+const SORT_LABELS: Record<string, string> = {
+  newest: "newest first",
+  score: "highest lead score first",
+  follow_up: "soonest follow-up first",
+  company: "alphabetical by company",
+};
+
 export default async function ProspectsPage({
   searchParams,
 }: {
@@ -264,7 +274,7 @@ export default async function ProspectsPage({
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "2px 0 0" }}>
               Showing {firstOnPage.toLocaleString("en-IE")}–
               {lastOnPage.toLocaleString("en-IE")} · page {page} of {totalPages}{" "}
-              (alphabetical by company)
+              ({SORT_LABELS[sortKey] ?? "alphabetical by company"})
             </p>
           )}
         </div>
