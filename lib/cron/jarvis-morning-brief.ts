@@ -482,14 +482,25 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     // "It worked itself" headline — the first thing Jude sees: what the engine
     // did overnight/this morning with zero input from him, so logging on = just
-    // working the lists below.
-    const overnightHeadline = [
-      "🌙 WHILE YOU SLEPT — the engine ran itself:",
-      `• ${researchedOvernight ?? 0} lead${(researchedOvernight ?? 0) === 1 ? "" : "s"} researched — report, score + drafts ready`,
-      `• ${chaseDraftsOvernight ?? 0} follow-up${(chaseDraftsOvernight ?? 0) === 1 ? "" : "s"} written for the 3-touch sequence`,
-      `• ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning — booking link included, so they can self-book`,
-      "Just work the lists below: dial the due list, copy-paste the DMs.",
-    ].join("\n");
+    // working the lists below. When NOTHING was auto-processed (0/0/0 — usually
+    // the daily research quota spent or an empty queue), don't falsely claim
+    // "the engine ran itself"; say so honestly so a quiet night doesn't read as
+    // a working one (and the real "quota spent" signal isn't buried).
+    const engineWorkedOvernight =
+      (researchedOvernight ?? 0) + (chaseDraftsOvernight ?? 0) + (sentToday ?? []).length > 0;
+    const overnightHeadline = engineWorkedOvernight
+      ? [
+          "🌙 WHILE YOU SLEPT — the engine ran itself:",
+          `• ${researchedOvernight ?? 0} lead${(researchedOvernight ?? 0) === 1 ? "" : "s"} researched — report, score + drafts ready`,
+          `• ${chaseDraftsOvernight ?? 0} follow-up${(chaseDraftsOvernight ?? 0) === 1 ? "" : "s"} written for the 3-touch sequence`,
+          `• ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning — booking link included, so they can self-book`,
+          "Just work the lists below: dial the due list, copy-paste the DMs.",
+        ].join("\n")
+      : [
+          "🌙 QUIET NIGHT — nothing was auto-processed (no research, drafts or sends).",
+          "Usually that means the day's research quota was spent or the queue was empty — not a breakage. Nothing to fix.",
+          "Today starts with you: work the lists below — replies first, then the due list, then send/queue a fresh batch.",
+        ].join("\n");
 
     let bodyText: string;
     let subject: string;
