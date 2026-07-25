@@ -1130,11 +1130,21 @@ export default async function ProspectWorkspacePage({
               {openTasks.length === 0 ? (
                 <p className="empty-state">No open tasks.</p>
               ) : (
-                openTasks.map((t) => (
+                openTasks.map((t) => {
+                  // A past-due task must not look identical to a future one —
+                  // "ring them back" due yesterday is exactly what a call-day
+                  // scan of this panel is trying to catch.
+                  const taskOverdue = t.due_at && t.due_at < dublinDate();
+                  return (
                   <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", marginBottom: 8, fontSize: 13 }}>
                     <span>
                       {t.title}
-                      {t.due_at ? <span style={{ color: "var(--faint)" }}> · due {t.due_at}</span> : null}
+                      {t.due_at ? (
+                        <span style={{ color: taskOverdue ? "var(--red, #f87171)" : "var(--faint)" }}>
+                          {" "}· due {t.due_at}
+                          {taskOverdue ? " — overdue" : ""}
+                        </span>
+                      ) : null}
                     </span>
                     <ActionForm action={completeTask}>
                       <input type="hidden" name="task_id" value={t.id} />
@@ -1144,7 +1154,8 @@ export default async function ProspectWorkspacePage({
                       </SubmitButton>
                     </ActionForm>
                   </div>
-                ))
+                  );
+                })
               )}
               <ActionForm action={addTask} style={{ marginTop: 10 }}>
                 <input type="hidden" name="prospect_id" value={prospect.id} />
