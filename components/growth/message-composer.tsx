@@ -73,6 +73,10 @@ export function MessageComposer({
   const [body, setBody] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // The saved draft's row id. composeMessage returns it so the next save
+  // UPDATES that row instead of inserting a new one — without it, every
+  // "Save draft" click duplicated the draft in the inbox.
+  const [messageId, setMessageId] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -144,6 +148,9 @@ export function MessageComposer({
             mode === "queue" && scheduledAt
               ? new Date(scheduledAt).toISOString()
               : null,
+          // Re-save updates the draft saved earlier in this session instead
+          // of inserting a duplicate row.
+          messageId: messageId ?? undefined,
         });
       } catch {
         // Thrown action (network blip) — nothing was confirmed; keep the text
@@ -159,13 +166,18 @@ export function MessageComposer({
         return;
       }
       const doneText = {
-        draft: "Saved as draft.",
+        draft: messageId ? "Draft updated." : "Saved as draft.",
         queue: "Added to the outreach queue.",
         send_email: "Email sent ✓",
         mark_sent: "Recorded as sent.",
       }[mode];
       setNotice({ kind: "ok", text: doneText });
-      if (mode !== "draft") {
+      if (mode === "draft") {
+        // Remember the row so further saves keep updating it in place.
+        setMessageId(result.messageId);
+      } else {
+        // Queued/sent — the composer resets for a fresh message.
+        setMessageId(null);
         setBody("");
         setSubject("");
       }
