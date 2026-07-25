@@ -1,11 +1,13 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AtSign } from "lucide-react";
 import { harvestOne } from "@/app/growth/(app)/prospects/actions";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+type WakeSentinel = { release: () => Promise<void> } | null;
 
 /**
  * One-button backfill: reads each listed prospect's website and fills blank
@@ -31,11 +33,42 @@ export function ContactHarvest({
   // value would be stale inside the loop's closure.
   const stopRequested = useRef(false);
 
+  // Screen Wake Lock, same pattern as the research queue: without it a phone
+  // locking mid-run suspends the tab and the harvest silently stalls — the
+  // exact failure mode that plagued mobile research runs.
+  const wakeLock = useRef<WakeSentinel>(null);
+  const acquireWakeLock = async () => {
+    try {
+      const nav = navigator as Navigator & {
+        wakeLock?: { request: (t: "screen") => Promise<WakeSentinel> };
+      };
+      if (nav.wakeLock && !wakeLock.current) {
+        wakeLock.current = await nav.wakeLock.request("screen");
+      }
+    } catch {
+      // Unsupported/denied — the run still works with the screen kept awake.
+    }
+  };
+  const releaseWakeLock = () => {
+    void wakeLock.current?.release().catch(() => {});
+    wakeLock.current = null;
+  };
+  // The OS drops the lock when the tab hides; re-acquire on return mid-run.
+  useEffect(() => {
+    if (!running) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void acquireWakeLock();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [running]);
+
   if (pending.length === 0 && !summary) return null;
 
   async function start() {
     const items = pending; // freeze the list for this run
     stopRequested.current = false;
+    void acquireWakeLock(); // keep the screen awake so the tab can't freeze
     setRunning(true);
     setSummary(null);
     setDone(0);
@@ -53,6 +86,7 @@ export function ContactHarvest({
       await sleep(300);
     }
     setCurrent(null);
+    releaseWakeLock();
     setRunning(false);
     setSummary(
       `${stopRequested.current ? "Stopped — checked" : "✓ Checked"} ${checked} website${checked === 1 ? "" : "s"} — found new contact details for ${enriched}.`
