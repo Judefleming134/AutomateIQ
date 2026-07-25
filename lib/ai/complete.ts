@@ -48,6 +48,11 @@ export async function aiComplete(
      *  the fetch + generation together still finish inside the 60s budget —
      *  otherwise the platform kills the whole request and the work is lost. */
     timeoutMs?: number;
+    /** Optional image/PDF the model should read alongside the prompt (e.g.
+     *  a photographed invoice). base64 WITHOUT the data: prefix. Supported
+     *  types: image/jpeg, image/png, image/webp, application/pdf — both
+     *  providers accept all four natively. */
+    attachment?: { mimeType: string; dataBase64: string };
   } = {}
 ): Promise<string> {
   const provider = resolveProvider();
@@ -98,12 +103,36 @@ async function callAnthropic(
   system: string,
   prompt: string,
   maxTokens: number,
-  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number }
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number; attachment?: { mimeType: string; dataBase64: string } }
 ): Promise<string> {
   const outputConfig: Record<string, unknown> = {};
   if (opts.effort) outputConfig.effort = opts.effort;
   if (opts.schema)
     outputConfig.format = { type: "json_schema", schema: opts.schema };
+  // With an attachment the user turn becomes content blocks: the file first
+  // (image block for photos, document block for PDFs), then the instruction.
+  const userContent: unknown = opts.attachment
+    ? [
+        opts.attachment.mimeType === "application/pdf"
+          ? {
+              type: "document",
+              source: {
+                type: "base64",
+                media_type: "application/pdf",
+                data: opts.attachment.dataBase64,
+              },
+            }
+          : {
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: opts.attachment.mimeType,
+                data: opts.attachment.dataBase64,
+              },
+            },
+        { type: "text", text: prompt },
+      ]
+    : prompt;
   const res = await fetch(ANTHROPIC_MESSAGES_URL, {
     method: "POST",
     // Bounded: an unbounded hang burns a whole serverless invocation (and
@@ -119,7 +148,7 @@ async function callAnthropic(
       model: CLAUDE_MODEL,
       max_tokens: maxTokens,
       system,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: userContent }],
       ...(Object.keys(outputConfig).length
         ? { output_config: outputConfig }
         : {}),
@@ -147,8 +176,20 @@ async function callGemini(
   system: string,
   prompt: string,
   maxTokens: number,
-  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number }
+  opts: { json?: boolean; effort?: "low" | "medium" | "high"; schema?: Record<string, unknown>; timeoutMs?: number; attachment?: { mimeType: string; dataBase64: string } }
 ): Promise<string> {
+  // Gemini takes the file as an inline_data part ahead of the text part.
+  const parts: unknown[] = opts.attachment
+    ? [
+        {
+          inline_data: {
+            mime_type: opts.attachment.mimeType,
+            data: opts.attachment.dataBase64,
+          },
+        },
+        { text: prompt },
+      ]
+    : [{ text: prompt }];
   const res = await fetch(geminiGenerateUrl(), {
     method: "POST",
     // Same bound as the Anthropic call — a hung request must never outlive
@@ -160,7 +201,7 @@ async function callGemini(
     },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      contents: [{ role: "user", parts }],
       generationConfig: {
         thinkingConfig: GEMINI_THINKING_OFF,
         maxOutputTokens: maxTokens,
