@@ -44,7 +44,10 @@ export function Sidebar({
               // everything else so a sub-nav page still highlights its
               // parent tile (e.g. /portal/review-agent/send).
               const isActive =
-                item.href === "/portal" || item.href === "/admin" || item.href === "/growth"
+                item.href === "/portal" ||
+                item.href === "/admin" ||
+                item.href === "/growth" ||
+                item.href === "/tradeos"
                   ? pathname === item.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
 

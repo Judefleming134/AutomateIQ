@@ -5365,3 +5365,36 @@ table.data-table {
 .sv-audit-cta .btn { flex: none; padding: 13px 24px; }
 
 @media (prefers-reduced-motion: reduce) { .sv-score-arc { transition: none; } }
+
+/* ==========================================================================
+   Trades tool — quote/invoice document (/trades)
+   ========================================================================== */
+.trades-doc { max-width: 760px; }
+.trades-doc-top { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.trades-doc-biz { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+.trades-doc-sub { font-size: 12.5px; color: var(--faint); margin-top: 2px; }
+.trades-doc-headright { text-align: right; }
+.trades-doc-kind { font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--ac2, #3b82f6); font-family: var(--mono); }
+.trades-doc-num { font-size: 22px; font-weight: 800; letter-spacing: -.01em; margin: 2px 0 6px; }
+.trades-doc-meta { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin: 22px 0 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.trades-doc-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); }
+.trades-doc-strong { font-weight: 700; margin-top: 3px; }
+.trades-doc-dates { text-align: right; font-size: 13px; display: grid; gap: 4px; }
+.trades-doc-table { width: 100%; }
+.trades-doc-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); }
+.trades-doc-totals { margin: 16px 0 0; margin-left: auto; max-width: 300px; display: grid; gap: 6px; font-size: 14px; }
+.trades-doc-totals > div { display: flex; justify-content: space-between; }
+.trades-doc-totals > div > span:first-child { color: var(--faint); }
+.trades-doc-grand { font-weight: 800; font-size: 17px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
+.trades-doc-grand > span:first-child { color: var(--text) !important; }
+.trades-doc-notes { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.trades-doc-notes p { margin: 5px 0 0; font-size: 13.5px; color: var(--body); white-space: pre-wrap; }
+
+/* Public customer page wrapper + print */
+.trades-public { max-width: 820px; margin: 0 auto; padding: 28px 20px 60px; }
+.trades-public-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+@media print {
+  .trades-noprint { display: none !important; }
+  body { background: #fff !important; }
+  .trades-doc { border: 0 !important; box-shadow: none !important; max-width: 100% !important; }
+}

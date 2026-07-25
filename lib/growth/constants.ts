@@ -206,15 +206,21 @@ export function fillTemplate(
   bookingUrl: string
 ): string {
   const firstName = (prospect.contact_name ?? "").trim().split(/\s+/)[0] || "there";
-  const values: Record<string, string | undefined> = {
+  // Every advertised placeholder gets a real fallback, so a KNOWN key never
+  // leaks a literal "{{contact_name}}" into the message when the field is empty
+  // — which is common for company-only leads and would otherwise show to the
+  // customer (or trip the send gate's {{…}} check and hold the email). An
+  // absent contact name reads as "there"; the other blanks drop out cleanly.
+  // Unknown keys are left as-is so a genuine typo stays visible to catch.
+  const values: Record<string, string> = {
     first_name: firstName,
-    contact_name: prospect.contact_name ?? undefined,
-    company: prospect.company ?? undefined,
-    industry: prospect.industry ?? undefined,
-    location: prospect.location ?? undefined,
+    contact_name: (prospect.contact_name ?? "").trim() || firstName,
+    company: (prospect.company ?? "").trim(),
+    industry: (prospect.industry ?? "").trim(),
+    location: (prospect.location ?? "").trim(),
     booking_url: bookingUrl,
   };
   return text.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (match, key: string) =>
-    values[key] !== undefined ? values[key]! : match
+    key in values ? values[key] : match
   );
 }

@@ -1,0 +1,403 @@
+"use server";
+
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { isStripeConfigured, createInvoiceCheckoutSession } from "@/lib/billing/stripe";
+import { requireTradesAccount } from "@/lib/trades/data";
+import { formatEuro } from "@/lib/trades/core";
+import {
+  computeTotals,
+  nextDocumentNumber,
+  dueDateFrom,
+  type DocumentKind,
+} from "@/lib/trades/core";
+
+const lineSchema = z.object({
+  description: z.string().trim().max(300),
+  quantity: z.coerce.number().finite(),
+  unitPrice: z.coerce.number().finite(),
+});
+
+const createSchema = z.object({
+  customerId: z.string().uuid().optional().or(z.literal("")),
+  customerName: z.string().trim().max(160).optional().or(z.literal("")),
+  customerEmail: z.string().trim().email().max(200).optional().or(z.literal("")),
+  customerPhone: z.string().trim().max(60).optional().or(z.literal("")),
+  customerAddress: z.string().trim().max(400).optional().or(z.literal("")),
+  notes: z.string().trim().max(2000).optional().or(z.literal("")),
+  items: z.string(), // JSON array
+});
+
+/**
+ * Create a quote from the editor. Finds/creates the customer, computes totals
+ * against the account's VAT rate, assigns the next Q- number and stores the
+ * document + line items. Redirects to the new document on success.
+ */
+export async function createDocument(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const { supabase, account } = await requireTradesAccount();
+
+  const parsed = createSchema.safeParse({
+    customerId: formData.get("customerId") ?? "",
+    customerName: formData.get("customerName") ?? "",
+    customerEmail: formData.get("customerEmail") ?? "",
+    customerPhone: formData.get("customerPhone") ?? "",
+    customerAddress: formData.get("customerAddress") ?? "",
+    notes: formData.get("notes") ?? "",
+    items: String(formData.get("items") ?? "[]"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const d = parsed.data;
+
+  let rawItems: unknown;
+  try {
+    rawItems = JSON.parse(d.items);
+  } catch {
+    return { error: "Could not read the line items." };
+  }
+  const itemsParsed = z.array(lineSchema).safeParse(rawItems);
+  if (!itemsParsed.success) return { error: "Check the line items and try again." };
+  const items = itemsParsed.data.filter(
+    (it) => it.description.trim() || it.unitPrice > 0
+  );
+  if (items.length === 0) return { error: "Add at least one line with a price." };
+
+  // Resolve the customer: an existing id, or create one from the typed fields.
+  let customerId: string | null = d.customerId && d.customerId !== "" ? d.customerId : null;
+  if (!customerId) {
+    if (!d.customerName || !d.customerName.trim()) {
+      return { error: "Add a customer name (or pick an existing customer)." };
+    }
+    const { data: cust, error: custErr } = await supabase
+      .from("trades_customers")
+      .insert({
+        account_id: account.id,
+        name: d.customerName.trim(),
+        email: d.customerEmail || null,
+        phone: d.customerPhone || null,
+        address: d.customerAddress || null,
+      })
+      .select("id")
+      .single();
+    if (custErr || !cust) return { error: custErr?.message ?? "Could not save the customer." };
+    customerId = cust.id;
+  }
+
+  const totals = computeTotals(items, account.vat_rate);
+  const { number, nextSeq } = nextDocumentNumber("quote", account.quote_seq);
+  const today = new Date();
+  const issued = today.toISOString().slice(0, 10);
+
+  const { data: doc, error: docErr } = await supabase
+    .from("trades_documents")
+    .insert({
+      account_id: account.id,
+      customer_id: customerId,
+      kind: "quote" as DocumentKind,
+      number,
+      status: "draft",
+      notes: d.notes || null,
+      subtotal: totals.subtotal,
+      vat_rate: account.vat_rate,
+      vat_amount: totals.vatAmount,
+      total: totals.total,
+      issued_at: issued,
+      due_at: dueDateFrom(today, account.payment_terms_days),
+    })
+    .select("id")
+    .single();
+  if (docErr || !doc) return { error: docErr?.message ?? "Could not create the quote." };
+
+  const rows = totals.lines.map((l, i) => ({
+    document_id: doc.id,
+    description: l.description.trim(),
+    quantity: l.quantity,
+    unit_price: l.unitPrice,
+    amount: l.amount,
+    position: i,
+  }));
+  const { error: liErr } = await supabase.from("trades_line_items").insert(rows);
+  if (liErr) return { error: liErr.message };
+
+  // Advance the per-account quote counter so the next number is unique.
+  await supabase.from("trades_accounts").update({ quote_seq: nextSeq }).eq("id", account.id);
+
+  revalidatePath("/tradeos");
+  redirect(`/tradeos/documents/${doc.id}`);
+}
+
+const settingsSchema = z.object({
+  businessName: z.string().trim().min(1, "Business name is required").max(160),
+  trade: z.string().trim().max(80).optional().or(z.literal("")),
+  email: z.string().trim().email().max(200).optional().or(z.literal("")),
+  phone: z.string().trim().max(60).optional().or(z.literal("")),
+  address: z.string().trim().max(400).optional().or(z.literal("")),
+  vatRate: z.coerce.number().min(0).max(100),
+  vatNumber: z.string().trim().max(40).optional().or(z.literal("")),
+  paymentTermsDays: z.coerce.number().int().min(0).max(120),
+});
+
+/** Save the tradesperson's business profile (used on every quote/invoice). */
+export async function saveSettings(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { supabase, account } = await requireTradesAccount();
+  const parsed = settingsSchema.safeParse({
+    businessName: formData.get("businessName"),
+    trade: formData.get("trade") ?? "",
+    email: formData.get("email") ?? "",
+    phone: formData.get("phone") ?? "",
+    address: formData.get("address") ?? "",
+    vatRate: formData.get("vatRate") ?? 0,
+    vatNumber: formData.get("vatNumber") ?? "",
+    paymentTermsDays: formData.get("paymentTermsDays") ?? 14,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  const s = parsed.data;
+
+  const { error } = await supabase
+    .from("trades_accounts")
+    .update({
+      business_name: s.businessName,
+      trade: s.trade || null,
+      email: s.email || null,
+      phone: s.phone || null,
+      address: s.address || null,
+      vat_rate: s.vatRate,
+      vat_number: s.vatNumber || null,
+      payment_terms_days: s.paymentTermsDays,
+    })
+    .eq("id", account.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/tradeos/settings");
+  revalidatePath("/tradeos");
+  return { ok: true };
+}
+
+/** Convert an accepted/sent quote into an invoice (new INV- number, links back). */
+export async function convertToInvoice(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const { supabase, account } = await requireTradesAccount();
+  const quoteId = String(formData.get("id") ?? "");
+  if (!quoteId) return { error: "Missing quote." };
+
+  const { data: quote } = await supabase
+    .from("trades_documents")
+    .select("id, kind, customer_id, notes, subtotal, vat_rate, vat_amount, total, converted_to")
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (!quote || quote.kind !== "quote") return { error: "That isn't a quote." };
+  if (quote.converted_to) redirect(`/tradeos/documents/${quote.converted_to}`);
+
+  const { data: lines } = await supabase
+    .from("trades_line_items")
+    .select("description, quantity, unit_price, amount, position")
+    .eq("document_id", quoteId)
+    .order("position");
+
+  const { number, nextSeq } = nextDocumentNumber("invoice", account.invoice_seq);
+  const today = new Date();
+  const { data: inv, error: invErr } = await supabase
+    .from("trades_documents")
+    .insert({
+      account_id: account.id,
+      customer_id: quote.customer_id,
+      kind: "invoice",
+      number,
+      status: "draft",
+      notes: quote.notes,
+      subtotal: quote.subtotal,
+      vat_rate: quote.vat_rate,
+      vat_amount: quote.vat_amount,
+      total: quote.total,
+      issued_at: today.toISOString().slice(0, 10),
+      due_at: dueDateFrom(today, account.payment_terms_days),
+    })
+    .select("id")
+    .single();
+  if (invErr || !inv) return { error: invErr?.message ?? "Could not create the invoice." };
+
+  if (lines && lines.length > 0) {
+    await supabase.from("trades_line_items").insert(
+      lines.map((l) => ({ ...l, document_id: inv.id }))
+    );
+  }
+  await supabase.from("trades_accounts").update({ invoice_seq: nextSeq }).eq("id", account.id);
+  await supabase.from("trades_documents").update({ converted_to: inv.id }).eq("id", quoteId);
+
+  revalidatePath("/tradeos");
+  redirect(`/tradeos/documents/${inv.id}`);
+}
+
+const STATUSES = ["draft", "sent", "accepted", "declined", "paid", "void"] as const;
+
+/** Move a document's status (mark sent / accepted / paid / void). */
+export async function setDocumentStatus(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const { supabase } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!id || !(STATUSES as readonly string[]).includes(status)) {
+    return { error: "Invalid update." };
+  }
+  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  if (status === "paid") patch.paid_at = new Date().toISOString();
+  const { error } = await supabase.from("trades_documents").update(patch).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath(`/tradeos/documents/${id}`);
+  revalidatePath("/tradeos");
+  return undefined;
+}
+
+function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie").replace(/\/$/, "");
+}
+
+/**
+ * Email the customer a link to the public quote/invoice page, replying to the
+ * tradesperson so responses land with them. Marks the document 'sent'. The
+ * document is already saved, so a mail failure reports but never loses it.
+ */
+export async function sendDocument(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { supabase, account } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing document." };
+
+  const { data: doc } = await supabase
+    .from("trades_documents")
+    .select("id, kind, number, total, public_token, trades_customers(name, email)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!doc) return { error: "Document not found." };
+  const customer = doc.trades_customers as unknown as { name: string; email: string | null } | null;
+  if (!customer?.email) {
+    return { error: "This customer has no email. Add one, or send them the link yourself." };
+  }
+
+  const label = doc.kind === "quote" ? "Quote" : "Invoice";
+  const from = account.business_name || "TradeOS";
+  const link = `${siteUrl()}/tradeos/doc/${doc.public_token}`;
+  const text = [
+    `Hi ${customer.name || "there"},`,
+    "",
+    `Please find your ${label.toLowerCase()} ${doc.number} for ${formatEuro(Number(doc.total))}.`,
+    "",
+    `View it here: ${link}`,
+    "",
+    `Thanks,`,
+    from,
+  ].join("\n");
+
+  try {
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: getFromAddress(),
+      to: customer.email,
+      replyTo: account.email || undefined,
+      subject: `${label} ${doc.number} from ${from}`,
+      text,
+    });
+    if (error) return { error: `Couldn't send the email: ${error.message}` };
+  } catch (err) {
+    return { error: `Couldn't send the email: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+
+  await supabase
+    .from("trades_documents")
+    .update({ status: "sent", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "draft");
+  revalidatePath(`/tradeos/documents/${id}`);
+  revalidatePath("/tradeos");
+  return { ok: true };
+}
+
+/**
+ * Public accept, from the customer-facing page — no session, so it looks the
+ * document up by its unguessable token with the service-role client and only
+ * moves a quote from draft/sent to accepted. Never touches invoices.
+ */
+export async function acceptQuoteByToken(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Missing token." };
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from("trades_documents")
+    .select("id, kind, status")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!doc || doc.kind !== "quote") return { error: "Not found." };
+  if (!["draft", "sent"].includes(doc.status)) return { ok: true }; // already actioned
+  const { error } = await admin
+    .from("trades_documents")
+    .update({ status: "accepted", updated_at: new Date().toISOString() })
+    .eq("id", doc.id);
+  if (error) return { error: error.message };
+  revalidatePath(`/tradeos/doc/${token}`);
+  return { ok: true };
+}
+
+/**
+ * Public "pay online" — the customer pays a specific invoice by its token.
+ * Builds a one-off Stripe Checkout for that invoice's exact total and sends
+ * them there. The invoice is only marked paid by the signature-verified
+ * webhook (never trusted from the browser). Inert until STRIPE_SECRET_KEY is
+ * set, so it fails politely rather than erroring.
+ */
+export async function startInvoicePayment(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Missing document." };
+  if (!isStripeConfigured()) {
+    return { error: "Online payment isn't switched on yet — pay by the usual method." };
+  }
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from("trades_documents")
+    .select("id, kind, number, status, total, currency, trades_customers(email)")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!doc || doc.kind !== "invoice") return { error: "This isn't a payable invoice." };
+  if (doc.status === "paid") redirect(`/tradeos/doc/${token}?paid=1`);
+  if (doc.status === "void") return { error: "This invoice has been voided." };
+
+  const cents = Math.round(Number(doc.total) * 100);
+  if (cents < 50) return { error: "Amount is too small to charge online." };
+
+  const customer = doc.trades_customers as unknown as { email: string | null } | null;
+  let url: string;
+  try {
+    const res = await createInvoiceCheckoutSession({
+      amountCents: cents,
+      currency: doc.currency || "eur",
+      label: `Invoice ${doc.number}`,
+      customerEmail: customer?.email ?? null,
+      successUrl: `${siteUrl()}/tradeos/doc/${token}?paid=1`,
+      cancelUrl: `${siteUrl()}/tradeos/doc/${token}`,
+      metadata: { tradeos_document_id: doc.id },
+    });
+    url = res.url;
+  } catch (err) {
+    return { error: `Couldn't start the payment: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+  redirect(url); // to Stripe's hosted checkout
+}
