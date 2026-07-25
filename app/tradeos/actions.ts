@@ -237,7 +237,25 @@ export async function convertToInvoice(
     );
   }
   await supabase.from("trades_accounts").update({ invoice_seq: nextSeq }).eq("id", account.id);
-  await supabase.from("trades_documents").update({ converted_to: inv.id }).eq("id", quoteId);
+  // Claim the conversion atomically: only the first click gets to stamp
+  // converted_to. A double-click raced past the read above and created TWO
+  // invoices — the loser now deletes its orphan draft and lands on the winner.
+  const { data: claimed } = await supabase
+    .from("trades_documents")
+    .update({ converted_to: inv.id })
+    .eq("id", quoteId)
+    .is("converted_to", null)
+    .select("id");
+  if (!claimed || claimed.length === 0) {
+    await supabase.from("trades_line_items").delete().eq("document_id", inv.id);
+    await supabase.from("trades_documents").delete().eq("id", inv.id).eq("status", "draft");
+    const { data: winner } = await supabase
+      .from("trades_documents")
+      .select("converted_to")
+      .eq("id", quoteId)
+      .maybeSingle();
+    redirect(`/tradeos/documents/${winner?.converted_to ?? quoteId}`);
+  }
 
   revalidatePath("/tradeos");
   redirect(`/tradeos/documents/${inv.id}`);

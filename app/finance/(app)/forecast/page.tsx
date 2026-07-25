@@ -21,7 +21,10 @@ export default async function ForecastPage() {
       .from("trades_documents")
       .select("number, status, total, due_at")
       .eq("kind", "invoice")
-      .in("status", ["sent", "accepted", "draft"])
+      // Sent/accepted only — same rule as the Receivables page. A draft
+      // invoice hasn't reached the customer, so counting it as money-in
+      // painted an optimistic forecast that Receivables didn't back up.
+      .in("status", ["sent", "accepted"])
       .limit(500),
     supabase
       .from("trades_expenses")
@@ -144,7 +147,8 @@ export default async function ForecastPage() {
         </div>
         <p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>
           Overdue and undated items count in week 1 — they&apos;re due now.
-          Predicted amounts come from your recurring bills below.{" "}
+          Draft invoices don&apos;t count until they&apos;re sent. Predicted
+          amounts come from your recurring bills below.{" "}
           <span className="badge badge-gray">What-if scenarios — not available yet</span>
         </p>
       </section>
