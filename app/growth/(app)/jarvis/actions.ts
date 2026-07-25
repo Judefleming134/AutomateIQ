@@ -112,7 +112,9 @@ async function runJarvisAction(
       const clean = sanitizeOutreachBody(res.body);
       const broken = draftLooksBroken(clean);
       if (broken) return `✗ ${prospect.company}: rewrite still ${broken} — needs the Studio`;
-      await admin
+      // Check the write actually landed — a silent DB failure must never be
+      // reported back to Jude as "✓ done" (he'd trust it and move on).
+      const { error: rewriteErr } = await admin
         .from("ge_messages")
         .update({
           subject: res.subject,
@@ -122,6 +124,7 @@ async function runJarvisAction(
           ...(draft.status === "failed" ? { status: "draft" } : {}),
         })
         .eq("id", draft.id);
+      if (rewriteErr) return `✗ ${prospect.company}: rewrite didn't save — try again`;
       return `✓ ${prospect.company}: email draft rewritten`;
     }
     case "queue_email": {
@@ -129,17 +132,22 @@ async function runJarvisAction(
       if (!draft) return `✗ ${prospect.company}: no email draft to queue`;
       const broken = draftLooksBroken(sanitizeOutreachBody(draft.body));
       if (broken) return `✗ ${prospect.company}: draft is ${broken} — regenerate first`;
-      await admin.from("ge_messages").update({ status: "queued" }).eq("id", draft.id);
+      const { error: queueErr } = await admin
+        .from("ge_messages")
+        .update({ status: "queued" })
+        .eq("id", draft.id);
+      if (queueErr) return `✗ ${prospect.company}: queueing didn't save — try again`;
       return `✓ ${prospect.company}: queued for the morning send (~8am)`;
     }
     case "add_note": {
       const note = a.value.trim().slice(0, 1000);
       if (!note) return `✗ ${prospect.company}: empty note`;
       const merged = prospect.notes ? `${prospect.notes}\n${note}` : note;
-      await admin
+      const { error: noteErr } = await admin
         .from("ge_prospects")
         .update({ notes: merged.slice(0, 4000) })
         .eq("id", prospect.id);
+      if (noteErr) return `✗ ${prospect.company}: note didn't save — try again`;
       await admin.from("ge_activities").insert({
         prospect_id: prospect.id,
         type: "system",
@@ -149,13 +157,17 @@ async function runJarvisAction(
       return `✓ ${prospect.company}: note saved`;
     }
     case "set_follow_up": {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(a.value)) {
-        return `✗ ${prospect.company}: follow-up date must be YYYY-MM-DD`;
+      // Shape AND a real calendar day: "2026-02-30" passes the regex but
+      // fails Date.parse — without this it silently failed at the DB and
+      // Jarvis still claimed the follow-up was set.
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(a.value) || Number.isNaN(Date.parse(a.value))) {
+        return `✗ ${prospect.company}: follow-up date must be a real YYYY-MM-DD date`;
       }
-      await admin
+      const { error: fuErr } = await admin
         .from("ge_prospects")
         .update({ next_follow_up_at: a.value })
         .eq("id", prospect.id);
+      if (fuErr) return `✗ ${prospect.company}: follow-up didn't save — try again`;
       return `✓ ${prospect.company}: follow-up set for ${a.value}`;
     }
     default:
