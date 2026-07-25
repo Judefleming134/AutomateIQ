@@ -387,6 +387,11 @@ export async function sendDueEmailFollowupsNow(
   let held = 0;
   let noDraft = 0;
   const dueList = due ?? [];
+  // Same chase purposes as the 8am run (autoQueueDueFollowups): both touches
+  // count toward the cap, and a drafted second_follow_up is sendable here.
+  // Matching only "follow_up" made this button under-count sent chases AND
+  // silently skip every drafted third-touch as "no draft".
+  const CHASE_PURPOSES = ["follow_up", "second_follow_up"];
   for (const p of dueList) {
     if (sent >= 20) break; // bound the per-click send burst
 
@@ -396,7 +401,7 @@ export async function sendDueEmailFollowupsNow(
       .eq("prospect_id", p.id)
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("purpose", "follow_up")
+      .in("purpose", CHASE_PURPOSES)
       .eq("status", "sent");
     if ((sentFollowups ?? 0) >= maxTouches) continue;
 
@@ -406,7 +411,7 @@ export async function sendDueEmailFollowupsNow(
       .eq("prospect_id", p.id)
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("purpose", "follow_up")
+      .in("purpose", CHASE_PURPOSES)
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(1)
