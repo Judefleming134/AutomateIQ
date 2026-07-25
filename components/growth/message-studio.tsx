@@ -288,6 +288,15 @@ export function MessageStudio({
             className={`btn btn-sm ${channel === c ? "btn-primary" : "btn-secondary"}`}
             onClick={() => {
               setChannel(c);
+              // Land on a message type that actually HAS a draft for this
+              // channel: the tab's • otherwise points at content hidden behind
+              // the purpose dropdown (tap Instagram with a dot, see an empty
+              // box because you were on Follow-up). Keeps the current purpose
+              // whenever it already has text.
+              if (!drafts[key(c, purpose)]?.body.trim()) {
+                const withDraft = PURPOSES.find((p) => drafts[key(c, p)]?.body.trim());
+                if (withDraft) setPurpose(withDraft);
+              }
               setNotice(null);
             }}
           >
