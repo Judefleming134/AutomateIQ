@@ -10,7 +10,7 @@ import { cleanSocialUrl } from "@/lib/growth/research";
 import { studioDraft } from "../inbox/actions";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
-import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
 import { pricingLines } from "@/lib/growth/pricing";
 import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { dublinDate } from "@/lib/growth/dates";
@@ -344,16 +344,16 @@ export async function askJarvis(
   const today = dublinDate();
 
   const [
-    metrics,
-    week,
+    [metrics, week],
     { data: prospects },
     { data: inbound },
     { data: meetings },
     { data: deliveryEvents },
     { count: researchFailedCount },
   ] = await Promise.all([
-      loadGrowthMetrics(admin, null),
-      loadGrowthMetrics(admin, 7),
+      // Both windows from ONE table load — two loadGrowthMetrics calls
+      // scanned all six growth tables twice on every single chat question.
+      loadGrowthMetricsMulti(admin, [null, 7]),
       admin
         .from("ge_prospects")
         .select(

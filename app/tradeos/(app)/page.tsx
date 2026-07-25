@@ -21,25 +21,35 @@ type DocRow = {
 export default async function TradesDashboard() {
   const { supabase, account } = await requireTradesAccount();
 
-  const { data: docsRaw } = await supabase
-    .from("trades_documents")
-    .select("id, kind, number, status, total, issued_at, due_at, created_at, trades_customers(name)")
-    .order("created_at", { ascending: false })
-    .limit(25);
+  // The Recent table shows the newest 25, but the money cards must cover the
+  // WHOLE account — computing them from the 25-row window silently understated
+  // "Outstanding" the moment there were more than 25 documents.
+  const [{ data: docsRaw }, { data: statRaw }] = await Promise.all([
+    supabase
+      .from("trades_documents")
+      .select("id, kind, number, status, total, issued_at, due_at, created_at, trades_customers(name)")
+      .order("created_at", { ascending: false })
+      .limit(25),
+    supabase
+      .from("trades_documents")
+      .select("kind, status, total, due_at")
+      .limit(2000),
+  ]);
   const docs = (docsRaw ?? []) as unknown as DocRow[];
+  const stats = (statRaw ?? []) as { kind: "quote" | "invoice"; status: string; total: number; due_at: string | null }[];
 
   // Money view: what's owed vs collected, plus how many quotes are still live.
-  const invoices = docs.filter((d) => d.kind === "invoice");
+  const invoices = stats.filter((d) => d.kind === "invoice");
   const outstanding = invoices
     .filter((d) => d.status !== "paid" && d.status !== "void")
     .reduce((s, d) => s + Number(d.total), 0);
   const paid = invoices
     .filter((d) => d.status === "paid")
     .reduce((s, d) => s + Number(d.total), 0);
-  const openQuotes = docs.filter(
+  const openQuotes = stats.filter(
     (d) => d.kind === "quote" && (d.status === "sent" || d.status === "draft")
   ).length;
-  const overdueCount = docs.filter((d) => isOverdue(d)).length;
+  const overdueCount = stats.filter((d) => isOverdue(d)).length;
 
   return (
     <>
