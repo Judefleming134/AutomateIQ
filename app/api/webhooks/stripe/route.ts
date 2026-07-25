@@ -84,6 +84,12 @@ export async function POST(request: NextRequest) {
         .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq("id", tradeosDocId)
         .eq("kind", "invoice");
+      // Network sync: a bill this document created in a connected account's
+      // Finance flips to paid with it.
+      await admin
+        .from("trades_expenses")
+        .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("linked_document_id", tradeosDocId);
     } else if (event.type === "checkout.session.completed") {
       if (businessId) {
         await admin
