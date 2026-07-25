@@ -134,8 +134,12 @@ export async function POST(request: NextRequest) {
     }
   } catch (err) {
     console.error("Stripe webhook processing error:", err);
-    // Still 200: the event is logged; re-driving would double-insert. Manual
-    // reconciliation is safer than a retry storm on a partial failure.
+    // Every branch above is an idempotent update (set-status, guarded
+    // inserts), so redelivery is safe. Release the idempotency record and
+    // return 500 so Stripe retries — otherwise a transient failure here
+    // permanently strands a paid invoice/activation behind the dupe check.
+    await admin.from("bl_billing_events").delete().eq("stripe_event_id", event.id);
+    return NextResponse.json({ error: "processing failed" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
