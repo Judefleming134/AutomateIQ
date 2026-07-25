@@ -84,6 +84,43 @@ export default function TradesLoginForm() {
         Quotes &amp; invoices for your trade — send them in seconds, get paid faster.
       </p>
 
+      {/* Mirror of the Finance login's TradeOS box: one account system, so a
+          Finance user signing in here is linked automatically. */}
+      <div
+        style={{
+          border: "1px solid rgba(59,130,246,.35)",
+          background: "rgba(59,130,246,.08)",
+          borderRadius: 10,
+          padding: "10px 12px",
+          margin: "0 0 14px",
+          fontSize: 13,
+        }}
+      >
+        <strong>Already using our Finance tool?</strong>{" "}
+        <button
+          type="button"
+          onClick={() => {
+            setMode("signin");
+            setError(null);
+            setNotice(null);
+          }}
+          style={{
+            background: "none",
+            border: 0,
+            padding: 0,
+            color: "var(--ac2, #3b82f6)",
+            cursor: "pointer",
+            fontSize: 13,
+            boxShadow: "none",
+            textDecoration: "underline",
+          }}
+        >
+          Sign in with your Finance login
+        </button>{" "}
+        — same account, everything already linked: your bills, scans and
+        connections carry straight over.
+      </div>
+
       <label htmlFor="t-email">Email</label>
       <input
         id="t-email"
