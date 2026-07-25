@@ -1,5 +1,15 @@
 import type { Metadata } from "next";
-import { LayoutDashboard, ScanLine, Hammer, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  ScanLine,
+  CalendarRange,
+  HandCoins,
+  PiggyBank,
+  BarChart3,
+  Landmark,
+  Hammer,
+  Settings,
+} from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
@@ -25,6 +35,11 @@ export default async function FinanceLayout({
       items: [
         { href: "/finance", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/finance/scan", label: "Scan an invoice", icon: <ScanLine /> },
+        { href: "/finance/forecast", label: "Cash-flow forecast", icon: <CalendarRange /> },
+        { href: "/finance/receivables", label: "Who owes you", icon: <HandCoins /> },
+        { href: "/finance/budgets", label: "Budgets", icon: <PiggyBank /> },
+        { href: "/finance/reports", label: "Reports", icon: <BarChart3 /> },
+        { href: "/finance/bank", label: "Bank & feeds", icon: <Landmark /> },
         { href: "/finance/settings", label: "Settings", icon: <Settings /> },
       ],
     },

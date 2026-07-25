@@ -82,6 +82,21 @@ export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: s
           <p style={{ fontSize: 12.5, color: fields.confidence === "high" ? "var(--green, #34d399)" : "var(--orange, #fb923c)", marginTop: 0 }}>
             Scanner confidence: {fields.confidence} — every field below is editable before saving.
           </p>
+          {scanState?.duplicateWarning && (
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--orange, #fb923c)",
+                border: "1px solid rgba(251,146,60,.4)",
+                background: "rgba(251,146,60,.08)",
+                borderRadius: 8,
+                padding: "8px 11px",
+                margin: "0 0 12px",
+              }}
+            >
+              ⚠ {scanState.duplicateWarning}
+            </p>
+          )}
           <input type="hidden" name="extracted" value={JSON.stringify(fields)} />
           <div className="grid-2">
             <div>
