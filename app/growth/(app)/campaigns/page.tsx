@@ -39,13 +39,20 @@ export default async function CampaignsPage() {
   // a single-status filter — the number shown must equal the rows the click
   // lands on, or the page looks broken ("12 ready" → 9 rows).
   const TO_RESEARCH = new Set(["new", "researching"]);
-  const todo = new Map<string, { ready: number; approved: number; toResearch: number }>();
+  const todo = new Map<
+    string,
+    { ready: number; approved: number; toResearch: number; failed: number }
+  >();
   for (const p of statusRows) {
     if (!p.campaign_id) continue;
-    const t = todo.get(p.campaign_id) ?? { ready: 0, approved: 0, toResearch: 0 };
+    const t =
+      todo.get(p.campaign_id) ?? { ready: 0, approved: 0, toResearch: 0, failed: 0 };
     if (p.status === "research_complete") t.ready += 1;
     else if (p.status === "outreach_ready") t.approved += 1;
     else if (TO_RESEARCH.has(p.status)) t.toResearch += 1;
+    // Parked after failed research: without this tally a campaign full of
+    // failures showed "—" as if there were nothing to do, hiding the leads.
+    else if (p.status === "research_failed") t.failed += 1;
     todo.set(p.campaign_id, t);
   }
 
@@ -144,7 +151,13 @@ export default async function CampaignsPage() {
                     <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>
                       {(() => {
                         const t = todo.get(c.id);
-                        if (!t || (t.ready === 0 && t.approved === 0 && t.toResearch === 0))
+                        if (
+                          !t ||
+                          (t.ready === 0 &&
+                            t.approved === 0 &&
+                            t.toResearch === 0 &&
+                            t.failed === 0)
+                        )
                           return "—";
                         const parts: React.ReactNode[] = [];
                         if (t.ready > 0) {
@@ -174,6 +187,17 @@ export default async function CampaignsPage() {
                             <span key="t" style={{ color: "var(--faint)" }}>
                               {t.toResearch} to research
                             </span>
+                          );
+                        }
+                        if (t.failed > 0) {
+                          parts.push(
+                            <Link
+                              key="f"
+                              href={`/growth/prospects?campaign=${c.id}&status=research_failed`}
+                              style={{ color: "var(--orange, #fb923c)" }}
+                            >
+                              {t.failed} failed research
+                            </Link>
                           );
                         }
                         return parts.map((el, i) => (
