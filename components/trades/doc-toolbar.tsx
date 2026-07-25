@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Send, FileCheck2, CheckCircle2, XCircle, Link2, Printer, ExternalLink } from "lucide-react";
-import { sendDocument, convertToInvoice, setDocumentStatus } from "@/app/trades/actions";
+import { sendDocument, convertToInvoice, setDocumentStatus } from "@/app/tradeos/actions";
 
 /**
  * Everything you do to a quote/invoice, in one bar: email it, mark it

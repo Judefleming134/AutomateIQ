@@ -126,8 +126,8 @@ export async function createDocument(
   // Advance the per-account quote counter so the next number is unique.
   await supabase.from("trades_accounts").update({ quote_seq: nextSeq }).eq("id", account.id);
 
-  revalidatePath("/trades");
-  redirect(`/trades/documents/${doc.id}`);
+  revalidatePath("/tradeos");
+  redirect(`/tradeos/documents/${doc.id}`);
 }
 
 const settingsSchema = z.object({
@@ -175,8 +175,8 @@ export async function saveSettings(
     .eq("id", account.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/trades/settings");
-  revalidatePath("/trades");
+  revalidatePath("/tradeos/settings");
+  revalidatePath("/tradeos");
   return { ok: true };
 }
 
@@ -195,7 +195,7 @@ export async function convertToInvoice(
     .eq("id", quoteId)
     .maybeSingle();
   if (!quote || quote.kind !== "quote") return { error: "That isn't a quote." };
-  if (quote.converted_to) redirect(`/trades/documents/${quote.converted_to}`);
+  if (quote.converted_to) redirect(`/tradeos/documents/${quote.converted_to}`);
 
   const { data: lines } = await supabase
     .from("trades_line_items")
@@ -233,8 +233,8 @@ export async function convertToInvoice(
   await supabase.from("trades_accounts").update({ invoice_seq: nextSeq }).eq("id", account.id);
   await supabase.from("trades_documents").update({ converted_to: inv.id }).eq("id", quoteId);
 
-  revalidatePath("/trades");
-  redirect(`/trades/documents/${inv.id}`);
+  revalidatePath("/tradeos");
+  redirect(`/tradeos/documents/${inv.id}`);
 }
 
 const STATUSES = ["draft", "sent", "accepted", "declined", "paid", "void"] as const;
@@ -254,8 +254,8 @@ export async function setDocumentStatus(
   if (status === "paid") patch.paid_at = new Date().toISOString();
   const { error } = await supabase.from("trades_documents").update(patch).eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath(`/trades/documents/${id}`);
-  revalidatePath("/trades");
+  revalidatePath(`/tradeos/documents/${id}`);
+  revalidatePath("/tradeos");
   return undefined;
 }
 
@@ -288,8 +288,8 @@ export async function sendDocument(
   }
 
   const label = doc.kind === "quote" ? "Quote" : "Invoice";
-  const from = account.business_name || "AutomateIQ Trades";
-  const link = `${siteUrl()}/trades/doc/${doc.public_token}`;
+  const from = account.business_name || "TradeOS";
+  const link = `${siteUrl()}/tradeos/doc/${doc.public_token}`;
   const text = [
     `Hi ${customer.name || "there"},`,
     "",
@@ -320,8 +320,8 @@ export async function sendDocument(
     .update({ status: "sent", updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "draft");
-  revalidatePath(`/trades/documents/${id}`);
-  revalidatePath("/trades");
+  revalidatePath(`/tradeos/documents/${id}`);
+  revalidatePath("/tradeos");
   return { ok: true };
 }
 
@@ -349,6 +349,6 @@ export async function acceptQuoteByToken(
     .update({ status: "accepted", updated_at: new Date().toISOString() })
     .eq("id", doc.id);
   if (error) return { error: error.message };
-  revalidatePath(`/trades/doc/${token}`);
+  revalidatePath(`/tradeos/doc/${token}`);
   return { ok: true };
 }

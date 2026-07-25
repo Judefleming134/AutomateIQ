@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Check, Printer } from "lucide-react";
-import { acceptQuoteByToken } from "@/app/trades/actions";
+import { acceptQuoteByToken } from "@/app/tradeos/actions";
 
 /**
  * The customer's side: accept a quote, or print/save any document to PDF.

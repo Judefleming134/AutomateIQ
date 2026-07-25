@@ -2,7 +2,7 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { Plus, Trash2, FileText } from "lucide-react";
-import { createDocument } from "@/app/trades/actions";
+import { createDocument } from "@/app/tradeos/actions";
 import { computeTotals, formatEuro } from "@/lib/trades/core";
 
 type Customer = { id: string; name: string };

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FilePlus2 } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 
-export const metadata = { title: "Customers · AutomateIQ Trades" };
+export const metadata = { title: "Customers · TradeOS" };
 
 type CustomerRow = {
   id: string;
@@ -27,7 +27,7 @@ export default async function TradesCustomersPage() {
           <h1>Customers</h1>
           <p>Everyone you&apos;ve quoted or invoiced. New customers are added as you create quotes.</p>
         </div>
-        <Link href="/trades/new" className="btn btn-primary">
+        <Link href="/tradeos/new" className="btn btn-primary">
           <FilePlus2 size={15} /> New quote
         </Link>
       </div>
@@ -35,7 +35,7 @@ export default async function TradesCustomersPage() {
       <section className="panel panel-block">
         {rows.length === 0 ? (
           <p className="empty-state">
-            No customers yet. <Link href="/trades/new">Create a quote →</Link> and the customer is saved here automatically.
+            No customers yet. <Link href="/tradeos/new">Create a quote →</Link> and the customer is saved here automatically.
           </p>
         ) : (
           <div className="table-wrap">
@@ -57,7 +57,7 @@ export default async function TradesCustomersPage() {
                       {c.phone ? <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}>{c.phone}</a> : "—"}
                     </td>
                     <td style={{ textAlign: "right" }}>
-                      <Link href="/trades/new" className="btn btn-ghost btn-sm">Quote →</Link>
+                      <Link href="/tradeos/new" className="btn btn-ghost btn-sm">Quote →</Link>
                     </td>
                   </tr>
                 ))}

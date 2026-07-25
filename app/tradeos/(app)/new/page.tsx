@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireTradesAccount, needsOnboarding } from "@/lib/trades/data";
 import { QuoteEditor } from "@/components/trades/quote-editor";
 
-export const metadata = { title: "New quote · AutomateIQ Trades" };
+export const metadata = { title: "New quote · TradeOS" };
 
 export default async function NewQuotePage() {
   const { supabase, account } = await requireTradesAccount();
@@ -24,7 +24,7 @@ export default async function NewQuotePage() {
         <div className="panel panel-block" style={{ marginBottom: 16, borderLeft: "3px solid var(--orange, #fb923c)" }}>
           <p style={{ margin: 0, fontSize: 14 }}>
             Tip: set your business name and VAT rate in{" "}
-            <Link href="/trades/settings">settings</Link> first so the quote looks right.
+            <Link href="/tradeos/settings">settings</Link> first so the quote looks right.
           </p>
         </div>
       )}

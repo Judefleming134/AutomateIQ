@@ -42,7 +42,7 @@ export async function requireTradesAccount(): Promise<{
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/trades/login");
+  if (!user) redirect("/tradeos/login");
 
   const { data: existing } = await supabase
     .from("trades_accounts")

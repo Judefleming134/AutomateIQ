@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import TradesLoginForm from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Sign in · AutomateIQ Trades",
+  title: "Sign in · TradeOS",
   description: "Quotes and invoices for tradespeople — create, send and get paid.",
   robots: { index: false, follow: false },
 };
