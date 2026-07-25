@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { isStripeConfigured, createInvoiceCheckoutSession } from "@/lib/billing/stripe";
+import { aiComplete } from "@/lib/ai/complete";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { formatEuro } from "@/lib/trades/core";
 import {
@@ -400,4 +401,326 @@ export async function startInvoicePayment(
     return { error: `Couldn't start the payment: ${err instanceof Error ? err.message : "unknown"}` };
   }
   redirect(url); // to Stripe's hosted checkout
+}
+
+/* ══════════════════════ Scan & Finance ══════════════════════ */
+
+export type ScannedFields = {
+  direction: "payable" | "receivable";
+  counterparty: string;
+  counterparty_email: string;
+  doc_number: string;
+  category: string;
+  issued_at: string;
+  due_at: string;
+  subtotal: number;
+  vat_amount: number;
+  total: number;
+  currency: string;
+  summary: string;
+  confidence: string;
+};
+
+const SCAN_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const SCAN_MAX_BYTES = 4_500_000; // stays inside both providers' inline limits
+
+const asDate = (v: unknown): string =>
+  typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : "";
+const asNum = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+};
+
+/**
+ * Read a photographed/scanned invoice with the AI and return the extracted
+ * fields for review — nothing is saved here; the tradesperson always confirms
+ * what the scanner read before it becomes a record (transparency by design).
+ */
+export async function scanInvoice(
+  _prev: { error?: string; fields?: ScannedFields } | undefined,
+  formData: FormData
+): Promise<{ error?: string; fields?: ScannedFields }> {
+  const { account } = await requireTradesAccount();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a photo or PDF of the invoice first." };
+  }
+  if (!SCAN_TYPES.includes(file.type)) {
+    return { error: "Use a JPG, PNG, WebP photo or a PDF (iPhone: change camera format to 'Most compatible', or screenshot the invoice)." };
+  }
+  if (file.size > SCAN_MAX_BYTES) {
+    return { error: "That file is over 4.5MB — take the photo a bit smaller or screenshot it." };
+  }
+  const dataBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+
+  const schema = {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      direction: { type: "string", enum: ["payable", "receivable"] },
+      counterparty: { type: "string" },
+      counterparty_email: { type: "string" },
+      doc_number: { type: "string" },
+      category: { type: "string" },
+      issued_at: { type: "string" },
+      due_at: { type: "string" },
+      subtotal: { type: "number" },
+      vat_amount: { type: "number" },
+      total: { type: "number" },
+      currency: { type: "string" },
+      summary: { type: "string" },
+      confidence: { type: "string", enum: ["high", "medium", "low"] },
+    },
+    required: [
+      "direction", "counterparty", "counterparty_email", "doc_number",
+      "category", "issued_at", "due_at", "subtotal", "vat_amount", "total",
+      "currency", "summary", "confidence",
+    ],
+  };
+
+  let raw: string;
+  try {
+    raw = await aiComplete(
+      [
+        "You read photographed or scanned invoices/receipts for an Irish tradesperson's bookkeeping. Extract ONLY what is actually on the document — never invent numbers. Use empty string for anything you cannot read, 0 for unknown amounts.",
+        `The tradesperson's business is "${account.business_name || "unknown"}". If the document was issued TO that business (they must pay it) direction is "payable"; if it was issued BY that business to a customer, direction is "receivable". Default to "payable" when unsure.`,
+        "Dates as YYYY-MM-DD. category is one or two words (e.g. materials, fuel, insurance, tools, subcontractor). summary is one short line saying what the document is for. Respond with ONLY the JSON object.",
+      ].join("\n"),
+      "Read this document and return the JSON.",
+      1500,
+      {
+        json: true,
+        effort: "low",
+        timeoutMs: 50_000,
+        schema,
+        attachment: { mimeType: file.type, dataBase64 },
+      }
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg === "NO_PROVIDER") return { error: "No AI key is configured yet." };
+    return { error: "Couldn't read the document — try a clearer, straight-on photo." };
+  }
+
+  let parsed: Record<string, unknown>;
+  try {
+    const j = raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "");
+    parsed = JSON.parse(j) as Record<string, unknown>;
+  } catch {
+    return { error: "The scanner returned something unreadable — try again." };
+  }
+
+  const fields: ScannedFields = {
+    direction: parsed.direction === "receivable" ? "receivable" : "payable",
+    counterparty: String(parsed.counterparty ?? "").slice(0, 160),
+    counterparty_email: String(parsed.counterparty_email ?? "").slice(0, 200),
+    doc_number: String(parsed.doc_number ?? "").slice(0, 80),
+    category: String(parsed.category ?? "").slice(0, 60),
+    issued_at: asDate(parsed.issued_at),
+    due_at: asDate(parsed.due_at),
+    subtotal: asNum(parsed.subtotal),
+    vat_amount: asNum(parsed.vat_amount),
+    total: asNum(parsed.total),
+    currency: String(parsed.currency || "EUR").slice(0, 8).toUpperCase(),
+    summary: String(parsed.summary ?? "").slice(0, 300),
+    confidence: ["high", "medium", "low"].includes(String(parsed.confidence)) ? String(parsed.confidence) : "low",
+  };
+  return { fields };
+}
+
+const expenseSchema = z.object({
+  direction: z.enum(["payable", "receivable"]),
+  counterparty: z.string().trim().min(1, "Who is this from / to?").max(160),
+  counterpartyEmail: z.string().trim().email().max(200).optional().or(z.literal("")),
+  docNumber: z.string().trim().max(80).optional().or(z.literal("")),
+  category: z.string().trim().max(60).optional().or(z.literal("")),
+  issuedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  dueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  subtotal: z.coerce.number().min(0),
+  vatAmount: z.coerce.number().min(0),
+  total: z.coerce.number().min(0),
+  summary: z.string().trim().max(300).optional().or(z.literal("")),
+  extracted: z.string().max(20000).optional().or(z.literal("")),
+});
+
+/** Save the reviewed scan as a finance record. Returns the id so the flow can
+ *  move straight to "draft the email" without losing context. */
+export async function saveScannedExpense(
+  _prev: { error?: string; savedId?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string; savedId?: string }> {
+  const { supabase, account } = await requireTradesAccount();
+  const parsed = expenseSchema.safeParse({
+    direction: formData.get("direction"),
+    counterparty: formData.get("counterparty"),
+    counterpartyEmail: formData.get("counterpartyEmail") ?? "",
+    docNumber: formData.get("docNumber") ?? "",
+    category: formData.get("category") ?? "",
+    issuedAt: formData.get("issuedAt") ?? "",
+    dueAt: formData.get("dueAt") ?? "",
+    subtotal: formData.get("subtotal") ?? 0,
+    vatAmount: formData.get("vatAmount") ?? 0,
+    total: formData.get("total") ?? 0,
+    summary: formData.get("summary") ?? "",
+    extracted: formData.get("extracted") ?? "",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the fields." };
+  const d = parsed.data;
+  if (d.total <= 0) return { error: "The total must be above zero." };
+
+  let extractedJson: unknown = null;
+  if (d.extracted) {
+    try { extractedJson = JSON.parse(d.extracted); } catch { extractedJson = null; }
+  }
+
+  const { data: row, error } = await supabase
+    .from("trades_expenses")
+    .insert({
+      account_id: account.id,
+      direction: d.direction,
+      counterparty: d.counterparty,
+      counterparty_email: d.counterpartyEmail || null,
+      doc_number: d.docNumber || null,
+      category: d.category || null,
+      issued_at: d.issuedAt || null,
+      due_at: d.dueAt || null,
+      subtotal: d.subtotal,
+      vat_amount: d.vatAmount,
+      total: d.total,
+      summary: d.summary || null,
+      extracted: extractedJson,
+      source: "scan",
+    })
+    .select("id")
+    .single();
+  if (error || !row) return { error: error?.message ?? "Could not save it." };
+
+  revalidatePath("/tradeos/finance");
+  return { savedId: row.id };
+}
+
+/** Mark a bill paid / unpaid / disputed from the Finance page. */
+export async function setExpenseStatus(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const { supabase } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  const status = String(formData.get("status") ?? "");
+  if (!id || !["unpaid", "paid", "disputed"].includes(status)) return { error: "Invalid update." };
+  const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
+  patch.paid_at = status === "paid" ? new Date().toISOString() : null;
+  const { error } = await supabase.from("trades_expenses").update(patch).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/tradeos/finance");
+  return undefined;
+}
+
+const EMAIL_INTENTS = {
+  remittance: "Tell the supplier this bill is being paid: confirm the invoice number and amount, say payment is being made by bank transfer and the remittance follows, thank them.",
+  query: "Politely QUERY this bill before paying: ask them to confirm/itemise the charge, flag that it looks higher than expected, ask for a corrected invoice if anything is off. Firm but friendly — you want to keep the relationship.",
+  chase: "Politely chase the customer for payment of this invoice: reference the invoice number, amount and due date, ask when payment will be made, offer to resend the invoice.",
+  send: "Send/cover-note this invoice to the customer: reference the invoice number and amount, say how to pay and by when, thank them for the business.",
+} as const;
+
+/**
+ * Draft the email for a scanned record — remittance/query to a supplier, or
+ * send/chase to a customer. Returns subject + body for the tradesperson to
+ * review and send from their OWN email (their relationship, their address —
+ * nothing is auto-sent).
+ */
+export async function draftExpenseEmail(
+  _prev: { error?: string; subject?: string; body?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string; subject?: string; body?: string }> {
+  const { supabase, account } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  const intent = String(formData.get("intent") ?? "") as keyof typeof EMAIL_INTENTS;
+  if (!id || !EMAIL_INTENTS[intent]) return { error: "Invalid request." };
+
+  const { data: exp } = await supabase
+    .from("trades_expenses")
+    .select("counterparty, counterparty_email, doc_number, category, issued_at, due_at, total, summary, direction, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!exp) return { error: "Record not found." };
+
+  let raw: string;
+  try {
+    raw = await aiComplete(
+      [
+        `You write short, plain-spoken business emails for ${account.business_name || "an Irish tradesperson"}${account.trade ? ` (${account.trade})` : ""}. One busy professional writing to another: specific, courteous, no fluff, no invented facts — use ONLY the details given. Sign off with the business name${account.phone ? ` and phone ${account.phone}` : ""}.`,
+        'Respond with ONLY JSON: {"subject": "...", "body": "..."} — body 60-140 words.',
+      ].join("\n"),
+      [
+        `TASK: ${EMAIL_INTENTS[intent]}`,
+        `DETAILS: counterparty ${exp.counterparty || "unknown"}; invoice/ref ${exp.doc_number || "n/a"}; amount ${formatEuro(Number(exp.total))}; issued ${exp.issued_at ?? "n/a"}; due ${exp.due_at ?? "n/a"}; about: ${exp.summary || exp.category || "n/a"}.`,
+      ].join("\n"),
+      900,
+      { json: true, effort: "low", timeoutMs: 45_000 }
+    );
+  } catch {
+    return { error: "Couldn't draft it just now — try again in a minute." };
+  }
+  try {
+    const j = JSON.parse(raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "")) as { subject?: string; body?: string };
+    if (!j.subject || !j.body) return { error: "Draft came back empty — try again." };
+    return { subject: String(j.subject).slice(0, 200), body: String(j.body).slice(0, 4000) };
+  } catch {
+    return { error: "Draft came back unreadable — try again." };
+  }
+}
+
+/**
+ * The finance audit: reads the account's real records (expenses + invoices)
+ * and writes ranked, hedged cost-saving recommendations. Read-only — it
+ * changes nothing; complete transparency is the whole point.
+ */
+export async function runFinanceAudit(
+  _prev: { error?: string; report?: string } | undefined,
+  _formData: FormData
+): Promise<{ error?: string; report?: string }> {
+  const { supabase, account } = await requireTradesAccount();
+
+  const [{ data: expenses }, { data: invoices }] = await Promise.all([
+    supabase
+      .from("trades_expenses")
+      .select("direction, counterparty, category, issued_at, due_at, total, status")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("trades_documents")
+      .select("kind, status, total, issued_at")
+      .eq("kind", "invoice")
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
+
+  const bills = (expenses ?? []).filter((e) => e.direction === "payable");
+  if (bills.length === 0) {
+    return { error: "No bills tracked yet — scan a few supplier invoices first, then run the audit." };
+  }
+  const lines = bills.map(
+    (e) => `${e.issued_at ?? "?"} | ${e.counterparty} | ${e.category ?? "?"} | €${e.total} | ${e.status}`
+  );
+  const income = (invoices ?? []).map((i) => `${i.issued_at ?? "?"} | €${i.total} | ${i.status}`);
+
+  let report: string;
+  try {
+    report = await aiComplete(
+      [
+        `You are a blunt, honest bookkeeping analyst for ${account.business_name || "an Irish trades business"}${account.trade ? ` (${account.trade})` : ""}. You see their real bills and invoices below.`,
+        "Write a short cost-saving audit in plain text (no markdown tables): 1) WHERE THE MONEY GOES — top spend areas with € totals from the data. 2) SAVINGS OPPORTUNITIES — ranked, each with the evidence line(s) and a HEDGED estimated saving (\"typically 5-15%\" style, never a promise). Flag repeat suppliers worth renegotiating, rising or duplicate charges, and anything unpaid past due. 3) CASH POSITION — money owed to them vs bills to pay. 4) THREE ACTIONS THIS WEEK — concrete, small. Use ONLY the data given; if the data is thin, say so.",
+      ].join("\n"),
+      [
+        `BILLS (date | supplier | category | total | status):\n${lines.join("\n")}`,
+        `THEIR INVOICES OUT (date | total | status):\n${income.join("\n") || "none recorded"}`,
+      ].join("\n\n"),
+      1600,
+      { effort: "low", timeoutMs: 50_000 }
+    );
+  } catch {
+    return { error: "The audit couldn't run just now — try again in a minute." };
+  }
+  return { report: report.trim() };
 }

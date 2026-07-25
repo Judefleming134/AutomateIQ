@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { LayoutDashboard, FilePlus2, Users, Settings } from "lucide-react";
+import { LayoutDashboard, FilePlus2, ScanLine, Wallet, Users, Settings } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
@@ -24,6 +24,8 @@ export default async function TradesLayout({
       items: [
         { href: "/tradeos", label: "Dashboard", icon: <LayoutDashboard /> },
         { href: "/tradeos/new", label: "New quote", icon: <FilePlus2 /> },
+        { href: "/tradeos/scan", label: "Scan an invoice", icon: <ScanLine /> },
+        { href: "/tradeos/finance", label: "Finance", icon: <Wallet /> },
         { href: "/tradeos/customers", label: "Customers", icon: <Users /> },
         { href: "/tradeos/settings", label: "Settings", icon: <Settings /> },
       ],
