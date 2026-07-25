@@ -1256,7 +1256,13 @@ export default async function ProspectWorkspacePage({
                         Mark proposal sent
                       </SubmitButton>
                     </ActionForm>
-                    <ActionForm action={deleteProposal}>
+                    <ActionForm
+                      action={deleteProposal}
+                      // Sits right beside "Mark proposal sent" — one mis-tap
+                      // must not destroy an edited draft. Same guard as every
+                      // other delete in the app.
+                      confirmText={`Delete this proposal draft${p.title ? ` ("${p.title}")` : ""}? Any edits are gone for good.`}
+                    >
                       <input type="hidden" name="proposal_id" value={p.id} />
                       <SubmitButton className="btn btn-danger btn-sm" pendingText="…">
                         Delete draft
