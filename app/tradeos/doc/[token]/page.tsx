@@ -14,10 +14,13 @@ export const metadata: Metadata = {
 // page), exposing only what belongs on the document itself.
 export default async function PublicTradesDoc({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ paid?: string }>;
 }) {
   const { token } = await params;
+  const { paid } = await searchParams;
   const admin = createAdminClient();
 
   const { data: doc } = await admin
@@ -51,12 +54,28 @@ export default async function PublicTradesDoc({
 
   return (
     <main className="trades-public">
+      {paid === "1" && (
+        <div
+          className="panel panel-block trades-noprint"
+          style={{ marginBottom: 16, borderLeft: "3px solid var(--green, #34d399)" }}
+        >
+          <p style={{ margin: 0, fontSize: 14 }}>
+            <strong>Payment received — thank you.</strong> Your receipt is on its way by email.
+          </p>
+        </div>
+      )}
+
       <div className="trades-public-bar">
         <span style={{ fontSize: 13, color: "var(--faint)" }}>
           {doc.kind === "quote" ? "Quote" : "Invoice"} {doc.number}
           {account?.business_name ? ` · ${account.business_name}` : ""}
         </span>
-        <PublicActions token={token} kind={doc.kind as "quote" | "invoice"} status={doc.status} />
+        <PublicActions
+          token={token}
+          kind={doc.kind as "quote" | "invoice"}
+          status={doc.status}
+          total={Number(doc.total)}
+        />
       </div>
 
       <DocumentView

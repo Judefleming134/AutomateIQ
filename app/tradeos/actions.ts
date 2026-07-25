@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { isStripeConfigured, createInvoiceCheckoutSession } from "@/lib/billing/stripe";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { formatEuro } from "@/lib/trades/core";
 import {
@@ -351,4 +352,52 @@ export async function acceptQuoteByToken(
   if (error) return { error: error.message };
   revalidatePath(`/tradeos/doc/${token}`);
   return { ok: true };
+}
+
+/**
+ * Public "pay online" — the customer pays a specific invoice by its token.
+ * Builds a one-off Stripe Checkout for that invoice's exact total and sends
+ * them there. The invoice is only marked paid by the signature-verified
+ * webhook (never trusted from the browser). Inert until STRIPE_SECRET_KEY is
+ * set, so it fails politely rather than erroring.
+ */
+export async function startInvoicePayment(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Missing document." };
+  if (!isStripeConfigured()) {
+    return { error: "Online payment isn't switched on yet — pay by the usual method." };
+  }
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from("trades_documents")
+    .select("id, kind, number, status, total, currency, trades_customers(email)")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!doc || doc.kind !== "invoice") return { error: "This isn't a payable invoice." };
+  if (doc.status === "paid") redirect(`/tradeos/doc/${token}?paid=1`);
+  if (doc.status === "void") return { error: "This invoice has been voided." };
+
+  const cents = Math.round(Number(doc.total) * 100);
+  if (cents < 50) return { error: "Amount is too small to charge online." };
+
+  const customer = doc.trades_customers as unknown as { email: string | null } | null;
+  let url: string;
+  try {
+    const res = await createInvoiceCheckoutSession({
+      amountCents: cents,
+      currency: doc.currency || "eur",
+      label: `Invoice ${doc.number}`,
+      customerEmail: customer?.email ?? null,
+      successUrl: `${siteUrl()}/tradeos/doc/${token}?paid=1`,
+      cancelUrl: `${siteUrl()}/tradeos/doc/${token}`,
+      metadata: { tradeos_document_id: doc.id },
+    });
+    url = res.url;
+  } catch (err) {
+    return { error: `Couldn't start the payment: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+  redirect(url); // to Stripe's hosted checkout
 }

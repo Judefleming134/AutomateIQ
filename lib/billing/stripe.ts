@@ -111,6 +111,42 @@ export async function createCheckoutSession(params: {
   return { url: session.url };
 }
 
+/**
+ * A one-off Checkout Session for a variable amount — used by TradeOS to let a
+ * tradesperson's customer pay a specific invoice online. `mode: payment` with
+ * an inline price (no pre-made Product/Price needed), so any invoice total
+ * works. The document id rides in metadata for the webhook to mark it paid.
+ */
+export async function createInvoiceCheckoutSession(params: {
+  amountCents: number;
+  currency: string;
+  label: string;
+  customerEmail?: string | null;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+}): Promise<{ url: string }> {
+  const session = await stripePost<{ url: string }>("/checkout/sessions", {
+    mode: "payment",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: (params.currency || "eur").toLowerCase(),
+          unit_amount: params.amountCents,
+          product_data: { name: params.label },
+        },
+      },
+    ],
+    customer_email: params.customerEmail || undefined,
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    metadata: params.metadata,
+    payment_intent_data: { metadata: params.metadata },
+  });
+  return { url: session.url };
+}
+
 /** A Billing Portal session so an active customer can manage card/plan. */
 export async function createBillingPortalSession(params: {
   customerId: string;

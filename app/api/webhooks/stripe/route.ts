@@ -70,8 +70,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, duplicate: dupeError.code === "23505" });
   }
 
+  // TradeOS invoice payment — a one-off checkout with a tradeos_document_id in
+  // metadata (no business_id). Kept separate from the billing logic below so it
+  // can never affect account activation. Marks the invoice paid — the only
+  // trusted source of "paid", never the browser redirect.
+  const tradeosDocId =
+    (typeof metadata.tradeos_document_id === "string" && metadata.tradeos_document_id) || null;
+
   try {
-    if (event.type === "checkout.session.completed") {
+    if (event.type === "checkout.session.completed" && tradeosDocId) {
+      await admin
+        .from("trades_documents")
+        .update({ status: "paid", paid_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("id", tradeosDocId)
+        .eq("kind", "invoice");
+    } else if (event.type === "checkout.session.completed") {
       if (businessId) {
         await admin
           .from("businesses")
