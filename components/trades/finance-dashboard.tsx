@@ -242,6 +242,7 @@ export async function FinanceDashboard({
             <Link href="/finance/budgets">Budgets by category →</Link>
             <Link href="/finance/reports">Monthly report &amp; VAT position →</Link>
             <Link href="/finance/bank">Bank &amp; feeds →</Link>
+            <Link href="/finance/news">Industry news — free, no subscriptions →</Link>
           </div>
         </section>
         <section className="panel panel-block" style={{ opacity: 0.85 }}>
