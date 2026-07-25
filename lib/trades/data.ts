@@ -24,6 +24,9 @@ export type TradesAccount = {
   payment_terms_days: number;
   quote_seq: number;
   invoice_seq: number;
+  /** Manually-entered current balance the forecast starts from (0029). */
+  bank_balance: number | null;
+  bank_balance_set_at: string | null;
 };
 
 /**

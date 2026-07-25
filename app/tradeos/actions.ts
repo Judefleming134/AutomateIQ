@@ -492,10 +492,10 @@ const asNum = (v: unknown): number => {
  * what the scanner read before it becomes a record (transparency by design).
  */
 export async function scanInvoice(
-  _prev: { error?: string; fields?: ScannedFields } | undefined,
+  _prev: { error?: string; fields?: ScannedFields; duplicateWarning?: string } | undefined,
   formData: FormData
-): Promise<{ error?: string; fields?: ScannedFields }> {
-  const { account } = await requireTradesAccount();
+): Promise<{ error?: string; fields?: ScannedFields; duplicateWarning?: string }> {
+  const { supabase, account } = await requireTradesAccount();
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Choose a photo or PDF of the invoice first." };
@@ -580,7 +580,31 @@ export async function scanInvoice(
     summary: String(parsed.summary ?? "").slice(0, 300),
     confidence: ["high", "medium", "low"].includes(String(parsed.confidence)) ? String(parsed.confidence) : "low",
   };
-  return { fields };
+
+  // Duplicate guard (the enterprise-AP staple): same counterparty + same total
+  // already on file, issued within a week of this one → warn BEFORE saving.
+  // Non-blocking — the reviewer decides; the warning just stops a silent
+  // double-booking.
+  let duplicateWarning: string | undefined;
+  if (fields.counterparty && fields.total > 0) {
+    let q = supabase
+      .from("trades_expenses")
+      .select("doc_number, issued_at, total")
+      .ilike("counterparty", fields.counterparty.replace(/([%_\\])/g, "\\$1"))
+      .eq("total", fields.total)
+      .limit(1);
+    if (fields.issued_at) {
+      const d = new Date(`${fields.issued_at}T00:00:00Z`);
+      const lo = new Date(d.getTime() - 7 * 86_400_000).toISOString().slice(0, 10);
+      const hi = new Date(d.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+      q = q.gte("issued_at", lo).lte("issued_at", hi);
+    }
+    const { data: dupe } = await q.maybeSingle();
+    if (dupe) {
+      duplicateWarning = `Possible duplicate: you already have a ${formatEuro(Number(dupe.total))} bill from ${fields.counterparty}${dupe.issued_at ? ` issued ${dupe.issued_at}` : ""}${dupe.doc_number ? ` (ref ${dupe.doc_number})` : ""}. Check before saving.`;
+    }
+  }
+  return { fields, duplicateWarning };
 }
 
 const expenseSchema = z.object({
@@ -780,4 +804,70 @@ export async function runFinanceAudit(
     return { error: "The audit couldn't run just now — try again in a minute." };
   }
   return { report: report.trim() };
+}
+
+/* ══════════════════════ Finance product: balance + budgets ══════════════════════ */
+
+/**
+ * Set the current bank balance the 13-week forecast starts from. Manual for
+ * now — the open-banking feed will replace this; the set-at stamp keeps the
+ * staleness honest on screen.
+ */
+export async function setBankBalance(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { supabase, account } = await requireTradesAccount();
+  const raw = String(formData.get("balance") ?? "").replace(/[€,\s]/g, "");
+  const balance = Number(raw);
+  if (!Number.isFinite(balance) || Math.abs(balance) > 99_000_000) {
+    return { error: "Enter the balance as a number, e.g. 12500.50" };
+  }
+  const { error } = await supabase
+    .from("trades_accounts")
+    .update({
+      bank_balance: Math.round(balance * 100) / 100,
+      bank_balance_set_at: new Date().toISOString(),
+    })
+    .eq("id", account.id);
+  if (error) return { error: error.message };
+  revalidatePath("/finance/forecast");
+  revalidatePath("/finance/bank");
+  revalidatePath("/finance");
+  return { ok: true };
+}
+
+/** Create/update a monthly budget for a category (upsert by category name). */
+export async function saveBudget(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { supabase, account } = await requireTradesAccount();
+  const category = String(formData.get("category") ?? "").trim().toLowerCase().slice(0, 60);
+  const limit = Number(String(formData.get("limit") ?? "").replace(/[€,\s]/g, ""));
+  if (!category) return { error: "Give the budget a category (e.g. materials)." };
+  if (!Number.isFinite(limit) || limit <= 0) return { error: "Set a monthly limit above zero." };
+  const { error } = await supabase
+    .from("trades_budgets")
+    .upsert(
+      { account_id: account.id, category, monthly_limit: Math.round(limit * 100) / 100 },
+      { onConflict: "account_id,category" }
+    );
+  if (error) return { error: error.message };
+  revalidatePath("/finance/budgets");
+  return { ok: true };
+}
+
+/** Remove a budget line. */
+export async function deleteBudget(
+  _prev: { error?: string } | undefined,
+  formData: FormData
+): Promise<{ error?: string } | undefined> {
+  const { supabase } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing budget." };
+  const { error } = await supabase.from("trades_budgets").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/finance/budgets");
+  return undefined;
 }

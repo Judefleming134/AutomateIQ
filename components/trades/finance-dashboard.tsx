@@ -230,6 +230,30 @@ export async function FinanceDashboard({
       )}
 
       <FinanceAudit />
+
+      {/* Product areas — every tool one tap away, and what's landing next
+          shown honestly as not-available-yet rather than hidden. */}
+      <div className="grid-2" style={{ marginTop: 20 }}>
+        <section className="panel panel-block">
+          <h2 className="panel-title">Finance tools</h2>
+          <div style={{ display: "grid", gap: 8, fontSize: 14 }}>
+            <Link href="/finance/forecast">13-week cash-flow forecast →</Link>
+            <Link href="/finance/receivables">Who owes you (aging + chase) →</Link>
+            <Link href="/finance/budgets">Budgets by category →</Link>
+            <Link href="/finance/reports">Monthly report &amp; VAT position →</Link>
+            <Link href="/finance/bank">Bank &amp; feeds →</Link>
+          </div>
+        </section>
+        <section className="panel panel-block" style={{ opacity: 0.85 }}>
+          <h2 className="panel-title">Coming next</h2>
+          <div style={{ display: "grid", gap: 8, fontSize: 13, color: "var(--faint)" }}>
+            <span>Live bank connection &amp; auto-reconciliation <span className="badge badge-gray">not available yet</span></span>
+            <span>Approvals &amp; team roles <span className="badge badge-gray">not available yet</span></span>
+            <span>SEPA payment runs <span className="badge badge-gray">not available yet</span></span>
+            <span>Network price benchmarking <span className="badge badge-gray">not available yet</span></span>
+          </div>
+        </section>
+      </div>
     </>
   );
 }
