@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ScanLine, Euro, TrendingDown, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ScanLine, Euro, TrendingDown, AlertTriangle, CheckCircle2, Link2 } from "lucide-react";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
@@ -23,16 +24,22 @@ type ExpenseRow = {
   total: number;
   status: string;
   summary: string | null;
+  source: string;
 };
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ claimed?: string }>;
+}) {
   const { supabase } = await requireTradesAccount();
+  const { claimed } = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
 
-  const [{ data: expensesRaw }, { data: invoices }] = await Promise.all([
+  const [{ data: expensesRaw }, { data: invoices }, { data: connRows }] = await Promise.all([
     supabase
       .from("trades_expenses")
-      .select("id, direction, counterparty, category, doc_number, due_at, total, status, summary")
+      .select("id, direction, counterparty, category, doc_number, due_at, total, status, summary, source")
       .order("created_at", { ascending: false })
       .limit(200),
     supabase
@@ -40,7 +47,21 @@ export default async function FinancePage() {
       .select("status, total")
       .eq("kind", "invoice")
       .limit(500),
+    // Own connections via the RLS client; peer names resolved below with the
+    // admin client (another account's profile isn't readable under RLS).
+    supabase.from("trades_connections").select("peer_account_id"),
   ]);
+
+  let peers: string[] = [];
+  const peerIds = [...new Set((connRows ?? []).map((c) => c.peer_account_id as string))];
+  if (peerIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: peerAccounts } = await admin
+      .from("trades_accounts")
+      .select("id, business_name")
+      .in("id", peerIds);
+    peers = (peerAccounts ?? []).map((p) => (p.business_name as string) || "TradeOS business");
+  }
   const expenses = (expensesRaw ?? []) as ExpenseRow[];
   const bills = expenses.filter((e) => e.direction === "payable");
 
@@ -73,6 +94,19 @@ export default async function FinancePage() {
           <ScanLine size={15} /> Scan an invoice
         </Link>
       </div>
+
+      {claimed === "1" && (
+        <div
+          className="panel panel-block"
+          style={{ marginBottom: 16, borderLeft: "3px solid var(--green, #34d399)" }}
+        >
+          <p style={{ margin: 0, fontSize: 14 }}>
+            <strong>Added to your Finance</strong> — and the two businesses are
+            now linked: future invoices between you land in each other&apos;s
+            books automatically.
+          </p>
+        </div>
+      )}
 
       <div className="stat-grid" style={{ marginBottom: 20 }}>
         <StatCard label="Owed to you" value={formatEuro(owedIn)} icon={<Euro />} accent="var(--green, #34d399)" hint="unpaid invoices out" />
@@ -111,6 +145,11 @@ export default async function FinancePage() {
                       <tr key={e.id}>
                         <td>
                           <strong>{e.counterparty}</strong>
+                          {e.source === "network" && (
+                            <span className="badge badge-blue" style={{ marginLeft: 6 }}>
+                              TradeOS
+                            </span>
+                          )}
                           <div style={{ color: "var(--faint)", fontSize: 12 }}>
                             {[e.doc_number, e.summary].filter(Boolean).join(" · ") || "—"}
                           </div>
@@ -147,22 +186,54 @@ export default async function FinancePage() {
             </div>
           </section>
 
-          <section className="panel panel-block" aria-labelledby="fin-suppliers">
-            <h2 className="panel-title" id="fin-suppliers">Spend by supplier</h2>
-            <p style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 0 }}>
-              Your renegotiation shortlist — biggest first.
-            </p>
-            <div style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
-              {topSuppliers.map(([name, total]) => (
-                <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                  <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--orange, #fb923c)" }}>
-                    {formatEuro(total)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
+          <div>
+            <section className="panel panel-block" aria-labelledby="fin-suppliers">
+              <h2 className="panel-title" id="fin-suppliers">Spend by supplier</h2>
+              <p style={{ fontSize: 12.5, color: "var(--faint)", marginTop: 0 }}>
+                Your renegotiation shortlist — biggest first.
+              </p>
+              <div style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
+                {topSuppliers.map(([name, total]) => (
+                  <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                    <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--orange, #fb923c)" }}>
+                      {formatEuro(total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="panel panel-block" style={{ marginTop: 16 }} aria-labelledby="fin-network">
+              <h2 className="panel-title" id="fin-network">
+                <Link2 size={15} style={{ verticalAlign: "-2px" }} /> TradeOS network ({peers.length})
+              </h2>
+              {peers.length === 0 ? (
+                <p style={{ fontSize: 13, color: "var(--faint)", margin: 0 }}>
+                  When another TradeOS business invoices you (or you invoice
+                  them), claim it and you&apos;re linked — invoices then flow
+                  straight into each other&apos;s books, and paid on their side
+                  shows paid in yours.
+                </p>
+              ) : (
+                <>
+                  <div style={{ display: "grid", gap: 6, fontSize: 13.5 }}>
+                    {peers.map((name) => (
+                      <div key={name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="badge badge-blue">linked</span>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0" }}>
+                    Invoices between linked businesses land in each other&apos;s
+                    Finance automatically — and paid on one side shows paid on
+                    both.
+                  </p>
+                </>
+              )}
+            </section>
+          </div>
         </div>
       )}
 

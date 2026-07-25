@@ -7,7 +7,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { isStripeConfigured, createInvoiceCheckoutSession } from "@/lib/billing/stripe";
 import { aiComplete } from "@/lib/ai/complete";
+import { createClient } from "@/lib/supabase/server";
 import { requireTradesAccount } from "@/lib/trades/data";
+import { linkDocumentToFinance, syncLinkedExpensesPaid } from "@/lib/trades/network";
 import { formatEuro } from "@/lib/trades/core";
 import {
   computeTotals,
@@ -256,6 +258,9 @@ export async function setDocumentStatus(
   if (status === "paid") patch.paid_at = new Date().toISOString();
   const { error } = await supabase.from("trades_documents").update(patch).eq("id", id);
   if (error) return { error: error.message };
+  // Paid here → paid in any connected account's Finance too (network bills
+  // belong to the OTHER account, so this goes through the admin client).
+  if (status === "paid") await syncLinkedExpensesPaid(createAdminClient(), id);
   revalidatePath(`/tradeos/documents/${id}`);
   revalidatePath("/tradeos");
   return undefined;
@@ -322,9 +327,57 @@ export async function sendDocument(
     .update({ status: "sent", updated_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "draft");
+
+  // NETWORK: if the recipient's email belongs to another TradeOS account, the
+  // document lands straight in THEIR Finance and the two businesses connect —
+  // no scanning on their side. Best-effort; the send already succeeded.
+  try {
+    const admin = createAdminClient();
+    const pattern = customer.email.replace(/([%_\\])/g, "\\$1");
+    const { data: peer } = await admin
+      .from("trades_accounts")
+      .select("id")
+      .ilike("email", pattern)
+      .neq("id", account.id)
+      .limit(1)
+      .maybeSingle();
+    if (peer) await linkDocumentToFinance(admin, id, peer.id);
+  } catch (err) {
+    console.error("TradeOS network auto-link failed (non-fatal):", err);
+  }
+
   revalidatePath(`/tradeos/documents/${id}`);
   revalidatePath("/tradeos");
   return { ok: true };
+}
+
+/**
+ * Public claim from the customer-facing document page: "I'm on TradeOS too —
+ * add this to my Finance." Signs the viewer in first if needed (and signup
+ * bootstraps their account), then links the document + connects the accounts.
+ * Errors round-trip as ?claim= codes on the public page.
+ */
+export async function claimDocumentToFinance(formData: FormData): Promise<void> {
+  const token = String(formData.get("token") ?? "");
+  if (!token) redirect("/tradeos");
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/tradeos/login?next=${encodeURIComponent(`/tradeos/doc/${token}`)}`);
+  }
+  const { account } = await requireTradesAccount();
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from("trades_documents")
+    .select("id")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!doc) redirect(`/tradeos/doc/${token}?claim=notfound`);
+  const res = await linkDocumentToFinance(admin, doc!.id, account.id);
+  if (!res.ok) redirect(`/tradeos/doc/${token}?claim=own`);
+  redirect("/tradeos/finance?claimed=1");
 }
 
 /**
