@@ -106,9 +106,24 @@ export default async function InboxPage({
     .slice()
     .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
 
+  // The queue gets the same treatment as conversations: fetched directly, not
+  // filtered out of the capped global window. Once sent-mail history passes
+  // the 1,000-row window, older queued/failed drafts fell out of it and
+  // silently vanished from this view — while the 8am cron would still send
+  // them. Direct fetch means what's shown is exactly what's pending.
+  const { data: queueRows } = await admin
+    .from("ge_messages")
+    .select(MSG_COLS)
+    .eq("direction", "outbound")
+    .in("status", ["draft", "queued", "failed"])
+    .order("created_at", { ascending: false })
+    .limit(500);
+
   // Prospect lookup covers everything shown: conversation threads + the queue.
   const prospectIds = [
-    ...new Set([...convMessages, ...messages].map((m) => m.prospect_id)),
+    ...new Set(
+      [...convMessages, ...messages, ...(queueRows ?? [])].map((m) => m.prospect_id)
+    ),
   ];
   const { data: prospectsRaw } = prospectIds.length
     ? await admin
@@ -164,14 +179,12 @@ export default async function InboxPage({
   const lastInbound = selectedThread.find((m) => m.direction === "inbound");
 
   // Surface what needs a decision first: a FAILED send (retry or delete) then
-  // QUEUED (scheduled for 8am), then the bulk of plain drafts. `messages` is
+  // QUEUED (scheduled for 8am), then the bulk of plain drafts. The rows are
   // already newest-first and Array.sort is stable, so date order is preserved
   // within each status group.
   const queueRank: Record<string, number> = { failed: 0, queued: 1, draft: 2 };
-  const queue = messages
-    .filter(
-      (m) => m.direction === "outbound" && ["draft", "queued", "failed"].includes(m.status)
-    )
+  const queue = (queueRows ?? [])
+    .slice()
     .sort((a, b) => (queueRank[a.status] ?? 3) - (queueRank[b.status] ?? 3));
 
   let templates: ComposerTemplate[] = [];
