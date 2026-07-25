@@ -729,9 +729,9 @@ const EMAIL_INTENTS = {
  * nothing is auto-sent).
  */
 export async function draftExpenseEmail(
-  _prev: { error?: string; subject?: string; body?: string } | undefined,
+  _prev: { error?: string; subject?: string; body?: string; to?: string } | undefined,
   formData: FormData
-): Promise<{ error?: string; subject?: string; body?: string }> {
+): Promise<{ error?: string; subject?: string; body?: string; to?: string }> {
   const { supabase, account } = await requireTradesAccount();
   const id = String(formData.get("id") ?? "");
   const intent = String(formData.get("intent") ?? "") as keyof typeof EMAIL_INTENTS;
@@ -764,7 +764,12 @@ export async function draftExpenseEmail(
   try {
     const j = JSON.parse(raw.trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "")) as { subject?: string; body?: string };
     if (!j.subject || !j.body) return { error: "Draft came back empty — try again." };
-    return { subject: String(j.subject).slice(0, 200), body: String(j.body).slice(0, 4000) };
+    return {
+      subject: String(j.subject).slice(0, 200),
+      body: String(j.body).slice(0, 4000),
+      // Echo the recipient so "Open in my email app" pre-fills the To: field.
+      to: exp.counterparty_email ?? undefined,
+    };
   } catch {
     return { error: "Draft came back unreadable — try again." };
   }

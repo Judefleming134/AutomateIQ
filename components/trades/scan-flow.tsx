@@ -20,28 +20,19 @@ import {
  */
 export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: string }) {
   const [scanState, scanAction, scanning] = useActionState(scanInvoice, undefined);
-  const [saveState, saveAction, saving] = useActionState(saveScannedExpense, undefined);
-  const [draftState, draftAction, drafting] = useActionState(draftExpenseEmail, undefined);
   const [fileName, setFileName] = useState("");
-  const [copied, setCopied] = useState<"subject" | "body" | null>(null);
-  const emailRef = useRef<HTMLDivElement>(null);
+
+  // Each new scan result remounts the review+email steps (fresh save/draft
+  // state). Without this, the savedId from scan #1 hid the review form for
+  // scan #2 — "scan the next one" was a dead end until a full page reload.
+  const [seq, setSeq] = useState(0);
+  const [prevScan, setPrevScan] = useState(scanState);
+  if (scanState !== prevScan) {
+    setPrevScan(scanState);
+    setSeq((s) => s + 1);
+  }
 
   const fields = scanState?.fields;
-  const savedId = saveState?.savedId;
-
-  // Bring the email panel into view once the record is saved.
-  useEffect(() => {
-    if (savedId) emailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [savedId]);
-
-  const copy = (what: "subject" | "body", text: string) => {
-    navigator.clipboard?.writeText(text).then(() => {
-      setCopied(what);
-      setTimeout(() => setCopied(null), 1500);
-    });
-  };
-
-  const F = (name: keyof ScannedFields) => (fields ? String(fields[name] ?? "") : "");
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
@@ -75,14 +66,64 @@ export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: s
         </div>
       </form>
 
+      {fields && (
+        <ReviewAndEmail
+          key={seq}
+          fields={fields}
+          duplicateWarning={scanState?.duplicateWarning}
+          financeHref={financeHref}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Steps 2 + 3 for ONE scan result — remounted per scan by the parent. */
+function ReviewAndEmail({
+  fields,
+  duplicateWarning,
+  financeHref,
+}: {
+  fields: ScannedFields;
+  duplicateWarning?: string;
+  financeHref: string;
+}) {
+  const [saveState, saveAction, saving] = useActionState(saveScannedExpense, undefined);
+  const [draftState, draftAction, drafting] = useActionState(draftExpenseEmail, undefined);
+  const [copied, setCopied] = useState<"subject" | "body" | null>(null);
+  const emailRef = useRef<HTMLDivElement>(null);
+
+  const savedId = saveState?.savedId;
+
+  // Bring the email panel into view once the record is saved.
+  useEffect(() => {
+    if (savedId) emailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [savedId]);
+
+  const copy = (what: "subject" | "body", text: string) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(what);
+      setTimeout(() => setCopied(null), 1500);
+    });
+  };
+
+  const F = (name: keyof ScannedFields) => String(fields[name] ?? "");
+
+  // "Open in my email app" pre-fills the recipient when the scan captured one
+  // (the action echoes it back) — an empty To: field defeated the one-tap flow.
+  const mailtoHref = (subject: string, body: string) =>
+    `mailto:${encodeURIComponent(draftState?.to ?? "")}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+  return (
+    <>
       {/* Step 2 — review + save */}
-      {fields && !savedId && (
+      {!savedId && (
         <form action={saveAction} className="panel panel-block">
           <h2 className="panel-title">2. Check what it read</h2>
           <p style={{ fontSize: 12.5, color: fields.confidence === "high" ? "var(--green, #34d399)" : "var(--orange, #fb923c)", marginTop: 0 }}>
             Scanner confidence: {fields.confidence} — every field below is editable before saving.
           </p>
-          {scanState?.duplicateWarning && (
+          {duplicateWarning && (
             <p
               style={{
                 fontSize: 13,
@@ -94,7 +135,7 @@ export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: s
                 margin: "0 0 12px",
               }}
             >
-              ⚠ {scanState.duplicateWarning}
+              ⚠ {duplicateWarning}
             </p>
           )}
           <input type="hidden" name="extracted" value={JSON.stringify(fields)} />
@@ -189,7 +230,7 @@ export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: s
                 </button>
                 <a
                   className="btn btn-secondary btn-sm"
-                  href={`mailto:?subject=${encodeURIComponent(draftState.subject)}&body=${encodeURIComponent(draftState.body)}`}
+                  href={mailtoHref(draftState.subject, draftState.body)}
                 >
                   <Mail size={14} /> Open in my email app
                 </a>
@@ -201,6 +242,6 @@ export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: s
           </p>
         </div>
       )}
-    </div>
+    </>
   );
 }
