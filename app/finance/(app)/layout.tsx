@@ -7,6 +7,7 @@ import {
   PiggyBank,
   BarChart3,
   Landmark,
+  Newspaper,
   Hammer,
   Settings,
 } from "lucide-react";
@@ -40,6 +41,7 @@ export default async function FinanceLayout({
         { href: "/finance/budgets", label: "Budgets", icon: <PiggyBank /> },
         { href: "/finance/reports", label: "Reports", icon: <BarChart3 /> },
         { href: "/finance/bank", label: "Bank & feeds", icon: <Landmark /> },
+        { href: "/finance/news", label: "News", icon: <Newspaper /> },
         { href: "/finance/settings", label: "Settings", icon: <Settings /> },
       ],
     },
