@@ -181,6 +181,8 @@ export async function saveSettings(
 
   revalidatePath("/tradeos/settings");
   revalidatePath("/tradeos");
+  revalidatePath("/finance/settings");
+  revalidatePath("/finance");
   return { ok: true };
 }
 
@@ -377,7 +379,7 @@ export async function claimDocumentToFinance(formData: FormData): Promise<void> 
   if (!doc) redirect(`/tradeos/doc/${token}?claim=notfound`);
   const res = await linkDocumentToFinance(admin, doc!.id, account.id);
   if (!res.ok) redirect(`/tradeos/doc/${token}?claim=own`);
-  redirect("/tradeos/finance?claimed=1");
+  redirect("/finance?claimed=1");
 }
 
 /**
@@ -649,6 +651,7 @@ export async function saveScannedExpense(
   if (error || !row) return { error: error?.message ?? "Could not save it." };
 
   revalidatePath("/tradeos/finance");
+  revalidatePath("/finance");
   return { savedId: row.id };
 }
 
@@ -666,6 +669,7 @@ export async function setExpenseStatus(
   const { error } = await supabase.from("trades_expenses").update(patch).eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/tradeos/finance");
+  revalidatePath("/finance");
   return undefined;
 }
 
