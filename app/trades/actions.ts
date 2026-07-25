@@ -3,7 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { requireTradesAccount } from "@/lib/trades/data";
+import { formatEuro } from "@/lib/trades/core";
 import {
   computeTotals,
   nextDocumentNumber,
@@ -254,4 +257,98 @@ export async function setDocumentStatus(
   revalidatePath(`/trades/documents/${id}`);
   revalidatePath("/trades");
   return undefined;
+}
+
+function siteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie").replace(/\/$/, "");
+}
+
+/**
+ * Email the customer a link to the public quote/invoice page, replying to the
+ * tradesperson so responses land with them. Marks the document 'sent'. The
+ * document is already saved, so a mail failure reports but never loses it.
+ */
+export async function sendDocument(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const { supabase, account } = await requireTradesAccount();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing document." };
+
+  const { data: doc } = await supabase
+    .from("trades_documents")
+    .select("id, kind, number, total, public_token, trades_customers(name, email)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!doc) return { error: "Document not found." };
+  const customer = doc.trades_customers as unknown as { name: string; email: string | null } | null;
+  if (!customer?.email) {
+    return { error: "This customer has no email. Add one, or send them the link yourself." };
+  }
+
+  const label = doc.kind === "quote" ? "Quote" : "Invoice";
+  const from = account.business_name || "AutomateIQ Trades";
+  const link = `${siteUrl()}/trades/doc/${doc.public_token}`;
+  const text = [
+    `Hi ${customer.name || "there"},`,
+    "",
+    `Please find your ${label.toLowerCase()} ${doc.number} for ${formatEuro(Number(doc.total))}.`,
+    "",
+    `View it here: ${link}`,
+    "",
+    `Thanks,`,
+    from,
+  ].join("\n");
+
+  try {
+    const resend = getResendClient();
+    const { error } = await resend.emails.send({
+      from: getFromAddress(),
+      to: customer.email,
+      replyTo: account.email || undefined,
+      subject: `${label} ${doc.number} from ${from}`,
+      text,
+    });
+    if (error) return { error: `Couldn't send the email: ${error.message}` };
+  } catch (err) {
+    return { error: `Couldn't send the email: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+
+  await supabase
+    .from("trades_documents")
+    .update({ status: "sent", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "draft");
+  revalidatePath(`/trades/documents/${id}`);
+  revalidatePath("/trades");
+  return { ok: true };
+}
+
+/**
+ * Public accept, from the customer-facing page — no session, so it looks the
+ * document up by its unguessable token with the service-role client and only
+ * moves a quote from draft/sent to accepted. Never touches invoices.
+ */
+export async function acceptQuoteByToken(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData
+): Promise<{ error?: string; ok?: boolean }> {
+  const token = String(formData.get("token") ?? "");
+  if (!token) return { error: "Missing token." };
+  const admin = createAdminClient();
+  const { data: doc } = await admin
+    .from("trades_documents")
+    .select("id, kind, status")
+    .eq("public_token", token)
+    .maybeSingle();
+  if (!doc || doc.kind !== "quote") return { error: "Not found." };
+  if (!["draft", "sent"].includes(doc.status)) return { ok: true }; // already actioned
+  const { error } = await admin
+    .from("trades_documents")
+    .update({ status: "accepted", updated_at: new Date().toISOString() })
+    .eq("id", doc.id);
+  if (error) return { error: error.message };
+  revalidatePath(`/trades/doc/${token}`);
+  return { ok: true };
 }
