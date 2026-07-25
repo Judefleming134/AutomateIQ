@@ -18,7 +18,7 @@ import {
  * 3. Once saved, one tap drafts the right email (pay/query a supplier,
  *    send/chase a customer) — reviewed and sent from their own mail app.
  */
-export function ScanFlow() {
+export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: string }) {
   const [scanState, scanAction, scanning] = useActionState(scanInvoice, undefined);
   const [saveState, saveAction, saving] = useActionState(saveScannedExpense, undefined);
   const [draftState, draftAction, drafting] = useActionState(draftExpenseEmail, undefined);
@@ -182,7 +182,7 @@ export function ScanFlow() {
             </div>
           )}
           <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "14px 0 0" }}>
-            <Link href="/tradeos/finance">See it in Finance →</Link> · or scan the next one above.
+            <Link href={financeHref}>See it in Finance →</Link> · or scan the next one above.
           </p>
         </div>
       )}

@@ -47,7 +47,8 @@ export function Sidebar({
                 item.href === "/portal" ||
                 item.href === "/admin" ||
                 item.href === "/growth" ||
-                item.href === "/tradeos"
+                item.href === "/tradeos" ||
+                item.href === "/finance"
                   ? pathname === item.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
 

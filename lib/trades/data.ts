@@ -32,7 +32,13 @@ export type TradesAccount = {
  * the login screen when there's no session. Returns the RLS-scoped client so
  * callers keep using the same authenticated context.
  */
-export async function requireTradesAccount(): Promise<{
+export async function requireTradesAccount(
+  // One account system, two surfaces: TradeOS (/tradeos) and AutomateIQ
+  // Finance (/finance) share the same auth + data, so a TradeOS customer
+  // signing into Finance is linked automatically. The only difference is
+  // which login screen an unauthenticated visitor lands on.
+  loginPath: string = "/tradeos/login"
+): Promise<{
   supabase: SupabaseClient;
   userId: string;
   email: string | null;
@@ -42,7 +48,7 @@ export async function requireTradesAccount(): Promise<{
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/tradeos/login");
+  if (!user) redirect(loginPath);
 
   const { data: existing } = await supabase
     .from("trades_accounts")
