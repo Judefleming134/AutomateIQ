@@ -924,11 +924,29 @@ export async function bulkProspectAction(_prev: Result, formData: FormData): Pro
     const { error } = await admin.from("ge_prospects").delete().in("id", ids);
     if (error) return { error: error.message };
   } else if (intent === "archive") {
-    const { error } = await admin
+    // Bulk archive is for clearing dead weight — a mis-ticked LIVE deal
+    // (replied, qualified, booked, in proposal, won) must not silently
+    // vanish from the pipeline with it. Those are skipped here and can
+    // still be archived deliberately from their own page.
+    const LIVE_DEAL_STATUSES = [
+      "replied", "qualified", "meeting_booked",
+      "proposal_in_progress", "proposal_sent", "negotiation", "won",
+    ];
+    const { data: archived, error } = await admin
       .from("ge_prospects")
       .update({ status: "archived", next_follow_up_at: null })
-      .in("id", ids);
+      .in("id", ids)
+      .not("status", "in", `(${LIVE_DEAL_STATUSES.map((s) => `"${s}"`).join(",")})`)
+      .select("id");
     if (error) return { error: error.message };
+    const skipped = ids.length - (archived ?? []).length;
+    if (skipped > 0) {
+      revalidatePath("/growth/prospects");
+      revalidatePath("/growth");
+      return {
+        error: `Archived ${(archived ?? []).length} — kept ${skipped} live deal${skipped === 1 ? "" : "s"} (replied/qualified/booked/won) out of the archive. Archive those from their own page if you really mean it.`,
+      };
+    }
   } else {
     return { error: "Unknown action." };
   }
