@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dublinDate } from "@/lib/growth/dates";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
+import { PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
 
 // The capture itself is instant, but the best-effort reply draft makes one AI
 // call — give the invocation room so it finishes in the same request.
@@ -155,10 +156,11 @@ export async function POST(request: NextRequest) {
 
   // A reply resets the clock: answer within a day, not on the +3-day chase.
   // Only advance from pre-reply states so a later stage is never regressed.
-  if (
-    ["new", "researching", "research_complete", "outreach_ready",
-     "contacted", "follow_up_sent"].includes(prospect.status)
-  ) {
+  // Uses the autopilot's shared PRE_REPLY_STATUSES (not a hand-rolled copy):
+  // the old list missed research_failed, leaving a replier in a pre-reply
+  // status — which is exactly the state where the send-time gate lets a
+  // queued cold touch through. Flipping to 'replied' makes the gate hold.
+  if (PRE_REPLY_STATUSES.includes(prospect.status)) {
     await admin
       .from("ge_prospects")
       .update({ status: "replied", next_follow_up_at: dublinDate(1) })
