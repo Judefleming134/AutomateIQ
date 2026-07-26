@@ -9,6 +9,7 @@ import {
   Landmark,
   Newspaper,
   Hammer,
+  Sparkles,
   Settings,
 } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
@@ -50,6 +51,7 @@ export default async function FinanceLayout({
       items: [
         // The cross-door: quotes & invoicing live in TradeOS, same account.
         { href: "/tradeos", label: "TradeOS", icon: <Hammer /> },
+        { href: "/tradeos/assistant", label: "Assistant", icon: <Sparkles /> },
       ],
     },
   ];
