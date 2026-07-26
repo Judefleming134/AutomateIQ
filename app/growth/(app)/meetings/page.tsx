@@ -77,8 +77,20 @@ export default async function MeetingsPage() {
 
   const prospectById = new Map(prospects.map((p) => [p.id, p]));
   const nowIso = new Date().toISOString();
+  // Booking-page meetings store the Irish wall-clock AS UTC (a 14:00 session
+  // is 14:00Z), so "has it passed?" must compare them against Irish wall-clock
+  // now — the real-UTC comparison left a finished summer booking sitting in
+  // "Upcoming" (with no outcome buttons) for an extra hour. Manually recorded
+  // meetings are true instants and compare against real now, same as before.
+  const dublinWallNow = new Date()
+    .toLocaleString("sv-SE", { timeZone: "Europe/Dublin" })
+    .replace(" ", "T");
+  const hasPassed = (m: { scheduled_at: string; strategy_booking_id: string | null }) =>
+    m.strategy_booking_id
+      ? String(m.scheduled_at).slice(0, 19) < dublinWallNow
+      : m.scheduled_at < nowIso;
   const upcoming = (meetings ?? []).filter(
-    (m) => m.status === "booked" && m.scheduled_at >= nowIso
+    (m) => m.status === "booked" && !hasPassed(m)
   );
   // A meeting still marked "booked" whose time has passed happened but was
   // never closed out (completed / no-show / cancelled). Previously these fell
@@ -87,7 +99,7 @@ export default async function MeetingsPage() {
   // entirely. Pull them into their own "Awaiting outcome" section up top so
   // they never get lost and the outcome buttons are always one tap away.
   const awaitingOutcome = (meetings ?? []).filter(
-    (m) => m.status === "booked" && m.scheduled_at < nowIso
+    (m) => m.status === "booked" && hasPassed(m)
   );
   const past = (meetings ?? []).filter((m) => m.status !== "booked");
 
