@@ -49,6 +49,13 @@ export default function DemoPage() {
           exactly like a customer would: give it a name, the problem and where
           you are, then hang up and watch the job land.
         </p>
+        <p style={{ maxWidth: "58ch", fontSize: 13, color: "var(--faint, #9aa3b2)" }}>
+          The call needs your <strong>microphone</strong> — tap Allow when your
+          browser asks. If the call won&apos;t start, enable the mic for this
+          site in your browser settings (Safari: the aA menu → Website
+          Settings), and open this page in Safari or Chrome rather than an
+          in-app browser (Instagram/LinkedIn block the mic).
+        </p>
       </section>
 
       <section
