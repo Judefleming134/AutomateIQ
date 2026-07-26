@@ -140,7 +140,10 @@ export default async function AnalyticsPage({
                         {i.sent > 0 && (
                           <span style={{ color: "var(--faint)", fontSize: 11 }}>
                             {" "}
-                            ({Math.round((i.replies / i.sent) * 100)}%)
+                            ({Math.round((i.replies / i.sent) * 100)}%
+                            {/* Same small-sample flag as the tone table: a rate
+                                off a handful of sends must not crown a niche. */}
+                            {i.sent < 10 ? " · small sample" : ""})
                           </span>
                         )}
                       </td>
@@ -270,7 +273,17 @@ export default async function AnalyticsPage({
                     <td>{c.prospects}</td>
                     <td>{c.sent}</td>
                     <td>{c.replies}</td>
-                    <td>{c.sent > 0 ? Math.round((c.replies / c.sent) * 100) : 0}%</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {c.sent > 0 ? Math.round((c.replies / c.sent) * 100) : 0}%
+                      {c.sent > 0 && c.sent < 10 && (
+                        <span
+                          style={{ color: "var(--faint)", fontSize: 11, marginLeft: 6 }}
+                          title="Too few sends to be reliable yet"
+                        >
+                          small sample
+                        </span>
+                      )}
+                    </td>
                     <td>{c.qualified}</td>
                     <td>{c.meetings}</td>
                   </tr>
