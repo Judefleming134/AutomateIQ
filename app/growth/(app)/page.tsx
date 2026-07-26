@@ -416,7 +416,11 @@ export default async function GrowthDashboardPage() {
                       <div style={{ color: "var(--faint)", fontSize: 12 }}>{p.contact_name}</div>
                     </td>
                     <td style={{ fontSize: 13 }}>{p.industry ?? "—"}</td>
-                    <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{p.lead_score}/100</td>
+                    {/* Same null-score guard as ProspectList — an unscored lead
+                        rendered a bare "/100" here. */}
+                    <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                      {p.lead_score != null && p.lead_score > 0 ? `${p.lead_score}/100` : "—"}
+                    </td>
                     <td>
                       <Link
                         href={`/growth/prospects/${p.id}?tab=studio`}
