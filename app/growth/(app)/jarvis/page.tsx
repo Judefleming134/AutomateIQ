@@ -34,7 +34,7 @@ export default async function JarvisPage() {
     { count: dueCount },
     { count: readyCount },
     candidates,
-    { count: queuedCount },
+    { data: queuedEmails },
   ] = await Promise.all([
     // All-time + last-7-days from a single table load, not two full scans.
     loadGrowthMetricsMulti(admin, [null, 7]),
@@ -52,13 +52,32 @@ export default async function JarvisPage() {
       .select("id", { count: "exact", head: true })
       .in("status", ["research_complete", "outreach_ready"]),
     listAutopilotCandidates(25),
+    // Rows, not just a count: the prospect ids are needed below to keep the
+    // "ready" priority number consistent with the dashboard's.
     admin
       .from("ge_messages")
-      .select("id", { count: "exact", head: true })
+      .select("prospect_id")
       .eq("channel", "email")
       .eq("direction", "outbound")
-      .eq("status", "queued"),
+      .eq("status", "queued")
+      .limit(500),
   ]);
+  const queuedRows = (queuedEmails ?? []) as { prospect_id: string }[];
+  const queuedCount = queuedRows.length;
+
+  // Same adjustment the dashboard makes: a ready prospect whose email is
+  // already queued for the 8am run is handled — counting it again here made
+  // Jarvis and the dashboard show different numbers for the same list.
+  let readyAdjusted = readyCount ?? 0;
+  if (readyAdjusted > 0 && queuedRows.length > 0) {
+    const queuedIds = [...new Set(queuedRows.map((r) => r.prospect_id))];
+    const { count: queuedReady } = await admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["research_complete", "outreach_ready"])
+      .in("id", queuedIds);
+    readyAdjusted = Math.max(0, readyAdjusted - (queuedReady ?? 0));
+  }
 
   const priorities: { label: string; href: string }[] = [];
   if ((dueCount ?? 0) > 0)
@@ -69,9 +88,9 @@ export default async function JarvisPage() {
       // list, not the bare dashboard the old dangling "/growth?" link dropped on.
       href: "/growth/prospects?sort=follow_up",
     });
-  if ((readyCount ?? 0) > 0)
+  if (readyAdjusted > 0)
     priorities.push({
-      label: `${readyCount} researched prospect${readyCount === 1 ? "" : "s"} with drafts ready and no first touch yet — send the top scores`,
+      label: `${readyAdjusted} researched prospect${readyAdjusted === 1 ? "" : "s"} with drafts ready and no first touch yet — send the top scores`,
       href: "/growth/prospects?sort=score",
     });
   if (week.replies > 0)
@@ -126,7 +145,7 @@ export default async function JarvisPage() {
         </section>
       )}
 
-      <EmailAutopilot candidates={candidates} queuedCount={queuedCount ?? 0} />
+      <EmailAutopilot candidates={candidates} queuedCount={queuedCount} />
 
       <JarvisChat />
 
