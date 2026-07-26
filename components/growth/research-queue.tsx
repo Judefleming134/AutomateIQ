@@ -352,7 +352,10 @@ export function ResearchQueue({
             group
           </strong>{" "}
           — completely separate from fresh batches; each prospect&apos;s
-          timeline says why. Retry them here, or{" "}
+          timeline says why. <strong>These now retry themselves overnight</strong>{" "}
+          (one per run, up to 3 attempts each — no clicking needed); anything
+          still failing after 3 tries stays parked for your call. Retry them
+          now here, or{" "}
           <a href="/growth/prospects?status=research_failed">
             open the group in the list
           </a>{" "}
