@@ -31,7 +31,10 @@ export const maxDuration = 60;
  * Guard rails:
  * - Same CRON_SECRET auth as every other cron endpoint.
  * - Website-first ordering (research quality) with the stable id tiebreak.
- * - Skips the research_failed group entirely (those are Jude's to retry).
+ * - The research_failed group SELF-HEALS: one failed lead is retried per run
+ *   (24h backoff between attempts, 3 strikes then it's a human's call) —
+ *   bounded so a permanently-broken site can't drain quota, but steady
+ *   enough (~40 runs/night) that the pile clears itself overnight.
  * - Failures park the lead exactly like the button does; an ACCOUNT-level
  *   AI failure (credits/quota) aborts the run before wasting the second
  *   slot — the next scheduled call probes again cheaply.
@@ -118,7 +121,6 @@ export async function GET(request: NextRequest) {
   const freshSorted = (candidates ?? [])
     .filter((p) => !researchedIds.has(p.id))
     .sort((a, b) => researchRank(a) - researchRank(b));
-  const fresh = freshSorted.slice(0, freshCap);
 
   // ── MAINTENANCE: requeue the research-failed group ───────────────────────
   // ?requeue_failed=1 flips leads out of research_failed back to 'new' so they
@@ -214,21 +216,27 @@ export async function GET(request: NextRequest) {
   // ── end boost drain ──────────────────────────────────────────────────────
 
   // Auto-retry the Research-failed group — full-auto means nobody is around
-  // to click "Retry failed". STRICTLY bounded so a permanently-broken lead
-  // can't drain quota: only when the fresh queue is EMPTY (spare capacity),
-  // one lead per run, only after its last failure is >48h old (sites that
-  // were down come back; hard failures get natural backoff because each
-  // failed retry re-stamps the failure activity), and never beyond 3 total
-  // attempts (after that it genuinely needs a human look or an archive).
+  // to click "Retry failed", and a deep fresh queue must NOT block healing
+  // (it used to: retries only ran when the queue was empty, so with hundreds
+  // of fresh leads the failed pile just sat there). One failed lead gets a
+  // slot on every run that has one spare — at ~40 overnight runs the whole
+  // pile clears itself night by night. Still strictly bounded: one per run,
+  // 24h backoff between attempts on the same lead (each failed retry
+  // re-stamps the failure activity, so backoff is automatic), and never
+  // beyond 3 total attempts (then it genuinely needs a human look/archive).
+  // When due follow-ups reserved a slot (researchBudget 1), fresh leads keep
+  // it — the chase cycle is never slowed — unless the fresh queue is empty.
+  const researchBudget = freshCap;
   const retries: NonNullable<typeof candidates> = [];
-  if (fresh.length === 0) {
+  const retrySlotFree = researchBudget >= 2 || freshSorted.length === 0;
+  if (retrySlotFree) {
     const { data: parked } = await admin
       .from("ge_prospects")
       .select("*")
       .eq("status", "research_failed")
       .order("created_at", { ascending: true })
-      .limit(12);
-    const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+      .limit(25);
+    const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     for (const p of parked ?? []) {
       const { data: fails } = await admin
         .from("ge_activities")
@@ -244,6 +252,7 @@ export async function GET(request: NextRequest) {
       break; // one retry per run
     }
   }
+  const fresh = freshSorted.slice(0, Math.max(0, researchBudget - retries.length));
   const toResearch = [...fresh, ...retries];
 
   let done = 0;

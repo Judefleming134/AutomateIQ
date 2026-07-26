@@ -39,14 +39,15 @@ const CHANNEL_RULES: Record<Channel, string> = {
     "Email. MUST start with a subject line in the exact format 'SUBJECT: ...' on the first line, then a blank line, then the body. SUBJECT RULES (open rate is everything): 3–6 words, under 40 characters, lowercase except proper nouns, name ONE specific thing about THIS business (their missed calls, their reviews, their trade + area, having no website) — it must read like a note from someone they know, never like marketing. Banned in subjects: exclamation marks, 'free', 'offer', 'deal', 'opportunity', 'boost', ALL-CAPS words. Good shapes: 'your after-hours calls', 'question about {company}', '{trade} enquiries in {area}', 'your Google reviews'. Body 80–150 words, short paragraphs, sign off as 'Jude, AutomateIQ'.",
   sms: "SMS. No subject line. Maximum 320 characters, one clear call to action, sign as AutomateIQ.",
   call: [
-    "PHONE CALL SCRIPT to be read/spoken by the caller — not a message to send. Short spoken sentences, zero jargon.",
-    "Structure it with these labelled sections:",
-    "OPENER — 10 seconds, name + company + permission to take 30 seconds.",
-    "WHY I'M CALLING YOU — one specific, research-grounded observation about their business.",
-    "THE VALUE — one concrete thing AutomateIQ could take off their plate.",
-    "THE ASK — a free, no-obligation 30-minute AI Strategy Session.",
-    "IF THEY SAY... — the 3 most likely objections for this business, each with a one-line spoken response.",
-    "VOICEMAIL VERSION — a 25-second version to leave if no answer.",
+    "PHONE CALL SCRIPT to be read/spoken by the caller — not a message to send. Written for the EAR, not the eye: contractions, short spoken sentences, plain Irish small-business talk, zero jargon. Most calls are WARM (they already got an email or DM) — open from that, never as a stranger.",
+    "Structure it with these labelled sections, each 1–3 short spoken lines:",
+    "OPENER — 8 seconds: 'Hi {first name}, Jude from AutomateIQ — I sent you a note about {the specific thing} and wanted to put a voice to it.' If nothing was sent yet, open with the one most specific research observation instead. Never ask 'how are you today'.",
+    "THE HOOK — the ONE research-grounded pain that costs them money (missed calls, no reviews coming in, quotes going out slow), said as a question they'll recognise: 'I'd say ye miss a fair few calls when you're on the tools?'",
+    "THE VALUE — one concrete line on what AutomateIQ takes off their plate, in outcome words (answered calls, booked jobs, faster quotes) — never features or tech talk.",
+    "THE ASK — a 15-minute demo THIS WEEK, offered as a choice of two concrete slots ('would tomorrow morning suit, or is the afternoon better?'). Book the meeting, don't pitch the product. Once they pick: confirm day + time back to them and say you'll text/email the confirmation.",
+    "IF THEY SAY... — the 5 likeliest objections FOR THIS BUSINESS, each with a one-line spoken response that agrees first, then bridges back to the 15 minutes. Always cover: 'how much is it?' (use the founding-customer rates if pricing is provided — locked for the first 10, then rising; if no pricing given, 'depends what'd actually help — that's what the 15 minutes is for'), 'send me an email' ('I did already — this is me making sure it didn't drown; 15 minutes shows you more than any email'), and 'we're grand as we are'.",
+    "IF IT'S NOT THE OWNER — one line for whoever answered: who to ask for, and the one-sentence reason that gets passed on.",
+    "VOICEMAIL VERSION — 20 seconds max: name + AutomateIQ, the one specific hook, 'I'll try you again tomorrow', warm sign-off. Never read out links or invent a callback number; their phone shows the number.",
   ].join(" "),
 };
 
