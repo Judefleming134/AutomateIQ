@@ -38,6 +38,7 @@ const DATED_REMINDERS: Record<string, string[]> = {
   ],
   "2026-07-27": [
     "MONDAY — DIAL DAY 1 of 2. One job: get 15-minute demos BOOKED. Warm dialling — every name already had your email or DM, so they know AutomateIQ. Aim for volume: 30+ dials.",
+    "⓪ FIRST, AT THE COMPUTER (10 min): run supabase/manual_update_tradeos_finance.sql in the Supabase SQL Editor — one paste, and automateiq.ie/tradeos + /finance go fully live. Then 2 min in /finance: set your bank balance and scan one supplier invoice to see it work. Done before the first dial.",
     "① SET UP FIRST (10 min): demo flow, a quote and the order form all one click away; know the founding offer cold (first 10 customers, rates rise after — that's your urgency). Water, headphones, and a rule: 20 dials before you judge the day.",
     "② THE LIST: Prospects → tick 'Has phone' → sort by Lead score. Work Status='Contacted' first, then 'Follow-up sent'. Every row is tap-to-call. Each prospect page opens with 'Outreach so far' — glance it, then open with 'I emailed you on X about Y, wanted to put a voice to it.'",
     "③ THE ASK on every call: a 15-minute demo THIS WEEK — you're booking the meeting, not pitching on the phone. Pin it to a date. LOG EVERY CALL with the one-tap 'Log call' button in the call panel so the follow-up auto-schedules and nothing leaks.",
