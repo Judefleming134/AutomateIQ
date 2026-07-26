@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
-import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
 import { aiComplete } from "@/lib/ai/complete";
 import { dublinDate, dublinWeekday } from "@/lib/growth/dates";
 import {
@@ -177,15 +177,16 @@ export async function sendJarvisMorningBrief(): Promise<{
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const [
-      metrics,
-      week,
+      [metrics, week],
       { data: due, count: dueCount },
       { data: ready, count: readyCount },
       { data: overnightReplies },
       { data: meetingsToday },
     ] = await Promise.all([
-      loadGrowthMetrics(admin, null),
-      loadGrowthMetrics(admin, 7),
+      // Both windows from ONE table load (same fix as Jarvis chat) — two
+      // loadGrowthMetrics calls scanned all six growth tables twice inside
+      // the 07:00 dispatch's function budget.
+      loadGrowthMetricsMulti(admin, [null, 7]),
       admin
         .from("ge_prospects")
         // count: the TRUE total, not the 15-row display cap — the brief was
