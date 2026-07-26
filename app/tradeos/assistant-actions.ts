@@ -106,6 +106,10 @@ async function runAssistantAction(
   }
 
   const totals = computeTotals(items, account.vat_rate);
+  // computeTotals clamps junk/negative inputs to 0 — a quote whose lines all
+  // clamped away would save as a €0 document. Refuse instead so the model's
+  // only path is to ask for real prices.
+  if (totals.total <= 0) return `✗ ${customerName}: no priced lines — give me the prices and I'll draft it`;
   const { number, nextSeq } = nextDocumentNumber("quote", account.quote_seq);
   const today = new Date();
   const { data: doc, error: docErr } = await supabase

@@ -66,9 +66,12 @@ export default async function ProspectsPage({
   // has phone -> sort by score", so the UI must actually offer it.
   const phoneOnly = params.phone === "1";
 
-  // Default to A→Z by company so a lead is easy to find by name; other
-  // sorts stay one click away.
-  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : "company";
+  // Default to A→Z by company so a lead is easy to find by name — except the
+  // dial view: with "Has phone" ticked the whole point is best-first calling
+  // (the daily drill is literally "Has phone → sort by Lead score"), so that
+  // filter defaults to score and saves the second tap. An explicit sort
+  // choice always wins over either default.
+  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : phoneOnly ? "score" : "company";
   const sort = SORTS[sortKey];
   // 1-indexed page; clamp to a sane floor here, ceiling once we know the count.
   const pageReq = Math.max(1, Math.floor(Number(params.page)) || 1);
