@@ -809,6 +809,46 @@ export async function qualifyProspect(_prev: Result, formData: FormData): Promis
   return { ok: true };
 }
 
+/**
+ * "No answer" — the outcome of most dials, and it is NOT the same as a
+ * conversation. Logging it through addActivity stamped the standard +3-day
+ * follow-up, so a voicemail bought the lead three days of silence; on a dial
+ * week that's the difference between three attempts and one. This records the
+ * attempt (so the timeline and analytics stay honest and the lead drops off
+ * today's call list) but brings them back TOMORROW, and never advances the
+ * pipeline stage — an unanswered ring isn't contact.
+ */
+export async function logNoAnswer(_prev: Result, formData: FormData): Promise<Result> {
+  const { member } = await requireGrowth();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing prospect." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("ge_activities").insert({
+    prospect_id: id,
+    type: "call",
+    content: "No answer — voicemail left, trying again tomorrow",
+    created_by: member.id,
+  });
+  if (error) return { error: error.message };
+
+  // last_contact_at IS stamped: it's what drops them off today's call list so
+  // the same number isn't redialled in the same session. The follow-up date is
+  // tomorrow rather than +3 days, and the status is deliberately untouched.
+  await admin
+    .from("ge_prospects")
+    .update({
+      last_contact_at: new Date().toISOString(),
+      next_follow_up_at: dublinDate(1),
+    })
+    .eq("id", id);
+
+  revalidatePath("/growth/call-list");
+  revalidatePath(`/growth/prospects/${id}`);
+  revalidatePath("/growth");
+  return { ok: true };
+}
+
 export async function addActivity(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
   const id = String(formData.get("id") ?? "");

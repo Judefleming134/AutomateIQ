@@ -8,7 +8,7 @@ import { buildQuote, formatEuro } from "@/lib/growth/pricing";
 import { PROSPECT_STATUS_META, type ProspectStatus } from "@/lib/growth/constants";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
-import { addActivity } from "../prospects/actions";
+import { addActivity, logNoAnswer } from "../prospects/actions";
 
 export const metadata = { title: "Call list · Growth Engine" };
 
@@ -243,6 +243,14 @@ export default async function CallListPage() {
                       />
                       <SubmitButton className="btn btn-primary btn-sm" pendingText="Logging…">
                         <Phone size={13} /> Log call
+                      </SubmitButton>
+                    </ActionForm>
+                    {/* The other outcome of most dials. Logged as an attempt,
+                        but back on the list TOMORROW instead of in 3 days. */}
+                    <ActionForm action={logNoAnswer} className="inline-form">
+                      <input type="hidden" name="id" value={p.id} />
+                      <SubmitButton className="btn btn-secondary btn-sm" pendingText="…">
+                        No answer
                       </SubmitButton>
                     </ActionForm>
                     {socials.map(([label, url]) => (
