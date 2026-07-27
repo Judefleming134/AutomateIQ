@@ -1,21 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import {
-  Sparkles,
-  ClipboardCheck,
-  Gauge,
-  Repeat,
-  Workflow,
-  Lightbulb,
-  Clock,
-  PiggyBank,
-  Map,
-  MessageCircleQuestion,
-  Check,
-  ShieldCheck,
-  Target,
-  Zap,
-} from "lucide-react";
+import { Sparkles, Map, Clock, ShieldCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateAvailability, BOOKING_CONFIG } from "@/lib/booking/slots";
 import { BookingWidget } from "./booking-widget";
@@ -44,30 +29,29 @@ export const metadata: Metadata = {
 // Availability depends on live bookings, so render on request.
 export const dynamic = "force-dynamic";
 
-const COVER = [
-  { icon: <ClipboardCheck />, title: "Review of current processes", body: "We walk through how your business runs day to day and where the friction is." },
-  { icon: <Gauge />, title: "AI Readiness Assessment", body: "An honest read on where you are today and what's realistic to automate first." },
-  { icon: <Repeat />, title: "Repetitive task audit", body: "We pinpoint the manual, repeated work quietly draining hours every week." },
-  { icon: <Workflow />, title: "Automation opportunities", body: "The specific workflows where AI agents can take real work off your plate." },
-  { icon: <Lightbulb />, title: "Implementation recommendations", body: "Concrete, prioritised suggestions — not vague 'AI could help' hand-waving." },
-  { icon: <Clock />, title: "Estimated time savings", body: "A grounded estimate of the hours each opportunity could give back." },
-  { icon: <PiggyBank />, title: "Estimated cost savings", body: "What those hours and efficiencies translate to in real money." },
-  { icon: <Map />, title: "High-level roadmap", body: "A clear, staged plan for rolling AI into your business without disruption." },
-  { icon: <MessageCircleQuestion />, title: "Your questions answered", body: "Time set aside for whatever you want to ask — no question too basic." },
-];
+/**
+ * The page is deliberately a straight line to a booked meeting: tight hero →
+ * calendar → three take-aways → collapsed FAQ. The old layout put five
+ * sections (nine-card grid, audience list, why-us) between the visitor and
+ * the calendar — informative, but every scroll is a chance to bounce.
+ */
 
-const AUDIENCE = [
-  "Small and medium businesses ready to work smarter",
-  "Companies looking to reduce time spent on administration",
-  "Businesses that want to improve day-to-day efficiency",
-  "Teams seriously considering AI implementation",
-  "Organisations looking to automate manual workflows",
-];
-
-const WHY = [
-  { icon: <Target />, title: "A tailored strategy, not generic advice", body: "Every recommendation is built around your business, your processes and your numbers — not a template." },
-  { icon: <Zap />, title: "Built by people who ship real AI", body: "AutomateIQ runs a live platform of working AI agents. You get practical guidance from people who build this every day." },
-  { icon: <ShieldCheck />, title: "No pressure, no obligation", body: "The value is in the roadmap you walk away with. Whether you build with us or not is entirely up to you." },
+const TAKEAWAYS = [
+  {
+    icon: <Map />,
+    title: "Your opportunity map",
+    body: "The specific places your business is losing time and money — and which AI fixes pay back first.",
+  },
+  {
+    icon: <Clock />,
+    title: "Real numbers",
+    body: "A grounded estimate of the hours and euros each opportunity gives back.",
+  },
+  {
+    icon: <ShieldCheck />,
+    title: "A roadmap that's yours",
+    body: "A staged plan you can act on with or without us — free, no obligation, no pressure.",
+  },
 ];
 
 const FAQ = [
@@ -106,93 +90,54 @@ export default async function BookPage() {
         <a href="#booking" className="btn btn-primary btn-sm">Book your session</a>
       </header>
 
-      {/* Hero */}
+      {/* Hero — one message, one action: pick a time below. */}
       <section className="book-hero">
         <p className="book-kicker"><Sparkles size={14} /> Free AI Strategy Session</p>
         <h1>Find out exactly where AI can save your business time and money</h1>
         <p className="book-hero-sub">
-          A personalised, no-obligation consultation with AutomateIQ. We map the repetitive work
-          draining your week, show you what AI can take off your plate, and hand you a clear
-          roadmap — whether or not you ever work with us.
+          One focused session. We map what&apos;s draining your week, put numbers
+          on it, and hand you a clear roadmap — whether or not you ever work
+          with us.
         </p>
         <div className="book-hero-cta">
-          <a href="#booking" className="btn btn-primary">Book your free session</a>
+          <a href="#booking" className="btn btn-primary">Pick your time below</a>
           <span className="book-hero-meta">{BOOKING_CONFIG.durationLabel} · Online · No cost, no obligation</span>
         </div>
       </section>
 
-      {/* About */}
-      <section className="book-section">
+      {/* Booking — straight after the hero; the calendar IS the page. */}
+      <section className="book-section book-booking" id="booking">
         <div className="book-section-head">
-          <h2>This is a strategy session — not a sales call</h2>
+          <h2>Choose a time that suits you</h2>
+          <p className="book-lead" style={{ margin: "10px auto 0", maxWidth: 620 }}>
+            Instant confirmation by email. All times in {BOOKING_CONFIG.timezoneLabel}.
+          </p>
         </div>
-        <p className="book-lead">
-          Most &ldquo;AI consultations&rdquo; are a thinly disguised pitch. This isn&apos;t that.
-          The AI Strategy Session is a genuine working session designed to identify how AI can
-          create <strong>measurable</strong> value in your specific business. We look at how you
-          actually operate, find the opportunities with the highest return, and give you an honest
-          assessment you can act on immediately. You leave with clarity and a plan — the decision
-          about what to do next is entirely yours.
-        </p>
+        <BookingWidget days={days} />
       </section>
 
-      {/* What we'll cover */}
+      {/* What you leave with — the whole pitch in three cards. */}
       <section className="book-section">
         <div className="book-section-head">
-          <p className="book-eyebrow">What we&apos;ll cover</p>
-          <h2>Everything you get in one focused session</h2>
-        </div>
-        <div className="book-grid">
-          {COVER.map((c) => (
-            <div key={c.title} className="book-card panel">
-              <span className="book-card-icon">{c.icon}</span>
-              <h3>{c.title}</h3>
-              <p>{c.body}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Who it's for */}
-      <section className="book-section">
-        <div className="book-split">
-          <div>
-            <p className="book-eyebrow">Who it&apos;s for</p>
-            <h2>Built for businesses ready to work smarter</h2>
-            <p className="book-lead" style={{ marginTop: 12 }}>
-              If any of these sound like you, the session will be time well spent.
-            </p>
-          </div>
-          <ul className="book-check-list">
-            {AUDIENCE.map((a) => (
-              <li key={a}><span className="book-check"><Check size={14} /></span>{a}</li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* Why AutomateIQ */}
-      <section className="book-section">
-        <div className="book-section-head">
-          <p className="book-eyebrow">Why book with AutomateIQ</p>
-          <h2>A tailored AI strategy beats generic AI advice</h2>
+          <p className="book-eyebrow">What you&apos;ll leave with</p>
+          <h2>A strategy session — not a sales call</h2>
         </div>
         <div className="book-grid book-grid-3">
-          {WHY.map((w) => (
-            <div key={w.title} className="book-card book-card-feature panel">
-              <span className="book-card-icon">{w.icon}</span>
-              <h3>{w.title}</h3>
-              <p>{w.body}</p>
+          {TAKEAWAYS.map((t) => (
+            <div key={t.title} className="book-card book-card-feature panel">
+              <span className="book-card-icon">{t.icon}</span>
+              <h3>{t.title}</h3>
+              <p>{t.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* FAQ */}
+      {/* FAQ — collapsed, for the few who want detail before committing. */}
       <section className="book-section">
         <div className="book-section-head">
-          <p className="book-eyebrow">Frequently asked questions</p>
-          <h2>Everything you might be wondering</h2>
+          <p className="book-eyebrow">Questions</p>
+          <h2>Anything you&apos;re wondering</h2>
         </div>
         <div className="book-faq">
           {FAQ.map((f) => (
@@ -202,19 +147,9 @@ export default async function BookPage() {
             </details>
           ))}
         </div>
-      </section>
-
-      {/* Booking */}
-      <section className="book-section book-booking" id="booking">
-        <div className="book-section-head">
-          <p className="book-eyebrow">Book your session</p>
-          <h2>Choose a time that suits you</h2>
-          <p className="book-lead" style={{ margin: "10px auto 0", maxWidth: 620 }}>
-            Pick a slot below and tell us a little about your business. You&apos;ll get an instant
-            confirmation by email. All times shown in {BOOKING_CONFIG.timezoneLabel}.
-          </p>
-        </div>
-        <BookingWidget days={days} />
+        <p style={{ textAlign: "center", marginTop: 28 }}>
+          <a href="#booking" className="btn btn-primary">Book your free session</a>
+        </p>
       </section>
 
       <footer className="book-footer">
