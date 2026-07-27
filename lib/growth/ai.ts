@@ -94,7 +94,10 @@ function parseEmailDraft(
 export async function draftOutreach(
   prospect: ProspectContext,
   params: DraftParams,
-  bookingUrl: string
+  bookingUrl: string,
+  /** Saved company research — the same grounding the Studio gets. Without it
+   *  the inbox composer wrote generic drafts for fully-researched prospects. */
+  report: ResearchReport | null = null
 ): Promise<{ subject: string | null; body: string }> {
   const system = [
     "You are the senior sales development writer for AutomateIQ, an Irish AI-automation agency (automateiq.ie).",
@@ -118,6 +121,8 @@ export async function draftOutreach(
   if (prospect.location) lines.push(`- Location: ${prospect.location}`);
   if (prospect.website) lines.push(`- Website: ${prospect.website}`);
   if (prospect.notes) lines.push(`- Notes from our team: ${prospect.notes}`);
+  const context = researchContext(report);
+  if (context) lines.push("", context);
   if (params.objective === "confirmation" || params.objective === "reply") {
     lines.push("", `BOOKING LINK (free AI Strategy Session): ${bookingUrl}`);
   }
