@@ -41,7 +41,7 @@ const CHANNEL_RULES: Record<Channel, string> = {
   call: [
     "PHONE CALL SCRIPT to be read/spoken by the caller — not a message to send. Written for the EAR, not the eye: contractions, short spoken sentences, plain Irish small-business talk, zero jargon. Most calls are WARM (they already got an email or DM) — open from that, never as a stranger.",
     "Structure it with these labelled sections, each 1–3 short spoken lines:",
-    "OPENER — 8 seconds: 'Hi {first name}, Jude from AutomateIQ — I sent you a note about {the specific thing} and wanted to put a voice to it.' If nothing was sent yet, open with the one most specific research observation instead. Never ask 'how are you today'.",
+    "OPENER — 8 seconds. If the MESSAGES ALREADY EXCHANGED block lists a sent message, the opener MUST reference that actual message — its channel, roughly when, and its real topic/subject (e.g. 'I emailed you Thursday about your after-hours calls'). Quote the real angle, not a generic 'I sent you a note'. If the history block says nothing was sent, open with the single most specific research observation instead. Never ask 'how are you today'.",
     "THE HOOK — the ONE research-grounded pain that costs them money (missed calls, no reviews coming in, quotes going out slow), said as a question they'll recognise: 'I'd say ye miss a fair few calls when you're on the tools?'",
     "THE VALUE — one concrete line on what AutomateIQ takes off their plate, in outcome words (answered calls, booked jobs, faster quotes) — never features or tech talk.",
     "THE ASK — a 15-minute demo THIS WEEK, offered as a choice of two concrete slots ('would tomorrow morning suit, or is the afternoon better?'). Book the meeting, don't pitch the product. Once they pick: confirm day + time back to them and say you'll text/email the confirmation.",
@@ -149,7 +149,7 @@ const PURPOSE_RULES: Record<MessagePurpose, string> = {
   first:
     "First touch. Open with something genuinely specific from the research, connect it to ONE concrete way AutomateIQ could help, close with a soft, low-pressure question.",
   follow_up:
-    "First follow-up after no reply. Brief, add one NEW angle or piece of value from the research (don't repeat the first message), easy to answer.",
+    "First follow-up after no reply. Anchor it to the REAL previous message from the history block (its channel and actual topic — 'I emailed you last week about your missed calls'), then add one NEW angle or piece of value from the research (never repeat the first message's pitch). Brief and easy to answer.",
   second_follow_up:
     "Final follow-up (touch 3 of 3). Short and direct: one line of concrete value, then a clear ask to grab a quick 15-minute call — and include the booking link so they can pick a slot themselves. Warm, not pushy, but make the path to booking effortless; this is the last touch.",
   meeting_confirmation:
@@ -205,7 +205,11 @@ export async function draftStudioMessage(
   },
   bookingUrl: string,
   /** Price-book lines — the ONLY money figures the model may ever use. */
-  pricing: string[] = []
+  pricing: string[] = [],
+  /** The REAL messages already exchanged with this prospect (from
+   *  outreachHistoryLines) — what openers and follow-ups must reference
+   *  instead of inventing a previous touch. */
+  outreachHistory: string[] = []
 ): Promise<{ subject: string | null; body: string }> {
   const system = [
     "You are the senior sales development writer for AutomateIQ, an Irish AI-automation agency (automateiq.ie) whose goal is booking free 30-minute AI Strategy Sessions.",
@@ -235,6 +239,18 @@ export async function draftStudioMessage(
   }
   const context = researchContext(report);
   if (context) lines.push("", context);
+  if (outreachHistory.length > 0) {
+    lines.push(
+      "",
+      "MESSAGES ALREADY EXCHANGED WITH THIS PROSPECT (real history, oldest first — when referencing a previous touch, reference THESE by their actual channel, date and topic; NEVER invent or paraphrase a message that isn't here):",
+      ...outreachHistory
+    );
+  } else {
+    lines.push(
+      "",
+      "OUTREACH HISTORY: nothing has been sent to this prospect yet — treat them as never contacted and never claim a previous message or call."
+    );
+  }
   if (pricing.length > 0) {
     lines.push("", "PRICING (founding-customer rates — the only figures permitted):", ...pricing);
   }

@@ -1,6 +1,51 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dublinDate } from "@/lib/growth/dates";
+
+/**
+ * The prospect's REAL outreach history, formatted for a drafting prompt — so
+ * follow-ups and call scripts reference the message that actually went out
+ * (channel, date, subject, gist) instead of inventing "I sent you a note".
+ * Newest last, so the model naturally anchors on the most recent touch.
+ */
+export async function outreachHistoryLines(
+  admin: SupabaseClient,
+  prospectId: string
+): Promise<string[]> {
+  const [{ data: sent }, { data: inbound }] = await Promise.all([
+    admin
+      .from("ge_messages")
+      .select("channel, subject, body, sent_at, created_at")
+      .eq("prospect_id", prospectId)
+      .eq("direction", "outbound")
+      .eq("status", "sent")
+      .order("sent_at", { ascending: false, nullsFirst: false })
+      .limit(5),
+    admin
+      .from("ge_messages")
+      .select("channel, body, created_at")
+      .eq("prospect_id", prospectId)
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(2),
+  ]);
+  const day = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleDateString("en-IE", { day: "numeric", month: "short", timeZone: "Europe/Dublin" })
+      : "?";
+  const entries = [
+    ...(sent ?? []).map((m) => ({
+      at: m.sent_at ?? m.created_at,
+      line: `- ${day(m.sent_at ?? m.created_at)} · we sent a ${m.channel === "email" ? "email" : `${m.channel} message`}${m.subject ? ` (subject: "${m.subject}")` : ""}: "${String(m.body ?? "").slice(0, 160)}"`,
+    })),
+    ...(inbound ?? []).map((m) => ({
+      at: m.created_at,
+      line: `- ${day(m.created_at)} · THEY replied via ${m.channel}: "${String(m.body ?? "").slice(0, 160)}"`,
+    })),
+  ].sort((a, b) => (a.at < b.at ? -1 : 1));
+  return entries.map((e) => e.line);
+}
 
 /**
  * Marks outreach as having gone out: message row + prospect bookkeeping +

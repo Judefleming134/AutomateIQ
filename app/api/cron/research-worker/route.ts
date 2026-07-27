@@ -7,6 +7,7 @@ import {
   persistResearchResult,
 } from "@/lib/growth/research-runner";
 import { draftStudioMessage } from "@/lib/growth/ai";
+import { outreachHistoryLines } from "@/lib/growth/outreach";
 import { loadGrowthSettings } from "@/lib/growth/auth";
 import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
@@ -374,11 +375,16 @@ export async function GET(request: NextRequest) {
           .limit(1)
           .maybeSingle();
         if (existing) continue;
-        const { data: research } = await admin
-          .from("ge_research")
-          .select("report, solutions")
-          .eq("prospect_id", p.id)
-          .maybeSingle();
+        const [{ data: research }, history] = await Promise.all([
+          admin
+            .from("ge_research")
+            .select("report, solutions")
+            .eq("prospect_id", p.id)
+            .maybeSingle(),
+          // The chase must anchor to the REAL first email (channel, date,
+          // actual subject), not a generic "following up on my note".
+          outreachHistoryLines(admin, p.id),
+        ]);
         const keys = Array.isArray(research?.solutions)
           ? (research!.solutions as { key?: string }[])
               .map((s) => s.key)
@@ -390,7 +396,8 @@ export async function GET(request: NextRequest) {
             (research?.report as ResearchReport | undefined) ?? null,
             { channel: "email", purpose: nextPurpose, tone: "professional" },
             settings.bookingUrl,
-            pricingLines(keys)
+            pricingLines(keys),
+            history
           );
           const clean = sanitizeOutreachBody(draft.body);
           if (draftLooksBroken(clean)) continue; // never save a broken draft
