@@ -482,9 +482,10 @@ export async function sendAutopilotEmail(params: {
   // identity, length, subject quality, links. A held draft stays a draft
   // (never sent, never marked failed); regenerating in the Studio produces
   // a clean one under current rules.
+  const cleanBody = sanitizeOutreachBody(message.body);
   const held = reviewOutreachEmail({
     subject: message.subject || `question about ${prospect.company}`,
-    body: sanitizeOutreachBody(message.body),
+    body: cleanBody,
   });
   if (held) {
     return {
@@ -494,10 +495,17 @@ export async function sendAutopilotEmail(params: {
     };
   }
 
+  // SEND THE TEXT THE GATE REVIEWED: the review ran on the sanitized body, so
+  // sending the raw one could deliver the very placeholder the sanitizer
+  // quietly fixed. Persist it too, so history shows what actually went out.
+  if (cleanBody !== message.body) {
+    await admin.from("ge_messages").update({ body: cleanBody }).eq("id", message.id);
+  }
+
   const sent = await sendOutreachEmail({
     to: prospect.email,
     subject: message.subject || `question about ${prospect.company}`,
-    body: message.body,
+    body: cleanBody,
   });
   if (!sent.ok) {
     await admin.from("ge_messages").update({ status: "failed" }).eq("id", message.id);
