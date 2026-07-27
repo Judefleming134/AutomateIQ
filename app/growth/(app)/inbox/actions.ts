@@ -297,7 +297,7 @@ export async function markMessageSent(_prev: Result, formData: FormData): Promis
 
   const { data: message } = await admin
     .from("ge_messages")
-    .select("id, prospect_id, channel, status, direction, purpose")
+    .select("id, prospect_id, channel, status, direction, purpose, body")
     .eq("id", id)
     .maybeSingle();
   if (!message || message.direction !== "outbound") return { error: "Message not found." };
@@ -307,6 +307,14 @@ export async function markMessageSent(_prev: Result, formData: FormData): Promis
 
   const prospect = await loadProspect(message.prospect_id);
   if (!prospect) return { error: "Prospect not found." };
+
+  // The DM list copies the SANITIZED text (placeholders quietly fixed) — store
+  // that same text as the sent record, so the conversation history shows what
+  // was actually pasted, not the raw draft.
+  const clean = sanitizeOutreachBody(String(message.body ?? ""));
+  if (clean !== message.body) {
+    await admin.from("ge_messages").update({ body: clean }).eq("id", id);
+  }
 
   await recordOutreachSent(prospect, id, message.channel, member.name, member.id, message.purpose);
   revalidateProspect(prospect.id);
