@@ -51,7 +51,8 @@ const DATED_REMINDERS: Record<string, string[]> = {
     "② THEN DIAL: Prospects → 'Has phone' → sort by Lead score → keep working 'Contacted' then 'Follow-up sent'. 30+ dials again, tap-to-call, log every one.",
     "③ THE ASK: a 15-minute demo this week. Book the meeting, don't pitch on the phone. Replies answered before the next dial.",
     "④ LAST 30 MIN: tidy up — log any stragglers, then queue ~20 best drafts for Wednesday's 8am run so the machine keeps feeding while you're back at the day job.",
-    "TARGET: one deal closed or set up, plus 2–3 more demos booked. Two dial days done = a full week of calls lined up.",
+    "⑤ THE LTD (evening, off the phones — selling hours come first): your details sheet is in the repo at docs/ltd-registration.md. Fill the [ ] blanks, then file Form A1 + Constitution at core.cro.ie (€50), or hand the same sheet to a formation agent (~€200–300) and skip the portal. TWO THINGS TO DECIDE BEFORE YOU SIT DOWN: (a) a sole director needs a SEPARATE company secretary — one person can't be both; (b) have a 2nd and 3rd name choice ready, CRO rejects near-matches. Book the 15-min accountant call the same evening — the VAT and salary-vs-dividend questions are on the sheet.",
+    "TARGET: one deal closed or set up, plus 2–3 more demos booked. Two dial days done = a full week of calls lined up. Company filed or with an agent by tonight.",
   ],
   "2026-07-22": [
     "DIAL DAY — one job: get 15-min demos BOOKED. Today is the phones. You've a stack of leads already contacted and chased, so they know the name — this is WARM dialling, not cold. Aim for volume: 30+ dials.",
