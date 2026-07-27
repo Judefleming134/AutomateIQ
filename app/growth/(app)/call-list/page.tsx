@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dublinDate } from "@/lib/growth/dates";
+import { dublinDate, dublinLocalToUtcISO } from "@/lib/growth/dates";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { buildQuote, formatEuro } from "@/lib/growth/pricing";
 import { PROSPECT_STATUS_META, type ProspectStatus } from "@/lib/growth/constants";
@@ -28,15 +28,41 @@ export default async function CallListPage() {
 
   // The warm phone list: has a number, still in a workable pre-close status.
   // Replies live in the Inbox; won/lost/booked/qualified are handled elsewhere.
-  const { data: prospectsRaw } = await admin
-    .from("ge_prospects")
-    .select(
-      "id, company, contact_name, lead_score, status, phone, next_follow_up_at, last_contact_at, industry, location, linkedin_url, instagram_url, facebook_url"
-    )
-    .not("phone", "is", null)
-    .in("status", ["contacted", "follow_up_sent", "outreach_ready", "research_complete"])
-    .order("lead_score", { ascending: false, nullsFirst: false })
-    .limit(160);
+  const COLUMNS =
+    "id, company, contact_name, lead_score, status, phone, next_follow_up_at, last_contact_at, industry, location, linkedin_url, instagram_url, facebook_url";
+  const WORKABLE = ["contacted", "follow_up_sent", "outreach_ready", "research_complete"];
+
+  // TWO queries, deliberately. A single score-ordered fetch capped at 160 meant
+  // a DUE CHASE scoring below that cut never entered the list at all — the
+  // "due chases first" sort below could only reorder whatever the score window
+  // happened to contain. On a database of a few hundred phone leads that hides
+  // the most time-critical calls completely. Due chases are now fetched on
+  // their own terms (most overdue first) and merged with the top-scored rest.
+  const [{ data: dueRaw }, { data: topRaw }, { count: workableTotal }] = await Promise.all([
+    admin
+      .from("ge_prospects")
+      .select(COLUMNS)
+      .not("phone", "is", null)
+      .in("status", WORKABLE)
+      .not("next_follow_up_at", "is", null)
+      .lte("next_follow_up_at", today)
+      .order("next_follow_up_at", { ascending: true })
+      .limit(80),
+    admin
+      .from("ge_prospects")
+      .select(COLUMNS)
+      .not("phone", "is", null)
+      .in("status", WORKABLE)
+      .order("lead_score", { ascending: false, nullsFirst: false })
+      .limit(160),
+    // The TRUE size of the callable pool, so the page can say how many are
+    // left rather than implying 40 is all there is.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("phone", "is", null)
+      .in("status", WORKABLE),
+  ]);
 
   const isDue = (p: { next_follow_up_at: string | null }) =>
     !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) <= today;
@@ -45,17 +71,26 @@ export default async function CallListPage() {
   // shrinks as you work down it (the DM list does the same for sent DMs). A
   // logged call sets last_contact_at, so they fall off on the next load — no
   // re-dialling the person you just spoke to. They stay in Prospects if needed.
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  // The boundary is Dublin midnight, not UTC: in summer a call logged between
+  // midnight and 1am Irish falls before UTC midnight and the person would pop
+  // back onto the list.
+  const todayStart =
+    dublinLocalToUtcISO(`${today}T00:00`) ?? new Date(`${today}T00:00:00Z`).toISOString();
   const calledToday = (p: { last_contact_at: string | null }) =>
-    !!p.last_contact_at && p.last_contact_at >= todayStart.toISOString();
+    !!p.last_contact_at && p.last_contact_at >= todayStart;
 
-  // Chases that are due/overdue rise to the top (those are slipping), then the
-  // rest by lead score. Array.sort is stable, so score order holds within each.
-  const prospects = [...(prospectsRaw ?? [])]
-    .filter((p) => !calledToday(p))
+  // Merge (due first, then by score), de-duplicate — a lead can legitimately
+  // appear in both queries — then drop anyone already called today. Array.sort
+  // is stable, so score order holds within each group.
+  const merged = [...(dueRaw ?? []), ...(topRaw ?? [])];
+  const seen = new Set<string>();
+  const deduped = merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  const workable = deduped.filter((p) => !calledToday(p));
+  const prospects = [...workable]
     .sort((a, b) => (isDue(a) === isDue(b) ? 0 : isDue(a) ? -1 : 1))
     .slice(0, MAX_ITEMS);
+  const dueCount = workable.filter(isDue).length;
+  const remaining = Math.max(0, (workableTotal ?? workable.length) - prospects.length);
 
   // Batch-load research for the pitch + script — one query, mapped in memory.
   const ids = prospects.map((p) => p.id);
@@ -102,7 +137,25 @@ export default async function CallListPage() {
       ) : (
         <>
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 12px" }}>
-            {prospects.length} left to call · due chases first, then best score
+            Showing {prospects.length}
+            {dueCount > 0 ? (
+              <>
+                {" "}·{" "}
+                <strong style={{ color: "var(--orange, #fb923c)" }}>
+                  {dueCount} chase{dueCount === 1 ? "" : "s"} due
+                </strong>{" "}
+                — those are first
+              </>
+            ) : (
+              " · best score first"
+            )}
+            {remaining > 0 && (
+              <>
+                {" "}· <strong>{remaining} more</strong> still to call — log a
+                call and the next one takes its place, or{" "}
+                <Link href="/growth/prospects?phone=1">see the whole list</Link>
+              </>
+            )}
           </p>
           <div style={{ display: "grid", gap: 12 }}>
             {prospects.map((p) => {
