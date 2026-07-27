@@ -45,6 +45,29 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
+  // Abuse guard on a PUBLIC endpoint: every accepted booking holds a calendar
+  // slot AND sends two emails — one of them to whatever address the caller
+  // typed. Unbounded, that's a way to burn the sending domain's reputation on
+  // a third party and to block the calendar with junk so real prospects can't
+  // book. Nobody legitimately books three sessions in a day; a genuine
+  // reschedule is two. Fails OPEN if the count query itself errors — losing a
+  // real booking is worse than letting one extra through.
+  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count: recentForEmail, error: countError } = await supabase
+    .from("strategy_bookings")
+    .select("id", { count: "exact", head: true })
+    .ilike("email", d.email.replace(/([%_\\])/g, "\\$1"))
+    .gte("created_at", dayAgo);
+  if (!countError && (recentForEmail ?? 0) >= 3) {
+    return NextResponse.json(
+      {
+        error:
+          "You already have sessions booked with that email. Reply to your confirmation email and we'll sort the timing.",
+      },
+      { status: 429 }
+    );
+  }
+
   const { data: booking, error } = await supabase
     .from("strategy_bookings")
     .insert({
