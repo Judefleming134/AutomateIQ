@@ -37,12 +37,14 @@ export async function sendReviewReminders() {
   let sent = 0;
   let failed = 0;
 
+  let skippedDeleted = 0;
+
   for (const row of rows) {
     try {
       const [{ data: business }, { data: customer }] = await Promise.all([
         admin
           .from("businesses")
-          .select("name, google_review_link, logo_url, email_signature")
+          .select("name, google_review_link, logo_url, email_signature, deleted_at")
           .eq("id", row.business_id)
           .single(),
         admin
@@ -51,6 +53,15 @@ export async function sendReviewReminders() {
           .eq("id", row.ra_customer_id)
           .single(),
       ]);
+
+      // A soft-deleted business is no longer a customer — its pending review
+      // requests must NOT keep emailing ITS customers in its name. The SQL
+      // claim function can't see deleted_at, so the guard lives here; the row
+      // is already claimed, which is the right outcome (it never fires).
+      if (business?.deleted_at) {
+        skippedDeleted++;
+        continue;
+      }
 
       if (!business?.google_review_link || !customer?.email) {
         console.error(
@@ -78,5 +89,10 @@ export async function sendReviewReminders() {
     }
   }
 
-  return { claimed: rows.length, sent, failed };
+  return {
+    claimed: rows.length,
+    sent,
+    failed,
+    ...(skippedDeleted > 0 ? { skippedDeleted } : {}),
+  };
 }
