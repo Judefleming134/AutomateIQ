@@ -986,18 +986,65 @@ export default async function ProspectWorkspacePage({
               const callDraft = (messages ?? []).find(
                 (m) => m.channel === "call" && m.direction === "outbound"
               );
-              const script =
-                callDraft?.body ||
-                (report && (report.conversation_starters.length || report.discovery_questions.length)
-                  ? [
-                      report.conversation_starters.length
-                        ? "OPENERS:\n" + report.conversation_starters.map((s) => `• ${s}`).join("\n")
-                        : "",
-                      report.discovery_questions.length
-                        ? "ASK ON THE CALL:\n" + report.discovery_questions.map((s) => `• ${s}`).join("\n")
-                        : "",
-                    ].filter(Boolean).join("\n\n")
-                  : "");
+              // The instant per-business call sheet, composed from what THIS
+              // page already knows: the real last touch (date, channel, actual
+              // subject), the research pain points, the recommended systems,
+              // their own quote for the price objection. Every researched
+              // prospect gets a detailed personalised script with zero AI
+              // calls — a saved Studio call draft (which adds full objection
+              // handling) still takes precedence when one exists.
+              const lastSent = [...outreachTouches].filter((t) => !t.inbound).pop();
+              const firstName = (prospect.contact_name || "").trim().split(/\s+/)[0] || "there";
+              const dayOf = (iso: string) =>
+                new Date(iso).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short", timeZone: "Europe/Dublin" });
+              const touchTopic = lastSent?.subject
+                ? `"${lastSent.subject}"`
+                : lastSent
+                  ? `what AI could take off ${prospect.company}'s plate`
+                  : "";
+              const sheet: string[] = [];
+              if (report) {
+                sheet.push("OPENER:");
+                sheet.push(
+                  lastSent
+                    ? `• "Hi ${firstName}, Jude from AutomateIQ — I sent you a ${lastSent.channelLabel.toLowerCase()} on ${dayOf(lastSent.at)} about ${touchTopic}, and wanted to put a voice to it."`
+                    : `• "Hi ${firstName}, Jude from AutomateIQ — I was looking at ${prospect.company} and had one thought worth thirty seconds of your day."`
+                );
+                const pains = [
+                  ...report.inefficiencies,
+                  ...report.manual_processes,
+                ].slice(0, 3);
+                if (pains.length > 0) {
+                  sheet.push("", `WHY ${prospect.company.toUpperCase()} — name their pain:`);
+                  for (const p of pains) sheet.push(`• ${p}`);
+                }
+                if (solutions.length > 0) {
+                  sheet.push("", "THE PITCH — what we'd install for them:");
+                  for (const s of solutions.slice(0, 2)) sheet.push(`• ${s.name} — ${s.why}`);
+                }
+                sheet.push("", "THE ASK:", `• "Would a 15-minute demo this week suit — is the morning or the afternoon better for you?"`);
+                const quote = buildQuote(solutions);
+                sheet.push("", "IF THEY SAY:");
+                sheet.push(
+                  quote
+                    ? `• "How much?" → "${quote.hasFrom ? "From " : ""}${formatEuro(quote.setupTotal)} setup${quote.monthlyTotal > 0 ? ` plus ${formatEuro(quote.monthlyTotal)} a month` : ""} at the founding rate — first 10 customers only, then it rises."`
+                    : `• "How much?" → "Depends what'd actually help — that's exactly what the 15 minutes is for."`
+                );
+                if (lastSent) {
+                  sheet.push(`• "Send me an email" → "I did — ${dayOf(lastSent.at)}, ${touchTopic}. This is me making sure it didn't drown. Fifteen minutes shows you more than any email."`);
+                }
+                sheet.push(`• "We're grand as we are" → "I'd say you are — this isn't about replacing anything, it's the calls and enquiries ye already miss going to someone else."`);
+                if (report.discovery_questions.length > 0) {
+                  sheet.push("", "ASK ON THE CALL:");
+                  for (const s of report.discovery_questions.slice(0, 4)) sheet.push(`• ${s}`);
+                }
+                sheet.push(
+                  "",
+                  "VOICEMAIL (20 seconds):",
+                  `• "Hi ${firstName}, Jude from AutomateIQ${lastSent ? ` — I ${lastSent.channelLabel === "Email" ? "emailed" : "messaged"} you about ${touchTopic}` : ""}. Nothing urgent — I'll try you again tomorrow."`
+                );
+              }
+              const script = callDraft?.body || (sheet.length > 0 ? sheet.join("\n") : "");
               if (!prospect.phone && !script) return null;
               return (
                 <section
@@ -1050,7 +1097,9 @@ export default async function ProspectWorkspacePage({
                   {script ? (
                     <div>
                       <div style={{ fontSize: 12, color: "var(--faint)", marginBottom: 4 }}>
-                        {callDraft ? "Your call script:" : "Quick script from the research:"}
+                        {callDraft
+                          ? "Your call script:"
+                          : `Call sheet for ${prospect.company} — built from their research and the messages actually sent:`}
                       </div>
                       <p style={{ whiteSpace: "pre-wrap", fontSize: 13, margin: 0, maxHeight: 260, overflowY: "auto" }}>
                         {script}
