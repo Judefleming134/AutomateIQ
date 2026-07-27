@@ -95,7 +95,13 @@ export function BookingWidget({ days }: { days: BookingDay[] }) {
               key={d.date}
               type="button"
               className={`book-date-chip ${activeDate === d.date ? "is-active" : ""}`}
-              onClick={() => { setActiveDate(d.date); }}
+              onClick={() => {
+                setActiveDate(d.date);
+                // A time picked on ANOTHER day must not survive the switch —
+                // it stayed silently selected, and one distracted tap on
+                // "Confirm" would book the wrong day.
+                if (slot && !d.slots.some((s) => s.iso === slot.iso)) setSlot(null);
+              }}
             >
               <span className="book-date-dow">{d.weekday.slice(0, 3)}</span>
               <span className="book-date-num">{d.dayLabel.split(", ")[1]}</span>
@@ -108,6 +114,14 @@ export function BookingWidget({ days }: { days: BookingDay[] }) {
       <div className="book-step">
         <p className="book-step-label"><Clock size={14} /> 2. Pick a time</p>
         <div className="book-times">
+          {/* After a stale-slot refresh the active day can drop out of the
+              list entirely (every slot taken) — say so instead of rendering
+              a silent empty grid. */}
+          {!activeDay && (
+            <p style={{ fontSize: 13, color: "var(--faint, #9aa3b2)", margin: 0 }}>
+              No times left on that day — pick another day above.
+            </p>
+          )}
           {(activeDay?.slots ?? []).map((s) => (
             <button
               key={s.iso}
