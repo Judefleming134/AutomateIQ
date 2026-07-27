@@ -28,20 +28,32 @@ export async function selectAllRows<T>(
   pageSize = 1000,
   parallelPages = 5
 ): Promise<T[]> {
+  // One page, with a single retry — a transient blip (statement timeout,
+  // dropped connection) must not decide the shape of the whole result set.
+  const fetchPage = async (from: number) => {
+    const first = await makeQuery().range(from, from + pageSize - 1);
+    if (!first.error && first.data) return first.data;
+    const retry = await makeQuery().range(from, from + pageSize - 1);
+    if (!retry.error && retry.data) return retry.data;
+    // Completeness is this function's entire contract: callers dedupe
+    // imports, decide which leads still need researching and build CSV
+    // exports from it. Returning a SHORT list here (what this used to do)
+    // silently re-researches done leads and truncates exports with no
+    // sign anything went wrong. A thrown error is visible and retryable.
+    throw new Error(
+      `selectAllRows: page at offset ${from} failed — ${retry.error?.message ?? "no data returned"}`
+    );
+  };
+
   const rows: T[] = [];
   for (let windowStart = 0; ; windowStart += parallelPages) {
     const window = await Promise.all(
-      Array.from({ length: parallelPages }, (_, k) => {
-        const from = (windowStart + k) * pageSize;
-        return makeQuery().range(from, from + pageSize - 1);
-      })
+      Array.from({ length: parallelPages }, (_, k) =>
+        fetchPage((windowStart + k) * pageSize)
+      )
     );
     let last = false;
-    for (const { data, error } of window) {
-      if (error || !data) {
-        last = true;
-        break;
-      }
+    for (const data of window) {
       rows.push(...data);
       // A short page is the final page — nothing beyond it in this window
       // (or any later one) can hold rows, so stop.
