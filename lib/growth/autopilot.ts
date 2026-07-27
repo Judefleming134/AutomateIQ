@@ -539,7 +539,7 @@ export async function runQueuedEmailAutopilot(): Promise<{
 
   const { data: queued } = await admin
     .from("ge_messages")
-    .select("id, prospect_id, body, scheduled_at, ge_prospects(company, lead_score)")
+    .select("id, prospect_id, body, purpose, scheduled_at, ge_prospects(company, lead_score)")
     .eq("channel", "email")
     .eq("direction", "outbound")
     .eq("status", "queued")
@@ -549,13 +549,20 @@ export async function runQueuedEmailAutopilot(): Promise<{
   // Cap the morning batch: keeps the whole dispatch (reminders + sends +
   // brief) safely inside the 60s function budget and inside sensible daily
   // volume for a young domain — anything beyond the cap simply goes
-  // tomorrow. Best lead scores send first.
+  // tomorrow. WITHIN the cap, due CHASES outrank cold first touches: a chase
+  // is time-boxed (7 days overdue = parked as gone-cold), so ranking purely
+  // by lead score let low-score chases lose the budget race day after day
+  // until they aged out — a silent lead leak. Fresh first touches have no
+  // clock; they just go tomorrow. Then best score first within each group.
+  const chaseRank = (m: { purpose?: string | null }) =>
+    m.purpose === "follow_up" || m.purpose === "second_follow_up" ? 0 : 1;
   const due = (queued ?? [])
     .filter((m) => !m.scheduled_at || m.scheduled_at <= now)
     .sort(
       (a, b) =>
+        chaseRank(a) - chaseRank(b) ||
         Number((b.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0) -
-        Number((a.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0)
+          Number((a.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0)
     )
     .slice(0, 30);
 
