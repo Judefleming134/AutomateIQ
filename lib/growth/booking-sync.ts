@@ -87,8 +87,16 @@ export async function syncStrategyBookingsCore(
 
 /**
  * Advances a prospect to meeting_booked unless it's already at or past that
- * stage. Shared by the manual and automated sync paths so both keep the
- * pipeline honest.
+ * stage, and CLEARS the pending chase date — the booked meeting IS the next
+ * step. Without that, a prospect with a demo in the diary kept showing up on
+ * the dashboard's "Overdue follow-ups" list and in the morning brief's due
+ * list, so a dial-day scan said "chase them" about someone already booked in.
+ * The meeting itself stays tracked on the Meetings page and the dashboard's
+ * Upcoming panel; a no-show or cancellation re-schedules a follow-up
+ * (see setMeetingStatus), so nobody is dropped.
+ *
+ * Shared by the manual and automated sync paths so both keep the pipeline
+ * honest.
  */
 export async function markMeetingBooked(admin: SupabaseClient, prospectId: string) {
   const { data: prospect } = await admin
@@ -96,14 +104,17 @@ export async function markMeetingBooked(admin: SupabaseClient, prospectId: strin
     .select("status")
     .eq("id", prospectId)
     .maybeSingle();
-  if (
-    prospect &&
-    !["meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation",
-      "won", "lost", "do_not_contact", "archived"].includes(prospect.status)
-  ) {
-    await admin
-      .from("ge_prospects")
-      .update({ status: "meeting_booked" })
-      .eq("id", prospectId);
-  }
+  if (!prospect) return;
+  const alreadyAtOrPast = [
+    "meeting_booked", "proposal_in_progress", "proposal_sent", "negotiation",
+    "won", "lost", "do_not_contact", "archived",
+  ].includes(prospect.status);
+  await admin
+    .from("ge_prospects")
+    .update(
+      alreadyAtOrPast
+        ? { next_follow_up_at: null }
+        : { status: "meeting_booked", next_follow_up_at: null }
+    )
+    .eq("id", prospectId);
 }
