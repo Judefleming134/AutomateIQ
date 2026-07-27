@@ -39,6 +39,13 @@ export async function autoDraftReply(
     if (pending) return false;
 
     const settings = await loadGrowthSettings();
+    // Ground the suggested reply in the saved research (same as the Studio) —
+    // answering a warm inbound message generically wastes the warmest moment.
+    const { data: research } = await admin
+      .from("ge_research")
+      .select("report")
+      .eq("prospect_id", prospect.id)
+      .maybeSingle();
     const draft = await draftOutreach(
       {
         company: prospect.company,
@@ -55,7 +62,8 @@ export async function autoDraftReply(
         tone: "professional",
         replyContext: inboundText.slice(0, 4000),
       },
-      settings.bookingUrl
+      settings.bookingUrl,
+      (research?.report as import("@/lib/growth/research").ResearchReport | undefined) ?? null
     );
     const clean = sanitizeOutreachBody(draft.body);
     if (draftLooksBroken(clean)) return false;

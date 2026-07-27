@@ -73,6 +73,14 @@ export async function draftGrowthMessage(input: {
   const prospect = await loadProspect(input.prospectId);
   if (!prospect) return { ok: false, error: "Prospect not found." };
 
+  // Ground the draft in the saved research, same as the Studio — without it
+  // the composer wrote generic messages for fully-researched prospects.
+  const { data: research } = await createAdminClient()
+    .from("ge_research")
+    .select("report")
+    .eq("prospect_id", prospect.id)
+    .maybeSingle();
+
   const settings = await loadGrowthSettings();
   try {
     const draft = await draftOutreach(
@@ -84,7 +92,8 @@ export async function draftGrowthMessage(input: {
         instructions: input.instructions?.slice(0, 1000),
         replyContext: input.replyContext?.slice(0, 4000),
       },
-      settings.bookingUrl
+      settings.bookingUrl,
+      (research?.report as ResearchReport | undefined) ?? null
     );
     return { ok: true, ...draft };
   } catch (err) {
