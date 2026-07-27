@@ -53,10 +53,28 @@ export function reviewOutreachEmail(input: {
     return "spam-trigger subject";
   }
   const links = input.body.match(/https?:\/\/[^\s)>"']+/gi) ?? [];
-  if (links.some((l) => !/automateiq\.ie/i.test(l))) {
+  if (links.some((l) => !isAutomateIqLink(l))) {
     return "contains a link to a non-AutomateIQ site";
   }
   return null;
+}
+
+/**
+ * Is this URL genuinely ours? The HOST must be automateiq.ie (or a subdomain).
+ * A substring test on the whole URL — what this used to do — waved through
+ * every shape that merely MENTIONS the domain: "evil.com/automateiq.ie",
+ * "automateiq.ie.attacker.com/phish", "google.com/search?q=automateiq.ie".
+ * The last of those is an ordinary AI hallucination, so this was reachable
+ * without anyone being malicious. Unparseable URLs are treated as foreign,
+ * so the email is held rather than sent.
+ */
+function isAutomateIqLink(raw: string): boolean {
+  try {
+    const host = new URL(raw).hostname.toLowerCase().replace(/\.$/, "");
+    return host === "automateiq.ie" || host.endsWith(".automateiq.ie");
+  } catch {
+    return false;
+  }
 }
 
 /** Returns the reason a draft must NOT be auto-sent, or null if it's clean. */
