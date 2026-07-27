@@ -5,7 +5,7 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail, sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
-import { recordOutreachSent } from "@/lib/growth/outreach";
+import { recordOutreachSent, outreachHistoryLines } from "@/lib/growth/outreach";
 import { COLD_PURPOSES, PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { dublinDate } from "@/lib/growth/dates";
@@ -375,11 +375,16 @@ export async function studioDraft(input: {
   if (!prospect) return { ok: false, error: "Prospect not found." };
 
   const admin = createAdminClient();
-  const { data: research } = await admin
-    .from("ge_research")
-    .select("report, solutions")
-    .eq("prospect_id", input.prospectId)
-    .maybeSingle();
+  const [{ data: research }, history] = await Promise.all([
+    admin
+      .from("ge_research")
+      .select("report, solutions")
+      .eq("prospect_id", input.prospectId)
+      .maybeSingle(),
+    // The REAL sent messages — so a call script's opener or a chase can
+    // reference the actual email/DM that went out, not an invented touch.
+    outreachHistoryLines(admin, input.prospectId),
+  ]);
 
   const settings = await loadGrowthSettings();
   const solutionKeys = Array.isArray(research?.solutions)
@@ -399,7 +404,8 @@ export async function studioDraft(input: {
         transform: input.transform,
       },
       settings.bookingUrl,
-      pricingLines(solutionKeys)
+      pricingLines(solutionKeys),
+      history
     );
     return { ok: true, ...draft };
   } catch (err) {
