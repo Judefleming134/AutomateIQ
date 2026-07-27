@@ -12,7 +12,7 @@ name: Morning brief (fire the 8am dispatch)
 # that delay. The fix — same trick that made the overnight research worker
 # reliable — is to schedule EARLY and make the runner SLEEP until the real
 # target: shots start from 05:00 UTC, and whichever one GitHub actually starts
-# sleeps until 07:40 UTC (08:40 Irish summer) before dispatching. A shot that
+# sleeps until 06:50 UTC (07:50 Irish summer) before dispatching. A shot that
 # GitHub starts late (even hours late) skips the sleep and dispatches
 # immediately, so the delay lands inside the slack instead of after the target.
 #
@@ -25,7 +25,7 @@ name: Morning brief (fire the 8am dispatch)
 on:
   schedule:
     # Early starters (UTC, off-peak minutes) + one late catch-up. Whichever
-    # GitHub honours first sleeps until the 07:40 UTC target; the rest no-op.
+    # GitHub honours first sleeps until the 06:50 UTC target; the rest no-op.
     - cron: "0 5 * * *"
     - cron: "45 5 * * *"
     - cron: "30 6 * * *"
@@ -44,20 +44,20 @@ permissions:
 jobs:
   fire:
     runs-on: ubuntu-latest
-    # Must outlast the longest sleep: 05:00 start → 07:40 target is 160 min.
+    # Must outlast the longest sleep: 05:00 start → 06:50 target is 110 min.
     timeout-minutes: 200
     steps:
-      - name: Sleep until the 07:40 UTC dispatch target
+      - name: Sleep until the 06:50 UTC dispatch target
         if: github.event_name == 'schedule'
         run: |
-          TARGET=$(date -u -d "$(date -u +%Y-%m-%d) 07:40:00" +%s)
+          TARGET=$(date -u -d "$(date -u +%Y-%m-%d) 06:50:00" +%s)
           NOW=$(date -u +%s)
           if [ "$NOW" -lt "$TARGET" ]; then
             WAIT=$((TARGET - NOW))
-            echo "Started early — sleeping ${WAIT}s until 07:40 UTC."
+            echo "Started early — sleeping ${WAIT}s until 06:50 UTC."
             sleep "$WAIT"
           else
-            echo "Already past 07:40 UTC — dispatching immediately."
+            echo "Already past 06:50 UTC — dispatching immediately."
           fi
       - name: Skip if today's dispatch already ran
         id: guard
