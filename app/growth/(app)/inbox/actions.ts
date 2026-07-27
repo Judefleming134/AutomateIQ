@@ -268,15 +268,22 @@ export async function sendQueuedEmail(_prev: Result, formData: FormData): Promis
   // reach a real prospect — even via the manual Send button. Regenerate in
   // the Studio to clear it. (Length/subject nits are left to the sender's
   // judgement here; this only blocks the unambiguously-broken.)
-  const broken = draftLooksBroken(sanitizeOutreachBody(message.body));
+  // SEND THE TEXT THE GATE CHECKED: the broken-check runs on the sanitized
+  // body, so sending the raw one could deliver the very placeholder the
+  // sanitizer quietly fixed. Store it too, so history shows what went out.
+  const cleanBody = sanitizeOutreachBody(message.body);
+  const broken = draftLooksBroken(cleanBody);
   if (broken) {
     return { error: `Not sent — ${broken}. Regenerate the draft in the Studio first.` };
+  }
+  if (cleanBody !== message.body) {
+    await admin.from("ge_messages").update({ body: cleanBody }).eq("id", id);
   }
 
   const sent = await sendOutreachEmail({
     to: prospect.email,
     subject: message.subject || `question about ${prospect.company}`,
-    body: message.body,
+    body: cleanBody,
   });
   if (!sent.ok) {
     await admin.from("ge_messages").update({ status: "failed" }).eq("id", id);
