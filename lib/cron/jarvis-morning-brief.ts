@@ -184,6 +184,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       { data: ready, count: readyCount },
       { data: overnightReplies },
       { data: meetingsToday },
+      { data: allInbound },
     ] = await Promise.all([
       // Both windows from ONE table load (same fix as Jarvis chat) — two
       // loadGrowthMetrics calls scanned all six growth tables twice inside
@@ -226,7 +227,82 @@ export async function sendJarvisMorningBrief(): Promise<{
         .lte("scheduled_at", `${today}T23:59:59`)
         .order("scheduled_at")
         .limit(10),
+      // Every reply ever received, newest first — the raw material for "who is
+      // STILL waiting on me". The overnight section above is a 24-hour window,
+      // so a reply Jude didn't answer that day fell out of the brief entirely
+      // and never came back. Inbound is a small fraction of message volume.
+      admin
+        .from("ge_messages")
+        .select("prospect_id, channel, body, created_at, ge_prospects(company)")
+        .eq("direction", "inbound")
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
+
+    // ── STILL WAITING ON YOU ───────────────────────────────────────────
+    // A reply that goes unanswered is the most expensive miss in the engine:
+    // they raised their hand and got silence. The brief only ever showed the
+    // last 24 hours of inbound, so one Jude didn't get to that day dropped out
+    // and was never mentioned again — invisible unless he opened the Inbox tab.
+    //
+    // Same "who spoke last" rule as the inbox and the dashboard: only messages
+    // that ACTUALLY happened count — inbound, or outbound that genuinely SENT.
+    // The engine auto-drafts a suggested reply after every inbound, and
+    // counting that unsent draft would clear the whole list at once.
+    const latestInbound = new Map<
+      string,
+      { company: string; channel: string; body: string; created_at: string }
+    >();
+    for (const m of allInbound ?? []) {
+      // Newest-first, so the first sighting of a prospect is their last reply.
+      if (!latestInbound.has(m.prospect_id)) {
+        latestInbound.set(m.prospect_id, {
+          company: (m.ge_prospects as { company?: string } | null)?.company ?? "unknown",
+          channel: String(m.channel ?? ""),
+          body: String(m.body ?? ""),
+          created_at: m.created_at,
+        });
+      }
+    }
+    const inboundPids = [...latestInbound.keys()];
+    const { data: sentToThem } = inboundPids.length
+      ? await admin
+          .from("ge_messages")
+          .select("prospect_id, sent_at, created_at")
+          .in("prospect_id", inboundPids)
+          .eq("direction", "outbound")
+          .eq("status", "sent")
+      : { data: [] as { prospect_id: string; sent_at: string | null; created_at: string }[] };
+    const lastSentTo = new Map<string, string>();
+    for (const m of sentToThem ?? []) {
+      // sent_at is the real send time; created_at is when the draft was
+      // written, which can predate the reply it's being compared against.
+      const at = m.sent_at ?? m.created_at;
+      const current = lastSentTo.get(m.prospect_id);
+      if (!current || at > current) lastSentTo.set(m.prospect_id, at);
+    }
+    const awaitingLines = inboundPids
+      .filter((id) => {
+        const inbound = latestInbound.get(id)!;
+        const sent = lastSentTo.get(id);
+        // Waiting = never answered, or their reply landed after our last send.
+        if (sent && inbound.created_at <= sent) return false;
+        // Anything under 24h is already in OVERNIGHT REPLIES above — this
+        // section is the ones that have ALREADY been let slide, so the two
+        // never repeat each other and there's no gap between them either.
+        return inbound.created_at < since24h;
+      })
+      // Longest-waiting first: most at risk of going cold.
+      .sort((a, b) => (latestInbound.get(a)!.created_at < latestInbound.get(b)!.created_at ? -1 : 1))
+      .slice(0, 10)
+      .map((id) => {
+        const r = latestInbound.get(id)!;
+        const days = Math.max(
+          1,
+          Math.floor((Date.now() - new Date(r.created_at).getTime()) / 86_400_000)
+        );
+        return `• ${r.company} — waiting ${days} day${days === 1 ? "" : "s"} (${r.channel}): "${r.body.slice(0, 120)}"`;
+      });
 
     // What the 8am autopilot just sent (this dispatch runs sends first).
     const { data: sentToday } = await admin
@@ -442,6 +518,7 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
             `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
             `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
+            `Replied EARLIER and still unanswered (${awaitingLines.length}) — these outrank everything else today:\n${awaitingLines.join("\n") || "none"}`,
             `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
             `Meetings today (${meetingLines.length}):\n${meetingLines.join("\n") || "none"}`,
@@ -527,6 +604,11 @@ export async function sendJarvisMorningBrief(): Promise<{
         replyLines.length
           ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + replyDraftNote
           : "",
+        // Worth carrying into the weekend brief too — a reply left on Friday
+        // is precisely the one that gets lost.
+        awaitingLines.length
+          ? `🔴 STILL WAITING ON YOU (${awaitingLines.length})\n${awaitingLines.join("\n")}`
+          : "",
         meetingLines.length
           ? section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "")
           : "",
@@ -549,6 +631,11 @@ export async function sendJarvisMorningBrief(): Promise<{
         sentBlock,
         nightlyBlock,
         section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + replyDraftNote,
+        // Above meetings and due chases on purpose: someone who wrote back and
+        // hasn't heard anything outranks both.
+        awaitingLines.length
+          ? `🔴 STILL WAITING ON YOU (${awaitingLines.length})\n${awaitingLines.join("\n")}\nAnswer these first — they replied and got silence.`
+          : "",
         section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
         section(`FOLLOW-UPS DUE (${dueTotal})`, dueLines, "Nothing due — pipeline is current.") +
           dueMore +
@@ -567,7 +654,11 @@ export async function sendJarvisMorningBrief(): Promise<{
       ]
         .filter(Boolean)
         .join("\n\n");
-      subject = `Jarvis morning brief — ${today}: ${replyLines.length} replies, ${dueTotal} due, ${readyTotal} ready to send`;
+      // Lead the subject with what's waiting — it's the line he reads on a
+      // phone notification without opening anything.
+      subject = `Jarvis morning brief — ${today}: ${
+        awaitingLines.length ? `${awaitingLines.length} waiting on you, ` : ""
+      }${replyLines.length} replies, ${dueTotal} due, ${readyTotal} ready to send`;
     }
 
     const { sent, detail } = await deliverBrief(subject, bodyText);
