@@ -15,6 +15,7 @@ import { pricingLines } from "@/lib/growth/pricing";
 import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { dublinDate } from "@/lib/growth/dates";
 import {
+  CLOSED_STATUSES,
   PROSPECT_STATUS_META,
   PURPOSES,
   type MessagePurpose,
@@ -343,6 +344,12 @@ export async function askJarvis(
   const admin = createAdminClient();
   const today = dublinDate();
 
+  // The prospect columns Jarvis reasons over. Shared by both fetches below so
+  // a due chase reads exactly like a top-scored lead in the snapshot.
+  const SNAPSHOT_COLS =
+    "id, company, contact_name, status, industry, location, lead_score, pipeline_value, next_follow_up_at, last_contact_at, email, phone, instagram_url, facebook_url, linkedin_url, notes";
+  const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
+
   const [
     [metrics, week],
     { data: prospects },
@@ -350,15 +357,15 @@ export async function askJarvis(
     { data: meetings },
     { data: deliveryEvents },
     { count: researchFailedCount },
+    { data: dueProspects },
+    { count: prospectsTotal },
   ] = await Promise.all([
       // Both windows from ONE table load — two loadGrowthMetrics calls
       // scanned all six growth tables twice on every single chat question.
       loadGrowthMetricsMulti(admin, [null, 7]),
       admin
         .from("ge_prospects")
-        .select(
-          "company, contact_name, status, industry, location, lead_score, pipeline_value, next_follow_up_at, last_contact_at, email, phone, instagram_url, facebook_url, linkedin_url, notes"
-        )
+        .select(SNAPSHOT_COLS)
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(150),
       admin
@@ -389,12 +396,35 @@ export async function askJarvis(
         .from("ge_prospects")
         .select("id", { count: "exact", head: true })
         .eq("status", "research_failed"),
+      // EVERY chase due or overdue, on its own terms. The snapshot above is
+      // purely top-150-by-score, so a chase due today on a lead below that cut
+      // simply wasn't in the data Jarvis reads — and it would answer "what's
+      // due today?" from the truncated view without knowing it was truncated,
+      // which reads as a confident wrong answer rather than a short list.
+      admin
+        .from("ge_prospects")
+        .select(SNAPSHOT_COLS)
+        .not("next_follow_up_at", "is", null)
+        .lte("next_follow_up_at", today)
+        .not("status", "in", activeFilter)
+        .order("next_follow_up_at", { ascending: true })
+        .limit(60),
+      // The true size of the database, so Jarvis can say what it ISN'T seeing
+      // instead of implying the snapshot is everything.
+      admin.from("ge_prospects").select("id", { count: "exact", head: true }),
     ]);
 
   const statusLabel = (s: string) =>
     PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
 
-  const prospectLines = (prospects ?? [])
+  // Due chases first (they're the time-boxed work), then the best scores. A
+  // lead can legitimately be in both — de-duplicate by id so it's listed once.
+  const seenProspect = new Set<string>();
+  const snapshotProspects = [...(dueProspects ?? []), ...(prospects ?? [])].filter((p) =>
+    seenProspect.has(p.id) ? false : (seenProspect.add(p.id), true)
+  );
+
+  const prospectLines = snapshotProspects
     .map((p) => {
       // Junk social links saved by the old harvester (bare facebook.com,
       // share buttons, fbml tags) are treated as absent — Jarvis must never
@@ -503,7 +533,10 @@ export async function askJarvis(
           .join(", ")}`
       : "",
     "",
-    `PROSPECTS (top ${(prospects ?? []).length} by score):`,
+    // Say exactly what this list is AND what it leaves out. Without the total,
+    // a truncated snapshot reads as the whole database and Jarvis answers
+    // "how many…" questions off it as if they were complete.
+    `PROSPECTS — ${snapshotProspects.length} of ${prospectsTotal ?? snapshotProspects.length} in the database: every chase due or overdue first (${(dueProspects ?? []).length}), then the highest-scoring leads. Prospects outside this list exist but aren't shown; for counts across the WHOLE database use the funnel numbers above, not this list.`,
     prospectLines || "(none yet)",
     "",
     "RECENT INBOUND REPLIES:",
