@@ -53,13 +53,20 @@ export function formatPrice(key: string): string | null {
  * Conservative first-year value of a set of recommendations — used to give
  * pipeline_value a grounded default after research (top two solutions
  * only; deals rarely start with more).
+ *
+ * Order matters and must match buildQuote: filter to PRICED solutions FIRST,
+ * then take two. Slicing first meant an unpriced catalogue entry at the top of
+ * the recommendations consumed one of the two slots and contributed nothing —
+ * so the pipeline showed the value of ONE solution while the quote panel and
+ * the call sheet quoted TWO (measured: €687 vs €2,584 on the same prospect).
  */
 export function estimatedFirstYearValue(keys: string[]): number {
   return keys
+    .filter((key) => PRICE_BOOK[key])
     .slice(0, 2)
     .reduce((sum, key) => {
       const p = PRICE_BOOK[key];
-      return p ? sum + p.setup + p.monthly * 12 : sum;
+      return sum + p.setup + p.monthly * 12;
     }, 0);
 }
 
