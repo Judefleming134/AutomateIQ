@@ -288,51 +288,77 @@ export async function autoQueueDueFollowups(): Promise<{
     .order("lead_score", { ascending: false, nullsFirst: false })
     .limit(80);
 
+  // Both chase touches (follow_up = touch 2, second_follow_up = touch 3) count
+  // toward GROWTH_MAX_FOLLOWUPS, so the 3-touch sequence can't run past it.
+  const CHASE_PURPOSES = ["follow_up", "second_follow_up"];
+
+  // ONE round trip per question instead of one per prospect. This loop used to
+  // issue three sequential queries for EVERY candidate — sent-count, queued
+  // check, draft lookup — so an 80-candidate list meant ~240 serial round trips
+  // inside the 07:00 dispatch, ahead of the sends AND the morning brief. That
+  // is pure latency in the one function whose budget must not run out: the
+  // brief runs last, so an overrun costs Jude his brief. Same three questions,
+  // asked once for the whole batch and answered from memory below; the
+  // per-prospect decisions and their order are unchanged.
+  const dueIds = (due ?? []).map((p) => p.id);
+  const [{ data: chaseSent }, { data: chaseQueued }, { data: chaseDrafts }] = dueIds.length
+    ? await Promise.all([
+        admin
+          .from("ge_messages")
+          .select("prospect_id")
+          .in("prospect_id", dueIds)
+          .eq("channel", "email")
+          .eq("direction", "outbound")
+          .in("purpose", CHASE_PURPOSES)
+          .eq("status", "sent"),
+        admin
+          .from("ge_messages")
+          .select("prospect_id")
+          .in("prospect_id", dueIds)
+          .eq("channel", "email")
+          .eq("direction", "outbound")
+          .in("purpose", CHASE_PURPOSES)
+          .eq("status", "queued"),
+        admin
+          .from("ge_messages")
+          .select("id, prospect_id, subject, body, created_at")
+          .in("prospect_id", dueIds)
+          .eq("channel", "email")
+          .eq("direction", "outbound")
+          .in("purpose", CHASE_PURPOSES)
+          .eq("status", "draft")
+          .order("created_at", { ascending: false }),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }];
+
+  const sentCountByProspect = new Map<string, number>();
+  for (const m of chaseSent ?? []) {
+    sentCountByProspect.set(m.prospect_id, (sentCountByProspect.get(m.prospect_id) ?? 0) + 1);
+  }
+  const hasQueuedChase = new Set((chaseQueued ?? []).map((m) => m.prospect_id));
+  // Rows arrive newest-first, so the first sighting per prospect is the latest
+  // draft — exactly what the old `order(created_at desc).limit(1)` returned.
+  const latestDraftByProspect = new Map<string, { id: string; subject: string | null; body: string }>();
+  for (const m of chaseDrafts ?? []) {
+    if (!latestDraftByProspect.has(m.prospect_id)) {
+      latestDraftByProspect.set(m.prospect_id, { id: m.id, subject: m.subject, body: m.body });
+    }
+  }
+
   let queued = 0;
   const names: string[] = [];
   for (const p of due ?? []) {
     if (queued >= PER_RUN_CAP) break;
 
-    // Hard chase cap: stop once we've SENT this many follow-ups. Both chase
-    // touches (follow_up = touch 2, second_follow_up = touch 3) count toward
-    // it, so the 3-touch sequence can't run past GROWTH_MAX_FOLLOWUPS.
-    const CHASE_PURPOSES = ["follow_up", "second_follow_up"];
-    const { count: sentFollowups } = await admin
-      .from("ge_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("prospect_id", p.id)
-      .eq("channel", "email")
-      .eq("direction", "outbound")
-      .in("purpose", CHASE_PURPOSES)
-      .eq("status", "sent");
-    if ((sentFollowups ?? 0) >= maxTouches) continue;
+    // Hard chase cap: stop once we've SENT this many follow-ups.
+    if ((sentCountByProspect.get(p.id) ?? 0) >= maxTouches) continue;
 
     // Already have one queued? leave it (don't double up).
-    const { data: pending } = await admin
-      .from("ge_messages")
-      .select("id")
-      .eq("prospect_id", p.id)
-      .eq("channel", "email")
-      .eq("direction", "outbound")
-      .in("purpose", CHASE_PURPOSES)
-      .eq("status", "queued")
-      .limit(1)
-      .maybeSingle();
-    if (pending) continue;
+    if (hasQueuedChase.has(p.id)) continue;
 
     // The clean chase draft the worker wrote overnight (whichever touch is
     // next — the worker picks follow_up then second_follow_up in order).
-    const { data: draft } = await admin
-      .from("ge_messages")
-      .select("id, subject, body")
-      .eq("prospect_id", p.id)
-      .eq("channel", "email")
-      .eq("direction", "outbound")
-      .in("purpose", CHASE_PURPOSES)
-      .eq("status", "draft")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const draft = latestDraftByProspect.get(p.id);
     if (!draft) continue;
 
     const body = sanitizeOutreachBody(draft.body);
