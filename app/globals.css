@@ -1065,6 +1065,18 @@ table.data-table {
   }
 }
 
+/* Below the two-column breakpoint .grid-main-side stacks in DOM order, which
+   puts the sidebar underneath the whole main column. In the inbox that meant a
+   phone showed the entire selected thread AND the composer before the list of
+   who had replied — you scrolled past a full conversation to find out there
+   were others waiting. Hoist the list to the top on narrow screens; the
+   two-column desktop layout above is untouched. */
+@media (max-width: 1023px) {
+  .grid-main-side > .inbox-side {
+    order: -1;
+  }
+}
+
 /* Simple activity bar chart (server-rendered divs, no chart library) */
 
 .chart-bars {

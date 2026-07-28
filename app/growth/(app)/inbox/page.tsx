@@ -384,11 +384,51 @@ export default async function InboxPage({
                     templates={templates}
                   />
                 </section>
+
+                {/* Sits beside "Respond" rather than under the conversation
+                    list: both are ways of recording the same exchange, and on
+                    a phone it belongs after the thread you're reading, not
+                    wedged between the list and the conversation. */}
+                <section className="panel panel-block" style={{ marginTop: 16 }} aria-label="Log a reply">
+                  <h2 className="panel-title">Log their reply</h2>
+                  <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
+                    Got a reply in LinkedIn, Instagram, email or by text? Paste it
+                    here so the record and analytics stay accurate.
+                  </p>
+                  <ActionForm action={logInboundMessage}>
+                    <input type="hidden" name="prospect_id" value={selected.id} />
+                    <label htmlFor="li-channel">Channel</label>
+                    <select id="li-channel" name="channel" defaultValue={lastInbound?.channel ?? "email"}>
+                      {CHANNELS.map((ch) => (
+                        <option key={ch} value={ch}>
+                          {CHANNEL_META[ch].label}
+                        </option>
+                      ))}
+                    </select>
+                    <label htmlFor="li-sentiment">Sentiment</label>
+                    <select id="li-sentiment" name="sentiment" defaultValue="neutral">
+                      <option value="positive">Positive</option>
+                      <option value="neutral">Neutral</option>
+                      <option value="negative">Negative</option>
+                    </select>
+                    <label htmlFor="li-body">Their message</label>
+                    <textarea id="li-body" name="body" rows={4} required maxLength={10000} />
+                    <div className="form-actions">
+                      <SubmitButton className="btn btn-secondary btn-sm" pendingText="Logging…">
+                        Log reply
+                      </SubmitButton>
+                    </div>
+                  </ActionForm>
+                </section>
               </>
             )}
           </div>
 
-          <div>
+          {/* Hoisted above the thread on phones (see .inbox-side in
+              globals.css): stacked in DOM order, the whole selected thread AND
+              the composer came first, so you scrolled past an entire
+              conversation before discovering there were others waiting. */}
+          <div className="inbox-side">
             <section className="panel panel-block" aria-label="Conversations">
               <h2 className="panel-title">Conversations</h2>
               <div style={{ display: "grid", gap: 6 }}>
@@ -427,40 +467,6 @@ export default async function InboxPage({
                 })}
               </div>
             </section>
-
-            {selected && (
-              <section className="panel panel-block" style={{ marginTop: 16 }} aria-label="Log a reply">
-                <h2 className="panel-title">Log their reply</h2>
-                <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 0 }}>
-                  Got a reply in LinkedIn, Instagram, email or by text? Paste it
-                  here so the record and analytics stay accurate.
-                </p>
-                <ActionForm action={logInboundMessage}>
-                  <input type="hidden" name="prospect_id" value={selected.id} />
-                  <label htmlFor="li-channel">Channel</label>
-                  <select id="li-channel" name="channel" defaultValue={lastInbound?.channel ?? "email"}>
-                    {CHANNELS.map((ch) => (
-                      <option key={ch} value={ch}>
-                        {CHANNEL_META[ch].label}
-                      </option>
-                    ))}
-                  </select>
-                  <label htmlFor="li-sentiment">Sentiment</label>
-                  <select id="li-sentiment" name="sentiment" defaultValue="neutral">
-                    <option value="positive">Positive</option>
-                    <option value="neutral">Neutral</option>
-                    <option value="negative">Negative</option>
-                  </select>
-                  <label htmlFor="li-body">Their message</label>
-                  <textarea id="li-body" name="body" rows={4} required maxLength={10000} />
-                  <div className="form-actions">
-                    <SubmitButton className="btn btn-secondary btn-sm" pendingText="Logging…">
-                      Log reply
-                    </SubmitButton>
-                  </div>
-                </ActionForm>
-              </section>
-            )}
           </div>
         </div>
       )}
