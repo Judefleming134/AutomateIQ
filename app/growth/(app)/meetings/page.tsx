@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/admin/submit-button";
 import { CopyButton } from "@/components/portal/copy-button";
 import { MEETING_STATUS_META, type MeetingStatus } from "@/lib/growth/constants";
 import { selectAllRows } from "@/lib/growth/db";
+import { dublinLocalToUtcISO } from "@/lib/growth/dates";
 import { recordMeeting, setMeetingStatus, syncStrategyBookings } from "./actions";
 
 function fmt(ts: string, fromBooking = false): string {
@@ -89,9 +90,23 @@ export default async function MeetingsPage() {
     m.strategy_booking_id
       ? String(m.scheduled_at).slice(0, 19) < dublinWallNow
       : m.scheduled_at < nowIso;
-  const upcoming = (meetings ?? []).filter(
-    (m) => m.status === "booked" && !hasPassed(m)
-  );
+  // A booking-page slot stores the Irish wall-clock AS UTC, a manually recorded
+  // meeting stores a true instant. Sorting the raw column mixes those two
+  // frames, so in summer a 14:00 booking and a 14:00 manual meeting sort an
+  // hour apart. Normalise the booking to a real instant first — same rule
+  // hasPassed uses, just applied to ordering.
+  const instantOf = (m: { scheduled_at: string; strategy_booking_id: string | null }) =>
+    m.strategy_booking_id
+      ? (dublinLocalToUtcISO(String(m.scheduled_at).slice(0, 16)) ?? String(m.scheduled_at))
+      : String(m.scheduled_at);
+  // SOONEST FIRST. The query orders scheduled_at DESCENDING (right for the past
+  // lists below), and filtering preserves that order — so "Upcoming" was listing
+  // the furthest-away meeting first and the one happening NEXT at the bottom.
+  // On the page whose whole job is "what's coming up", the next session was the
+  // last thing Jude saw.
+  const upcoming = (meetings ?? [])
+    .filter((m) => m.status === "booked" && !hasPassed(m))
+    .sort((a, b) => (instantOf(a) < instantOf(b) ? -1 : 1));
   // A meeting still marked "booked" whose time has passed happened but was
   // never closed out (completed / no-show / cancelled). Previously these fell
   // into the generic "Past & closed" list — mixed among finished meetings and
@@ -169,7 +184,15 @@ export default async function MeetingsPage() {
           <h2 className="section-title">Upcoming ({upcoming.length})</h2>
           {upcoming.length === 0 ? (
             <div className="panel panel-block">
-              <p className="empty-state">No upcoming meetings.</p>
+              {/* A bare "No upcoming meetings." is a dead end on the page whose
+                  entire point is getting one booked — say what fills it. */}
+              <p className="empty-state" style={{ margin: 0 }}>
+                Nothing booked yet. Sessions land here when a prospect books
+                through your link (sync pulls them in by email match) or when
+                you record one below. Fastest route to the next booking:{" "}
+                <Link href="/growth/call-list">work the call list</Link> and send
+                anyone warm the booking link.
+              </p>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 12 }}>
