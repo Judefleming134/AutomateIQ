@@ -15,6 +15,7 @@ import {
   BookmarkPlus,
   Save,
   Phone,
+  Undo2,
 } from "lucide-react";
 import {
   studioDraft,
@@ -90,6 +91,13 @@ export function MessageStudio({
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // The text an AI action just replaced, so it can be put back. Generate,
+  // Regenerate, Improve, Rewrite, Shorten and Expand all overwrite the box
+  // outright — one tap on any of them wiped a hand-written message, or an AI
+  // draft already edited by hand, with no way back. Keyed to the channel+
+  // purpose it came from so switching tabs can never restore it over a
+  // different draft.
+  const [undo, setUndo] = useState<{ key: string; subject: string; body: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -119,8 +127,22 @@ export function MessageStudio({
         setNotice({ kind: "error", text: result.error });
         return;
       }
+      // Capture what's being replaced BEFORE overwriting it — only when there
+      // was something there, so a first Generate into an empty box doesn't
+      // offer a pointless undo.
+      const replaced = active.body.trim() || active.subject.trim();
+      setUndo(
+        replaced
+          ? { key: key(channel, purpose), subject: active.subject, body: active.body }
+          : null
+      );
       setActive({ body: result.body, ...(result.subject ? { subject: result.subject } : {}) });
-      setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
+      setNotice({
+        kind: "ok",
+        text: replaced
+          ? "Draft ready — your previous text was replaced."
+          : "Draft ready — review and edit before sending.",
+      });
     } catch {
       setNotice({
         kind: "error",
@@ -129,6 +151,14 @@ export function MessageStudio({
     } finally {
       setBusy(null);
     }
+  }
+
+  /** Put back the text the last AI action replaced. */
+  function restoreUndo() {
+    if (!undo || undo.key !== key(channel, purpose)) return;
+    setActive({ subject: undo.subject, body: undo.body });
+    setUndo(null);
+    setNotice({ kind: "ok", text: "Your original text is back." });
   }
 
   function dispatch(mode: "draft" | "send_email" | "mark_sent") {
@@ -184,6 +214,9 @@ export function MessageStudio({
                 : "Recorded as sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days.",
         });
         setDrafts((prev) => ({ ...prev, [key(channel, purpose)]: emptyDraft }));
+        // The message is gone — offering to restore pre-generate text into the
+        // now-empty box would only be confusing.
+        setUndo(null);
       }
       router.refresh();
     });
@@ -447,6 +480,19 @@ export function MessageStudio({
         >
           {notice.text}
         </p>
+      )}
+
+      {/* One tap back to what the AI just overwrote. Only offered for the
+          draft it actually belongs to. */}
+      {undo && undo.key === key(channel, purpose) && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={restoreUndo}
+          style={{ marginTop: 8 }}
+        >
+          <Undo2 size={13} /> Undo — put my original text back
+        </button>
       )}
 
       {/* Dispatch row */}
