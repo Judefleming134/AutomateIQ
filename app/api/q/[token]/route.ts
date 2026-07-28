@@ -71,10 +71,16 @@ export async function POST(
       .select("name")
       .eq("id", quote.business_id)
       .single();
+    // Oldest profile = the founding account for that business. An unordered
+    // limit(1) let Postgres return ANY member, so on a business with staff the
+    // "your quote was accepted" email went to whoever happened to come back
+    // first — and could land on a different person each time, with the owner
+    // never told a job had just been won.
     const { data: members } = await admin
       .from("profiles")
       .select("id")
       .eq("business_id", quote.business_id)
+      .order("created_at", { ascending: true })
       .limit(1);
     const ownerId = members?.[0]?.id;
     if (ownerId) {
