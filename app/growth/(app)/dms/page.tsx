@@ -42,6 +42,12 @@ type WorkItem = {
 };
 
 const MAX_ITEMS = 40;
+/** Prospects pulled by score before the already-DM'd filter runs. */
+const POOL_LIMIT = 600;
+/** How far down the un-DM'd pool to look for drafts to fill one screen. */
+const DRAFT_LOOKUP = 150;
+
+const SOCIAL_CHANNELS = ["instagram", "facebook", "linkedin"];
 
 export default async function DmListPage() {
   await requireGrowth();
@@ -50,51 +56,75 @@ export default async function DmListPage() {
   // Active prospects on at least one social platform, best scores first.
   // Late-stage / closed leads are excluded — this is cold-touch DMing, not
   // pestering someone already in conversation.
-  const { data: prospects } = await admin
-    .from("ge_prospects")
-    .select("id, company, contact_name, lead_score, instagram_url, facebook_url, linkedin_url")
-    .not(
-      "status",
-      "in",
-      '("won","lost","do_not_contact","archived","replied","qualified","meeting_booked","proposal_in_progress","proposal_sent","negotiation")'
-    )
-    .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
-    .order("lead_score", { ascending: false, nullsFirst: false })
-    .limit(200);
+  //
+  // The already-DM'd exclusion runs against a POOL, fetched ahead of it. It
+  // used to work the other way round: fetch the top 200 by score, then drop
+  // the DM'd ones from that slice. So as Jude worked through his best leads
+  // the 200 filled up with people he'd already messaged, the list starved,
+  // and it eventually showed "No DMs ready — research some prospects" while
+  // hundreds of researched, drafted, un-DM'd prospects sat just below the
+  // score cut. Same shape as the call-list bug: a score cap applied before
+  // the "still to work" filter can only reorder what it happens to contain.
+  const [{ data: pool }, dmdRows] = await Promise.all([
+    admin
+      .from("ge_prospects")
+      .select("id, company, contact_name, lead_score, instagram_url, facebook_url, linkedin_url")
+      .not(
+        "status",
+        "in",
+        '("won","lost","do_not_contact","archived","replied","qualified","meeting_booked","proposal_in_progress","proposal_sent","negotiation")'
+      )
+      .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
+      .order("lead_score", { ascending: false, nullsFirst: false })
+      .limit(POOL_LIMIT),
+    // Everyone already DM'd on ANY social channel. Fetched on its own terms,
+    // paged with selectAllRows: an unranged select silently caps at 1,000
+    // rows, and a dropped "sent" row would put an already-DM'd prospect BACK
+    // on the list — the one mistake this page exists to prevent.
+    selectAllRows<{ prospect_id: string }>(() =>
+      admin
+        .from("ge_messages")
+        .select("prospect_id")
+        .eq("direction", "outbound")
+        .in("channel", SOCIAL_CHANNELS)
+        .eq("status", "sent")
+        .order("prospect_id", { ascending: true })
+    ),
+  ]);
 
-  const ids = (prospects ?? []).map((p) => p.id);
+  const alreadyDmd = new Set(dmdRows.map((r) => r.prospect_id));
+  // Everyone genuinely still to DM, best score first — the true remaining
+  // pool, not "whatever survived the cut".
+  const available = ((pool ?? []) as ProspectRow[]).filter((p) => !alreadyDmd.has(p.id));
+  const poolMaxedOut = (pool ?? []).length >= POOL_LIMIT;
 
-  // Their social DM drafts (ready to send) and any already-sent social DMs
-  // (so a prospect drops off the list once you've messaged them anywhere).
-  // Paged with selectAllRows: an unranged select silently caps at 1,000 rows,
-  // and a dropped "sent" row would put an already-DMd prospect BACK on the
-  // list — the one mistake this page exists to prevent.
-  type MessageRow = { id: string; prospect_id: string; channel: string; status: string; body: string };
+  // Only look up drafts for the slice we might actually render.
+  const candidates = available.slice(0, DRAFT_LOOKUP);
+  const ids = candidates.map((p) => p.id);
+
+  type MessageRow = { id: string; prospect_id: string; channel: string; body: string };
   const messages: MessageRow[] = ids.length
     ? await selectAllRows<MessageRow>(() =>
         admin
           .from("ge_messages")
-          .select("id, prospect_id, channel, status, body")
+          .select("id, prospect_id, channel, body")
           .in("prospect_id", ids)
           .eq("direction", "outbound")
-          .in("channel", ["instagram", "facebook", "linkedin"])
-          .in("status", ["draft", "sent"])
+          .in("channel", SOCIAL_CHANNELS)
+          .eq("status", "draft")
           .order("id", { ascending: true })
       )
     : [];
 
   const draftByKey = new Map<string, { id: string; body: string }>();
-  const alreadyDmd = new Set<string>();
   for (const m of messages ?? []) {
-    if (m.status === "sent") alreadyDmd.add(m.prospect_id);
-    else if (m.status === "draft" && !draftByKey.has(`${m.prospect_id}:${m.channel}`)) {
+    if (!draftByKey.has(`${m.prospect_id}:${m.channel}`)) {
       draftByKey.set(`${m.prospect_id}:${m.channel}`, { id: m.id, body: m.body });
     }
   }
 
   const items: WorkItem[] = [];
-  for (const p of (prospects ?? []) as ProspectRow[]) {
-    if (alreadyDmd.has(p.id)) continue;
+  for (const p of candidates) {
     // Prefer a channel with a CLEAN draft; only fall back to a flagged one so
     // the prospect still surfaces (with a "fix it" nudge) rather than vanishing.
     let clean: WorkItem | null = null;
@@ -138,20 +168,48 @@ export default async function DmListPage() {
 
       {items.length === 0 ? (
         <div className="panel panel-block">
+          {/* Two very different empty states. "Nobody left to DM" is a finish
+              line; "plenty left but none have drafts" is a missing-drafts
+              problem, and telling him to research MORE prospects there sends
+              him the wrong way entirely. */}
           <p className="empty-state" style={{ margin: 0 }}>
-            No DMs ready right now. This fills up as you research prospects that
-            have an Instagram, Facebook or LinkedIn link —{" "}
-            <Link href="/growth/prospects?sort=score">research some prospects</Link>{" "}
-            and their DM drafts will appear here.
+            {available.length > 0 ? (
+              <>
+                You&apos;ve DM&apos;d everyone who has a message ready.{" "}
+                <strong>{available.length}</strong>
+                {poolMaxedOut ? "+" : ""} prospect
+                {available.length === 1 ? "" : "s"} with a profile link are
+                still waiting on a DM draft — open one and generate it in the
+                Studio, or run the overnight engine and they&apos;ll be written
+                for you.{" "}
+                <Link href="/growth/prospects?sort=score">See them →</Link>
+              </>
+            ) : (
+              <>
+                No DMs ready right now. This fills up as you research prospects
+                that have an Instagram, Facebook or LinkedIn link —{" "}
+                <Link href="/growth/prospects?sort=score">research some prospects</Link>{" "}
+                and their DM drafts will appear here.
+              </>
+            )}
           </p>
         </div>
       ) : (
         <>
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 12px" }}>
             {items.length} ready to send · highest score first
-            {items.length === MAX_ITEMS
-              ? ` · this is a rolling top ${MAX_ITEMS} — mark them sent and the next batch loads`
-              : ""}
+            {/* The real number still to work, so the page never implies 40 is
+                all there is. */}
+            {available.length > items.length && (
+              <>
+                {" "}·{" "}
+                <strong>
+                  {available.length - items.length}
+                  {poolMaxedOut ? "+" : ""} more
+                </strong>{" "}
+                still to DM — mark these sent and the next batch loads
+              </>
+            )}
           </p>
           <div style={{ display: "grid", gap: 12 }}>
             {items.map((it) => (
