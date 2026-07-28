@@ -18,8 +18,10 @@ import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
+  CHANNEL_META,
   CLOSED_STATUSES,
   PROSPECT_STATUS_META,
+  type Channel,
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { dublinDate, dublinHour } from "@/lib/growth/dates";
@@ -119,6 +121,7 @@ export default async function GrowthDashboardPage() {
     { data: nightly },
     { count: dueTodayCount },
     { count: overdueCount },
+    { data: inboundRows },
   ] = await Promise.all([
     loadGrowthMetrics(admin, 30),
     admin
@@ -211,10 +214,81 @@ export default async function GrowthDashboardPage() {
       .lt("next_follow_up_at", today)
       .gte("next_follow_up_at", dublinDate(-7))
       .not("status", "in", activeFilter),
+    // Every reply ever received, newest first — the raw material for "who is
+    // waiting on ME". Inbound is a small fraction of message volume (thousands
+    // of sends produce dozens of replies), so this stays cheap.
+    admin
+      .from("ge_messages")
+      .select("prospect_id, body, channel, created_at")
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(400),
   ]);
 
   // Issued above alongside the main batch so both waves run concurrently.
   const [{ data: goneCold }, { count: goneColdCount }] = await goneColdQuery;
+
+  // WHO IS WAITING ON A REPLY. The dashboard tracked chases due, overdue, gone
+  // cold, hot leads and meetings — but nowhere did it show a prospect who
+  // actually WROTE BACK and hasn't been answered. That's the most expensive
+  // miss in the engine: they raised their hand and got silence. It was only
+  // visible by opening the Inbox tab, so a reply from Friday could sit all
+  // weekend behind a green pipeline. `status: "replied"` doesn't cover it —
+  // that stage never clears once Jude answers.
+  //
+  // Same "who spoke last" rule as the inbox (app/growth/(app)/inbox/page.tsx):
+  // only messages that ACTUALLY happened count, i.e. inbound, or outbound that
+  // genuinely sent. The engine auto-drafts a suggested reply after every
+  // inbound, and counting that unsent draft would clear the flag on every
+  // conversation at once.
+  const latestInbound = new Map<string, { body: string; channel: string; created_at: string }>();
+  for (const m of inboundRows ?? []) {
+    // Rows arrive newest-first, so the first sighting of a prospect is their
+    // most recent reply.
+    if (!latestInbound.has(m.prospect_id)) {
+      latestInbound.set(m.prospect_id, {
+        body: String(m.body ?? ""),
+        channel: String(m.channel ?? ""),
+        created_at: m.created_at,
+      });
+    }
+  }
+  const repliedIds = [...latestInbound.keys()];
+  const [{ data: sentRows }, { data: repliedProspects }] = repliedIds.length
+    ? await Promise.all([
+        admin
+          .from("ge_messages")
+          .select("prospect_id, sent_at, created_at")
+          .in("prospect_id", repliedIds)
+          .eq("direction", "outbound")
+          .eq("status", "sent"),
+        admin
+          .from("ge_prospects")
+          .select("id, company, contact_name, status, lead_score")
+          .in("id", repliedIds),
+      ])
+    : [{ data: [] as { prospect_id: string; sent_at: string | null; created_at: string }[] },
+       { data: [] as { id: string; company: string; contact_name: string | null; status: string; lead_score: number | null }[] }];
+
+  const latestSent = new Map<string, string>();
+  for (const m of sentRows ?? []) {
+    // A send's real timestamp is sent_at; created_at is when the draft was
+    // written (which can predate the reply it's being compared against).
+    const at = m.sent_at ?? m.created_at;
+    const current = latestSent.get(m.prospect_id);
+    if (!current || at > current) latestSent.set(m.prospect_id, at);
+  }
+  const prospectById = new Map((repliedProspects ?? []).map((p) => [p.id, p]));
+  const awaitingReply = repliedIds
+    .filter((id) => {
+      const inbound = latestInbound.get(id)!;
+      const sent = latestSent.get(id);
+      // Never answered at all, or their reply landed after our last real send.
+      return prospectById.has(id) && (!sent || inbound.created_at > sent);
+    })
+    .map((id) => ({ prospect: prospectById.get(id)!, inbound: latestInbound.get(id)! }))
+    // Longest-waiting first — the one most at risk of going cold.
+    .sort((a, b) => (a.inbound.created_at < b.inbound.created_at ? -1 : 1));
 
   // "Hot prospects" = the deals closest to a yes, so lead with pipeline STAGE,
   // not the research-time cold score: a lead in negotiation or with a proposal
@@ -293,6 +367,78 @@ export default async function GrowthDashboardPage() {
           <p>Today&apos;s priorities first — then research the next company.</p>
         </div>
       </div>
+
+      {/* Above everything else on purpose: someone who wrote back and hasn't
+          been answered outranks every chase, every cold lead and every stat on
+          this page. Rendered only when there's something to act on, so a clear
+          inbox costs no space. */}
+      {awaitingReply.length > 0 && (
+        <section
+          className="panel panel-block"
+          style={{ marginBottom: 20, borderLeft: "3px solid var(--orange, #fb923c)" }}
+          aria-labelledby="awaiting-title"
+        >
+          <h2 className="panel-title" id="awaiting-title" style={{ marginBottom: 6 }}>
+            <MessageSquare size={15} style={{ verticalAlign: "-2px", color: "var(--orange, #fb923c)" }} />{" "}
+            {awaitingReply.length} {awaitingReply.length === 1 ? "reply is" : "replies are"} waiting on you
+            <Link href="/growth/inbox">Open inbox →</Link>
+          </h2>
+          <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "0 0 10px" }}>
+            They answered and haven&apos;t heard back. Answer these before
+            anything else on this page.
+          </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {awaitingReply.slice(0, 8).map(({ prospect, inbound }) => {
+              const waitedDays = Math.floor(
+                (Date.now() - new Date(inbound.created_at).getTime()) / 86400000
+              );
+              return (
+                <Link
+                  key={prospect.id}
+                  href={`/growth/inbox?p=${prospect.id}`}
+                  className="panel"
+                  style={{ padding: "9px 11px", display: "block" }}
+                >
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: 14 }}>{prospect.company}</strong>
+                    {prospect.contact_name && (
+                      <span style={{ fontSize: 12, color: "var(--faint)" }}>{prospect.contact_name}</span>
+                    )}
+                    <span style={{ fontSize: 11, color: "var(--faint)" }}>
+                      {CHANNEL_META[inbound.channel as Channel]?.label ?? inbound.channel}
+                    </span>
+                    {/* Waiting time is the whole point — an hour old is fine,
+                        four days old is a deal quietly dying. */}
+                    <span
+                      className={`badge ${waitedDays >= 2 ? "badge-orange" : "badge-gray"}`}
+                      style={{ marginLeft: "auto" }}
+                    >
+                      {waitedDays < 1 ? "today" : waitedDays === 1 ? "1 day" : `${waitedDays} days`}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12.5,
+                      color: "var(--faint)",
+                      marginTop: 3,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {inbound.body}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+          {awaitingReply.length > 8 && (
+            <p style={{ fontSize: 12.5, margin: "10px 0 0" }}>
+              <Link href="/growth/inbox">See all {awaitingReply.length} in the inbox →</Link>
+            </p>
+          )}
+        </section>
+      )}
 
       {/* The engine's own work in the last 24h — proof the automation ran. */}
       {autoTotal > 0 && (
