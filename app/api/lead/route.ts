@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
+import { escapeLike } from "@/lib/growth/db";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -47,11 +48,17 @@ export async function POST(request: NextRequest) {
   // "access request" mail to any victim it names — and flood the owner alert.
   // Email at most once per address per 24h, checked against prior leads. The
   // lead row is still stored either way, so no genuine enquiry is dropped.
+  // Matched case-INSENSITIVELY. A plain .eq() compares byte-for-byte, so
+  // "Bob@x.com" didn't match the "bob@x.com" already throttled — a bot only
+  // had to vary capitalisation to make automateiq.ie mail the same victim
+  // over and over, which is exactly what this guard exists to stop. ilike
+  // with the wildcards escaped keeps the match literal (% and _ are legal in
+  // an email local part); same shape as /api/book.
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: recentLead } = await supabase
     .from("leads")
     .select("id")
-    .eq("email", email)
+    .ilike("email", escapeLike(email))
     .gte("created_at", dayAgo)
     .limit(1)
     .maybeSingle();

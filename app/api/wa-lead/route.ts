@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { escapeLike } from "@/lib/growth/db";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import {
   renderTemplate,
@@ -69,10 +70,16 @@ export async function POST(request: NextRequest) {
       // enquiry" spam to a victim = deliverability damage). One auto-reply
       // per address per 24h, checked against the send log; the lead row
       // itself is still stored either way.
+      // Case-INSENSITIVE match. A plain .eq() compares byte-for-byte, so
+      // "Bob@x.com" didn't match the "bob@x.com" already throttled — varying
+      // capitalisation was enough to make the platform auto-reply to the same
+      // victim repeatedly, which is precisely what this guard prevents.
+      // Wildcards escaped so the match stays literal (% and _ are legal in an
+      // email local part); same shape as /api/book and /api/lead.
       const { data: recentReply } = await supabase
         .from("stl_replies")
         .select("id")
-        .eq("sent_to", contact)
+        .ilike("sent_to", escapeLike(contact))
         .gte("created_at", new Date(Date.now() - 24 * 3600 * 1000).toISOString())
         .limit(1)
         .maybeSingle();
