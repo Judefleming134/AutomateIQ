@@ -69,6 +69,35 @@ const TABS = [
 ] as const;
 
 /**
+ * Which tab a prospect OPENS on when no ?tab= is given. It used to be
+ * "research" for everyone, so a lead who had replied, had a proposal out or
+ * was in negotiation still landed on a static AI report he'd read a dozen
+ * times — and the Next-best-move banner right underneath had to tell him to
+ * click somewhere else. This mirrors that banner's own targets, so the page
+ * opens where the work is. An explicit ?tab= always wins, and every tab stays
+ * one tap away.
+ */
+const DEFAULT_TAB_BY_STATUS: Record<string, (typeof TABS)[number]["key"]> = {
+  new: "research",
+  researching: "research",
+  research_failed: "research",
+  research_complete: "studio",
+  outreach_ready: "studio",
+  // Touched leads: the Conversation tab carries the thread AND the per-business
+  // call sheet, which is the context for a chase or a dial.
+  contacted: "conversation",
+  follow_up_sent: "conversation",
+  replied: "conversation",
+  qualified: "studio",
+  meeting_booked: "research",
+  proposal_in_progress: "proposal",
+  proposal_sent: "studio",
+  negotiation: "conversation",
+  won: "details",
+  future_opportunity: "details",
+};
+
+/**
  * Booking-page slots store the Irish wall-clock time AS UTC (a 14:00 session
  * is 14:00Z), so meetings synced from a booking must render in UTC — Dublin
  * rendering would show them an hour late in summer. Everything else (real
@@ -144,7 +173,7 @@ export default async function ProspectWorkspacePage({
   const { member } = await requireGrowth();
   const { id } = await params;
   const { tab: tabParam, notice } = await searchParams;
-  const tab = TABS.some((t) => t.key === tabParam) ? tabParam! : "research";
+  const explicitTab = TABS.some((t) => t.key === tabParam) ? tabParam! : null;
 
   const admin = createAdminClient();
   const { data: prospect } = await admin
@@ -153,6 +182,11 @@ export default async function ProspectWorkspacePage({
     .eq("id", id)
     .maybeSingle();
   if (!prospect) notFound();
+
+  // A deliberate ?tab= always wins; otherwise open where this lead's stage
+  // says the work is, falling back to Research for any unmapped status.
+  const tab =
+    explicitTab ?? DEFAULT_TAB_BY_STATUS[prospect.status as string] ?? "research";
 
   const [
     { data: research },
@@ -423,7 +457,10 @@ export default async function ProspectWorkspacePage({
             : { msg: `First touch sent — reply window open (follow-up scheduled ${prospect.next_follow_up_at ?? "soon"}).`, cta: "Prep the follow-up", href: `${base}?tab=studio` },
           follow_up_sent: overdue
             ? { msg: `Second chase was due ${prospect.next_follow_up_at} — one more touch or a call.`, cta: "Send the next touch", href: `${base}?tab=studio` }
-            : { msg: "Follow-up sent — give it a beat, then consider a call.", cta: "Open the call script", href: `${base}?tab=studio` },
+            // The ready-made per-business call sheet lives in the CONVERSATION
+            // tab, not the Studio — this CTA has been pointing at the wrong tab
+            // since the call sheet was built.
+            : { msg: "Follow-up sent — give it a beat, then consider a call.", cta: "Open the call script", href: `${base}?tab=conversation` },
           replied: studioDrafts.some((d) => d.purpose === "reply")
             ? { msg: "They replied — a suggested response is already drafted. Review it and send while it's warm.", cta: "Review the drafted reply", href: `${base}?tab=studio` }
             : { msg: "They replied — answer today while it's warm and steer to the Strategy Session.", cta: "Open the conversation", href: `${base}?tab=conversation` },

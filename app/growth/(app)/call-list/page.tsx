@@ -258,7 +258,14 @@ export default async function CallListPage() {
                         {label} ↗
                       </a>
                     ))}
-                    <Link href={`/growth/prospects/${p.id}`} className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }}>
+                    {/* Straight to the Conversation tab: that's where the full
+                        per-business call sheet and the thread live. Landing on
+                        Research mid-dial meant a tap to get to the script. */}
+                    <Link
+                      href={`/growth/prospects/${p.id}?tab=conversation`}
+                      className="btn btn-ghost btn-sm"
+                      style={{ marginLeft: "auto" }}
+                    >
                       Open workspace →
                     </Link>
                   </div>
