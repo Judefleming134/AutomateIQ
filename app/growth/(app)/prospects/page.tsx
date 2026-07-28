@@ -456,7 +456,11 @@ export default async function ProspectsPage({
             defaultChecked={phoneOnly}
             style={{ margin: 0 }}
           />
-          <label htmlFor="pf-phone" style={{ fontSize: 13, margin: 0, cursor: "pointer" }}>
+          <label
+            htmlFor="pf-phone"
+            style={{ fontSize: 13, margin: 0, cursor: "pointer" }}
+            title="Your dial list — best lead score first unless you pick another sort"
+          >
             Has phone ☎
           </label>
         </div>
@@ -464,12 +468,29 @@ export default async function ProspectsPage({
           <label htmlFor="pf-sort" style={{ fontSize: 12, color: "var(--faint)" }}>
             Sort by
           </label>
-          <select id="pf-sort" name="sort" defaultValue={sortKey} style={{ width: "100%" }}>
+          {/* The default is "" — NO explicit choice — not the sort that
+              happens to be active. It used to mirror the active sort, which
+              meant every Apply submitted an explicit sort, and the dial-view
+              auto-sort above (Has phone → best score first) could never fire
+              from this form: ticking Has phone on the default A–Z view
+              submitted sort=company and handed back an alphabetical dial list.
+              An explicit pick still wins, exactly as before. */}
+          <select
+            id="pf-sort"
+            name="sort"
+            defaultValue={params.sort && SORTS[params.sort] ? params.sort : ""}
+            style={{ width: "100%" }}
+          >
+            <option value="">Best for this view</option>
             <option value="newest">Newest first</option>
             <option value="score">Lead score</option>
             <option value="follow_up">Next follow-up</option>
             <option value="company">Company A–Z</option>
           </select>
+          {/* "Best for this view" is only useful if it says what it picked. */}
+          <span style={{ fontSize: 11, color: "var(--faint)" }}>
+            now: {SORT_LABELS[sortKey] ?? "alphabetical by company"}
+          </span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button type="submit" className="btn btn-secondary">
