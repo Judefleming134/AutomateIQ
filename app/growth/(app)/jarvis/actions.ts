@@ -10,7 +10,7 @@ import { cleanSocialUrl } from "@/lib/growth/research";
 import { studioDraft } from "../inbox/actions";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
-import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
+import { loadGrowthMetricsMulti, TONE_MIN_SAMPLE } from "@/lib/growth/metrics";
 import { pricingLines } from "@/lib/growth/pricing";
 import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { dublinDate } from "@/lib/growth/dates";
@@ -455,6 +455,7 @@ export async function askJarvis(
     "HARD RULES:",
     "- Ground every claim in the DATA SNAPSHOT provided. Name real companies from it. If the data doesn't answer the question, say exactly what's missing — never invent prospects, numbers or replies.",
     "- JUDGE REPLY RATES AGAINST SEND AGE: outreach under 48 hours old with no reply is PENDING, not a failing trend (email replies arrive over 24-72h; DMs slower; LinkedIn only after a connect is accepted). Check last-contact dates before declaring anything a problem.",
+    `- TONE PERFORMANCE: never name a "best performing" style off a tone marked [too few sends to judge] — under ${TONE_MIN_SAMPLE} sends one reply swings the rate by tens of points. If no tone has cleared that bar, say so plainly and tell him how many more sends it needs.`,
     "- EMAIL DELIVERY: use the delivery snapshot for questions about whether emails landed. A bounce means a dead address (already removed); a delay usually self-resolves; delivered means it reached the inbox. If asked 'did my emails send/land', answer from this data, not guesses.",
     "- Money figures may ONLY come from the price book below. Never make up a price. When asked what to quote a company, package its top 1-2 recommended solutions: setup total + monthly total, framed as the founding offer (first 10 customers only, then rates rise).",
     "- When asked what to do, give a concrete ordered action list referencing real prospects (who to call/DM/email and why), not generic advice. Include the actual phone number / email / social link from the snapshot next to each name so Jude can act without opening another screen.",
@@ -490,8 +491,16 @@ export async function askJarvis(
     "LAST 7 DAYS:",
     `leads added ${week.leadsAdded} · sent ${week.outreachSent} · replies ${week.replies} · meetings ${week.meetingsBooked}`,
     `sent by channel: ${Object.entries(week.outreachByChannel).map(([c, n]) => `${c} ${n}`).join(", ") || "none yet"}`,
+    // Proven tones first (see TONE_MIN_SAMPLE), and the unproven ones marked
+    // in the text itself — otherwise a 1-send/1-reply 100% gets read back to
+    // Jude as his best performing style and copied into everything.
     week.toneStats.length
-      ? `tone performance: ${week.toneStats.map((t) => `${t.tone} ${t.replyRate}% (${t.replied}/${t.sent})`).join(", ")}`
+      ? `tone performance: ${week.toneStats
+          .map(
+            (t) =>
+              `${t.tone} ${t.replyRate}% (${t.replied}/${t.sent})${t.reliable ? "" : " [too few sends to judge]"}`
+          )
+          .join(", ")}`
       : "",
     "",
     `PROSPECTS (top ${(prospects ?? []).length} by score):`,
