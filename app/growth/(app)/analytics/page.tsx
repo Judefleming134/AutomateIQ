@@ -224,9 +224,10 @@ export default async function AnalyticsPage({
                       <td>
                         {t.replyRate}%
                         {/* A rate off a handful of sends is noise — a 1/1 = 100%
-                            would otherwise read as the "best style". Flag it so
-                            the ranking isn't trusted before there's real data. */}
-                        {t.sent < 10 && (
+                            would otherwise read as the "best style". These now
+                            sort below the proven tones too, so the top row is
+                            always the one with real data behind it. */}
+                        {!t.reliable && (
                           <span
                             style={{ color: "var(--faint)", fontSize: 11, marginLeft: 6 }}
                             title="Too few sends to be reliable yet"

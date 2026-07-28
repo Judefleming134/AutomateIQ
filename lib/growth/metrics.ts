@@ -28,8 +28,23 @@ export type GrowthMetrics = {
   /** How often each catalogue solution was recommended by research. */
   topSolutions: { name: string; count: number }[];
   /** Reply performance per outreach tone ("best performing style"). */
-  toneStats: { tone: string; sent: number; replied: number; replyRate: number }[];
+  toneStats: {
+    tone: string;
+    sent: number;
+    replied: number;
+    replyRate: number;
+    /** Enough sends behind the rate to act on it (see TONE_MIN_SAMPLE). */
+    reliable: boolean;
+  }[];
 };
+
+/**
+ * Sends behind a tone before its reply rate is worth ranking on. Below this a
+ * single reply swings the rate by tens of points — 1/1 reads as a perfect
+ * 100%. Defined once here so the analytics table, Jarvis and anything added
+ * later agree on what "proven" means.
+ */
+export const TONE_MIN_SAMPLE = 10;
 
 export type CampaignPerf = {
   id: string;
@@ -322,14 +337,26 @@ function computeGrowthMetrics(
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10),
+    // Proven tones first, THEN by rate. Sorting on rate alone put a 1-send /
+    // 1-reply tone (100%) above a 50-send / 18-reply one — top of the
+    // analytics table and first in the line Jarvis reads, which is how a
+    // one-off fluke ends up being described as the best performing style and
+    // gets copied into every message. Tones below the sample floor still
+    // appear (they're the pipeline of what's being tried), just underneath.
     toneStats: [...toneAgg.entries()]
       .map(([tone, agg]) => ({
         tone,
         sent: agg.sent,
         replied: agg.replied,
         replyRate: pct(agg.replied, agg.sent),
+        reliable: agg.sent >= TONE_MIN_SAMPLE,
       }))
-      .sort((a, b) => b.replyRate - a.replyRate || b.sent - a.sent),
+      .sort(
+        (a, b) =>
+          Number(b.reliable) - Number(a.reliable) ||
+          b.replyRate - a.replyRate ||
+          b.sent - a.sent
+      ),
   };
 }
 
