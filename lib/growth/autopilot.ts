@@ -272,6 +272,19 @@ export async function autoQueueDueFollowups(): Promise<{
     // the dashboard's "Gone cold" section for a deliberate revive instead.
     .gte("next_follow_up_at", dublinDate(-7))
     .not("email", "is", null)
+    // MOST OVERDUE FIRST, then best score. Ordering by score alone leaked
+    // leads: only PER_RUN_CAP chases are queued a night, so with a real
+    // backlog (Jude has had 90+ due at once) a low-scoring chase lost its slot
+    // to whatever higher-scoring chase came due that day — every night, until
+    // it crossed the 7-day line above and was parked as gone cold. It never
+    // got a single send.
+    //
+    // A chase is time-boxed in a way a score isn't: the one due 6 days ago has
+    // ONE night of runway left, while a chase due today has seven. Runway has
+    // to win, or the queue quietly reorders itself into a leak. Same reasoning
+    // as the send-order fix in runQueuedEmailAutopilot — this is the layer
+    // above it, and it was still sorting the old way.
+    .order("next_follow_up_at", { ascending: true })
     .order("lead_score", { ascending: false, nullsFirst: false })
     .limit(80);
 
