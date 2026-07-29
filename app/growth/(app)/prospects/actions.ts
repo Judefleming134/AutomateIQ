@@ -252,6 +252,15 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   const seenEmails = new Set<string>();
   const seenCompanies = new Set<string>();
   const EXISTING_PAGE = 1000;
+  // Whether the baseline is COMPLETE. A failed page used to just break out
+  // silently, and the import carried on as if the database were empty of
+  // everything it hadn't loaded. If the very FIRST page failed there was no
+  // baseline at all, so every row looked new — re-pasting a sheet (which the
+  // import box actively encourages, "duplicates are skipped automatically")
+  // would create a full set of duplicates and still report success. The engine
+  // then researches and emails each of them twice.
+  let dedupePages = 0;
+  let dedupeComplete = false;
   for (let start = 0; ; start += EXISTING_PAGE) {
     const { data: existingRows, error } = await admin
       .from("ge_prospects")
@@ -261,12 +270,25 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
       // letting duplicates back in on re-imports.
       .order("id", { ascending: true })
       .range(start, start + EXISTING_PAGE - 1);
-    if (error) break; // dedupe degrades gracefully rather than blocking import
+    if (error) break;
+    dedupePages += 1;
     for (const r of existingRows ?? []) {
       if (r.email) seenEmails.add(String(r.email).toLowerCase());
       if (r.company) seenCompanies.add(String(r.company).trim().toLowerCase());
     }
-    if (!existingRows || existingRows.length < EXISTING_PAGE) break;
+    if (!existingRows || existingRows.length < EXISTING_PAGE) {
+      dedupeComplete = true;
+      break;
+    }
+  }
+  // No baseline whatsoever: importing now is the one case that reliably
+  // duplicates the whole sheet. Refuse and let him press the button again —
+  // an import he can retry beats hundreds of duplicates he has to hunt down.
+  if (dedupePages === 0) {
+    return {
+      error:
+        "Couldn't check your existing prospects just now, so this import would risk duplicating every row. Nothing was imported — try again in a moment.",
+    };
   }
 
   type NewProspect = Record<string, unknown>;
@@ -423,7 +445,14 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
     // guessing whether 5 or 500 landed and how many were duplicates.
     notice: `Imported ${imported.toLocaleString("en-IE")} new prospect${imported === 1 ? "" : "s"}${
       parts.length > 0 ? ` · skipped ${parts.join(", ")}` : ""
-    }. Research them below to score + draft outreach.`,
+    }. Research them below to score + draft outreach.${
+      // A partial baseline still catches most duplicates, so the import is
+      // worth keeping — but say it, rather than let a silent gap look like a
+      // clean run.
+      dedupeComplete
+        ? ""
+        : " Note: the duplicate check couldn't read your whole prospect list this time, so a few duplicates may have slipped through — worth a quick scan of the list below."
+    }`,
   };
 }
 
