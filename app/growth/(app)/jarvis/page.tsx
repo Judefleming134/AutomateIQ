@@ -86,7 +86,7 @@ export default async function JarvisPage() {
       // Sort by next follow-up (ascending) so the most-overdue chases land at
       // the top of the list, each flagged with its overdue badge — a real chase
       // list, not the bare dashboard the old dangling "/growth?" link dropped on.
-      href: "/growth/prospects?sort=follow_up",
+      href: "/growth/prospects?due=live&sort=follow_up",
     });
   if (readyAdjusted > 0)
     priorities.push({

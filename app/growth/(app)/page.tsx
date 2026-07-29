@@ -649,7 +649,7 @@ export default async function GrowthDashboardPage() {
               <ProspectList rows={dueToday ?? []} dateField="follow_up" />
               {(dueTodayCount ?? 0) > (dueToday ?? []).length && (
                 <p style={{ fontSize: 12, marginTop: 8 }}>
-                  <Link href="/growth/prospects?sort=follow_up">
+                  <Link href="/growth/prospects?due=today&sort=follow_up">
                     See all {dueTodayCount} →
                   </Link>
                 </p>
@@ -669,7 +669,7 @@ export default async function GrowthDashboardPage() {
               <ProspectList rows={overdue ?? []} dateField="follow_up" />
               {(overdueCount ?? 0) > (overdue ?? []).length && (
                 <p style={{ fontSize: 12, marginTop: 8 }}>
-                  <Link href="/growth/prospects?sort=follow_up">
+                  <Link href="/growth/prospects?due=overdue&sort=follow_up">
                     See all {overdueCount} →
                   </Link>
                 </p>
@@ -697,7 +697,7 @@ export default async function GrowthDashboardPage() {
           <ProspectList rows={goneCold ?? []} dateField="follow_up" />
           {(goneColdCount ?? 0) > (goneCold ?? []).length && (
             <p style={{ fontSize: 12, marginTop: 8 }}>
-              <Link href="/growth/prospects?sort=follow_up">
+              <Link href="/growth/prospects?due=cold&sort=follow_up">
                 See all {goneColdCount} →
               </Link>
             </p>
