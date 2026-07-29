@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRowsByIds } from "@/lib/growth/db";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { CopyButton } from "@/components/portal/copy-button";
@@ -97,9 +98,14 @@ export default async function InboxPage({
     .order("created_at", { ascending: false })
     .limit(1000);
   const inboundPids = [...new Set((inboundRows ?? []).map((r) => r.prospect_id))];
-  const { data: threadRows } = inboundPids.length
-    ? await admin.from("ge_messages").select(MSG_COLS).in("prospect_id", inboundPids)
-    : { data: [] as typeof messages };
+  // CHUNKED: inboundPids can hold up to 1,000 ids, and each rides in the
+  // request URL at ~40 chars per UUID — a ~39KB URL that simply fails. The
+  // result would be an inbox showing NO conversations at all while replies sit
+  // in the database, which is the single worst way this page can be wrong.
+  const threadRows = await selectAllRowsByIds<(typeof messages)[number]>(
+    inboundPids,
+    (chunk) => admin.from("ge_messages").select(MSG_COLS).in("prospect_id", chunk)
+  );
   // Newest-first, matching the global fetch's ordering the conversation
   // builder relies on (thread[0] = latest).
   const convMessages = (threadRows ?? [])
@@ -125,12 +131,28 @@ export default async function InboxPage({
       [...convMessages, ...messages, ...(queueRows ?? [])].map((m) => m.prospect_id)
     ),
   ];
-  const { data: prospectsRaw } = prospectIds.length
-    ? await admin
-        .from("ge_prospects")
-        .select("id, company, contact_name, email, status, campaign_id, industry, location, notes, linkedin_url, instagram_url, phone")
-        .in("id", prospectIds)
-    : { data: [] as never[] };
+  // Same chunking: this id set is the union of every conversation, the 1,000
+  // newest messages and the 500-row queue, so it is the largest list on the
+  // page. A failure here left every card reading "Unknown prospect".
+  const prospectsRaw = await selectAllRowsByIds<{
+    id: string;
+    company: string;
+    contact_name: string;
+    email: string | null;
+    status: string;
+    campaign_id: string | null;
+    industry: string | null;
+    location: string | null;
+    notes: string | null;
+    linkedin_url: string | null;
+    instagram_url: string | null;
+    phone: string | null;
+  }>(prospectIds, (chunk) =>
+    admin
+      .from("ge_prospects")
+      .select("id, company, contact_name, email, status, campaign_id, industry, location, notes, linkedin_url, instagram_url, phone")
+      .in("id", chunk)
+  );
   const prospects = new Map((prospectsRaw ?? []).map((p) => [p.id, p]));
 
   // Conversations: THE INBOX — only prospects who have actually messaged us
