@@ -504,10 +504,14 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
   });
   if (error) return { error: error.message };
 
-  if (
-    ["new", "researching", "research_complete", "outreach_ready",
-     "contacted", "follow_up_sent"].includes(prospect.status)
-  ) {
+  // The SHARED pre-reply list, not a hand-rolled copy. The inbound-email
+  // webhook was moved onto PRE_REPLY_STATUSES because its own copy of this
+  // list was missing research_failed; this path — Jude pasting in a DM or text
+  // reply by hand — kept the stale copy and the same hole. A prospect parked in
+  // the Research-failed group who then REPLIED stayed parked: never advanced to
+  // "replied", so they kept counting as "needs a research retry" instead of
+  // "they answered you", and the conversation didn't surface as one.
+  if (PRE_REPLY_STATUSES.includes(prospect.status)) {
     // A reply resets the clock: answer within a day, not on the old +3-day
     // chase schedule. But a NEGATIVE reply ("not interested", "remove me")
     // must NOT schedule an automatic chase — clear the follow-up so the
