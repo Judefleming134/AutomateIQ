@@ -216,6 +216,38 @@ export async function removeTeamMember(_prev: Result, formData: FormData): Promi
   if (id === member.id) return { error: "You can't remove your own account." };
 
   const admin = createAdminClient();
+
+  // A platform admin is AUTO-PROVISIONED back as a Growth OWNER by
+  // requireGrowth the moment they next log in — that branch exists so the
+  // business owner can never lock himself out, and it fires whenever there's
+  // no membership row at all. Deleting an admin's row therefore does nothing
+  // except make the team list look right: they sign in, get re-created as an
+  // owner, and nobody is told. Removal that silently undoes itself is worse
+  // than removal that refuses.
+  //
+  // SUSPENDING an admin does stick: the row still exists, so requireGrowth
+  // finds it, skips the re-provision, and denies on status. Point the owner at
+  // the control that actually works.
+  const { data: target } = await admin
+    .from("ge_team_members")
+    .select("id, auth_user_id, name")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target) return { error: "That member no longer exists — refresh the page." };
+  if (target.auth_user_id) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", target.auth_user_id)
+      .maybeSingle();
+    if (profile?.role === "admin") {
+      return {
+        error:
+          `${target.name || "That person"} is a platform admin, so removing them here wouldn't stick — admins are re-added as Growth owners automatically on their next login. Suspend them instead: that blocks access and stays blocked.`,
+      };
+    }
+  }
+
   const { error } = await admin.from("ge_team_members").delete().eq("id", id);
   if (error) return { error: error.message };
 
