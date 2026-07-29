@@ -77,3 +77,32 @@ export async function selectAllRows<T>(
 export function escapeLike(value: string): string {
   return value.replace(/([%_\\])/g, "\\$1");
 }
+
+/**
+ * Runs a query once per CHUNK of ids and concatenates the rows.
+ *
+ * A PostgREST `.in("col", ids)` serialises every id into the request URL. A
+ * UUID costs ~40 URL characters, so a few hundred ids pushes the URL past the
+ * server's limit and the request fails outright — and since selectAllRows
+ * throws rather than silently truncating, that failure takes the whole page
+ * with it. Chunking keeps every URL comfortably short while returning exactly
+ * the same rows.
+ *
+ * `makeQuery` receives one chunk and MUST return a fresh builder each call.
+ */
+export async function selectAllRowsByIds<T>(
+  ids: string[],
+  makeQuery: (chunk: string[]) => Rangeable<T>,
+  chunkSize = 150
+): Promise<T[]> {
+  if (ids.length === 0) return [];
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += chunkSize) {
+    chunks.push(ids.slice(i, i + chunkSize));
+  }
+  // Chunks are independent reads — run them together rather than in series.
+  const results = await Promise.all(
+    chunks.map((chunk) => selectAllRows<T>(() => makeQuery(chunk)))
+  );
+  return results.flat();
+}

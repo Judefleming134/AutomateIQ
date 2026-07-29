@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { selectAllRows } from "@/lib/growth/db";
+import { selectAllRows, selectAllRowsByIds } from "@/lib/growth/db";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
@@ -60,15 +60,24 @@ export default async function CampaignDetailPage({
   // Meetings for THIS campaign's prospects only. ge_meetings has no campaign_id,
   // so scope by prospect_id rather than paging the entire meetings table on
   // every campaign view just to filter it down to a handful in memory.
-  const meetings = prospectIds.length
-    ? await selectAllRows<{ id: string; prospect_id: string; status: string }>(() =>
-        admin
-          .from("ge_meetings")
-          .select("id, prospect_id, status")
-          .neq("status", "cancelled")
-          .in("prospect_id", prospectIds)
-      )
-    : [];
+  //
+  // CHUNKED: every id goes into the request URL, at roughly 40 characters per
+  // UUID. A campaign of a few hundred prospects — an ordinary size after one
+  // import — pushed that URL past the server's limit, the request failed, and
+  // because selectAllRows throws rather than truncating, the whole campaign
+  // page 500'd. The bigger the campaign, the more certainly its own detail
+  // page broke.
+  const meetings = await selectAllRowsByIds<{
+    id: string;
+    prospect_id: string;
+    status: string;
+  }>(prospectIds, (chunk) =>
+    admin
+      .from("ge_meetings")
+      .select("id, prospect_id, status")
+      .neq("status", "cancelled")
+      .in("prospect_id", chunk)
+  );
 
   const outbound = (messages ?? []).filter((m) => m.direction === "outbound");
   const funnel = {
