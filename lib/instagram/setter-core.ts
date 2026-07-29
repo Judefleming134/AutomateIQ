@@ -134,13 +134,32 @@ export type InboundResult = {
   conversationId: string;
   reply: string | null;
   autoReplied: boolean;
+  /** True when a reply was generated but `deliver` reported it did NOT go out.
+   *  The reply is deliberately not recorded in that case — see below. */
+  deliveryFailed?: boolean;
 };
 
 /**
  * Full inbound pipeline: record the lead's message, and — when auto-reply is
- * on — generate and record the setter's response. Returns the reply so the
- * caller (webhook, simulator) can deliver it. Does NOT itself send to
- * Instagram; the webhook handles Graph API delivery.
+ * on — generate the setter's response.
+ *
+ * `deliver` is how the reply actually reaches the lead. Pass it (the webhook
+ * does) and the reply is recorded ONLY once delivery has confirmed. That
+ * ordering matters: the reply used to be stored and the conversation marked
+ * "engaged" before anyone tried to send it, and the Graph call swallowed every
+ * failure — so an expired page token, a revoked permission, a rate limit or a
+ * timeout left the customer's portal showing the setter's reply sitting in the
+ * thread as though it had gone out, while the lead received nothing and was
+ * left looking ignored. A paying customer believing the AI is handling their
+ * Instagram leads while it silently isn't is the worst way this product can
+ * fail.
+ *
+ * Omit `deliver` (the in-portal simulator) and behaviour is exactly as before:
+ * there is nothing to deliver, so the reply is recorded directly.
+ *
+ * The residual risk is inverted and much smaller: if delivery succeeds but the
+ * insert then fails, the lead got a reply we have no record of. Losing a record
+ * of a message that WAS sent beats claiming one that wasn't.
  */
 export async function handleInboundMessage(params: {
   supabase: SupabaseClient;
@@ -148,8 +167,9 @@ export async function handleInboundMessage(params: {
   igUserId: string;
   username?: string | null;
   text: string;
+  deliver?: (reply: string) => Promise<boolean>;
 }): Promise<InboundResult> {
-  const { supabase, businessId, igUserId, username, text } = params;
+  const { supabase, businessId, igUserId, username, text, deliver } = params;
   const now = new Date().toISOString();
 
   // Upsert the conversation (tenant-scoped by business_id + ig_user_id).
@@ -219,6 +239,19 @@ export async function handleInboundMessage(params: {
     history,
     latestMessage: text,
   });
+
+  // Deliver BEFORE recording, when a delivery route was supplied.
+  if (deliver) {
+    const delivered = await deliver(reply);
+    if (!delivered) {
+      // Nothing recorded and the conversation is NOT marked engaged, so it
+      // keeps showing as needing attention instead of looking handled.
+      console.error(
+        `IG setter: reply generated but delivery failed for conversation ${conversationId} — not recorded as sent.`
+      );
+      return { conversationId, reply, autoReplied: false, deliveryFailed: true };
+    }
+  }
 
   await supabase.from("ig_messages").insert({
     conversation_id: conversationId,
