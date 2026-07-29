@@ -15,6 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/systems`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/savings`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/agents.html`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    // The policies hub and the AI-governance statement are deliberately
+    // indexable and ranked above the boilerplate legal pages: "how does this
+    // company handle the EU AI Act" is a question prospects genuinely search,
+    // and a straight answer is a trust asset rather than fine print.
+    { url: `${SITE}/policies.html`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${SITE}/ai-act.html`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE}/privacy.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/terms.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/cookies.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
