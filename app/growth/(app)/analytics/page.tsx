@@ -39,6 +39,16 @@ export default async function AnalyticsPage({
   const admin = createAdminClient();
   const metrics = await loadGrowthMetrics(admin, days);
 
+  // Three of the tiles below are LIFETIME figures by construction: the
+  // draft/queued backlog is whatever is sitting in the queue right now, and
+  // won/qualified/pipeline value are running totals. Under a window selector,
+  // with genuinely windowed tiles either side of them, "7 days" made it read
+  // as though those deals were won and that pipeline built inside the week.
+  // The industry table already carries this caveat; the tiles are the most-read
+  // part of the page and carried none. Only shown when a window is active —
+  // on All time there is nothing to distinguish.
+  const allTime = days === null ? "" : " · all time";
+
   return (
     <>
       <div className="page-header">
@@ -62,15 +72,15 @@ export default async function AnalyticsPage({
       <div className="stat-grid">
         <StatCard label="Leads added" value={metrics.leadsAdded} icon={<Users />} hint={`${metrics.prospectsTotal} total`} />
         <StatCard label="Companies researched" value={metrics.companiesResearched} icon={<Sparkles />} accent="var(--ac1, #8b5cf6)" />
-        <StatCard label="Outreach prepared" value={metrics.draftOutreach + metrics.queuedOutreach} icon={<PenLine />} hint={`${metrics.draftOutreach} drafts · ${metrics.queuedOutreach} queued`} />
+        <StatCard label="Outreach prepared" value={metrics.draftOutreach + metrics.queuedOutreach} icon={<PenLine />} hint={`${metrics.draftOutreach} drafts · ${metrics.queuedOutreach} queued${allTime}`} />
         <StatCard label="Messages sent" value={metrics.outreachSent} icon={<Send />} accent="var(--ac1, #8b5cf6)" hint={`${metrics.contacted} prospects reached`} />
         <StatCard label="Reply rate" value={`${metrics.replyRate}%`} icon={<MessageSquare />} accent="var(--green, #34d399)" hint={`${metrics.replies} replies`} />
         <StatCard label="Positive response rate" value={`${metrics.positiveRate}%`} icon={<ThumbsUp />} accent="var(--green, #34d399)" hint={`${metrics.positiveReplies} positive`} />
         <StatCard label="Meetings booked" value={metrics.meetingsBooked} icon={<CalendarCheck />} accent="var(--ac2)" />
         <StatCard label="Proposals sent" value={metrics.proposalsSent} icon={<FileText />} accent="var(--orange, #fb923c)" />
         <StatCard label="Conversion rate" value={`${metrics.conversionRate}%`} icon={<TrendingUp />} hint="contacted → meeting" />
-        <StatCard label="Deals won" value={metrics.won} icon={<Trophy />} accent="var(--orange, #fb923c)" hint={`${metrics.qualified} qualified`} />
-        <StatCard label="Pipeline value" value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`} icon={<Euro />} accent="var(--green, #34d399)" />
+        <StatCard label="Deals won" value={metrics.won} icon={<Trophy />} accent="var(--orange, #fb923c)" hint={`${metrics.qualified} qualified${allTime}`} />
+        <StatCard label="Pipeline value" value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`} icon={<Euro />} accent="var(--green, #34d399)" hint={days === null ? undefined : "all time"} />
       </div>
 
       <div className="grid-2" style={{ marginTop: 24 }}>
