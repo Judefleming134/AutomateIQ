@@ -6,8 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
+  PROSPECT_SORTS,
+  PROSPECT_SORT_LABELS,
   PROSPECT_STATUSES,
   PROSPECT_STATUS_META,
+  resolveProspectSort,
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
@@ -26,22 +29,14 @@ export const maxDuration = 60;
 const CSV_HINT =
   "company,contact_name,job_title,industry,website,location,email,phone,linkedin_url,instagram_url,facebook_url,notes";
 
-const SORTS: Record<string, { column: string; ascending: boolean; nulls?: "last" }> = {
-  newest: { column: "created_at", ascending: false },
-  score: { column: "lead_score", ascending: false },
-  follow_up: { column: "next_follow_up_at", ascending: true, nulls: "last" },
-  company: { column: "company", ascending: true },
-};
-
+// The sort table, its labels and the default-resolution rule now live in
+// lib/growth/constants so the CSV export applies the SAME ordering as this
+// page — the file used to come out in creation order whatever was on screen.
+const SORTS = PROSPECT_SORTS;
 // How the active sort reads in the "page X of Y" line — a hardcoded
 // "alphabetical by company" there was wrong (and looked like the sort hadn't
 // applied) the moment Jude sorted by score or follow-up.
-const SORT_LABELS: Record<string, string> = {
-  newest: "newest first",
-  score: "highest lead score first",
-  follow_up: "soonest follow-up first",
-  company: "alphabetical by company",
-};
+const SORT_LABELS = PROSPECT_SORT_LABELS;
 
 export default async function ProspectsPage({
   searchParams,
@@ -71,7 +66,7 @@ export default async function ProspectsPage({
   // (the daily drill is literally "Has phone → sort by Lead score"), so that
   // filter defaults to score and saves the second tap. An explicit sort
   // choice always wins over either default.
-  const sortKey = SORTS[params.sort ?? ""] ? params.sort! : phoneOnly ? "score" : "company";
+  const sortKey = resolveProspectSort(params.sort, phoneOnly);
   const sort = SORTS[sortKey];
   // 1-indexed page; clamp to a sane floor here, ceiling once we know the count.
   const pageReq = Math.max(1, Math.floor(Number(params.page)) || 1);
@@ -249,6 +244,10 @@ export default async function ProspectsPage({
   if (industry) exportSp.set("industry", industry);
   if (campaign) exportSp.set("campaign", campaign);
   if (phoneOnly) exportSp.set("phone", "1");
+  // The RESOLVED sort, not params.sort — so an export taken without touching
+  // the dropdown still comes out in the order actually on screen (Has phone
+  // defaults to best-score-first, everything else to A-Z).
+  exportSp.set("sort", sortKey);
   const exportHref = `/growth/reports/export?${exportSp.toString()}`;
 
   // Show up to 10 numbered pages, windowed around the current one so the

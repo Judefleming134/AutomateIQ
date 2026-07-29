@@ -2,6 +2,7 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
+import { PROSPECT_SORTS } from "@/lib/growth/constants";
 import { toCsv } from "@/lib/growth/csv";
 
 /**
@@ -36,19 +37,35 @@ export async function GET(request: Request) {
     const industry = (url.searchParams.get("industry") ?? "").trim();
     const campaign = (url.searchParams.get("campaign") ?? "").trim();
     const phoneOnly = url.searchParams.get("phone") === "1";
+    const sortParam = url.searchParams.get("sort") ?? undefined;
     const filtered = Boolean(q || status || industry || campaign || phoneOnly);
 
     // Page past the 1,000-row cap so the export is the WHOLE result set, not a
     // truncated first slice — an incomplete export is a silent data-loss trap.
     const data = await selectAllRows<Record<string, string | number | null>>(
       () => {
+        // Order the CSV the way the SCREEN is ordered. This was hardwired to
+        // created_at desc, so filtering to "Has phone" (which sorts best-score
+        // first on the page) exported a dial sheet in creation order — the top
+        // of the file wasn't the best leads, which is the one thing that list
+        // is for. The Prospects page now sends its RESOLVED sort key, and the
+        // same shared table maps it here so the two cannot drift.
+        //
+        // No sort param at all = the Reporting screen's plain "export
+        // prospects" link, which has no list on screen to match. That keeps
+        // its long-standing newest-first order exactly as it was.
+        // nullsFirst:false so unscored leads don't outrank scored ones on DESC.
+        const sort = (sortParam && PROSPECT_SORTS[sortParam]) || {
+          column: "created_at",
+          ascending: false,
+        };
         let query = admin
           .from("ge_prospects")
           .select(
             "company, contact_name, job_title, industry, website, location, email, phone, linkedin_url, instagram_url, facebook_url, status, lead_score, qualification_status, pipeline_value, source, last_contact_at, next_follow_up_at, created_at"
           )
-          .order("created_at", { ascending: false })
-          // Unique tiebreak keeps paged reads exact when rows share a timestamp.
+          .order(sort.column, { ascending: sort.ascending, nullsFirst: false })
+          // Unique tiebreak keeps paged reads exact when rows share a value.
           .order("id", { ascending: true });
         if (q) {
           // Same LIKE-wildcard escaping as the page, so the CSV matches the
