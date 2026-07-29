@@ -224,3 +224,41 @@ export function fillTemplate(
     key in values ? values[key] : match
   );
 }
+
+/**
+ * Prospect list ordering, shared by the Prospects page and the CSV export so
+ * the file can't come out in a different order from the screen it was exported
+ * from. The export used to be hardwired to created_at desc: filtering to
+ * "Has phone" and sorting by score gave a dial sheet on screen, then a CSV in
+ * creation order, so the top of the file wasn't the best leads.
+ */
+export const PROSPECT_SORTS: Record<
+  string,
+  { column: string; ascending: boolean }
+> = {
+  newest: { column: "created_at", ascending: false },
+  score: { column: "lead_score", ascending: false },
+  follow_up: { column: "next_follow_up_at", ascending: true },
+  company: { column: "company", ascending: true },
+};
+
+export const PROSPECT_SORT_LABELS: Record<string, string> = {
+  newest: "newest first",
+  score: "highest lead score first",
+  follow_up: "soonest follow-up first",
+  company: "alphabetical by company",
+};
+
+/**
+ * The ACTIVE sort key given what the user asked for. An explicit choice always
+ * wins; otherwise the dial view (Has phone) defaults to best-score-first,
+ * because that filter exists to work a call list, and everything else defaults
+ * to A-Z so a lead is easy to find by name.
+ */
+export function resolveProspectSort(
+  sortParam: string | undefined,
+  phoneOnly: boolean
+): string {
+  if (sortParam && PROSPECT_SORTS[sortParam]) return sortParam;
+  return phoneOnly ? "score" : "company";
+}
