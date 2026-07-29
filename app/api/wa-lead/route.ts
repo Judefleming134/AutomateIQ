@@ -43,6 +43,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Page not found" }, { status: 404 });
   }
 
+  // Abuse guards on a PUBLIC endpoint that writes into a paying customer's CRM.
+  // The auto-reply below was already throttled, but the LEAD INSERT wasn't — so
+  // anyone with a published slug could flood a customer's lead list with
+  // thousands of junk rows and make the one screen they check useless. Two
+  // generous caps, both far above anything a real SME page sees:
+  //   · same contact, 3 per 24h — nobody legitimately enquires four times
+  //   · same business, 60 per hour — catches a flood, never a busy day
+  // Both fail OPEN if the counting query itself errors: losing a real lead is
+  // worse than letting one extra through. Same posture as /api/book.
+  const dayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const hourAgo = new Date(Date.now() - 3600 * 1000).toISOString();
+  const [{ count: sameContact, error: contactErr }, { count: businessHour, error: hourErr }] =
+    await Promise.all([
+      supabase
+        .from("wa_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", page.business_id)
+        // Case-insensitive with wildcards escaped, so varying capitalisation
+        // doesn't walk straight past the cap (the bug fixed in #415).
+        .ilike("contact", escapeLike(contact))
+        .gte("created_at", dayAgo),
+      supabase
+        .from("wa_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("business_id", page.business_id)
+        .gte("created_at", hourAgo),
+    ]);
+  if (!contactErr && (sameContact ?? 0) >= 3) {
+    return NextResponse.json(
+      { error: "We already have your enquiry — we'll be in touch shortly." },
+      { status: 429 }
+    );
+  }
+  if (!hourErr && (businessHour ?? 0) >= 60) {
+    return NextResponse.json(
+      { error: "We're receiving a lot of enquiries right now — please try again shortly." },
+      { status: 429 }
+    );
+  }
+
   const { data: lead, error } = await supabase
     .from("wa_leads")
     .insert({

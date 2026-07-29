@@ -108,7 +108,25 @@ type GrowthData = {
 // Load every Growth table once (paged past the 1,000-row cap). Kept separate
 // from aggregation so several trailing windows (e.g. all-time + last 7 days)
 // can be computed from ONE database load instead of re-scanning per window.
-async function fetchGrowthData(admin: SupabaseClient): Promise<GrowthData> {
+/**
+ * `withSolutions: false` skips the `solutions` JSONB entirely and loads only
+ * `created_at` from ge_research.
+ *
+ * That column holds the full recommendation array per prospect — key, name,
+ * complexity, plus multi-sentence AI `why`/`benefits` text — and the ONLY thing
+ * it feeds is `topSolutions`, which just tallies names. Analytics is the sole
+ * screen that renders it, yet the dashboard, the morning brief and EVERY Jarvis
+ * question were downloading and parsing the whole blob and throwing it away.
+ *
+ * Defaults to true, so every existing caller keeps identical behaviour; the hot
+ * paths opt out. When opted out `topSolutions` is [] — correct for callers that
+ * don't read it, and the reason this is an explicit flag rather than a silent
+ * optimisation.
+ */
+async function fetchGrowthData(
+  admin: SupabaseClient,
+  withSolutions = true
+): Promise<GrowthData> {
   const [prospects, messages, meetings, campaigns, research, proposals] =
     await Promise.all([
       selectAllRows<{
@@ -146,7 +164,9 @@ async function fetchGrowthData(admin: SupabaseClient): Promise<GrowthData> {
         admin.from("ge_campaigns").select("id, name, status")
       ),
       selectAllRows<{ solutions: unknown; created_at: string }>(() =>
-        admin.from("ge_research").select("solutions, created_at")
+        admin
+          .from("ge_research")
+          .select(withSolutions ? "solutions, created_at" : "created_at")
       ),
       selectAllRows<{ status: string; updated_at: string }>(() =>
         admin.from("ge_proposals").select("status, updated_at")
@@ -370,9 +390,13 @@ function computeGrowthMetrics(
  */
 export async function loadGrowthMetrics(
   admin: SupabaseClient,
-  days: number | null = null
+  days: number | null = null,
+  opts: { withSolutions?: boolean } = {}
 ): Promise<GrowthMetrics> {
-  return computeGrowthMetrics(await fetchGrowthData(admin), days);
+  return computeGrowthMetrics(
+    await fetchGrowthData(admin, opts.withSolutions ?? true),
+    days
+  );
 }
 
 /**
@@ -383,8 +407,9 @@ export async function loadGrowthMetrics(
  */
 export async function loadGrowthMetricsMulti(
   admin: SupabaseClient,
-  windows: (number | null)[]
+  windows: (number | null)[],
+  opts: { withSolutions?: boolean } = {}
 ): Promise<GrowthMetrics[]> {
-  const data = await fetchGrowthData(admin);
+  const data = await fetchGrowthData(admin, opts.withSolutions ?? true);
   return windows.map((w) => computeGrowthMetrics(data, w));
 }

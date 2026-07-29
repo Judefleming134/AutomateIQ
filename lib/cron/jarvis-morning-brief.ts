@@ -190,7 +190,9 @@ export async function sendJarvisMorningBrief(): Promise<{
       // Both windows from ONE table load (same fix as Jarvis chat) — two
       // loadGrowthMetrics calls scanned all six growth tables twice inside
       // the 07:00 dispatch's function budget.
-      loadGrowthMetricsMulti(admin, [null, 7]),
+      // withSolutions:false — the brief uses none of topSolutions, and this
+      // runs inside the 07:00 dispatch whose budget must not run out.
+      loadGrowthMetricsMulti(admin, [null, 7], { withSolutions: false }),
       admin
         .from("ge_prospects")
         // count: the TRUE total, not the 15-row display cap — the brief was
