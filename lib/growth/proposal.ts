@@ -18,6 +18,11 @@ export async function generateProposalMarkdown(
   solutions: SolutionRecommendation[],
   meetingNotes: string[]
 ): Promise<string> {
+  // Only the solutions that actually have a published rate. Computed once so
+  // the prompt block below can be gated on real priced lines rather than on
+  // how many solutions happen to be recommended.
+  const priceBookLines = pricingLines(solutions.map((s) => s.key));
+
   const system = [
     "You write commercial proposals for AutomateIQ, an Irish AI-automation agency (automateiq.ie).",
     "Audience: the business owner. Voice: clear, confident, jargon-free, professional.",
@@ -81,11 +86,18 @@ export async function generateProposalMarkdown(
           .join("\n")}`
       : "RECOMMENDED SOLUTIONS: none saved — propose the most plausible AutomateIQ fits, hedged.",
     "",
-    solutions.length
-      ? `PRICE BOOK (the only money figures permitted):\n${pricingLines(
-          solutions.map((s) => s.key)
-        ).join("\n")}`
-      : "",
+    // Gated on PRICED lines, not on solutions. pricingLines() drops any key
+    // that has no published rate, so a prospect whose recommendations are all
+    // unpriced produced a "PRICE BOOK (the only money figures permitted):"
+    // heading with NOTHING under it. The hard rule above says "if no price
+    // book lines are provided, do not mention money at all" — but a heading
+    // that exists and is empty is not the same as no heading, and this is the
+    // one document that goes to a customer with money in it. State the
+    // no-price case explicitly instead of leaving the model to interpret a
+    // blank section.
+    priceBookLines.length
+      ? `PRICE BOOK (the only money figures permitted):\n${priceBookLines.join("\n")}`
+      : "PRICE BOOK: EMPTY — none of the recommended solutions has a published rate. Write the proposal with NO figures, totals or ranges anywhere. In the Investment section say the scope is being priced and the next step is a short call to confirm it.",
     "",
     meetingNotes.length
       ? `MEETING / CALL NOTES (weigh these heavily — they reflect the actual conversation):\n${meetingNotes
