@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
+  CLOSED_STATUSES,
   PROSPECT_SORTS,
   PROSPECT_SORT_LABELS,
   PROSPECT_STATUSES,
@@ -41,7 +42,7 @@ const SORT_LABELS = PROSPECT_SORT_LABELS;
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; due?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
@@ -60,6 +61,29 @@ export default async function ProspectsPage({
   // "Has phone" — the dial-list filter: the daily plan says "Prospects ->
   // has phone -> sort by score", so the UI must actually offer it.
   const phoneOnly = params.phone === "1";
+  // Follow-up bucket, so a count on the dashboard or in Jarvis can link to the
+  // EXACT set it counted. Every one of those counts used to point at the same
+  // bare ?sort=follow_up list: "Today's follow-ups (12)", "Overdue (8)" and
+  // "Gone cold (43)" were three different numbers sharing one destination that
+  // matched none of them.
+  //   today   = chase date is today
+  //   overdue = late but inside the 7-day window the autopilot still chases
+  //   live    = today + overdue (what Jarvis means by "due or overdue")
+  //   cold    = past the 7-day window, parked and no longer auto-chased
+  // Today in Irish time, and the closed/archived set — both needed by the
+  // bucket filters below and reused for the overdue badges further down.
+  const today = dublinDate();
+  const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
+  const DUE_BUCKETS = ["today", "overdue", "live", "cold"] as const;
+  const due = (DUE_BUCKETS as readonly string[]).includes(params.due ?? "")
+    ? (params.due as (typeof DUE_BUCKETS)[number])
+    : null;
+  const DUE_LABELS: Record<string, string> = {
+    today: "follow-up due today",
+    overdue: "follow-up overdue (within 7 days)",
+    live: "follow-up due or overdue",
+    cold: "gone cold (7+ days overdue)",
+  };
 
   // Default to A→Z by company so a lead is easy to find by name — except the
   // dial view: with "Has phone" ticked the whole point is best-first calling
@@ -95,6 +119,17 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", escapeLike(industry));
   if (campaign) query = query.eq("campaign_id", campaign);
   if (phoneOnly) query = query.not("phone", "is", null);
+  // The same date arithmetic the dashboard and the autopilot use, so a bucket
+  // here always contains exactly what those surfaces counted.
+  if (due === "today") query = query.eq("next_follow_up_at", today);
+  if (due === "overdue")
+    query = query.lt("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
+  if (due === "live")
+    query = query.lte("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
+  if (due === "cold") query = query.lt("next_follow_up_at", dublinDate(-7));
+  // Closed/archived leads are never part of a chase list — matches every
+  // count that links here.
+  if (due) query = query.not("status", "in", activeFilter);
 
   const [
     { data: prospects, count: totalMatching },
@@ -206,7 +241,7 @@ export default async function ProspectsPage({
   // passed — so scanning the dial list, an overdue chase jumps out instead of
   // reading like any other date. Dates are stored YYYY-MM-DD, so a string
   // compare is correct and cheap.
-  const todayDublin = dublinDate();
+  const todayDublin = today;
 
   // Pagination maths. Alphabetical order is preserved across pages (the query
   // sort is unchanged); we just window the rows.
@@ -226,6 +261,7 @@ export default async function ProspectsPage({
     if (campaign) sp.set("campaign", campaign);
     if (params.sort) sp.set("sort", params.sort);
     if (phoneOnly) sp.set("phone", "1");
+    if (due) sp.set("due", due);
     if (p > 1) sp.set("page", String(p));
     const qs = sp.toString();
     return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
@@ -244,6 +280,7 @@ export default async function ProspectsPage({
   if (industry) exportSp.set("industry", industry);
   if (campaign) exportSp.set("campaign", campaign);
   if (phoneOnly) exportSp.set("phone", "1");
+  if (due) exportSp.set("due", due);
   // The RESOLVED sort, not params.sort — so an export taken without touching
   // the dropdown still comes out in the order actually on screen (Has phone
   // defaults to best-score-first, everything else to A-Z).
@@ -269,9 +306,18 @@ export default async function ProspectsPage({
           <p>
             {total.toLocaleString("en-IE")} prospect
             {total === 1 ? "" : "s"}
-            {q || status || industry || campaign || phoneOnly ? " matching your filters" : ""} —
+            {q || status || industry || campaign || phoneOnly || due ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
+          {/* Arriving from a dashboard or Jarvis count: say which bucket this
+              is and give one tap back to everything. Without it the page looks
+              like the full list with a mysteriously small total. */}
+          {due && (
+            <p style={{ fontSize: 12.5, margin: "6px 0 0" }}>
+              <span className="badge badge-orange">{DUE_LABELS[due]}</span>{" "}
+              <Link href="/growth/prospects">clear filter</Link>
+            </p>
+          )}
           {totalPages > 1 && (
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "2px 0 0" }}>
               Showing {firstOnPage.toLocaleString("en-IE")}–
@@ -291,6 +337,7 @@ export default async function ProspectsPage({
           {campaign && <input type="hidden" name="campaign" value={campaign} />}
           {params.sort && <input type="hidden" name="sort" value={params.sort} />}
           {phoneOnly && <input type="hidden" name="phone" value="1" />}
+          {due && <input type="hidden" name="due" value={due} />}
           <input
             type="search"
             name="q"
@@ -585,7 +632,7 @@ export default async function ProspectsPage({
 
       {rows.length === 0 ? (
         <div className="panel panel-block">
-          {q || status || industry || campaign || phoneOnly ? (
+          {q || status || industry || campaign || phoneOnly || due ? (
             <p className="empty-state">
               No prospects match your search or filters.{" "}
               <Link href="/growth/prospects">Clear them</Link> to see your whole

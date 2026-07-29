@@ -2,7 +2,8 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
-import { PROSPECT_SORTS } from "@/lib/growth/constants";
+import { CLOSED_STATUSES, PROSPECT_SORTS } from "@/lib/growth/constants";
+import { dublinDate } from "@/lib/growth/dates";
 import { toCsv } from "@/lib/growth/csv";
 
 /**
@@ -38,7 +39,11 @@ export async function GET(request: Request) {
     const campaign = (url.searchParams.get("campaign") ?? "").trim();
     const phoneOnly = url.searchParams.get("phone") === "1";
     const sortParam = url.searchParams.get("sort") ?? undefined;
-    const filtered = Boolean(q || status || industry || campaign || phoneOnly);
+    // Same follow-up buckets the Prospects page offers. Without this, exporting
+    // from a "Gone cold" view would quietly hand back the whole database — the
+    // exact promise #419 fixed for ordering, broken again by a new filter.
+    const dueParam = url.searchParams.get("due") ?? "";
+    const filtered = Boolean(q || status || industry || campaign || phoneOnly || dueParam);
 
     // Page past the 1,000-row cap so the export is the WHOLE result set, not a
     // truncated first slice — an incomplete export is a silent data-loss trap.
@@ -79,6 +84,15 @@ export async function GET(request: Request) {
         if (industry) query = query.ilike("industry", escapeLike(industry));
         if (campaign) query = query.eq("campaign_id", campaign);
         if (phoneOnly) query = query.not("phone", "is", null);
+        const today = dublinDate();
+        if (dueParam === "today") query = query.eq("next_follow_up_at", today);
+        if (dueParam === "overdue")
+          query = query.lt("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
+        if (dueParam === "live")
+          query = query.lte("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
+        if (dueParam === "cold") query = query.lt("next_follow_up_at", dublinDate(-7));
+        if (["today", "overdue", "live", "cold"].includes(dueParam))
+          query = query.not("status", "in", `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`);
         return query;
       }
     );
