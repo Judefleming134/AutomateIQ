@@ -77,11 +77,16 @@ type MessagingEvent = {
   message?: { text?: string; is_echo?: boolean };
 };
 
+/**
+ * Sends via the Graph API and REPORTS whether it worked. This used to swallow
+ * every failure and return void, which is what let a failed send masquerade as
+ * a delivered reply — see handleInboundMessage's note on ordering.
+ */
 async function sendInstagramReply(
   pageToken: string,
   recipientIgUserId: string,
   text: string
-) {
+): Promise<boolean> {
   try {
     const res = await fetch(
       `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(pageToken)}`,
@@ -100,9 +105,13 @@ async function sendInstagramReply(
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error("Instagram send failed:", res.status, detail.slice(0, 300));
+      return false;
     }
+    return true;
   } catch (err) {
+    // Includes the 10s AbortSignal timeout.
     console.error("Instagram send error:", err);
+    return false;
   }
 }
 
@@ -152,15 +161,19 @@ export async function POST(request: NextRequest) {
       if (!settings) continue; // no business connected to this account
 
       try {
-        const result = await handleInboundMessage({
+        const token = settings.page_access_token as string | null;
+        await handleInboundMessage({
           supabase,
           businessId: settings.business_id,
           igUserId: senderId,
           text,
+          // Delivery is now part of the pipeline rather than an afterthought,
+          // so the stored "the setter replied" record can only exist if the
+          // lead actually received it. No token configured = nothing can be
+          // delivered, which must not read as a successful reply either.
+          deliver: async (reply) =>
+            token ? await sendInstagramReply(token, senderId, reply) : false,
         });
-        if (result.reply && settings.page_access_token) {
-          await sendInstagramReply(settings.page_access_token, senderId, result.reply);
-        }
       } catch (err) {
         console.error("Instagram inbound handling failed:", err);
       }
