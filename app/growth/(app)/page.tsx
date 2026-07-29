@@ -124,7 +124,10 @@ export default async function GrowthDashboardPage() {
     { count: overdueCount },
     { data: inboundRows },
   ] = await Promise.all([
-    loadGrowthMetrics(admin, 30),
+    // withSolutions:false — the dashboard never renders topSolutions, and this
+    // is his home screen. Skips the full recommendation JSONB per researched
+    // prospect for numbers it doesn't use.
+    loadGrowthMetrics(admin, 30, { withSolutions: false }),
     admin
       .from("ge_prospects")
       // count: the TRUE ready total — the list caps at 50, and once the

@@ -362,7 +362,9 @@ export async function askJarvis(
   ] = await Promise.all([
       // Both windows from ONE table load — two loadGrowthMetrics calls
       // scanned all six growth tables twice on every single chat question.
-      loadGrowthMetricsMulti(admin, [null, 7]),
+      // withSolutions:false — the snapshot never includes topSolutions, and
+      // this runs on EVERY chat question, so it's the hottest of the three.
+      loadGrowthMetricsMulti(admin, [null, 7], { withSolutions: false }),
       admin
         .from("ge_prospects")
         .select(SNAPSHOT_COLS)
