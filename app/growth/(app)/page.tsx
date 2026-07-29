@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRowsByIds } from "@/lib/growth/db";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
@@ -254,21 +255,36 @@ export default async function GrowthDashboardPage() {
     }
   }
   const repliedIds = [...latestInbound.keys()];
-  const [{ data: sentRows }, { data: repliedProspects }] = repliedIds.length
-    ? await Promise.all([
+  // CHUNKED: every id rides in the request URL (~40 chars per UUID), and this
+  // list is up to 400. A ~16KB URL is over the usual limit, the request fails,
+  // and `data` comes back null — which here means lastSentTo is empty and
+  // prospectById is empty, so this panel silently EMPTIES. The one surface
+  // built to stop replies being missed would quietly stop showing them exactly
+  // when there are enough replies to matter.
+  const [sentRows, repliedProspects] = await Promise.all([
+    selectAllRowsByIds<{ prospect_id: string; sent_at: string | null; created_at: string }>(
+      repliedIds,
+      (chunk) =>
         admin
           .from("ge_messages")
           .select("prospect_id, sent_at, created_at")
-          .in("prospect_id", repliedIds)
+          .in("prospect_id", chunk)
           .eq("direction", "outbound")
-          .eq("status", "sent"),
-        admin
-          .from("ge_prospects")
-          .select("id, company, contact_name, status, lead_score")
-          .in("id", repliedIds),
-      ])
-    : [{ data: [] as { prospect_id: string; sent_at: string | null; created_at: string }[] },
-       { data: [] as { id: string; company: string; contact_name: string | null; status: string; lead_score: number | null }[] }];
+          .eq("status", "sent")
+    ),
+    selectAllRowsByIds<{
+      id: string;
+      company: string;
+      contact_name: string | null;
+      status: string;
+      lead_score: number | null;
+    }>(repliedIds, (chunk) =>
+      admin
+        .from("ge_prospects")
+        .select("id, company, contact_name, status, lead_score")
+        .in("id", chunk)
+    ),
+  ]);
 
   const latestSent = new Map<string, string>();
   for (const m of sentRows ?? []) {

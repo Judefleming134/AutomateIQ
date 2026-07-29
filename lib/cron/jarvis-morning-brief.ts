@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRowsByIds } from "@/lib/growth/db";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
@@ -265,14 +266,22 @@ export async function sendJarvisMorningBrief(): Promise<{
       }
     }
     const inboundPids = [...latestInbound.keys()];
-    const { data: sentToThem } = inboundPids.length
-      ? await admin
-          .from("ge_messages")
-          .select("prospect_id, sent_at, created_at")
-          .in("prospect_id", inboundPids)
-          .eq("direction", "outbound")
-          .eq("status", "sent")
-      : { data: [] as { prospect_id: string; sent_at: string | null; created_at: string }[] };
+    // CHUNKED: every id rides in the request URL at ~40 chars per UUID. If this
+    // request fails, sentToThem is null, NOBODY looks answered, and the brief
+    // tells Jude that people he replied to days ago are still waiting on him —
+    // a false alarm in the one section that exists to be trusted.
+    const sentToThem = await selectAllRowsByIds<{
+      prospect_id: string;
+      sent_at: string | null;
+      created_at: string;
+    }>(inboundPids, (chunk) =>
+      admin
+        .from("ge_messages")
+        .select("prospect_id, sent_at, created_at")
+        .in("prospect_id", chunk)
+        .eq("direction", "outbound")
+        .eq("status", "sent")
+    );
     const lastSentTo = new Map<string, string>();
     for (const m of sentToThem ?? []) {
       // sent_at is the real send time; created_at is when the draft was
