@@ -343,6 +343,16 @@ export async function GET(request: NextRequest) {
         .gte("next_follow_up_at", dublinDate(-7))
         .not("email", "is", null)
         .in("status", ["contacted", "follow_up_sent"])
+        // MOST OVERDUE FIRST, then best score — the same rule the send-side
+        // queue uses. Only `slots` chases (1-2) get drafted a night, and
+        // picking them purely by score meant a low-scoring chase never got a
+        // draft WRITTEN at all. autoQueueDueFollowups was fixed to queue the
+        // most overdue first, but it can only queue a draft that exists, so
+        // sorting by score here quietly defeated that fix one layer earlier:
+        // the overdue lead reached the front of the queue and was skipped for
+        // having nothing to send, every night, until it crossed the 7-day line
+        // above and was parked as gone cold.
+        .order("next_follow_up_at", { ascending: true })
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(20);
       const settings = await loadGrowthSettings();
