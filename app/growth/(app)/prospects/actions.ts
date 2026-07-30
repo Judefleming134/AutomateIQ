@@ -514,9 +514,12 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
     return { error: "Invalid status." };
   }
 
+  const admin = createAdminClient();
+
   // Stage automation: each transition does its CRM bookkeeping so nothing
   // has to be remembered manually.
   const update: Record<string, unknown> = { status };
+  let filledFollowUp: string | null = null;
   if (status === "contacted" || status === "follow_up_sent") {
     update.last_contact_at = new Date().toISOString();
     update.next_follow_up_at = followUpDate(status === "contacted" ? 3 : 4);
@@ -530,16 +533,39 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
     update.next_follow_up_at = followUpDate(90);
   } else if ((CLOSED_STATUSES as string[]).includes(status)) {
     update.next_follow_up_at = null; // closed — nothing left to chase
+  } else if (CHASE_DAYS_IF_UNSET[status] !== undefined) {
+    // These stages had NO cadence of their own. A lead moved to one of them
+    // with no follow-up date already on it ended up with next_follow_up_at
+    // null — which makes it invisible to every surface that chases work: the
+    // dashboard's due counts, the call list, autoQueueDueFollowups, Jarvis and
+    // the morning brief. A sent proposal going quiet is the single most
+    // expensive way for a lead to leak, and it's the one that had no date.
+    //
+    // Deliberately fills the gap ONLY when the date is missing. An existing
+    // date — including one set by hand for a reason — is never touched or
+    // pulled forward, so this can add a chase but can never move one.
+    const { data: current } = await admin
+      .from("ge_prospects")
+      .select("next_follow_up_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (current && !current.next_follow_up_at) {
+      filledFollowUp = followUpDate(CHASE_DAYS_IF_UNSET[status]);
+      update.next_follow_up_at = filledFollowUp;
+    }
   }
 
-  const admin = createAdminClient();
   const { error } = await admin.from("ge_prospects").update(update).eq("id", id);
   if (error) return { error: error.message };
 
   await admin.from("ge_activities").insert({
     prospect_id: id,
     type: "status_change",
-    content: `Status changed to "${PROSPECT_STATUS_META[status as keyof typeof PROSPECT_STATUS_META].label}" by ${member.name}`,
+    // Say it out loud when the engine schedules a chase that wasn't there —
+    // an automatic date should never be something you only discover later.
+    content:
+      `Status changed to "${PROSPECT_STATUS_META[status as keyof typeof PROSPECT_STATUS_META].label}" by ${member.name}` +
+      (filledFollowUp ? ` · follow-up scheduled for ${filledFollowUp}` : ""),
     created_by: member.id,
   });
 
@@ -552,6 +578,21 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
 function followUpDate(days: number): string {
   return dublinDate(days);
 }
+
+/**
+ * Active stages that carried no chase cadence of their own, and the gap each
+ * one should get when a lead arrives there with no follow-up date at all.
+ * Tight on purpose — these are the hottest leads in the pipeline, and the cost
+ * of a nudge two days early is nothing next to a proposal going cold unseen.
+ */
+const CHASE_DAYS_IF_UNSET: Record<string, number> = {
+  // Next move is a booked session — chase it while it's warm.
+  qualified: 2,
+  // Your own task, not theirs: finish the proposal.
+  proposal_in_progress: 1,
+  // The decision nudge. Nothing in the engine was scheduling it.
+  proposal_sent: 3,
+};
 
 /**
  * The heart of the workflow: researches the prospect's company and saves the
