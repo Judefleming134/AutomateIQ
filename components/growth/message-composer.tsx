@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, Send, Save, Clock, CheckCheck, Copy, Check } from "lucide-react";
+import { Sparkles, Send, Save, Clock, CheckCheck, Copy, Check, Undo2 } from "lucide-react";
 import {
   draftGrowthMessage,
   composeMessage,
@@ -78,6 +78,15 @@ export function MessageComposer({
   // "Save draft" click duplicated the draft in the inbox.
   const [messageId, setMessageId] = useState<string | null>(null);
   const [drafting, setDrafting] = useState(false);
+  // What the last AI draft or template application replaced, so it can be put
+  // back in one tap. Both overwrite subject AND body outright — and applying a
+  // template is a DROPDOWN, so brushing it wiped a half-written reply to a
+  // prospect who'd just messaged back, with no way to recover it. Channel is
+  // captured too: a template switches channel, and restoring text without it
+  // would drop the reply into the wrong one. Same guard as the Message Studio.
+  const [undo, setUndo] = useState<
+    { channel: Channel; subject: string; body: string } | null
+  >(null);
   const [copied, setCopied] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -99,9 +108,16 @@ export function MessageComposer({
         setNotice({ kind: "error", text: result.error });
         return;
       }
+      const replaced = body.trim() || subject.trim();
+      setUndo(replaced ? { channel, subject, body } : null);
       if (result.subject) setSubject(result.subject);
       setBody(result.body);
-      setNotice({ kind: "ok", text: "Draft ready — review and edit before sending." });
+      setNotice({
+        kind: "ok",
+        text: replaced
+          ? "Draft ready — your previous text was replaced."
+          : "Draft ready — review and edit before sending.",
+      });
     } catch {
       setNotice({
         kind: "error",
@@ -115,10 +131,27 @@ export function MessageComposer({
   function applyTemplate(id: string) {
     const t = templates.find((tpl) => tpl.id === id);
     if (!t) return;
+    // Capture first — a template replaces everything already typed.
+    const replaced = body.trim() || subject.trim();
+    setUndo(replaced ? { channel, subject, body } : null);
     setChannel(t.channel);
     if (t.subject) setSubject(t.subject);
     setBody(t.body);
-    setNotice(null);
+    setNotice(
+      replaced
+        ? { kind: "ok", text: "Template applied — your previous text was replaced." }
+        : null
+    );
+  }
+
+  /** Put back whatever the last draft or template replaced. */
+  function restoreUndo() {
+    if (!undo) return;
+    setChannel(undo.channel);
+    setSubject(undo.subject);
+    setBody(undo.body);
+    setUndo(null);
+    setNotice({ kind: "ok", text: "Your original text is back." });
   }
 
   function dispatch(mode: "draft" | "queue" | "send_email" | "mark_sent") {
@@ -180,6 +213,9 @@ export function MessageComposer({
         setMessageId(null);
         setBody("");
         setSubject("");
+        // The message is sent — restoring pre-draft text into an empty
+        // composer would only confuse.
+        setUndo(null);
       }
       router.refresh();
     });
@@ -356,6 +392,18 @@ export function MessageComposer({
         >
           {notice.text}
         </p>
+      )}
+
+      {/* One tap back to whatever the last draft or template overwrote. */}
+      {undo && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={restoreUndo}
+          style={{ marginTop: 8 }}
+        >
+          <Undo2 size={13} /> Undo — put my original text back
+        </button>
       )}
 
       <div
