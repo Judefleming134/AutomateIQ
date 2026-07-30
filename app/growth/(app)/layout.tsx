@@ -9,6 +9,7 @@ import {
   Bot,
   Settings,
   Send,
+  Linkedin,
   Phone,
 } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
@@ -41,6 +42,7 @@ export default async function GrowthLayout({
         { href: "/growth/prospects", label: "Prospects", icon: <Users /> },
         { href: "/growth/call-list", label: "Call list", icon: <Phone /> },
         { href: "/growth/dms", label: "DM list", icon: <Send /> },
+        { href: "/growth/linkedin", label: "LinkedIn stories", icon: <Linkedin /> },
         { href: "/growth/inbox", label: "Inbox", icon: <Inbox /> },
       ],
     },
