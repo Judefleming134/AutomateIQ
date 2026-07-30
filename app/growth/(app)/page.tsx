@@ -21,6 +21,7 @@ import { SubmitButton } from "@/components/admin/submit-button";
 import {
   CHANNEL_META,
   CLOSED_STATUSES,
+  CONTACTED_ACTIVE_STATUSES,
   PROSPECT_STATUS_META,
   type Channel,
   type ProspectStatus,
@@ -123,6 +124,7 @@ export default async function GrowthDashboardPage() {
     { count: dueTodayCount },
     { count: overdueCount },
     { data: inboundRows },
+    { count: unscheduledCount },
   ] = await Promise.all([
     // withSolutions:false — the dashboard never renders topSolutions, and this
     // is his home screen. Skips the full recommendation JSONB per researched
@@ -227,6 +229,15 @@ export default async function GrowthDashboardPage() {
       .eq("direction", "inbound")
       .order("created_at", { ascending: false })
       .limit(400),
+    // Prospects you've ALREADY spoken to that have nothing scheduled. These
+    // are invisible to every chase surface in the engine, so "Nothing overdue
+    // — clean pipeline" was reading as praise while they quietly sat there.
+    // Head count only: the list itself lives one click away.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .in("status", CONTACTED_ACTIVE_STATUSES)
+      .is("next_follow_up_at", null),
   ]);
 
   // Issued above alongside the main batch so both waves run concurrently.
@@ -666,7 +677,25 @@ export default async function GrowthDashboardPage() {
             <AlarmClock size={15} style={{ verticalAlign: "-2px", color: "var(--red, #f87171)" }} /> Overdue ({overdueCount ?? (overdue ?? []).length})
           </h2>
           {(overdue ?? []).length === 0 ? (
-            <p className="empty-state">Nothing overdue — clean pipeline.</p>
+            // "Clean pipeline" is only true if there's actually something in
+            // it. An empty overdue list looks identical whether every chase
+            // was worked or whether nobody has a next step at all — and the
+            // second one is a leak being reported as praise.
+            (unscheduledCount ?? 0) > 0 ? (
+              <p className="empty-state" style={{ color: "var(--orange, #fb923c)" }}>
+                Nothing overdue — but{" "}
+                <strong>
+                  {unscheduledCount} prospect{unscheduledCount === 1 ? "" : "s"} you&apos;ve
+                  already contacted {unscheduledCount === 1 ? "has" : "have"} no next step
+                  booked
+                </strong>
+                , so nothing will ever bring {unscheduledCount === 1 ? "it" : "them"} back
+                up.{" "}
+                <Link href="/growth/prospects?due=unscheduled">Give them a date →</Link>
+              </p>
+            ) : (
+              <p className="empty-state">Nothing overdue — clean pipeline.</p>
+            )
           ) : (
             <>
               <ProspectList rows={overdue ?? []} dateField="follow_up" />
