@@ -288,39 +288,68 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  for (const prospect of toResearch) {
-    try {
-      const result = await runCompanyResearch(prospect);
-      const persisted = await persistResearchResult(
-        admin,
-        prospect,
-        result,
-        null,
-        (score) =>
-          `Jarvis nightly: researched ${prospect.company} while you slept (${
-            result.websiteFetched ? "website analysed" : "website unreachable — inferred from details"
-          }) — scored ${score}/100, outreach drafts ready`
-      );
-      if (persisted.ok) {
-        done += 1;
-        notes.push(`${prospect.company}: scored ${persisted.score}`);
-      } else {
-        notes.push(`${prospect.company}: persist failed (${persisted.error})`);
+  // IN PARALLEL, not one after the other.
+  //
+  // This was a sequential `for … await` over up to TWO leads, and each lead is
+  // a website fetch (≤10s) plus one AI call (≤42s) — so two of them is up to
+  // 104s against this route's maxDuration of 60. The AI call's own comment
+  // says the ≤42s budget exists so "fetch + generation + DB writes stay under
+  // 60", which is true of ONE lead and was being spent on two.
+  //
+  // The consequence was invisible and expensive: on any night where the first
+  // lead was slow, the platform killed the request partway through the second
+  // — after its AI call had already been made and paid for, and sometimes
+  // between the research write and the status update. That last case is
+  // exactly the "research was done but the status never advanced (likely an
+  // interrupted run)" state the healing block above exists to repair, which
+  // is the evidence it was happening. Real throughput was closer to one lead
+  // a tick than two, on the pipeline that feeds the whole outreach ramp.
+  //
+  // Two in parallel finish in roughly the time of one (~52s), comfortably
+  // inside the ceiling — the same shape the boost drain already uses.
+  const outcomes = await Promise.all(
+    toResearch.map(async (prospect) => {
+      try {
+        const result = await runCompanyResearch(prospect);
+        const persisted = await persistResearchResult(
+          admin,
+          prospect,
+          result,
+          null,
+          (score) =>
+            `Jarvis nightly: researched ${prospect.company} while you slept (${
+              result.websiteFetched ? "website analysed" : "website unreachable — inferred from details"
+            }) — scored ${score}/100, outreach drafts ready`
+        );
+        return { prospect, persisted, failure: null };
+      } catch (err) {
+        return { prospect, persisted: null, failure: mapResearchError(err) };
       }
-    } catch (err) {
-      const { friendly, accountDead, dailyQuota } = mapResearchError(err);
-      // Account-level failure (daily quota spent, credits dead) is not the
-      // LEAD's fault — park nothing, touch nothing, stop the run. Otherwise,
-      // on a quota-exhausted night, every 10-minute run would park one more
-      // innocent lead into the Research-failed group, draining the fresh
-      // queue into the failed pile by morning. The next scheduled run
-      // re-probes cheaply; once the quota resets, everything just continues.
-      if (accountDead || dailyQuota) {
-        notes.push(`stopped: ${friendly.slice(0, 80)}`);
-        break;
+    })
+  );
+
+  // Outcomes are applied AFTER the parallel batch: parking is a quick DB write,
+  // and doing it here keeps the account-level rule intact — a daily-quota or
+  // dead-credits failure is not the LEAD's fault, so it parks nothing. On a
+  // quota-exhausted night the old loop would otherwise park one more innocent
+  // lead every tick until the fresh queue had drained into the failed pile by
+  // morning. A genuine per-lead failure still parks normally, even when a
+  // sibling in the same batch hit the account limit.
+  for (const { prospect, persisted, failure } of outcomes) {
+    if (failure) {
+      if (failure.accountDead || failure.dailyQuota) {
+        notes.push(`stopped: ${failure.friendly.slice(0, 80)}`);
+        continue;
       }
-      await parkResearchFailure(admin, prospect, friendly, null);
-      notes.push(`${prospect.company}: ${friendly.slice(0, 80)}`);
+      await parkResearchFailure(admin, prospect, failure.friendly, null);
+      notes.push(`${prospect.company}: ${failure.friendly.slice(0, 80)}`);
+      continue;
+    }
+    if (persisted?.ok) {
+      done += 1;
+      notes.push(`${prospect.company}: scored ${persisted.score}`);
+    } else {
+      notes.push(`${prospect.company}: persist failed (${persisted?.error ?? "unknown"})`);
     }
   }
 
