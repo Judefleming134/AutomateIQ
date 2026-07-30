@@ -5410,3 +5410,22 @@ table.data-table {
   body { background: #fff !important; }
   .trades-doc { border: 0 !important; box-shadow: none !important; max-width: 100% !important; }
 }
+
+/* Tap-to-call chip inside the Prospects table's first column. The table is
+   min-width:900, so below that it scrolls horizontally and the Phone column
+   (6th) is several columns off-screen — on the page whose default drill is
+   "Has phone → best score first". Desktop keeps the Phone column as the only
+   place the number appears; narrow screens get it in the first cell too. */
+.phone-inline {
+  display: none;
+}
+@media (max-width: 900px) {
+  .phone-inline {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ac2, #3b82f6);
+    text-decoration: none;
+  }
+}
