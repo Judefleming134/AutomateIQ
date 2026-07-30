@@ -6,10 +6,10 @@ export const metadata: Metadata = {
   title: "What are missed calls costing you? | Free calculator | AutomateIQ",
   description:
     "Work out in euro what unanswered calls, texts and enquiries cost your business every week, month and year. Free, no signup, your numbers only.",
-  alternates: { canonical: "https://automateiq.ie/tools/missed-calls" },
+  alternates: { canonical: "https://automateiq.ie/freetools/missed-calls" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools/missed-calls",
+    url: "https://automateiq.ie/freetools/missed-calls",
     title: "What are missed calls costing you?",
     description: "Free calculator — put a real euro figure on the enquiries nobody got back to.",
     siteName: "AutomateIQ",

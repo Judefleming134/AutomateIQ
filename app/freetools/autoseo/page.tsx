@@ -7,10 +7,10 @@ export const metadata: Metadata = {
   title: "Free Website SEO Audit | AutomateIQ",
   description:
     "Check any business website in 20 seconds — free, no signup. See exactly why you're not showing up on Google, in plain English, with the code to fix each problem ready to copy and paste.",
-  alternates: { canonical: "https://automateiq.ie/autoseo" },
+  alternates: { canonical: "https://automateiq.ie/freetools/autoseo" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/autoseo",
+    url: "https://automateiq.ie/freetools/autoseo",
     title: "Free Website SEO Audit | AutomateIQ",
     description:
       "Why isn't your business showing up on Google? Free 20-second check, plain-English answers, and the exact fixes.",

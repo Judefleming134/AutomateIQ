@@ -14,10 +14,10 @@ export const metadata: Metadata = {
   title: "Free tools for Irish businesses | AutomateIQ",
   description:
     "Six free tools, no signup: check your website's SEO, your Google Business Profile, how fast you really reply, what missed calls cost you, reply to reviews, and add instant quotes to your site.",
-  alternates: { canonical: "https://automateiq.ie/tools" },
+  alternates: { canonical: "https://automateiq.ie/freetools" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools",
+    url: "https://automateiq.ie/freetools",
     title: "Free tools for Irish businesses",
     description: "No signup, no email required, genuinely free. Built for trades and local businesses.",
     siteName: "AutomateIQ",
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 const TOOLS = [
   {
-    href: "/autoseo",
+    href: "/freetools/autoseo",
     icon: Search,
     title: "Website SEO check",
     blurb:
@@ -35,7 +35,7 @@ const TOOLS = [
     time: "20 seconds",
   },
   {
-    href: "/tools/google-profile",
+    href: "/freetools/google-profile",
     icon: MapPin,
     title: "Google Business Profile check",
     blurb:
@@ -43,7 +43,7 @@ const TOOLS = [
     time: "10 seconds",
   },
   {
-    href: "/tools/response-time",
+    href: "/freetools/response-time",
     icon: Timer,
     title: "How fast do you reply?",
     blurb:
@@ -51,7 +51,7 @@ const TOOLS = [
     time: "1 minute",
   },
   {
-    href: "/tools/missed-calls",
+    href: "/freetools/missed-calls",
     icon: PhoneMissed,
     title: "What missed calls cost you",
     blurb:
@@ -59,7 +59,7 @@ const TOOLS = [
     time: "30 seconds",
   },
   {
-    href: "/tools/reviews",
+    href: "/freetools/reviews",
     icon: MessageSquareQuote,
     title: "Review reply writer",
     blurb:
@@ -67,7 +67,7 @@ const TOOLS = [
     time: "15 seconds",
   },
   {
-    href: "/tools/quote-builder",
+    href: "/freetools/quote-builder",
     icon: Calculator,
     title: "Instant quote widget",
     blurb:

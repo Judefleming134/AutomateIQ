@@ -10,7 +10,7 @@ export const maxDuration = 30;
 const bodySchema = z.object({ url: z.string().trim().min(3).max(300) });
 
 /**
- * Public, free, unauthenticated: the engine behind automateiq.ie/autoseo.
+ * Public, free, unauthenticated: the engine behind automateiq.ie/freetools/autoseo.
  *
  * Two things make an open URL-fetching endpoint safe enough to expose:
  * runSeoAudit refuses anything that isn't a public web host (no localhost, no

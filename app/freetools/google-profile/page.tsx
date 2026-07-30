@@ -7,10 +7,10 @@ export const metadata: Metadata = {
   title: "Free Google Business Profile check | AutomateIQ",
   description:
     "See why your business isn't showing in the Google map pack. Free check of your reviews, rating, hours, category and phone — with the one fix that matters most.",
-  alternates: { canonical: "https://automateiq.ie/tools/google-profile" },
+  alternates: { canonical: "https://automateiq.ie/freetools/google-profile" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools/google-profile",
+    url: "https://automateiq.ie/freetools/google-profile",
     title: "Free Google Business Profile check",
     description: "Why aren't you in the map pack? Free check, one clear fix.",
     siteName: "AutomateIQ",

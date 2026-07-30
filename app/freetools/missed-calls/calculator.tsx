@@ -200,7 +200,7 @@ export function MissedCallsCalculator() {
           <Link href="/book" className="btn btn-primary btn-sm">
             See it working <ArrowRight size={13} />
           </Link>
-          <Link href="/tools/response-time" className="btn btn-secondary btn-sm">
+          <Link href="/freetools/response-time" className="btn btn-secondary btn-sm">
             Test your actual response time
           </Link>
         </div>

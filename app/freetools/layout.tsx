@@ -14,7 +14,7 @@ export default function ToolsLayout({ children }: { children: React.ReactNode })
           <img src="/logo-aiq.png" alt="AutomateIQ" />
         </Link>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Link href="/tools" className="btn btn-ghost btn-sm">
+          <Link href="/freetools" className="btn btn-ghost btn-sm">
             All free tools
           </Link>
           <Link href="/book" className="btn btn-primary btn-sm">

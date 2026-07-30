@@ -72,7 +72,7 @@ export default async function SeenPage({
           Response-time links are only good for a couple of weeks — after that the number
           wouldn&apos;t mean anything. Run the test again whenever you like.
         </p>
-        <Link href="/tools/response-time" className="btn btn-primary">
+        <Link href="/freetools/response-time" className="btn btn-primary">
           Run the test again <ArrowRight size={14} />
         </Link>
       </section>
@@ -128,7 +128,7 @@ export default async function SeenPage({
             <Link href="/book" className="btn btn-primary btn-sm">
               See it working <ArrowRight size={13} />
             </Link>
-            <Link href="/tools/missed-calls" className="btn btn-secondary btn-sm">
+            <Link href="/freetools/missed-calls" className="btn btn-secondary btn-sm">
               What that gap costs in euro
             </Link>
           </div>

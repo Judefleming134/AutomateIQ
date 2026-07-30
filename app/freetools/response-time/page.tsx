@@ -6,10 +6,10 @@ export const metadata: Metadata = {
   title: "How fast do you actually reply? | Free test | AutomateIQ",
   description:
     "We send one realistic enquiry to the email published on your website and time how long it sits unopened. Free, honest, and usually a surprise.",
-  alternates: { canonical: "https://automateiq.ie/tools/response-time" },
+  alternates: { canonical: "https://automateiq.ie/freetools/response-time" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools/response-time",
+    url: "https://automateiq.ie/freetools/response-time",
     title: "How fast do you actually reply?",
     description: "A real enquiry, a real clock. Find out what a customer actually experiences.",
     siteName: "AutomateIQ",
