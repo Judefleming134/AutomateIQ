@@ -8,6 +8,7 @@ import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
+import { DmSendButton } from "@/components/growth/dm-send-button";
 import { CopyButton } from "@/components/portal/copy-button";
 import { markMessageSent } from "../inbox/actions";
 
@@ -159,7 +160,9 @@ export default async function DmListPage() {
           </h1>
           <p>
             Your best prospects with a ready DM and their profile link, side by
-            side — rip through them: <b>Copy → Open → paste → send → Mark sent</b>.
+            side — rip through them: <b>Copy &amp; open → paste → send → Mark sent</b>.
+            One tap copies that prospect&apos;s message and opens their profile
+            together, so you can never paste the last one&apos;s message by mistake.
             Sending stays in your hands (keeps your accounts safe); the engine
             just removes all the hunting between tabs.
           </p>
@@ -266,7 +269,16 @@ export default async function DmListPage() {
                   </div>
                 ) : (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <CopyButton text={it.body} label="Copy message" />
+                    {/* One tap: copies THIS message and opens THIS profile, so
+                        the clipboard and the open tab can never belong to two
+                        different businesses. The plain Copy button stays beside
+                        it for anyone who wants just the text. */}
+                    <DmSendButton
+                      text={it.body}
+                      link={it.link}
+                      platform={CHANNEL_META[it.channel].label}
+                    />
+                    <CopyButton text={it.body} label="Copy only" />
                     <ActionForm action={markMessageSent} className="inline-form">
                       <input type="hidden" name="message_id" value={it.messageId} />
                       <SubmitButton className="btn btn-primary btn-sm" pendingText="Marking…">
