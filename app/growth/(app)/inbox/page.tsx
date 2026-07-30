@@ -183,6 +183,21 @@ export default async function InboxPage({
     )
     .sort((a, b) => {
       if (a.awaitingUs !== b.awaitingUs) return a.awaitingUs ? -1 : 1;
+      // WITHIN "Reply due", OLDEST first — the opposite of the group below it,
+      // deliberately. These are people waiting on an answer, so the one that
+      // has been waiting longest is the one about to go cold, and newest-first
+      // buried it at the bottom of the group. With three replies that's
+      // survivable; as send volume ramps and twenty are waiting, the reply
+      // from Tuesday is off the bottom of the list and quietly lost.
+      //
+      // This also matches the dashboard's "replies waiting on you" panel,
+      // which already sorts longest-waiting first. The two surfaces answering
+      // the same question in opposite orders is its own bug.
+      if (a.awaitingUs && b.awaitingUs) {
+        return a.latestReal.created_at < b.latestReal.created_at ? -1 : 1;
+      }
+      // Already answered: newest activity first, which is what you want when
+      // you're looking back over a thread rather than working a queue.
       return a.latestReal.created_at < b.latestReal.created_at ? 1 : -1;
     });
 
