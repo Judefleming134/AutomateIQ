@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isKnownReviewHost, normaliseReviewLink } from "@/lib/review-agent/review-hosts";
+import { signToken } from "@/lib/tools/token";
 
 /**
  * Review-link click tracking. The email's CTA points here instead of
@@ -38,24 +40,35 @@ export async function GET(
       .eq("id", reviewRequest.id);
   }
 
-  // Normalise the saved link: a business owner may paste it without a scheme
-  // ("g.page/…", "www.google.com/…"). NextResponse.redirect requires an
-  // ABSOLUTE URL and throws on anything else — which would 500 the customer
-  // clicking their review link. Add https:// if missing and validate; fall
-  // back to home rather than crash.
-  const raw = business?.google_review_link?.trim();
-  let destination: string | null = null;
-  if (raw) {
-    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-    try {
-      destination = new URL(withScheme).toString();
-    } catch {
-      destination = null;
-    }
-  }
+  // Normalise the saved link — owners paste these without a scheme constantly
+  // ("g.page/…", "www.google.com/…"), and NextResponse.redirect throws on
+  // anything that isn't absolute, which would 500 the customer clicking their
+  // own review link. Fall back to home rather than crash.
+  const destination = normaliseReviewLink(business?.google_review_link);
   if (!destination) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return NextResponse.redirect(destination);
+  // OPEN REDIRECT GUARD.
+  //
+  // This used to send the visitor to whatever the tenant had saved, full stop.
+  // That makes automateiq.ie a redirector to any URL a customer chooses: the
+  // recipient sees our domain in the message, trusts it, and lands wherever
+  // they were sent. The cost falls on Jude's domain reputation, not theirs.
+  //
+  // Known review platforms still go straight through, so the normal path is
+  // unchanged and costs no extra click. Anything else goes via an interstitial
+  // that names the destination first — chosen over a hard block on purpose,
+  // because blocking would silently break the review flow of a paying customer
+  // whose platform simply isn't on the list, which is worse than the abuse.
+  //
+  // The interstitial's parameter is SIGNED, so nobody can craft
+  // /leaving?to=anywhere by hand and get our domain to vouch for it.
+  if (isKnownReviewHost(destination.hostname)) {
+    return NextResponse.redirect(destination.toString());
+  }
+  const t = signToken({ t: Date.now(), to: destination.toString() });
+  return NextResponse.redirect(
+    new URL(`/leaving?t=${encodeURIComponent(t)}`, request.url)
+  );
 }
