@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { selectAllRowsByIds } from "@/lib/growth/db";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { selectAllRows, selectAllRowsByIds } from "@/lib/growth/db";
 import {
   sendOutreachEmail,
   sanitizeOutreachBody,
@@ -208,6 +209,119 @@ export async function listAutopilotCandidates(
   return out;
 }
 
+/** Never ramp below this — it's the long-standing default, so turning the
+ *  ramp on can never make the engine send LESS than it already did. */
+const RAMP_FLOOR = 20;
+/** How much bigger than the recent daily peak one day is allowed to be.
+ *  +50% a day is the conventional warm-up step; it reaches 200/day from 20
+ *  in about six days, which is far faster than anyone ramps by hand. */
+const RAMP_STEP = 1.5;
+/** Deliverability limits. Above either of these, growth stops dead. Mailbox
+ *  providers act on exactly these ratios, and a domain that gets filtered is
+ *  far more expensive to fix than a few slow days. */
+const MAX_BOUNCE_RATE = 0.05;
+const RAMP_WINDOW_DAYS = 14;
+
+export type RampDecision = {
+  /** What the engine will actually queue today. */
+  target: number;
+  /** What was asked for via GROWTH_AUTOQUEUE_TARGET. */
+  requested: number;
+  recentPeak: number;
+  sent: number;
+  bounced: number;
+  complaints: number;
+  bounceRate: number;
+  /** Plain-English why, for the brief and the queue detail line. */
+  reason: string;
+};
+
+/**
+ * Decides how many first-touch emails it is SAFE to queue today.
+ *
+ * Owning a domain for a while is not the same as having a warmed sending
+ * reputation — mailbox providers judge the ramp and the engagement, not the
+ * calendar. Jumping from 20 a day to 200 is the single fastest way to get a
+ * domain filtered, and once outreach lands in spam the channel that earns the
+ * money is gone until it's rebuilt.
+ *
+ * So GROWTH_AUTOQUEUE_TARGET becomes a DESTINATION rather than a daily number:
+ * set it to 200 and the engine walks itself up ~50% a day from whatever it has
+ * actually been sending, stopping instantly if bounces or complaints appear.
+ * It can only ever hold volume DOWN — never below RAMP_FLOOR, so this can't
+ * make the engine quieter than it already was.
+ */
+export async function resolveSendRamp(
+  admin: SupabaseClient,
+  requested: number
+): Promise<RampDecision> {
+  const since = new Date(Date.now() - RAMP_WINDOW_DAYS * 86_400_000).toISOString();
+  // Outbound email that actually left (or bounced) in the window. One tiny
+  // row each; paged because a busy fortnight can exceed PostgREST's 1,000.
+  const rows = await selectAllRows<{ status: string; sent_at: string | null; created_at: string }>(
+    () =>
+      admin
+        .from("ge_messages")
+        .select("status, sent_at, created_at")
+        .eq("channel", "email")
+        .eq("direction", "outbound")
+        .in("status", ["sent", "failed"])
+        .gte("created_at", since)
+  ).catch(() => [] as { status: string; sent_at: string | null; created_at: string }[]);
+
+  const byDay = new Map<string, number>();
+  let sent = 0;
+  let bounced = 0;
+  for (const r of rows) {
+    if (r.status === "failed") bounced++;
+    else sent++;
+    const day = (r.sent_at ?? r.created_at).slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+  }
+  const recentPeak = byDay.size ? Math.max(...byDay.values()) : 0;
+  const total = sent + bounced;
+  const bounceRate = total > 0 ? bounced / total : 0;
+
+  // Spam complaints are logged by the Resend webhook as delivery activities.
+  // Any complaint at all is a stop signal — the acceptable rate is ~0.1%, far
+  // below what a small sender can measure, so treat one as one too many.
+  const { count: complaintCount } = await admin
+    .from("ge_activities")
+    .select("id", { count: "exact", head: true })
+    .ilike("content", "Email delivery:%COMPLAINED%")
+    .gte("created_at", since);
+  const complaints = complaintCount ?? 0;
+
+  if (complaints > 0) {
+    // Order matters: clamp to the requested number LAST, so a hold can never
+    // send MORE than was asked for. Max-first would raise a deliberately low
+    // target up to the floor at the exact moment volume should be falling.
+    const target = Math.min(requested, Math.max(RAMP_FLOOR, recentPeak));
+    return {
+      target, requested, recentPeak, sent, bounced, complaints, bounceRate,
+      reason: `HOLDING at ${target}/day — ${complaints} spam complaint${complaints === 1 ? "" : "s"} in the last ${RAMP_WINDOW_DAYS} days. Volume will not grow until that's clean. Check who's being emailed and how they got on the list.`,
+    };
+  }
+  if (total >= 20 && bounceRate > MAX_BOUNCE_RATE) {
+    // Order matters: clamp to the requested number LAST, so a hold can never
+    // send MORE than was asked for. Max-first would raise a deliberately low
+    // target up to the floor at the exact moment volume should be falling.
+    const target = Math.min(requested, Math.max(RAMP_FLOOR, recentPeak));
+    return {
+      target, requested, recentPeak, sent, bounced, complaints, bounceRate,
+      reason: `HOLDING at ${target}/day — ${(bounceRate * 100).toFixed(1)}% of the last ${total} emails bounced (limit ${(MAX_BOUNCE_RATE * 100).toFixed(0)}%). Clean the list before sending more; bounces damage the domain faster than volume builds it.`,
+    };
+  }
+
+  const ceiling = Math.max(RAMP_FLOOR, Math.ceil(recentPeak * RAMP_STEP));
+  const target = Math.min(requested, ceiling);
+  const reason =
+    target >= requested
+      ? `at your target of ${requested}/day (peak ${recentPeak}, ${(bounceRate * 100).toFixed(1)}% bounces)`
+      : `ramping to ${target}/day on the way to ${requested} — up to +50% on the recent peak of ${recentPeak}/day, ${(bounceRate * 100).toFixed(1)}% bounces. Reaches your target in about ${Math.max(1, Math.ceil(Math.log(requested / Math.max(target, 1)) / Math.log(RAMP_STEP)))} more days.`;
+  return { target, requested, recentPeak, sent, bounced, complaints, bounceRate, reason };
+}
+
 /**
  * Auto-queue: tops the 8am send queue up to a target with the BEST clean
  * drafts (top lead score, not broken, not stale, not already queued) so
@@ -217,19 +331,24 @@ export async function listAutopilotCandidates(
  * still passes the hard pre-send review gate at send time.
  *
  * Tunable without a deploy: GROWTH_AUTOQUEUE_TARGET (default 20, "0"
- * disables the whole behaviour).
+ * disables the whole behaviour). It is a DESTINATION, not a daily number —
+ * resolveSendRamp paces the climb so the domain isn't burned getting there.
  */
 export async function autoQueueTopDrafts(): Promise<{
   queued: number;
   detail: string;
 }> {
   const raw = process.env.GROWTH_AUTOQUEUE_TARGET;
-  const target = raw === undefined ? 20 : Number(raw);
-  if (!Number.isFinite(target) || target <= 0) {
+  const requested = raw === undefined ? RAMP_FLOOR : Number(raw);
+  if (!Number.isFinite(requested) || requested <= 0) {
     return { queued: 0, detail: "auto-queue disabled" };
   }
 
   const admin = createAdminClient();
+  // Pace the climb toward the requested number rather than jumping to it.
+  const ramp = await resolveSendRamp(admin, requested);
+  const target = ramp.target;
+
   const { count: already } = await admin
     .from("ge_messages")
     .select("id", { count: "exact", head: true })
@@ -238,7 +357,7 @@ export async function autoQueueTopDrafts(): Promise<{
     .eq("status", "queued");
   const need = target - (already ?? 0);
   if (need <= 0) {
-    return { queued: 0, detail: `queue already at ${already} (target ${target})` };
+    return { queued: 0, detail: `queue already at ${already} — ${ramp.reason}` };
   }
 
   // Over-fetch: some candidates come back flagged and are skipped. Auto-queue
@@ -262,16 +381,23 @@ export async function autoQueueTopDrafts(): Promise<{
       .eq("status", "draft");
     if (error) continue;
     queued += 1;
+    // The FIRST line of the run also carries the ramp decision, so the pacing
+    // shows up in the nightly section of the morning brief rather than only in
+    // the cron response. ge_activities.prospect_id is NOT NULL, so a standalone
+    // note would need a migration — this rides along on a real prospect
+    // instead, and it's true of that prospect's send either way.
     await admin.from("ge_activities").insert({
       prospect_id: c.prospectId,
       type: "system",
-      content: `Jarvis nightly: auto-queued the first-touch email for the morning run (score ${c.leadScore})`,
+      content:
+        `Jarvis nightly: auto-queued the first-touch email for the morning run (score ${c.leadScore})` +
+        (queued === 1 ? ` — send volume ${ramp.reason}` : ""),
       created_by: null,
     });
   }
   return {
     queued,
-    detail: `topped the queue up from ${already ?? 0} to ${(already ?? 0) + queued} (target ${target})`,
+    detail: `topped the queue up from ${already ?? 0} to ${(already ?? 0) + queued} — ${ramp.reason}`,
   };
 }
 

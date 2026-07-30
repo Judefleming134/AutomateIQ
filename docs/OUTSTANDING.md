@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-07-30
+Last reviewed: 2026-07-30 (K2 removed — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -39,7 +39,6 @@ not forgotten and they are not free to ignore forever.
 | # | Item | Why it wasn't shipped | Risk of leaving it |
 |---|---|---|---|
 | K1 | **Metrics loader scans every message ever for a windowed call** | The biggest remaining performance win. The correctness trap around it was checked and it is safe — this is purely a volume problem that grows with the message table. | Gets slower every week |
-| K2 | **Resend webhook has no Svix timestamp-age check** | Replayable. A naive fix risks a clock-skew rejection silently losing real delivery data, which is worse than the replay it prevents. Wants a human awake when it ships. | Low, but real |
 | K3 | **`/r/[token]` redirects to any tenant-saved `google_review_link`** | No host allow-list, so a tenant could point it anywhere — an open redirect on our domain. Needs an allow-list of Google/Trustpilot-style hosts. | Reputational |
 | K4 | **`ra_customers` has no dedupe by email** | Same customer can be added twice and get two review requests. | Annoyance, looks sloppy |
 | K5 | **Booking has no IP-based rate limit** | Needs a nullable column, so it needs a migration and scratch-Postgres validation before it can go near production. | Abuse vector |
