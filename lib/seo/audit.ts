@@ -73,6 +73,8 @@ export type SeoAudit = {
   fetchedAt: string;
   score: number;
   grade: "A" | "B" | "C" | "D" | "F";
+  /** One plain sentence a business owner can repeat to whoever built the site. */
+  verdict: string;
   counts: { pass: number; warn: number; fail: number };
   /** Failures that make everything else moot — the site is invisible to Google
    *  regardless of how good the rest is. Drives the red banner on the report. */
@@ -802,6 +804,67 @@ function scoreOf(checks: SeoCheck[]): number {
 const SHOWSTOPPER_IDS = new Set(["robots", "js_rendered"]);
 const BLOCKED_CEILING = 35;
 
+/**
+ * Ranks findings so the report can lead with ONE thing. Showstoppers first,
+ * then failures before warnings, then by impact, then by the order the checks
+ * are declared in (which runs roughly most- to least-important already).
+ * A report that opens with a list of nineteen is a report nobody acts on.
+ */
+function priority(check: SeoCheck, index: number): number {
+  const blocker = SHOWSTOPPER_IDS.has(check.id) && check.status === "fail" ? 0 : 1;
+  const byStatus = { fail: 0, warn: 1, pass: 2 }[check.status];
+  const byImpact = { high: 0, medium: 1, low: 2 }[check.impact];
+  return blocker * 1000 + byStatus * 100 + byImpact * 10 + index / 100;
+}
+
+/**
+ * The headline sentence, in the owner's own words rather than an SEO's.
+ *
+ * Derived from the SAME check the report shows as finding #1, deliberately.
+ * An earlier version ranked the verdict off its own separate precedence list,
+ * so a site could be told "Google can't tell what your business does" while
+ * the big card underneath was about the meta description — two answers to one
+ * question, which is exactly how a free report loses trust.
+ */
+function verdictFor(top: SeoCheck | undefined, blocked: boolean, bigMisses: number): string {
+  if (blocked) {
+    return "Google can't read this site at all — everything else is beside the point until that's fixed.";
+  }
+  if (!top) {
+    return "This site is in good shape — every check passed.";
+  }
+  // A warning is not a failure, and the headline shouldn't sound like one. A
+  // site scoring 98 with one thin-content warning was being told "there isn't
+  // enough on the page for Google to match against" — true of the check,
+  // wildly overstated as a verdict on the site.
+  if (top.status === "warn" && bigMisses === 0) {
+    return `Nothing on this site is broken — the best remaining win is the ${top.label.toLowerCase()}.`;
+  }
+  const BY_ID: Record<string, string> = {
+    schema_local:
+      "Google can find this site, but it can't tell what the business does or where it is — so it doesn't show up in local searches.",
+    nap: "Your name, address and phone aren't all on the page, so Google can't match you to your Google Business Profile.",
+    title:
+      "Your page title is doing none of the work — it's the blue line people click in Google, and it doesn't say what you do or where.",
+    meta_description:
+      "The site works, but the two lines under your link in Google aren't selling anything — so people scroll past to whoever's below you.",
+    h1: "Nothing on the page tells Google what it's actually about.",
+    content: "There isn't enough on the page for Google to match against what people search for.",
+    viewport:
+      "The site isn't set up for phones — which is where more than half the people looking for you are.",
+    https: "Browsers are showing a 'Not secure' warning to everyone who visits.",
+    image_alt: "Your photos are invisible to Google — they're a ranking asset earning you nothing.",
+    social_preview:
+      "When someone shares your site in a WhatsApp group it appears as a bare grey link nobody taps.",
+    speed: "The site is slow enough to be losing visitors before they see anything.",
+  };
+  if (BY_ID[top.id]) return BY_ID[top.id];
+  if (bigMisses === 0) {
+    return "Nothing is badly broken — there are just a few easy wins left on the table.";
+  }
+  return `${bigMisses} big thing${bigMisses === 1 ? " is" : "s are"} holding this site back — all fixable today.`;
+}
+
 function gradeOf(score: number): SeoAudit["grade"] {
   if (score >= 90) return "A";
   if (score >= 75) return "B";
@@ -846,13 +909,18 @@ export function auditFromHtml(input: {
   if (strip(input.finalUrl) !== strip(input.requestedUrl)) {
     facts.redirectedTo = input.finalUrl;
   }
-  const checks = buildChecks(facts, finalUrl.hostname);
-  const blockers = checks
+  const built = buildChecks(facts, finalUrl.hostname);
+  const blockers = built
     .filter((c) => SHOWSTOPPER_IDS.has(c.id) && c.status === "fail")
     .map((c) => ({ id: c.id, label: c.label }));
   const score = blockers.length
-    ? Math.min(scoreOf(checks), BLOCKED_CEILING)
-    : scoreOf(checks);
+    ? Math.min(scoreOf(built), BLOCKED_CEILING)
+    : scoreOf(built);
+  // Worst-first, so the page can simply take checks[0] as "the one thing".
+  const checks = built
+    .map((c, i) => ({ c, p: priority(c, i) }))
+    .sort((a, b) => a.p - b.p)
+    .map((x) => x.c);
   return {
     url: input.requestedUrl,
     finalUrl: input.finalUrl,
@@ -860,6 +928,11 @@ export function auditFromHtml(input: {
     fetchedAt: new Date().toISOString(),
     score,
     grade: gradeOf(score),
+    verdict: verdictFor(
+      checks.find((c) => c.status !== "pass"),
+      blockers.length > 0,
+      checks.filter((c) => c.status === "fail" && c.impact === "high").length
+    ),
     blockers,
     counts: {
       pass: checks.filter((c) => c.status === "pass").length,

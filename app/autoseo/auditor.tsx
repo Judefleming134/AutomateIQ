@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  ArrowRight,
   Check,
-  ChevronDown,
   Copy,
   Loader2,
   Search,
@@ -14,16 +14,10 @@ import {
 } from "lucide-react";
 import type { SeoAudit, SeoCheck } from "@/lib/seo/audit";
 
-const STATUS_META = {
-  pass: { icon: Check, colour: "var(--green, #34d399)", word: "Good" },
-  warn: { icon: TriangleAlert, colour: "var(--orange, #fb923c)", word: "Could be better" },
-  fail: { icon: X, colour: "var(--red, #f87171)", word: "Needs fixing" },
-} as const;
-
-const IMPACT_WORD = {
-  high: "Big impact",
-  medium: "Worth doing",
-  low: "Nice to have",
+const STATUS_ICON = {
+  pass: { icon: Check, colour: "var(--green, #34d399)" },
+  warn: { icon: TriangleAlert, colour: "var(--orange, #fb923c)" },
+  fail: { icon: X, colour: "var(--red, #f87171)" },
 } as const;
 
 function scoreColour(score: number) {
@@ -32,131 +26,97 @@ function scoreColour(score: number) {
   return "var(--red, #f87171)";
 }
 
-/** Copy button that confirms in place — no toast system needed. */
+/** The dial. A number in a ring reads instantly; a number in a row doesn't. */
+function ScoreDial({ score }: { score: number }) {
+  const R = 44;
+  const C = 2 * Math.PI * R;
+  const filled = Math.max(0, Math.min(100, score)) / 100;
+  return (
+    <div className="aseo-dial">
+      <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden>
+        <circle className="aseo-dial-track" cx="52" cy="52" r={R} fill="none" strokeWidth="8" />
+        <circle
+          className="aseo-dial-fill"
+          cx="52"
+          cy="52"
+          r={R}
+          fill="none"
+          strokeWidth="8"
+          strokeLinecap="round"
+          stroke={scoreColour(score)}
+          strokeDasharray={C}
+          strokeDashoffset={C * (1 - filled)}
+        />
+      </svg>
+      <div className="aseo-dial-num">
+        <b style={{ color: scoreColour(score) }}>{score}</b>
+        <span>OUT OF 100</span>
+      </div>
+    </div>
+  );
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
-      className="btn btn-ghost btn-sm"
+      className="btn btn-secondary btn-sm"
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } catch {
-          // Clipboard blocked (insecure context / permissions) — the code is
-          // on screen and selectable, so this is a convenience, not the path.
+          // Clipboard blocked — the code is on screen and selectable anyway.
           setCopied(false);
         }
       }}
     >
-      {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy"}
+      {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "Copied" : "Copy the fix"}
     </button>
   );
 }
 
-function CheckRow({ check }: { check: SeoCheck }) {
-  const [open, setOpen] = useState(check.status === "fail" && check.impact === "high");
-  const meta = STATUS_META[check.status];
-  const Icon = meta.icon;
-
+/**
+ * The single finding that gets the whole screen: what's wrong, what it costs,
+ * and the code. Everything else on the page is deliberately quieter than this.
+ */
+function HeroFinding({ check, rank }: { check: SeoCheck; rank: number }) {
+  const tone =
+    check.status === "fail" ? "" : check.status === "warn" ? " is-warn" : " is-good";
   return (
-    <div
-      style={{
-        borderTop: "1px solid var(--line, rgba(255,255,255,.08))",
-        padding: "12px 0",
-      }}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "flex-start",
-          width: "100%",
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          textAlign: "left",
-          color: "inherit",
-          font: "inherit",
-        }}
-      >
-        <span style={{ color: meta.colour, flexShrink: 0, marginTop: 2 }} aria-hidden>
-          <Icon size={16} />
-        </span>
-        <span style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
-            <strong>{check.label}</strong>
-            <span style={{ fontSize: 11, color: "var(--faint)" }}>
-              {meta.word} · {IMPACT_WORD[check.impact]}
-            </span>
-          </span>
-          <span
-            style={{
-              display: "block",
-              fontSize: 13,
-              color: "var(--faint)",
-              marginTop: 3,
-            }}
-          >
-            {check.found}
-          </span>
-        </span>
-        <span
-          style={{
-            color: "var(--faint)",
-            flexShrink: 0,
-            transform: open ? "rotate(180deg)" : "none",
-            transition: "transform .15s",
-          }}
-          aria-hidden
-        >
-          <ChevronDown size={16} />
-        </span>
-      </button>
+    <div className={`aseo-hero${tone}`}>
+      <h3>
+        {rank}. {check.label}
+      </h3>
 
-      {open && (
-        <div style={{ margin: "10px 0 0 26px", fontSize: 13.5, lineHeight: 1.6 }}>
-          <p style={{ margin: "0 0 8px", color: "var(--faint)" }}>{check.why}</p>
-          <p style={{ margin: "0 0 8px" }}>
-            <strong>What to do:</strong> {check.fix}
-          </p>
-          {check.snippet && (
-            <div style={{ marginTop: 8 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontSize: 11.5, color: "var(--faint)" }}>
-                  Paste this into your site — replace anything in [square brackets]
-                </span>
-                <CopyButton text={check.snippet} />
-              </div>
-              <pre
-                style={{
-                  background: "var(--bg2, rgba(255,255,255,.04))",
-                  border: "1px solid var(--line, rgba(255,255,255,.08))",
-                  borderRadius: 8,
-                  padding: 12,
-                  overflowX: "auto",
-                  fontSize: 12,
-                  margin: 0,
-                  whiteSpace: "pre",
-                }}
-              >
-                <code>{check.snippet}</code>
-              </pre>
-            </div>
-          )}
+      <div className="aseo-now">
+        <strong>Right now: </strong>
+        {check.found}
+      </div>
+
+      <div className="aseo-block">
+        <p className="aseo-block-label">Why it costs you</p>
+        <p>{check.why}</p>
+      </div>
+
+      <div className="aseo-block">
+        <p className="aseo-block-label">The fix</p>
+        <p>{check.fix}</p>
+      </div>
+
+      {check.snippet && (
+        <div className="aseo-block">
+          <div className="aseo-code-head">
+            <p className="aseo-block-label" style={{ margin: 0 }}>
+              Paste this in — replace anything in [square brackets]
+            </p>
+            <CopyButton text={check.snippet} />
+          </div>
+          <pre className="aseo-code">
+            <code>{check.snippet}</code>
+          </pre>
         </div>
       )}
     </div>
@@ -168,6 +128,8 @@ export function Auditor() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audit, setAudit] = useState<SeoAudit | null>(null);
+  /** How many findings are shown at full size. Starts at one, on purpose. */
+  const [shown, setShown] = useState(1);
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
@@ -180,6 +142,7 @@ export function Auditor() {
     setRunning(true);
     setError(null);
     setAudit(null);
+    setShown(1);
     try {
       const res = await fetch("/api/autoseo", {
         method: "POST",
@@ -199,18 +162,13 @@ export function Auditor() {
     }
   }
 
-  const failures = audit?.checks.filter((c) => c.status === "fail") ?? [];
-  const warnings = audit?.checks.filter((c) => c.status === "warn") ?? [];
-  const passes = audit?.checks.filter((c) => c.status === "pass") ?? [];
-  // Lead with what actually costs money: big-impact failures first.
-  const ordered = audit
-    ? [...failures, ...warnings, ...passes].sort((a, b) => {
-        const rank = { fail: 0, warn: 1, pass: 2 } as const;
-        if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
-        const imp = { high: 0, medium: 1, low: 2 } as const;
-        return imp[a.impact] - imp[b.impact];
-      })
-    : [];
+  // The engine returns checks already ranked worst-first, so "the one thing"
+  // is simply the first one that isn't already passing.
+  const problems = audit?.checks.filter((c) => c.status !== "pass") ?? [];
+  const good = audit?.checks.filter((c) => c.status === "pass") ?? [];
+  const heroes = problems.slice(0, shown);
+  const upNext = problems.slice(shown, shown + 2);
+  const remaining = Math.max(0, problems.length - shown - upNext.length);
 
   return (
     <div>
@@ -246,9 +204,8 @@ export function Auditor() {
 
       {running && (
         <p style={{ fontSize: 13, color: "var(--faint)" }}>
-          Reading your homepage, robots.txt and sitemap the way Google would. This takes
-          up to twenty seconds — slow sites take the longest, which is itself worth
-          knowing.
+          Reading your homepage, robots.txt and sitemap the way Google would — up to
+          twenty seconds.
         </p>
       )}
 
@@ -265,88 +222,130 @@ export function Auditor() {
 
       {audit && !running && (
         <div>
-          {/* Score header */}
-          <div
-            className="panel panel-block"
-            style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}
-          >
-            <div style={{ textAlign: "center", flexShrink: 0 }}>
-              <div
-                style={{
-                  fontSize: 46,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: scoreColour(audit.score),
-                }}
-              >
-                {audit.score}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--faint)" }}>out of 100</div>
-            </div>
-            <div style={{ flex: "1 1 260px" }}>
-              <strong style={{ fontSize: 17 }}>{audit.host}</strong>
-              <p style={{ fontSize: 13.5, color: "var(--faint)", margin: "4px 0 0" }}>
-                {failures.length} thing{failures.length === 1 ? "" : "s"} to fix ·{" "}
-                {warnings.length} could be better · {passes.length} already good
+          {/* Score + the one-line verdict. Nothing else competes up here. */}
+          <div className="aseo-head">
+            <ScoreDial score={audit.score} />
+            <div className="aseo-verdict">
+              <p className="aseo-host">{audit.host}</p>
+              <h2>{audit.verdict}</h2>
+              <p>
+                {problems.length} thing{problems.length === 1 ? "" : "s"} to sort ·{" "}
+                {good.length} already right
               </p>
-              {audit.facts.redirectedTo && (
-                <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
-                  Redirected to {audit.facts.redirectedTo}
-                </p>
-              )}
             </div>
           </div>
 
-          {/* The showstoppers — nothing else matters until these are fixed. */}
           {audit.blockers.length > 0 && (
             <div
               className="panel panel-block"
-              style={{
-                borderLeft: "3px solid var(--red, #f87171)",
-                marginTop: 12,
-              }}
+              style={{ borderLeft: "3px solid var(--red, #f87171)", marginTop: 12 }}
             >
               <strong style={{ color: "var(--red, #f87171)" }}>
-                <AlertTriangle size={15} style={{ verticalAlign: "-2px" }} /> Read this
-                first — your site is effectively invisible to Google
+                <AlertTriangle size={15} style={{ verticalAlign: "-2px" }} /> Your score
+                is capped until this is fixed
               </strong>
               <p style={{ fontSize: 13.5, margin: "6px 0 0" }}>
-                {audit.blockers.map((b) => b.label).join(" and ")} — until that&apos;s
-                sorted, none of the other improvements below will make any difference,
-                because Google isn&apos;t reading the page at all. Your score is capped
-                for that reason. Fix it and re-run this check.
+                Google isn&apos;t reading your pages at all, so none of the other
+                improvements can help yet. Sort the one below first, then run this check
+                again.
               </p>
             </div>
           )}
 
-          <div className="panel panel-block" style={{ marginTop: 12 }}>
-            <p style={{ fontSize: 12, color: "var(--faint)", margin: "0 0 4px" }}>
-              Biggest problems first. Tap any line for the why and the fix.
-            </p>
-            {ordered.map((c) => (
-              <CheckRow key={c.id} check={c} />
-            ))}
-          </div>
+          {problems.length === 0 ? (
+            <div className="aseo-step-label" style={{ color: "var(--green, #34d399)" }}>
+              <Check size={14} /> Every check passed — genuinely nothing to fix
+            </div>
+          ) : (
+            <>
+              {/* "Your biggest bottleneck" is the right words for a broken
+                  site and the wrong ones for a site scoring 95 with a single
+                  warning left — the label follows the severity. */}
+              <p className="aseo-step-label">
+                <AlertTriangle size={13} />{" "}
+                {problems.some((c) => c.status === "fail" && c.impact === "high")
+                  ? "Start here — your biggest bottleneck"
+                  : "Your best remaining win"}
+              </p>
+              {heroes.map((c, i) => (
+                <div key={c.id} style={{ marginBottom: i === heroes.length - 1 ? 0 : 14 }}>
+                  <HeroFinding check={c} rank={i + 1} />
+                </div>
+              ))}
+
+              {/* Named, not explained — one tap turns the next one into a full
+                  card. Reading nineteen findings at once is how a free report
+                  gets closed without a single fix being made. */}
+              {upNext.length > 0 && (
+                <>
+                  <p className="aseo-step-label">Then these</p>
+                  <div className="aseo-next">
+                    {upNext.map((c, i) => (
+                      <div className="aseo-next-card" key={c.id}>
+                        <strong>
+                          {shown + i + 1}. {c.label}
+                        </strong>
+                        <span>{c.found}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: 12 }}
+                    onClick={() => setShown((n) => n + 1)}
+                  >
+                    Show me how to fix #{shown + 1} <ArrowRight size={13} />
+                  </button>
+                </>
+              )}
+
+              {/* The full list stays available — just not in the way. */}
+              <details className="aseo-rest">
+                <summary>
+                  See all {audit.checks.length} checks
+                  {remaining > 0 ? ` (${remaining} more to sort, ` : " ("}
+                  {good.length} already right)
+                </summary>
+                <div style={{ marginTop: 8 }}>
+                  {audit.checks.map((c) => {
+                    const meta = STATUS_ICON[c.status];
+                    const Icon = meta.icon;
+                    return (
+                      <div className="aseo-row" key={c.id}>
+                        <span style={{ color: meta.colour, marginTop: 2 }} aria-hidden>
+                          <Icon size={15} />
+                        </span>
+                        <div className="aseo-row-txt">
+                          <strong>{c.label}</strong>
+                          <span>{c.found}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            </>
+          )}
 
           <div
             className="panel panel-block"
-            style={{ marginTop: 12, borderLeft: "3px solid var(--ac1, #8b5cf6)" }}
+            style={{ marginTop: 20, borderLeft: "3px solid var(--ac1, #8b5cf6)" }}
           >
-            <strong>Want this done rather than described?</strong>
+            <strong>Want it done rather than described?</strong>
             <p style={{ fontSize: 13.5, color: "var(--faint)", margin: "6px 0 10px" }}>
-              Everything above is yours to use, free — copy the code and it&apos;s
-              sorted. If you&apos;d rather not touch it yourself, we do it for you: the
-              fixes applied, your Google Business Profile straightened out, and the site
-              checked again afterwards so you can see it worked.
+              Everything here is yours to use free. If you&apos;d rather not touch it,
+              we do it for you — fixes applied, Google Business Profile sorted, and the
+              site checked again after so you can see it worked.
             </p>
             <Link href="/book" className="btn btn-primary btn-sm">
-              Talk to us about fixing it
+              Talk to us about fixing it <ArrowRight size={13} />
             </Link>
           </div>
 
           <p style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 10 }}>
-            Checked {new Date(audit.fetchedAt).toLocaleString("en-IE")} · read{" "}
-            {audit.finalUrl} · nothing on your site was changed.
+            Checked {new Date(audit.fetchedAt).toLocaleString("en-IE")} · nothing on your
+            site was changed.
           </p>
         </div>
       )}
