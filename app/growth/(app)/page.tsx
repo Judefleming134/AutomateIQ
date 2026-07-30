@@ -125,6 +125,11 @@ export default async function GrowthDashboardPage() {
     { count: overdueCount },
     { data: inboundRows },
     { count: unscheduledCount },
+    { count: totalLeads },
+    { count: researchedLeads },
+    { count: leadsWithEmail },
+    { count: emailDrafts },
+    { count: everContacted },
   ] = await Promise.all([
     // withSolutions:false — the dashboard never renders topSolutions, and this
     // is his home screen. Skips the full recommendation JSONB per researched
@@ -238,6 +243,30 @@ export default async function GrowthDashboardPage() {
       .select("id", { count: "exact", head: true })
       .in("status", CONTACTED_ACTIVE_STATUSES)
       .is("next_follow_up_at", null),
+    // ── The funnel. Five head counts, no rows returned. ──────────────────
+    // "757 leads and two replies" is not a pitch problem until you know how
+    // many of the 757 were ever actually emailed. Each of these is one stage,
+    // so the drop-off between them shows where the pipeline is really stuck.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("status", "in", activeFilter),
+    admin.from("ge_research").select("prospect_id", { count: "exact", head: true }),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("email", "is", null)
+      .not("status", "in", activeFilter),
+    admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("channel", "email")
+      .eq("direction", "outbound")
+      .in("status", ["draft", "queued"]),
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("last_contact_at", "is", null),
   ]);
 
   // Issued above alongside the main batch so both waves run concurrently.
@@ -397,6 +426,99 @@ export default async function GrowthDashboardPage() {
           <p>Today&apos;s priorities first — then research the next company.</p>
         </div>
       </div>
+
+      {/* WHERE THE LEADS ACTUALLY ARE.
+          "757 leads and two replies" reads as a pitch problem, and usually
+          isn't one — it's a throughput problem. Two replies from 60 emails is
+          a normal cold-outreach rate; two from 700 is a real problem. Those
+          are opposite diagnoses with opposite fixes, and nothing on this page
+          could tell them apart. Each bar is a stage, so the drop-off shows
+          exactly where the pipeline is stuck. */}
+      {(totalLeads ?? 0) > 0 && (() => {
+        const total = totalLeads ?? 0;
+        const contacted = everContacted ?? 0;
+        const replies = repliedIds.length;
+        const stages = [
+          { label: "In the engine", n: total, href: "/growth/prospects" },
+          { label: "Researched", n: researchedLeads ?? 0, href: "/growth/prospects?status=research_complete" },
+          { label: "Have an email address", n: leadsWithEmail ?? 0, href: "/growth/prospects" },
+          { label: "Email written, not sent", n: emailDrafts ?? 0, href: "/growth/prospects?status=outreach_ready" },
+          { label: "Actually contacted", n: contacted, href: "/growth/prospects?due=live" },
+          { label: "Replied", n: replies, href: "/growth/inbox" },
+        ];
+        // The reply rate that means anything is against people ACTUALLY
+        // emailed, never against the whole list.
+        const rate = contacted > 0 ? (replies / contacted) * 100 : 0;
+        const neverContacted = Math.max(0, total - contacted);
+        return (
+          <section className="panel panel-block" style={{ marginBottom: 14 }} aria-labelledby="funnel-title">
+            <h2 className="panel-title" id="funnel-title">
+              <TrendingUp size={15} style={{ verticalAlign: "-2px" }} /> Where your leads
+              actually are
+            </h2>
+            <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
+              {stages.map((s) => (
+                <Link
+                  key={s.label}
+                  href={s.href}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    textDecoration: "none",
+                    color: "inherit",
+                    fontSize: 13.5,
+                  }}
+                >
+                  <strong style={{ minWidth: 56, textAlign: "right" }}>
+                    {s.n.toLocaleString("en-IE")}
+                  </strong>
+                  <span
+                    aria-hidden
+                    style={{
+                      height: 8,
+                      borderRadius: 4,
+                      background: "var(--ac2, #3b82f6)",
+                      width: `${total > 0 ? Math.max(1.5, (s.n / total) * 100) : 0}%`,
+                      minWidth: 6,
+                      opacity: 0.85,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ color: "var(--faint)" }}>{s.label}</span>
+                </Link>
+              ))}
+            </div>
+            <p style={{ fontSize: 13, margin: "12px 0 0", lineHeight: 1.6 }}>
+              {contacted === 0 ? (
+                <>
+                  <strong>Nothing has gone out yet.</strong> Every lead here is still
+                  waiting on a first touch — the reply rate can&apos;t tell you anything
+                  until it does.
+                </>
+              ) : (
+                <>
+                  <strong>
+                    {replies} {replies === 1 ? "reply" : "replies"} from {contacted}{" "}
+                    contacted = {rate.toFixed(1)}%
+                  </strong>{" "}
+                  {rate >= 2
+                    ? "— that's a normal cold-outreach rate, so the pitch is working about as well as anyone's. "
+                    : "— that's below the 2–5% a cold list usually returns, so the copy or the deliverability is worth a look. "}
+                  {neverContacted > 0 && (
+                    <>
+                      The bigger number is{" "}
+                      <strong>{neverContacted.toLocaleString("en-IE")} never contacted at
+                      all</strong>{" "}
+                      — that&apos;s where the calls are, not in the reply rate.
+                    </>
+                  )}
+                </>
+              )}
+            </p>
+          </section>
+        );
+      })()}
 
       {/* Above everything else on purpose: someone who wrote back and hasn't
           been answered outranks every chase, every cold lead and every stat on
