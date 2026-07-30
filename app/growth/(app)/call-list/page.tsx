@@ -14,6 +14,38 @@ export const metadata = { title: "Call list · Growth Engine" };
 
 const MAX_ITEMS = 40;
 
+/** Irish calendar day of a UTC timestamp — same basis as dublinDate(). */
+const dublinDayOf = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Dublin" }).format(new Date(iso));
+
+/**
+ * "yesterday" / "4 days ago", counted in Irish calendar days rather than 24h
+ * chunks — a call logged at 11pm Monday reads as "yesterday" on Tuesday
+ * morning, not "today".
+ */
+function lastContactLabel(iso: string | null, today: string): string | null {
+  if (!iso) return null;
+  const day = dublinDayOf(iso);
+  const diff = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86_400_000
+  );
+  if (!Number.isFinite(diff) || diff < 0) return null;
+  if (diff === 0) return "today";
+  if (diff === 1) return "yesterday";
+  if (diff < 14) return `${diff} days ago`;
+  if (diff < 60) return `${Math.round(diff / 7)} weeks ago`;
+  return "a while back";
+}
+
+/** "Fri 1 Aug" — noon avoids any DST edge when parsing a plain date. */
+const chaseDayLabel = (date: string) =>
+  new Intl.DateTimeFormat("en-IE", {
+    timeZone: "Europe/Dublin",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(`${date.slice(0, 10)}T12:00:00Z`));
+
 /**
  * The dial list on ONE surface — everything needed to make the call is on the
  * card, so working through 30 prospects doesn't mean 30 open tabs. Number to
@@ -38,7 +70,19 @@ export default async function CallListPage() {
   // happened to contain. On a database of a few hundred phone leads that hides
   // the most time-critical calls completely. Due chases are now fetched on
   // their own terms (most overdue first) and merged with the top-scored rest.
-  const [{ data: dueRaw }, { data: topRaw }, { count: workableTotal }] = await Promise.all([
+  // The Dublin-midnight boundary for "called today" — declared before the
+  // queries because the head-count below needs it too. In summer a call logged
+  // between midnight and 1am Irish falls before UTC midnight, and using UTC
+  // would pop that person back onto the list.
+  const todayStart =
+    dublinLocalToUtcISO(`${today}T00:00`) ?? new Date(`${today}T00:00:00Z`).toISOString();
+
+  const [
+    { data: dueRaw },
+    { data: topRaw },
+    { count: workableTotal },
+    { count: calledTodayCount },
+  ] = await Promise.all([
     admin
       .from("ge_prospects")
       .select(COLUMNS)
@@ -62,35 +106,60 @@ export default async function CallListPage() {
       .select("id", { count: "exact", head: true })
       .not("phone", "is", null)
       .in("status", WORKABLE),
+    // How many of that pool are already done today. Without this the "N more
+    // still to call" line counted the people Jude had just rung, so it never
+    // went down as he worked — it read "12 more still to call" on a finished
+    // list. Cheap head count, no rows returned.
+    admin
+      .from("ge_prospects")
+      .select("id", { count: "exact", head: true })
+      .not("phone", "is", null)
+      .in("status", WORKABLE)
+      .gte("last_contact_at", todayStart),
   ]);
 
   const isDue = (p: { next_follow_up_at: string | null }) =>
     !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) <= today;
+  // A chase date already in the diary, later than today: this person has been
+  // dealt with and has an agreed date. They are NOT today's problem.
+  const bookedAhead = (p: { next_follow_up_at: string | null }) =>
+    !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) > today;
 
   // Drop anyone already called today so the list is always "who's LEFT" and
   // shrinks as you work down it (the DM list does the same for sent DMs). A
   // logged call sets last_contact_at, so they fall off on the next load — no
   // re-dialling the person you just spoke to. They stay in Prospects if needed.
-  // The boundary is Dublin midnight, not UTC: in summer a call logged between
-  // midnight and 1am Irish falls before UTC midnight and the person would pop
-  // back onto the list.
-  const todayStart =
-    dublinLocalToUtcISO(`${today}T00:00`) ?? new Date(`${today}T00:00:00Z`).toISOString();
   const calledToday = (p: { last_contact_at: string | null }) =>
     !!p.last_contact_at && p.last_contact_at >= todayStart;
 
-  // Merge (due first, then by score), de-duplicate — a lead can legitimately
-  // appear in both queries — then drop anyone already called today. Array.sort
-  // is stable, so score order holds within each group.
+  // Merge, de-duplicate — a lead can legitimately appear in both queries —
+  // then drop anyone already called today.
   const merged = [...(dueRaw ?? []), ...(topRaw ?? [])];
   const seen = new Set<string>();
   const deduped = merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   const workable = deduped.filter((p) => !calledToday(p));
-  const prospects = [...workable]
-    .sort((a, b) => (isDue(a) === isDue(b) ? 0 : isDue(a) ? -1 : 1))
-    .slice(0, MAX_ITEMS);
+
+  // THREE tiers, not two. It used to be "due chases first, everyone else by
+  // score", which quietly put a business Jude rang YESTERDAY — and agreed to
+  // chase on Friday — near the top of today's list, purely because it scores
+  // well. Nothing on the card said so, so the only way to find out was the
+  // person answering the phone. Someone with a chase date still ahead of them
+  // now sinks below the leads that haven't been rung at all, and every card
+  // carries its last-contact line. Array.sort is stable, so the order WITHIN
+  // each tier is untouched: due date ascending, then score descending.
+  //   0 — chase due today or overdue
+  //   1 — nothing in the diary (never rung, or rung with no date agreed)
+  //   2 — already spoken to, chase booked for a later day
+  const tier = (p: { next_follow_up_at: string | null }) =>
+    isDue(p) ? 0 : bookedAhead(p) ? 2 : 1;
+  const prospects = [...workable].sort((a, b) => tier(a) - tier(b)).slice(0, MAX_ITEMS);
   const dueCount = workable.filter(isDue).length;
-  const remaining = Math.max(0, (workableTotal ?? workable.length) - prospects.length);
+  // Exclude today's completed calls from "still to call" — they're done, and
+  // counting them meant the number never fell as he worked down the list.
+  const remaining = Math.max(
+    0,
+    (workableTotal ?? workable.length) - (calledTodayCount ?? 0) - prospects.length
+  );
 
   // Batch-load research for the pitch + script — one query, mapped in memory.
   const ids = prospects.map((p) => p.id);
@@ -129,9 +198,9 @@ export default async function CallListPage() {
       {prospects.length === 0 ? (
         <div className="panel panel-block">
           <p className="empty-state" style={{ margin: 0 }}>
-            Nothing left to call right now — either you&apos;ve worked today&apos;s
-            list (nice one), or there are no phone prospects yet. Uncalled ones
-            appear here warmest first; import or research more to top it up.
+            {(calledTodayCount ?? 0) > 0
+              ? `Nothing left to call — that's ${calledTodayCount} logged today. Nice one. Tomorrow's chases will be waiting here in the morning.`
+              : "Nothing left to call right now — there are no phone prospects in a workable stage yet. Uncalled ones appear here warmest first; import or research more to top it up."}
           </p>
         </div>
       ) : (
@@ -156,6 +225,17 @@ export default async function CallListPage() {
                 <Link href="/growth/prospects?phone=1">see the whole list</Link>
               </>
             )}
+            {(calledTodayCount ?? 0) > 0 && (
+              <>
+                {" "}·{" "}
+                <strong style={{ color: "var(--green, #34d399)" }}>
+                  {calledTodayCount} done today
+                </strong>
+              </>
+            )}
+            <br />
+            Anyone with a chase already booked for a later day sits at the
+            bottom — each card says when you last spoke to them.
           </p>
           <div style={{ display: "grid", gap: 12 }}>
             {prospects.map((p) => {
@@ -173,6 +253,11 @@ export default async function CallListPage() {
                 ["FB", cleanSocialUrl(p.facebook_url ?? "")],
               ].filter(([, url]) => url) as [string, string][];
               const tel = `tel:${(p.phone ?? "").replace(/[^\d+]/g, "")}`;
+              const lastContact = lastContactLabel(p.last_contact_at, today);
+              const booked = bookedAhead(p);
+              // Rang in the last couple of days: worth flagging in orange so
+              // it registers BEFORE the number is tapped.
+              const recent = lastContact === "yesterday" || lastContact === "today";
 
               return (
                 <section key={p.id} className="panel panel-block">
@@ -187,6 +272,22 @@ export default async function CallListPage() {
                     <span className={`badge ${meta?.badge ?? "badge-gray"}`}>{meta?.label ?? p.status}</span>
                     {isDue(p) && <span className="badge badge-orange">chase due</span>}
                   </div>
+
+                  {/* Where this lead actually stands, said before the number is
+                      tapped — the card used to show none of it, so a business
+                      rung yesterday looked identical to one never contacted. */}
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: recent ? "var(--orange, #fb923c)" : "var(--faint)",
+                      margin: "0 0 8px",
+                    }}
+                  >
+                    {lastContact ? `Last contact ${lastContact}` : "Never contacted"}
+                    {booked && p.next_follow_up_at
+                      ? ` · chase booked for ${chaseDayLabel(p.next_follow_up_at)} — not due yet`
+                      : ""}
+                  </p>
 
                   <a href={tel} className="btn btn-primary" style={{ marginBottom: 10 }}>
                     <Phone size={14} /> {p.phone}

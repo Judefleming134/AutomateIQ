@@ -929,6 +929,9 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   }
 
   revalidatePath(`/growth/prospects/${id}`);
+  // "Log call" is the main button on the call list, so name that page
+  // explicitly rather than relying on the dashboard's revalidation to carry it.
+  if (type === "call") revalidatePath("/growth/call-list");
   revalidatePath("/growth");
   return { ok: true };
 }
