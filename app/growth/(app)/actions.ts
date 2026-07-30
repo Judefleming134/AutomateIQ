@@ -27,7 +27,7 @@ export async function sendDueFollowups(_prev: Result, _formData: FormData): Prom
   }
   const bits = [`Sent ${sent} follow-up${sent === 1 ? "" : "s"}`];
   if (noDraft > 0) {
-    bits.push(`${noDraft} still to be drafted (they go on the 8am run)`);
+    bits.push(`${noDraft} still to be drafted (they go on the morning run)`);
   }
   if (held > 0) {
     bits.push(`${held} held for review (see the prospect)`);

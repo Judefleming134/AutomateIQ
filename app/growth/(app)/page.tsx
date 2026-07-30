@@ -628,7 +628,7 @@ export default async function GrowthDashboardPage() {
             <strong>Fire the due email follow-ups.</strong>{" "}
             <span style={{ color: "var(--faint)" }}>
               Sends every due chase that has an email and a ready draft — same
-              review as the 8am run, capped, gone-cold leads left parked. The
+              review as the morning run, capped, gone-cold leads left parked. The
               ones without an email are yours to call.
             </span>
           </div>

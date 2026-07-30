@@ -37,7 +37,7 @@ export default function GrowthError({
         nothing was sent</strong>. Try again; it usually works second time.
       </p>
       <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "0 0 14px" }}>
-        The rest of the engine is still working — the 8am send and your
+        The rest of the engine is still working — the morning send and your
         overnight routines are unaffected by this.
       </p>
 

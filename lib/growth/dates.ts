@@ -61,3 +61,44 @@ export function dublinLocalToUtcISO(local: string): string | null {
   const instant = new Date(asUtcMs - offset);
   return Number.isNaN(instant.getTime()) ? null : instant.toISOString();
 }
+
+/**
+ * The morning dispatch (queue top-up → autopilot send → brief) fires at a fixed
+ * 06:50 UTC — see .github/workflows/morning-brief.yml, which schedules early and
+ * sleeps to that target because GitHub delays this repo's crons by hours.
+ *
+ * UTC is fixed; Ireland isn't. 06:50 UTC is 07:50 Irish in summer (IST) but
+ * 06:50 Irish in winter (GMT), so the "~8am" written across the product is
+ * roughly right for half the year and over an hour out for the other half.
+ * That matters: Jude plans his morning around it, and being told his emails go
+ * at 8 when they actually went at 6:50 means a prospect can reply before he's
+ * even up.
+ */
+const DISPATCH_UTC_HOUR = 6;
+const DISPATCH_UTC_MINUTE = 50;
+
+/**
+ * The morning send time as Irish wall-clock — "7:50am" in summer, "6:50am" in
+ * winter. Computed per render, so the copy is never a season out of date.
+ */
+export function morningSendLabel(): string {
+  const now = new Date();
+  const target = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      DISPATCH_UTC_HOUR,
+      DISPATCH_UTC_MINUTE
+    )
+  );
+  return new Intl.DateTimeFormat("en-IE", {
+    timeZone: "Europe/Dublin",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(target)
+    .replace(/\s/g, "")
+    .toLowerCase();
+}

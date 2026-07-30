@@ -13,7 +13,7 @@ import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
 import { loadGrowthMetricsMulti, TONE_MIN_SAMPLE } from "@/lib/growth/metrics";
 import { pricingLines } from "@/lib/growth/pricing";
 import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
-import { dublinDate } from "@/lib/growth/dates";
+import { dublinDate, morningSendLabel } from "@/lib/growth/dates";
 import {
   CLOSED_STATUSES,
   PROSPECT_STATUS_META,
@@ -138,7 +138,7 @@ async function runJarvisAction(
         .update({ status: "queued" })
         .eq("id", draft.id);
       if (queueErr) return `✗ ${prospect.company}: queueing didn't save — try again`;
-      return `✓ ${prospect.company}: queued for the morning send (~8am)`;
+      return `✓ ${prospect.company}: queued for the morning send (~${morningSendLabel()})`;
     }
     case "add_note": {
       const note = a.value.trim().slice(0, 1000);
@@ -494,7 +494,7 @@ export async function askJarvis(
     "- Channels: email sends from the platform; Instagram/Facebook/LinkedIn DMs and phone calls are done by Jude personally — the engine preps drafts and call scripts. Never claim to have sent anything yourself.",
     "- YOU CAN ACT. When Jude asks you to do something, put it in the `actions` array (empty array when he's only asking a question). Action types, exactly these strings:",
     "  · regenerate_email — rewrite that prospect's email draft under current rules (value: empty string)",
-    "  · queue_email — queue that prospect's clean email draft for the morning autopilot send (~8am) (value: empty string)",
+    "  · queue_email — queue that prospect's clean email draft for the morning autopilot send (~${morningSendLabel()}) (value: empty string)",
     "  · add_note — save a note on the prospect (value: the note text)",
     "  · set_follow_up — set the follow-up date (value: YYYY-MM-DD)",
     "- Action rules: `company` must be copied EXACTLY from the snapshot; maximum 8 actions per turn; in `reply`, say plainly what you're doing. Actual sending is never yours — queueing is as far as you go; DMs/calls/mark-sent stay with Jude in the app.",
@@ -518,7 +518,7 @@ export async function askJarvis(
     "",
     "ALL-TIME FUNNEL:",
     `prospects ${metrics.prospectsTotal} · researched ${metrics.companiesResearched} · contacted ${metrics.contacted} · outreach sent ${metrics.outreachSent} · replies ${metrics.replies} (${metrics.replyRate}% of contacted) · meetings ${metrics.meetingsBooked} · qualified ${metrics.qualified} · proposals sent ${metrics.proposalsSent} · won ${metrics.won} · pipeline value €${metrics.pipelineValue}`,
-    `work in the machine: ${metrics.queuedOutreach} queued for the morning autopilot run (~8am) · ${metrics.draftOutreach} drafts not yet queued · ~${Math.max(0, metrics.prospectsTotal - metrics.companiesResearched - (researchFailedCount ?? 0))} still to research · ${researchFailedCount ?? 0} in the Research-failed group (parked after failed research — no drafts or score yet; the fix is Retry on the Prospects page, not outreach)`,
+    `work in the machine: ${metrics.queuedOutreach} queued for the morning autopilot run (~${morningSendLabel()}) · ${metrics.draftOutreach} drafts not yet queued · ~${Math.max(0, metrics.prospectsTotal - metrics.companiesResearched - (researchFailedCount ?? 0))} still to research · ${researchFailedCount ?? 0} in the Research-failed group (parked after failed research — no drafts or score yet; the fix is Retry on the Prospects page, not outreach)`,
     "",
     "LAST 7 DAYS:",
     `leads added ${week.leadsAdded} · sent ${week.outreachSent} · replies ${week.replies} · meetings ${week.meetingsBooked}`,
