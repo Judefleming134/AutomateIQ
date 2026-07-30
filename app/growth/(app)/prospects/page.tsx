@@ -694,6 +694,22 @@ export default async function ProspectsPage({
                         {p.contact_name}
                         {p.email ? ` · ${p.email}` : ""}
                       </div>
+                      {/* Tap-to-call in the FIRST column, on narrow screens only.
+                          The table is min-width 900, so on a phone the Phone
+                          column sits ~4 columns of horizontal scrolling to the
+                          right — on the page whose own default drill is
+                          "Has phone -> best score first", i.e. a dial list. The
+                          Phone column is untouched for desktop; this just puts
+                          the number where his thumb already is. */}
+                      {p.phone && (
+                        <a
+                          className="phone-inline"
+                          href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
+                          title="Tap to call"
+                        >
+                          ☎ {p.phone}
+                        </a>
+                      )}
                       {/* Social quick-links so a LinkedIn/DM session can open the
                           profile straight from the list — no click into each
                           prospect. Junk links (bare facebook.com, share URLs) are
