@@ -123,6 +123,34 @@ export async function GET(request: NextRequest) {
     .filter((p) => !researchedIds.has(p.id))
     .sort((a, b) => researchRank(a) - researchRank(b));
 
+  // REVIVALS — the other half of the nightly recycle.
+  //
+  // Parking a lead as a future opportunity is only worth doing if something
+  // brings it back. When that date lands, the lead is re-researched from its
+  // CURRENT website — which is the point: three months on, the business has
+  // usually changed something worth writing about, so the new approach is
+  // genuinely new rather than the same email resent.
+  //
+  // Re-running research regenerates the drafts and moves the lead back to
+  // research_complete, so it re-enters the ordinary machinery: auto-queue
+  // picks it up, the send passes every existing review gate, and the chase
+  // sequence runs again from the top. No separate send path, nothing to keep
+  // in sync.
+  //
+  // Revivals go FIRST in the queue: they are already-known businesses with a
+  // history, so they convert better than a cold name, and they're on a date
+  // that has actually arrived.
+  const { data: revivalRows } = await admin
+    .from("ge_prospects")
+    .select("*")
+    .eq("status", "future_opportunity")
+    .lte("next_follow_up_at", dublinDate())
+    .not("email", "is", null)
+    .order("lead_score", { ascending: false, nullsFirst: false })
+    .limit(20);
+  const revivals = revivalRows ?? [];
+  const revivalIds = new Set(revivals.map((r) => r.id));
+
   // ── MAINTENANCE: requeue the research-failed group ───────────────────────
   // ?requeue_failed=1 flips leads out of research_failed back to 'new' so they
   // can be researched again. Needed because a bad drain (or an AI outage) can
@@ -253,8 +281,14 @@ export async function GET(request: NextRequest) {
       break; // one retry per run
     }
   }
-  const fresh = freshSorted.slice(0, Math.max(0, researchBudget - retries.length));
-  const toResearch = [...fresh, ...retries];
+  // Revivals take their slots FIRST, inside the same budget — this costs no
+  // extra AI calls, it only changes which lead gets the slot. An already-known
+  // business on a date that has arrived is a better use of the slot than
+  // another cold name off the bottom of the list.
+  const budgetAfterRetries = Math.max(0, researchBudget - retries.length);
+  const revivalBatch = revivals.slice(0, budgetAfterRetries);
+  const fresh = freshSorted.slice(0, Math.max(0, budgetAfterRetries - revivalBatch.length));
+  const toResearch = [...revivalBatch, ...fresh, ...retries];
 
   let done = 0;
   const notes: string[] = [];

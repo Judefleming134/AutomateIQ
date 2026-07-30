@@ -152,8 +152,19 @@ export async function persistResearchResult(
     const estimate = estimatedFirstYearValue(result.solutions.map((s) => s.key));
     if (estimate > 0) update.pipeline_value = estimate;
   }
-  if (["new", "researching", "research_failed"].includes(prospect.status)) {
+  if (
+    ["new", "researching", "research_failed", "future_opportunity"].includes(
+      prospect.status
+    )
+  ) {
     // A successful retry lifts a parked lead straight out of the failed group.
+    //
+    // future_opportunity is here for the recycle loop: a lead parked after a
+    // silent sequence is re-researched when its date lands, and that IS the
+    // revival — without this it would keep the parked status, never become an
+    // autopilot candidate, and the whole loop would be a no-op that looked
+    // like it worked. Every other status is left alone on purpose, so a
+    // re-research can never drag a contacted, replied or won lead backwards.
     update.status = "research_complete";
   }
   // Contact details harvested from the company's own website fill any blank

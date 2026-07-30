@@ -7,6 +7,7 @@ import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { PURPOSES, type MessagePurpose } from "@/lib/growth/constants";
 import type { ResearchReport } from "@/lib/growth/research";
+import { dublinDate } from "@/lib/growth/dates";
 
 const ACTIVE_FILTER = '("won","lost","do_not_contact","archived")';
 
@@ -21,9 +22,19 @@ const ACTIVE_FILTER = '("won","lost","do_not_contact","archived")';
  * Every fix is logged as a prospect activity prefixed "Jarvis nightly:" so
  * the 8am morning brief can report what the routine did.
  */
+/** How many exhausted leads get parked per night — bounded like every other
+ *  job here, so the backlog just rolls into tomorrow's run. */
+const RECYCLE_PER_NIGHT = 40;
+/** How long before a parked lead comes back around. Long enough that a fresh
+ *  approach is genuinely fresh, short enough to matter this quarter. */
+const RECYCLE_DAYS = 75;
+/** Two full sequences with total silence is an answer. A third is harassment. */
+const MAX_RECYCLES = 2;
+
 export async function runJarvisNightly(): Promise<{
   harvested: number;
   rewritten: number;
+  recycled: number;
   detail: string;
 }> {
   const admin = createAdminClient();
@@ -186,13 +197,92 @@ export async function runJarvisNightly(): Promise<{
     notes.push(`draft-repair error: ${err instanceof Error ? err.message : "unknown"}`);
   }
 
+  // ---- Job 4: recycle the exhausted ----------------------------------------
+  //
+  // THE HOLE THIS FILLS: nothing in the engine ever moved a lead to
+  // future_opportunity. A lead got a first touch, two chases, then silence —
+  // and after seven days it fell into "gone cold" and stayed there forever
+  // with a stale follow-up date and nothing scheduled. On a list of 757 that
+  // means every lead is exhausted within about three weeks and the engine
+  // runs out of work, despite most of those businesses simply not having
+  // replied the first time.
+  //
+  // Most B2B replies come from a later approach, not the first one. So a lead
+  // that finished the sequence without EVER replying is parked as a future
+  // opportunity with a real date on it, and comes back around for a fresh
+  // sequence with current research.
+  //
+  // Deliberately conservative about who qualifies:
+  //   - never replied (one inbound message ever and it's a conversation, not
+  //     a cold lead — those are Jude's to work)
+  //   - finished the sequence (2 sent chases) OR went 7+ days past its date
+  //   - still has a usable email (a bounce nulls it, so a dead address is
+  //     never recycled into more bounces)
+  //   - not closed, not do-not-contact, not already parked
+  let recycled = 0;
+  try {
+    const coldLine = dublinDate(-7);
+    const { data: stalled } = await admin
+      .from("ge_prospects")
+      .select("id, company, next_follow_up_at")
+      .in("status", ["contacted", "follow_up_sent"])
+      .not("email", "is", null)
+      .lt("next_follow_up_at", coldLine)
+      .order("lead_score", { ascending: false, nullsFirst: false })
+      .limit(RECYCLE_PER_NIGHT);
+
+    for (const p of stalled ?? []) {
+      // Never recycle someone who has spoken to us. A reply makes this a
+      // conversation, and an automated re-approach on top of a real one is
+      // exactly the thing that makes a company look like a spammer.
+      const { count: replies } = await admin
+        .from("ge_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("prospect_id", p.id)
+        .eq("direction", "inbound");
+      if ((replies ?? 0) > 0) continue;
+
+      // Cap the cycles. Twice through a sequence with total silence is a
+      // clear answer, and a third pass is harassment dressed as automation.
+      const { count: priorCycles } = await admin
+        .from("ge_activities")
+        .select("id", { count: "exact", head: true })
+        .eq("prospect_id", p.id)
+        .ilike("content", "Jarvis nightly: parked % re-approach%");
+      if ((priorCycles ?? 0) >= MAX_RECYCLES) continue;
+
+      const revives = dublinDate(RECYCLE_DAYS);
+      const { error } = await admin
+        .from("ge_prospects")
+        .update({ status: "future_opportunity", next_follow_up_at: revives })
+        .eq("id", p.id)
+        // Guard the write: if a reply landed between the read and here, the
+        // status has moved on and this must not drag them back.
+        .in("status", ["contacted", "follow_up_sent"]);
+      if (error) continue;
+
+      recycled += 1;
+      await admin.from("ge_activities").insert({
+        prospect_id: p.id,
+        type: "system",
+        content: `Jarvis nightly: parked ${p.company} for a re-approach on ${revives} — the full sequence went out and they never replied, so they come back around with fresh research rather than sitting in gone-cold forever`,
+        created_by: null,
+      });
+    }
+    if (recycled > 0) notes.push(`parked ${recycled} exhausted leads for a later re-approach`);
+  } catch (err) {
+    notes.push(`recycle error: ${err instanceof Error ? err.message : "unknown"}`);
+  }
+
   return {
     harvested,
     rewritten,
+    recycled,
     detail: [
       `harvested contacts for ${harvested}`,
       `repaired socials on ${socialsFixed}`,
       `rewrote ${rewritten} drafts`,
+      `recycled ${recycled}`,
       ...notes,
     ].join("; "),
   };
