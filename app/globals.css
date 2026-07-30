@@ -5429,3 +5429,159 @@ table.data-table {
     text-decoration: none;
   }
 }
+
+/* ============================================================
+   AutoSEO report (/autoseo)
+   The result of a free check is read by a business owner, once,
+   on a phone. So the page commits to ONE finding at full size and
+   hides the rest — a scannable list of nineteen is a list nobody
+   acts on. Namespaced .aseo-* so nothing here can leak into the
+   Growth Engine's own panels.
+   ============================================================ */
+
+.aseo-head {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-glass);
+}
+.aseo-dial { position: relative; flex-shrink: 0; width: 104px; height: 104px; }
+.aseo-dial svg { transform: rotate(-90deg); display: block; }
+.aseo-dial-track { stroke: var(--line); }
+.aseo-dial-fill { transition: stroke-dashoffset .9s cubic-bezier(.22,1,.36,1); }
+.aseo-dial-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.aseo-dial-num b { font-size: 30px; font-weight: 700; }
+.aseo-dial-num span { font-size: 10px; color: var(--faint); margin-top: 3px; letter-spacing: .04em; }
+
+.aseo-verdict { flex: 1 1 260px; min-width: 0; }
+.aseo-verdict h2 { font-size: 19px; line-height: 1.35; margin: 0 0 6px; }
+.aseo-verdict p { margin: 0; font-size: 13px; color: var(--faint); }
+.aseo-host {
+  font-size: 12px;
+  color: var(--faint);
+  word-break: break-all;
+  margin: 0 0 6px;
+}
+
+/* The one finding that gets full weight. */
+.aseo-step-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 26px 0 10px;
+}
+.aseo-hero {
+  border: 1px solid var(--line-bright);
+  border-left: 4px solid var(--red, #f87171);
+  border-radius: 14px;
+  padding: 20px;
+  background: var(--panel-glass);
+}
+.aseo-hero.is-warn { border-left-color: var(--orange, #fb923c); }
+.aseo-hero.is-good { border-left-color: var(--green, #34d399); }
+.aseo-hero h3 { font-size: 21px; line-height: 1.3; margin: 0 0 14px; }
+
+.aseo-block { margin-top: 16px; }
+.aseo-block-label {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin: 0 0 5px;
+}
+.aseo-block p { margin: 0; font-size: 14.5px; line-height: 1.6; }
+.aseo-now {
+  font-size: 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(248, 113, 113, .09);
+  border: 1px solid rgba(248, 113, 113, .22);
+}
+.aseo-hero.is-warn .aseo-now {
+  background: rgba(251, 146, 60, .09);
+  border-color: rgba(251, 146, 60, .22);
+}
+.aseo-hero.is-good .aseo-now {
+  background: rgba(52, 211, 153, .09);
+  border-color: rgba(52, 211, 153, .22);
+}
+
+.aseo-code-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.aseo-code {
+  background: #0e0e11;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre;
+}
+
+/* The runners-up: named, not explained. */
+.aseo-next { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.aseo-next-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: var(--panel-glass);
+}
+.aseo-next-card strong { display: block; font-size: 14.5px; margin-bottom: 4px; }
+.aseo-next-card span { font-size: 12.5px; color: var(--faint); line-height: 1.5; }
+
+/* Everything else, closed by default. */
+.aseo-rest { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 14px; }
+.aseo-rest > summary {
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--faint);
+  list-style: none;
+  padding: 6px 0;
+}
+.aseo-rest > summary::-webkit-details-marker { display: none; }
+.aseo-rest > summary::before { content: "▸ "; }
+.aseo-rest[open] > summary::before { content: "▾ "; }
+.aseo-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.aseo-row:first-of-type { border-top: none; }
+.aseo-row-txt { flex: 1; min-width: 0; }
+.aseo-row-txt span { display: block; color: var(--faint); font-size: 12.5px; margin-top: 2px; }
+
+@media (max-width: 560px) {
+  .aseo-head { padding: 16px; gap: 14px; }
+  .aseo-dial { width: 84px; height: 84px; }
+  .aseo-dial-num b { font-size: 25px; }
+  .aseo-verdict h2 { font-size: 17px; }
+  .aseo-hero { padding: 16px; }
+  .aseo-hero h3 { font-size: 18.5px; }
+}
