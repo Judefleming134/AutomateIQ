@@ -14,9 +14,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/book`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/systems`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/savings`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    // The free SEO checker is a front door: people search for this problem in
-    // the exact words the page answers it in, so it earns a high priority.
+    // The free tools are front doors: people search for these problems in the
+    // exact words the pages answer them in, so they earn a high priority. The
+    // embed route is deliberately absent — it renders inside customers' own
+    // sites and must never compete with them in search results.
+    { url: `${SITE}/tools`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE}/autoseo`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
+    { url: `${SITE}/tools/google-profile`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE}/tools/response-time`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE}/tools/missed-calls`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE}/tools/reviews`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${SITE}/tools/quote-builder`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/agents.html`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     // The policies hub and the AI-governance statement are deliberately
     // indexable and ranked above the boilerplate legal pages: "how does this
