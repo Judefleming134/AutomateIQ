@@ -155,7 +155,7 @@ export function ResponseTimeTester() {
             <p>
               Most people who enquire go with whoever answers first, and plenty stop
               waiting inside the hour.{" "}
-              <Link href="/tools/missed-calls">Work out what that&apos;s worth to you</Link>{" "}
+              <Link href="/freetools/missed-calls">Work out what that&apos;s worth to you</Link>{" "}
               — it takes about thirty seconds.
             </p>
           </div>

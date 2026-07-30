@@ -6,10 +6,10 @@ export const metadata: Metadata = {
   title: "Free review reply writer | AutomateIQ",
   description:
     "Paste a Google or Facebook review and get three replies written for you — warm, professional, or firm but fair. Free, no signup. Never argue with a reviewer again.",
-  alternates: { canonical: "https://automateiq.ie/tools/reviews" },
+  alternates: { canonical: "https://automateiq.ie/freetools/reviews" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools/reviews",
+    url: "https://automateiq.ie/freetools/reviews",
     title: "Free review reply writer",
     description: "Three ready-to-post replies to any review, written the way a real person would.",
     siteName: "AutomateIQ",

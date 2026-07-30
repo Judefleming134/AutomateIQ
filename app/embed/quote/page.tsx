@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { decodeQuoteConfig } from "@/lib/tools/quote-config";
-import { QuoteWidget } from "@/app/tools/quote-builder/widget";
+import { QuoteWidget } from "@/app/freetools/quote-builder/widget";
 
 export const metadata: Metadata = {
   title: "Instant quote",
@@ -30,7 +30,7 @@ export default async function QuoteEmbedPage({
         <p style={{ color: "var(--faint)", marginTop: 6 }}>
           The link is missing its settings, or they&apos;ve been changed since it was
           copied.{" "}
-          <Link href="/tools/quote-builder" target="_blank">
+          <Link href="/freetools/quote-builder" target="_blank">
             Build a new one here
           </Link>{" "}
           — it takes two minutes and it&apos;s free.

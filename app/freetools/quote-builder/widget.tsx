@@ -5,7 +5,7 @@ import { Phone, Send } from "lucide-react";
 import { euro, type QuoteConfig } from "@/lib/tools/quote-config";
 
 /**
- * The customer-facing widget. Rendered standalone at /tools/quote-builder/embed
+ * The customer-facing widget. Rendered standalone at /embed/quote
  * so it can be dropped into any site in an iframe.
  *
  * It never posts anywhere. A finished quote opens the VISITOR's own mail client
@@ -203,7 +203,7 @@ export function QuoteWidget({ config, embedded }: { config: QuoteConfig; embedde
 
       <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 12, textAlign: "center" }}>
         Instant quotes by{" "}
-        <a href="https://automateiq.ie/tools/quote-builder" target="_blank" rel="noreferrer">
+        <a href="https://automateiq.ie/freetools/quote-builder" target="_blank" rel="noreferrer">
           AutomateIQ
         </a>
       </p>

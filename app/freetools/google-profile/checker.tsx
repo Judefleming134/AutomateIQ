@@ -77,10 +77,10 @@ export function GbpChecker({ configured }: { configured: boolean }) {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-          <Link href="/autoseo" className="btn btn-primary btn-sm">
+          <Link href="/freetools/autoseo" className="btn btn-primary btn-sm">
             Check my website instead <ArrowRight size={13} />
           </Link>
-          <Link href="/tools" className="btn btn-secondary btn-sm">
+          <Link href="/freetools" className="btn btn-secondary btn-sm">
             All free tools
           </Link>
         </div>

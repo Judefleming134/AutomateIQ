@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
   }
 
   const token = signToken({ t: Date.now(), h: bare });
-  const link = `${siteUrl()}/tools/response-time/seen?t=${encodeURIComponent(token)}`;
+  const link = `${siteUrl()}/freetools/response-time/seen?t=${encodeURIComponent(token)}`;
 
   const { error } = await resend.emails.send({
     from: getFromAddress(),
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
       "",
       "-------------------------------------------",
       "AN HONEST NOTE: this is a response-time test you asked for on",
-      `${siteUrl()}/tools/response-time — it is not a real customer, and`,
+      `${siteUrl()}/freetools/response-time — it is not a real customer, and`,
       "nobody is waiting on you. It's written the way a real enquiry reads",
       "because that's the only way the test means anything.",
       "",

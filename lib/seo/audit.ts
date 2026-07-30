@@ -2,7 +2,7 @@ import "server-only";
 import { isPublicWebHost } from "@/lib/growth/research";
 
 /**
- * The AutoSEO engine behind automateiq.ie/autoseo.
+ * The AutoSEO engine behind automateiq.ie/freetools/autoseo.
  *
  * Reads a business website the way a search engine does and reports what's
  * missing, in words a plumber can act on. Everything here is derived from the

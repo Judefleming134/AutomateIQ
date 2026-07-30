@@ -6,10 +6,10 @@ export const metadata: Metadata = {
   title: "Free instant quote widget for your website | AutomateIQ",
   description:
     "Build a quote calculator for your own website in two minutes. No signup, no account, no monthly fee — set your prices, copy the code, paste it on your site.",
-  alternates: { canonical: "https://automateiq.ie/tools/quote-builder" },
+  alternates: { canonical: "https://automateiq.ie/freetools/quote-builder" },
   openGraph: {
     type: "website",
-    url: "https://automateiq.ie/tools/quote-builder",
+    url: "https://automateiq.ie/freetools/quote-builder",
     title: "Free instant quote widget for your website",
     description: "Set your prices, copy the code, paste it on your site. No signup.",
     siteName: "AutomateIQ",
