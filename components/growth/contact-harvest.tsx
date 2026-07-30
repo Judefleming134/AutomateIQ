@@ -75,23 +75,60 @@ export function ContactHarvest({
     setTotal(items.length);
     let enriched = 0;
     let checked = 0;
-    for (let i = 0; i < items.length; i++) {
-      if (stopRequested.current) break; // finish cleanly after the current site
-      const p = items[i];
-      setCurrent(p.company);
-      const res = await harvestOne(p.id).catch(() => null);
-      checked = i + 1;
-      if (res && res.ok && !/nothing new|unreachable/.test(res.found)) enriched++;
-      setDone(i + 1);
-      await sleep(300);
+    let failed = 0;
+    let succeeded = 0;
+    let broke: string | null = null;
+    // try/finally so a throw can never leave the button stuck on "Checking…"
+    // with the screen wake lock held (same guard as the research queue).
+    try {
+      for (let i = 0; i < items.length; i++) {
+        if (stopRequested.current) break; // finish cleanly after the current site
+        const p = items[i];
+        setCurrent(p.company);
+        const res = await harvestOne(p.id).catch(() => null);
+        // A failure USED TO BE swallowed silently and still counted as
+        // "checked". So if every call failed — expired session, network down, a
+        // deploy mid-run — the run ground through all 100 prospects doing
+        // nothing and finished with "✓ Checked 100 websites — found new contact
+        // details for 0". Jude would reasonably conclude those 100 leads have no
+        // findable email and move on, when in fact not one was ever read. Never
+        // report success for work that didn't happen.
+        if (!res || !res.ok) failed++;
+        else {
+          succeeded++;
+          if (!/nothing new|unreachable/.test(res.found)) enriched++;
+        }
+        checked = i + 1;
+        setDone(i + 1);
+        // Circuit breaker, same reasoning as the research queue's: five
+        // failures with ZERO successes means the problem is systemic, not the
+        // websites. Stop rather than burn minutes proving it 95 more times.
+        if (succeeded === 0 && failed >= 5) {
+          broke = `couldn't reach the finder for the first ${failed} — stopped early. Nothing was checked, so these leads are all still queued; try again in a moment.`;
+          break;
+        }
+        await sleep(300);
+      }
+    } finally {
+      setCurrent(null);
+      releaseWakeLock();
+      setRunning(false);
+      // Only claim a clean run when nothing failed. Otherwise say plainly how
+      // many couldn't be read, so a zero-result run is never mistaken for
+      // "these leads genuinely have no email".
+      if (broke) {
+        setSummary(`⚠ ${broke}`);
+      } else if (failed > 0) {
+        setSummary(
+          `Checked ${checked - failed} of ${checked} website${checked === 1 ? "" : "s"} — found new contact details for ${enriched}. ${failed} couldn't be read (no website on file, or the site didn't respond).`
+        );
+      } else {
+        setSummary(
+          `${stopRequested.current ? "Stopped — checked" : "✓ Checked"} ${checked} website${checked === 1 ? "" : "s"} — found new contact details for ${enriched}.`
+        );
+      }
+      router.refresh();
     }
-    setCurrent(null);
-    releaseWakeLock();
-    setRunning(false);
-    setSummary(
-      `${stopRequested.current ? "Stopped — checked" : "✓ Checked"} ${checked} website${checked === 1 ? "" : "s"} — found new contact details for ${enriched}.`
-    );
-    router.refresh();
   }
 
   return (
