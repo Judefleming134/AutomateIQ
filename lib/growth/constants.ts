@@ -60,6 +60,29 @@ export const CLOSED_STATUSES: ProspectStatus[] = [
   "archived",
 ];
 
+/**
+ * Stages where you have ALREADY made contact and the deal is still live.
+ *
+ * A prospect in one of these with no `next_follow_up_at` is a silent leak:
+ * you've spoken to them, and nothing anywhere will ever surface them again —
+ * not the dashboard's due lists, not the call list, not the autopilot queue,
+ * not Jarvis, not the morning brief. Untouched stages ("new",
+ * "research_complete", …) legitimately have no date yet, so they are NOT here.
+ *
+ * Shared so the dashboard's count and the prospects list's filter can't drift
+ * apart and show different numbers for the same question.
+ */
+export const CONTACTED_ACTIVE_STATUSES: ProspectStatus[] = [
+  "contacted",
+  "follow_up_sent",
+  "replied",
+  "qualified",
+  "meeting_booked",
+  "proposal_in_progress",
+  "proposal_sent",
+  "negotiation",
+];
+
 export const PROSPECT_STATUSES = Object.keys(
   PROSPECT_STATUS_META
 ) as ProspectStatus[];

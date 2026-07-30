@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
   CLOSED_STATUSES,
+  CONTACTED_ACTIVE_STATUSES,
   PROSPECT_SORTS,
   PROSPECT_SORT_LABELS,
   PROSPECT_STATUSES,
@@ -74,7 +75,7 @@ export default async function ProspectsPage({
   // bucket filters below and reused for the overdue badges further down.
   const today = dublinDate();
   const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
-  const DUE_BUCKETS = ["today", "overdue", "live", "cold"] as const;
+  const DUE_BUCKETS = ["today", "overdue", "live", "cold", "unscheduled"] as const;
   const due = (DUE_BUCKETS as readonly string[]).includes(params.due ?? "")
     ? (params.due as (typeof DUE_BUCKETS)[number])
     : null;
@@ -83,6 +84,7 @@ export default async function ProspectsPage({
     overdue: "follow-up overdue (within 7 days)",
     live: "follow-up due or overdue",
     cold: "gone cold (7+ days overdue)",
+    unscheduled: "contacted, but with no next step booked",
   };
 
   // Default to A→Z by company so a lead is easy to find by name — except the
@@ -127,8 +129,15 @@ export default async function ProspectsPage({
   if (due === "live")
     query = query.lte("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
   if (due === "cold") query = query.lt("next_follow_up_at", dublinDate(-7));
+  // The leak bucket: already spoken to, nothing scheduled, so invisible to
+  // every other chase surface. Uses the shared status list rather than its own
+  // copy, so this list always holds exactly what the dashboard counted.
+  if (due === "unscheduled") {
+    query = query.in("status", CONTACTED_ACTIVE_STATUSES).is("next_follow_up_at", null);
+  }
   // Closed/archived leads are never part of a chase list — matches every
-  // count that links here.
+  // count that links here. (The unscheduled bucket already restricts status,
+  // and none of those are closed, so this is a no-op for it.)
   if (due) query = query.not("status", "in", activeFilter);
 
   const [
