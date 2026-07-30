@@ -123,9 +123,16 @@ type GrowthData = {
  * don't read it, and the reason this is an explicit flag rather than a silent
  * optimisation.
  */
+/**
+ * @param sinceIso When every requested window is bounded, the ISO timestamp of
+ *   the earliest one — messages outside it (bar pending ones) are left in the
+ *   database instead of paged into memory. Null whenever ANY caller wants
+ *   all-time figures, because then every row is genuinely needed.
+ */
 async function fetchGrowthData(
   admin: SupabaseClient,
-  withSolutions = true
+  withSolutions = true,
+  sinceIso: string | null = null
 ): Promise<GrowthData> {
   const [prospects, messages, meetings, campaigns, research, proposals] =
     await Promise.all([
@@ -388,13 +395,29 @@ function computeGrowthMetrics(
  * `days` restricts activity (prospects added, messages, meetings created) to
  * a trailing window; null = all time.
  */
+/**
+ * The earliest instant any requested window needs, or null if ANY of them is
+ * all-time. A single null makes the whole load unbounded — Jarvis asks for
+ * [null, 7] and genuinely needs every row, so it must not be narrowed.
+ */
+function windowFloor(windows: (number | null)[]): string | null {
+  if (windows.length === 0 || windows.some((w) => w === null || !Number.isFinite(w))) {
+    return null;
+  }
+  const widest = Math.max(...(windows as number[]));
+  if (widest <= 0) return null;
+  // A day of slack past the boundary, so clock skew between this process and
+  // Postgres can never drop a row the JS filter would have kept.
+  return new Date(Date.now() - (widest + 1) * 24 * 60 * 60 * 1000).toISOString();
+}
+
 export async function loadGrowthMetrics(
   admin: SupabaseClient,
   days: number | null = null,
   opts: { withSolutions?: boolean } = {}
 ): Promise<GrowthMetrics> {
   return computeGrowthMetrics(
-    await fetchGrowthData(admin, opts.withSolutions ?? true),
+    await fetchGrowthData(admin, opts.withSolutions ?? true, windowFloor([days])),
     days
   );
 }
@@ -410,6 +433,10 @@ export async function loadGrowthMetricsMulti(
   windows: (number | null)[],
   opts: { withSolutions?: boolean } = {}
 ): Promise<GrowthMetrics[]> {
-  const data = await fetchGrowthData(admin, opts.withSolutions ?? true);
+  const data = await fetchGrowthData(
+    admin,
+    opts.withSolutions ?? true,
+    windowFloor(windows)
+  );
   return windows.map((w) => computeGrowthMetrics(data, w));
 }
