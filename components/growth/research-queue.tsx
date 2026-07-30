@@ -279,24 +279,44 @@ export function ResearchQueue({
       }
     };
 
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, items.length) }, (_, w) =>
-        worker(w * STAGGER_MS, w)
-      )
-    );
-
-    releaseWakeLock();
-    setActive([]);
-    setPauseNote(null);
-    setRunning(false);
-    setFinished(true);
-    if (stopped) setStopReason(stopped);
-    else if (stopRequested.current) {
-      setStopReason(
-        "stopped by you — everything already researched is saved, and the rest of the batch stays queued for the next click."
+    // try/finally: Promise.all REJECTS on the first worker to throw, and the
+    // worker calls router.refresh() after every company — so one unexpected
+    // throw used to skip every line below it. That left `running` stuck at true
+    // (the button frozen on "Researching…" until a full page reload) AND the
+    // screen wake lock held, quietly burning his phone battery on a batch that
+    // had already stopped. This is the longest-running control in the product —
+    // minutes, on a phone — so it's the worst place to leave that hanging.
+    // Same guard the Message Studio and the quote/content agents already have.
+    let crashed: string | null = null;
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, items.length) }, (_, w) =>
+          worker(w * STAGGER_MS, w)
+        )
       );
+    } catch (err) {
+      crashed = err instanceof Error ? err.message : "unknown error";
+    } finally {
+      releaseWakeLock();
+      setActive([]);
+      setPauseNote(null);
+      setRunning(false);
+      setFinished(true);
+      // A systemic stop is the most specific reason, then an unexpected crash,
+      // then the user's own Stop — never leave the run looking like it just
+      // ended for no reason.
+      if (stopped) setStopReason(stopped);
+      else if (crashed) {
+        setStopReason(
+          `the batch stopped unexpectedly (${crashed}) — everything already researched is saved, and the rest stays queued for the next click.`
+        );
+      } else if (stopRequested.current) {
+        setStopReason(
+          "stopped by you — everything already researched is saved, and the rest of the batch stays queued for the next click."
+        );
+      }
+      router.refresh();
     }
-    router.refresh();
   }
 
   if (total === 0 && !finished) return null;
