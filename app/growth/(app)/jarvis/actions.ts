@@ -594,7 +594,27 @@ export async function askJarvis(
     if (actions.length > 0) {
       const results: string[] = [];
       for (const a of actions) {
-        results.push(await runJarvisAction(admin, member.id, a));
+        // ISOLATED per action. runJarvisAction returns "✗ …" for the failures it
+        // handles, but an unhandled THROW (studioDraft hitting NO_PROVIDER, a
+        // dropped connection) used to escape to the outer catch — which
+        // discarded Jarvis's entire reply AND every action that had already
+        // succeeded, even though those writes were committed. Ask it to queue
+        // three prospects, have the third throw, and Jude was told only that
+        // something failed: no reply, and no idea the first two were queued. He
+        // retries, and a non-idempotent action like add_note lands twice.
+        //
+        // Same principle as the cron dispatch's isolated(): one task blowing up
+        // must never take the others down with it.
+        try {
+          results.push(await runJarvisAction(admin, member.id, a));
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          results.push(
+            msg === "NO_PROVIDER"
+              ? `✗ ${a.company || a.type}: no AI provider key configured — add one in Vercel`
+              : `✗ ${a.company || a.type}: failed unexpectedly — check this one before retrying`
+          );
+        }
       }
       revalidatePath("/growth/jarvis");
       revalidatePath("/growth/prospects");
