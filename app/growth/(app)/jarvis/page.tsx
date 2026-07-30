@@ -18,7 +18,7 @@ import { EmailAutopilot } from "@/components/growth/email-autopilot";
 import { SendBriefButton } from "@/components/growth/send-brief-button";
 import { listAutopilotCandidates } from "@/lib/growth/autopilot";
 import { CLOSED_STATUSES } from "@/lib/growth/constants";
-import { dublinDate } from "@/lib/growth/dates";
+import { dublinDate, morningSendLabel } from "@/lib/growth/dates";
 
 // Jarvis answers run a live AI call inside this route's actions.
 export const maxDuration = 60;
@@ -152,7 +152,7 @@ export default async function JarvisPage() {
       <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 12 }}>
         <Sparkles size={12} style={{ verticalAlign: "-2px" }} /> Jarvis reads
         the live CRM on every answer. <strong>Emails go out on autopilot every
-        morning (~8am, booking link included)</strong> — the best researched
+        morning (~{morningSendLabel()} Irish, booking link included)</strong> — the best researched
         drafts are auto-queued and sent for you, so you don&apos;t have to be
         here. You can still send any email now from the panel above; DMs and
         calls stay yours, with drafts and scripts ready in each prospect&apos;s
