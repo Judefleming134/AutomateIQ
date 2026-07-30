@@ -224,7 +224,7 @@ async function fetchOnce(
  * hostnames and non-standard ports could otherwise probe infrastructure
  * from inside the deployment ~100×/night.
  */
-function isPublicWebHost(u: URL): boolean {
+export function isPublicWebHost(u: URL): boolean {
   const host = u.hostname.toLowerCase();
   // Only default web ports.
   if (u.port && !["80", "443"].includes(u.port)) return false;
