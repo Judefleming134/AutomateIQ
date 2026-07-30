@@ -21,6 +21,7 @@ import {
   type CriterionKey,
 } from "@/lib/growth/scoring";
 import {
+  MAX_IMPORT_ROWS,
   CLOSED_STATUSES,
   PROSPECT_STATUSES,
   PROSPECT_STATUS_META,
@@ -170,7 +171,7 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   // Cap one import so a giant paste can't run past the function time budget
   // mid-insert. Chunks commit as they go and re-imports dedupe cleanly, so
   // this is a friendly guardrail, not data loss — split and import the rest.
-  const MAX_ROWS = 3000;
+  const MAX_ROWS = MAX_IMPORT_ROWS;
   if (rows.length - 1 > MAX_ROWS) {
     return {
       error: `That's ${(rows.length - 1).toLocaleString("en-IE")} rows — import up to ${MAX_ROWS.toLocaleString("en-IE")} at a time so it doesn't time out. Split the file and run it again for the rest (duplicates are skipped automatically).`,

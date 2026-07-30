@@ -262,3 +262,11 @@ export function resolveProspectSort(
   if (sortParam && PROSPECT_SORTS[sortParam]) return sortParam;
   return phoneOnly ? "score" : "company";
 }
+
+/**
+ * Rows accepted in ONE CSV import. The server enforces it (a bigger paste can
+ * run past the function budget mid-insert); the upload field warns about it
+ * BEFORE submitting, so a 5,000-row file isn't discovered to be too big only
+ * after the slowest action in the app has run. Shared so the two can't drift.
+ */
+export const MAX_IMPORT_ROWS = 3000;
