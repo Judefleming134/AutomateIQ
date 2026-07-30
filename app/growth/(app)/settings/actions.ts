@@ -16,6 +16,7 @@ export async function saveGrowthSettings(_prev: Result, formData: FormData): Pro
   const bookingUrl = String(formData.get("booking_url") ?? "").trim();
   const qualifyThreshold = Number(formData.get("qualify_threshold"));
   const reviewThreshold = Number(formData.get("review_threshold"));
+  const dailySendTarget = Number(formData.get("daily_send_target"));
 
   if (!/^https?:\/\/.+/.test(bookingUrl)) {
     return { error: "Booking URL must start with http(s)://" };
@@ -30,6 +31,11 @@ export async function saveGrowthSettings(_prev: Result, formData: FormData): Pro
   ) {
     return { error: "Thresholds must be whole numbers with review below qualify (1–100)." };
   }
+  // Matches the CHECK constraint on the column, so a bad value is refused here
+  // with a readable message instead of coming back as a Postgres error string.
+  if (!Number.isInteger(dailySendTarget) || dailySendTarget < 0 || dailySendTarget > 2000) {
+    return { error: "Daily send target must be a whole number between 0 and 2000." };
+  }
 
   const admin = createAdminClient();
   const { error } = await admin.from("ge_settings").upsert({
@@ -37,6 +43,7 @@ export async function saveGrowthSettings(_prev: Result, formData: FormData): Pro
     booking_url: bookingUrl,
     qualify_threshold: qualifyThreshold,
     review_threshold: reviewThreshold,
+    daily_send_target: dailySendTarget,
   });
   if (error) return { error: error.message };
 

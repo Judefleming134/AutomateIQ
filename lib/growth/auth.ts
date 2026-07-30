@@ -108,12 +108,16 @@ export async function loadGrowthSettings() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("ge_settings")
-    .select("booking_url, qualify_threshold, review_threshold")
+    .select("booking_url, qualify_threshold, review_threshold, daily_send_target")
     .eq("id", true)
     .maybeSingle();
   return {
     bookingUrl: data?.booking_url ?? "https://automateiq.ie/book",
     qualifyThreshold: data?.qualify_threshold ?? 70,
     reviewThreshold: data?.review_threshold ?? 40,
+    // Destination for daily outreach, not a daily quota — the ramp paces the
+    // climb toward it. Falls back to the default if the column isn't there
+    // yet, so the engine keeps sending through a deploy/migration gap.
+    dailySendTarget: data?.daily_send_target ?? 250,
   };
 }

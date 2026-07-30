@@ -10,6 +10,7 @@ import {
 } from "@/lib/growth/email";
 import { recordOutreachSent } from "@/lib/growth/outreach";
 import { dublinDate } from "@/lib/growth/dates";
+import { loadGrowthSettings } from "@/lib/growth/auth";
 
 /**
  * Email autopilot: the one channel with a real sending API, made hands-off.
@@ -216,6 +217,8 @@ const RAMP_FLOOR = 20;
  *  +50% a day is the conventional warm-up step; it reaches 200/day from 20
  *  in about six days, which is far faster than anyone ramps by hand. */
 const RAMP_STEP = 1.5;
+/** Doubling, once the list has PROVED itself: 40+ sends at under 1% bounces. */
+const RAMP_STEP_CLEAN = 2.0;
 /** Deliverability limits. Above either of these, growth stops dead. Mailbox
  *  providers act on exactly these ratios, and a domain that gets filtered is
  *  far more expensive to fix than a few slow days. */
@@ -313,12 +316,18 @@ export async function resolveSendRamp(
     };
   }
 
-  const ceiling = Math.max(RAMP_FLOOR, Math.ceil(recentPeak * RAMP_STEP));
+  // A list that is demonstrably clean earns a faster climb. Under 1% bounces
+  // across a real sample is the evidence that the addresses are good and the
+  // domain is being accepted — doubling from there is still well inside
+  // conventional warm-up guidance, and it halves the time to full volume.
+  const proven = total >= 40 && bounceRate < 0.01;
+  const step = proven ? RAMP_STEP_CLEAN : RAMP_STEP;
+  const ceiling = Math.max(RAMP_FLOOR, Math.ceil(recentPeak * step));
   const target = Math.min(requested, ceiling);
   const reason =
     target >= requested
       ? `at your target of ${requested}/day (peak ${recentPeak}, ${(bounceRate * 100).toFixed(1)}% bounces)`
-      : `ramping to ${target}/day on the way to ${requested} — up to +50% on the recent peak of ${recentPeak}/day, ${(bounceRate * 100).toFixed(1)}% bounces. Reaches your target in about ${Math.max(1, Math.ceil(Math.log(requested / Math.max(target, 1)) / Math.log(RAMP_STEP)))} more days.`;
+      : `ramping to ${target}/day on the way to ${requested} — ${proven ? "doubling" : "up to +50%"} on the recent peak of ${recentPeak}/day, ${(bounceRate * 100).toFixed(1)}% bounces${proven ? " (clean list, so it's climbing faster)" : ""}. Reaches your target in about ${Math.max(1, Math.ceil(Math.log(requested / Math.max(target, 1)) / Math.log(RAMP_STEP)))} more days.`;
   return { target, requested, recentPeak, sent, bounced, complaints, bounceRate, reason };
 }
 
@@ -338,8 +347,20 @@ export async function autoQueueTopDrafts(): Promise<{
   queued: number;
   detail: string;
 }> {
+  // WHERE THE DESTINATION COMES FROM.
+  //
+  // This defaulted to RAMP_FLOOR (20) when GROWTH_AUTOQUEUE_TARGET was unset,
+  // which quietly made the ramp pointless: the target WAS the old daily
+  // number, so `min(requested, ceiling)` could never exceed 20 and volume
+  // never grew unless someone edited an environment variable in Vercel. The
+  // one number that decides how much outreach goes out has to be changeable
+  // from the engine itself.
+  //
+  // Settings first, env var as an explicit override for anyone who wants to
+  // pin it without touching the UI.
+  const settings = await loadGrowthSettings();
   const raw = process.env.GROWTH_AUTOQUEUE_TARGET;
-  const requested = raw === undefined ? RAMP_FLOOR : Number(raw);
+  const requested = raw === undefined ? settings.dailySendTarget : Number(raw);
   if (!Number.isFinite(requested) || requested <= 0) {
     return { queued: 0, detail: "auto-queue disabled" };
   }

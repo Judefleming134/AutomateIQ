@@ -110,6 +110,19 @@ export default async function GrowthSettingsPage() {
                 />
               </div>
               <div>
+                <label htmlFor="st-send">Emails a day (target)</label>
+                <input
+                  id="st-send"
+                  name="daily_send_target"
+                  type="number"
+                  min={0}
+                  max={2000}
+                  defaultValue={settings.dailySendTarget}
+                  required
+                  disabled={!isOwner}
+                />
+              </div>
+              <div>
                 <label htmlFor="st-review">In review at score ≥</label>
                 <input
                   id="st-review"
@@ -122,6 +135,17 @@ export default async function GrowthSettingsPage() {
                   disabled={!isOwner}
                 />
               </div>
+            {/* The number people get wrong: it is a DESTINATION, not tomorrow's
+                send. Without saying so, a target of 250 looks broken on the
+                morning it queues 45. */}
+            <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
+              <strong>Emails a day</strong> is where you want to get to, not what goes
+              out tomorrow. The engine climbs toward it from what it&apos;s actually been
+              sending — about +50% a day, doubling once the list has proved itself clean
+              — and holds volume automatically if bounces or spam complaints appear.
+              That protects the sending domain, which is far more expensive to repair
+              than it is to grow slowly. Set 0 to stop auto-queueing entirely.
+            </p>
             </div>
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
               A lead reads as <strong>Qualified</strong> at or above the first
