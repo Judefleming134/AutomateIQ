@@ -14,6 +14,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/book`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/systems`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/savings`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    // The free SEO checker is a front door: people search for this problem in
+    // the exact words the page answers it in, so it earns a high priority.
+    { url: `${SITE}/autoseo`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE}/agents.html`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     // The policies hub and the AI-governance statement are deliberately
     // indexable and ranked above the boilerplate legal pages: "how does this
