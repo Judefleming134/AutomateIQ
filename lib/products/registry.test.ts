@@ -25,6 +25,7 @@ const FROZEN_KEYS = [
   "crm-agent",
   "custom-solutions",
   "instant-quote-agent",
+  "permitiq",
   "review-agent",
   "speed-to-lead-agent",
   "website-agent",
@@ -63,9 +64,9 @@ describe("productsByFamily", () => {
 
   it("drops empty families rather than rendering placeholder sections", () => {
     for (const g of groups) expect(g.products.length).toBeGreaterThan(0);
-    // PermitIQ and FinanceIQ are declared but have no product yet, so they must
-    // not appear in the portal at all.
-    expect(groups.map((g) => g.family.key)).not.toContain("permitiq");
+    // PermitIQ now has a product (coming_soon), so its family renders.
+    // FinanceIQ still has none and must not appear at all.
+    expect(groups.map((g) => g.family.key)).toContain("permitiq");
     expect(groups.map((g) => g.family.key)).not.toContain("financeiq");
   });
 
