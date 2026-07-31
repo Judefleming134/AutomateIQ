@@ -362,13 +362,42 @@ export async function sendJarvisMorningBrief(): Promise<{
     });
 
     // What Jarvis's 10pm nightly routine did while Jude slept.
-    const { data: nightlyActs } = await admin
-      .from("ge_activities")
-      .select("content, ge_prospects(company)")
-      .ilike("content", "Jarvis nightly:%")
-      .gte("created_at", since24h)
-      .order("created_at", { ascending: false })
-      .limit(20);
+    //
+    // SPLIT INTO TWO, because one of these scales with send volume and the
+    // other doesn't. The auto-queue writes ONE activity per queued email, so
+    // at the ramp's 250/day this section became twenty lines of "auto-queued
+    // the first-touch email for X" — and the genuine catches (contacts
+    // harvested, dead social links repaired, outdated drafts rewritten,
+    // exhausted leads recycled) were pushed clean out of the list by the
+    // 20-row cap. The section whose entire job is showing what Jarvis FIXED
+    // would have carried no fixes at all on exactly the days it did the most.
+    //
+    // The header also reported the length of the TRUNCATED list, so it said
+    // "(20)" on a night with 250. Both counts are now real.
+    const AUTO_QUEUE_PREFIX = "Jarvis nightly: auto-queued";
+    const [{ data: nightlyActs }, { count: autoQueuedTotal }, { count: nightlyTotal }] =
+      await Promise.all([
+        // Real fixes only — the auto-queue bulk is summarised separately below.
+        admin
+          .from("ge_activities")
+          .select("content, ge_prospects(company)")
+          .ilike("content", "Jarvis nightly:%")
+          .not("content", "ilike", `${AUTO_QUEUE_PREFIX}%`)
+          .gte("created_at", since24h)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        admin
+          .from("ge_activities")
+          .select("id", { count: "exact", head: true })
+          .ilike("content", `${AUTO_QUEUE_PREFIX}%`)
+          .gte("created_at", since24h),
+        admin
+          .from("ge_activities")
+          .select("id", { count: "exact", head: true })
+          .ilike("content", "Jarvis nightly:%")
+          .not("content", "ilike", `${AUTO_QUEUE_PREFIX}%`)
+          .gte("created_at", since24h),
+      ]);
     const nightlyLines = (nightlyActs ?? []).map((a) => {
       const company =
         (a.ge_prospects as { company?: string } | null)?.company ?? "unknown";
@@ -567,9 +596,20 @@ export async function sendJarvisMorningBrief(): Promise<{
           })
           .join("\n")}`
       : "";
-    const nightlyBlock = nightlyLines.length
-      ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyLines.length})\n${nightlyLines.join("\n")}`
-      : "";
+    const nightlyMore =
+      (nightlyTotal ?? 0) > nightlyLines.length
+        ? `\n…and ${(nightlyTotal ?? 0) - nightlyLines.length} more`
+        : "";
+    // The morning run's queueing gets ONE line with the true number, so it
+    // never crowds out the fixes it used to bury.
+    const queueLine =
+      (autoQueuedTotal ?? 0) > 0
+        ? `\n• Queued ${autoQueuedTotal} first-touch email${(autoQueuedTotal ?? 0) === 1 ? "" : "s"} for this morning's run`
+        : "";
+    const nightlyBlock =
+      nightlyLines.length || (autoQueuedTotal ?? 0) > 0
+        ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyTotal ?? nightlyLines.length})\n${nightlyLines.join("\n")}${nightlyMore}${queueLine}`
+        : "";
 
     // "It worked itself" headline — the first thing Jude sees: what the engine
     // did overnight/this morning with zero input from him, so logging on = just
