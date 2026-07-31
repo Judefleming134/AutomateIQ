@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import Link from "next/link";
 import { ArrowRight, PhoneMissed } from "lucide-react";
 
@@ -214,6 +215,13 @@ export function MissedCallsCalculator() {
           </Link>
         </div>
       </div>
+    <ToolLeadForm
+        tool="missed-calls"
+        headline={`${money(result.yearly)} a year`}
+        topFinding={`${money(result.recoverable)} of it looks recoverable`}
+        title="Want the workings sent over?"
+        blurb="Leave your email and we'll send this breakdown plus what we'd change first to stop the leak. One reply from a person, no list."
+      />
     </div>
   );
 }

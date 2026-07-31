@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -327,6 +328,15 @@ export function Auditor() {
               </details>
             </>
           )}
+
+          {/* The one place this tool asks for an email — under a finished
+              report, never in front of one. See ToolLeadForm. */}
+          <ToolLeadForm
+            tool="autoseo"
+            subject={audit.host}
+            headline={`${audit.score}/100 (${audit.grade})`}
+            topFinding={audit.checks[0]?.label ?? null}
+          />
 
           <div
             className="panel panel-block"
