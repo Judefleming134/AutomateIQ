@@ -3,138 +3,188 @@ import type { Metadata } from "next";
 import {
   ArrowRight,
   Calculator,
+  Check,
+  Lock,
   MapPin,
   MessageSquareQuote,
   PhoneMissed,
   Search,
   Timer,
 } from "lucide-react";
+import { toolCards, liveToolCount, countWord, type ToolCard } from "@/lib/tools/catalog";
+import { PROOF } from "@/lib/proof";
+
+/**
+ * Rendered per request, not prerendered.
+ *
+ * Which tools are switched on depends on environment keys, and this page was
+ * `○ Static` — so the availability check ran once at build time and froze. The
+ * hub would have gone on promising a working Google check for the life of the
+ * deployment, which is the exact failure this whole change exists to remove.
+ * The page does no I/O beyond reading env, so the dynamic render is cheap.
+ */
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Free tools for Irish businesses | AutomateIQ",
   description:
-    "Six free tools, no signup: check your website's SEO, your Google Business Profile, how fast you really reply, what missed calls cost you, reply to reviews, and add instant quotes to your site.",
+    "Free tools, no signup: check your website's SEO, your Google Business Profile, how fast you really reply, what missed calls cost you, reply to reviews, and add instant quotes to your site.",
   alternates: { canonical: "https://automateiq.ie/freetools" },
   openGraph: {
     type: "website",
     url: "https://automateiq.ie/freetools",
     title: "Free tools for Irish businesses",
-    description: "No signup, no email required, genuinely free. Built for trades and local businesses.",
+    description:
+      "No signup, no email required, genuinely free. Built for trades and local businesses.",
     siteName: "AutomateIQ",
     images: ["https://automateiq.ie/logo-aiq.png"],
   },
 };
 
-const TOOLS = [
-  {
-    href: "/freetools/autoseo",
-    icon: Search,
-    title: "Website SEO check",
-    blurb:
-      "Why your site doesn't come up on Google — with the exact code to fix it, pre-filled with your own details.",
-    time: "20 seconds",
-  },
-  {
-    href: "/freetools/google-profile",
-    icon: MapPin,
-    title: "Google Business Profile check",
-    blurb:
-      "The half that decides the map pack: reviews, rating, hours, category. Tells you which one to fix first.",
-    time: "10 seconds",
-  },
-  {
-    href: "/freetools/response-time",
-    icon: Timer,
-    title: "How fast do you reply?",
-    blurb:
-      "We send one realistic enquiry to your published email and time how long it sits unopened. Usually a shock.",
-    time: "1 minute",
-  },
-  {
-    href: "/freetools/missed-calls",
-    icon: PhoneMissed,
-    title: "What missed calls cost you",
-    blurb:
-      "Four numbers you already know, and a euro figure for the work going to whoever answered first.",
-    time: "30 seconds",
-  },
-  {
-    href: "/freetools/reviews",
-    icon: MessageSquareQuote,
-    title: "Review reply writer",
-    blurb:
-      "Paste any review, get three replies — warm, professional, or firm but fair. Never defensive.",
-    time: "15 seconds",
-  },
-  {
-    href: "/freetools/quote-builder",
-    icon: Calculator,
-    title: "Instant quote widget",
-    blurb:
-      "Build a quote calculator for your own website. Set your prices, copy the code, paste it in. No account.",
-    time: "2 minutes",
-  },
-];
+const ICONS = {
+  search: Search,
+  "map-pin": MapPin,
+  timer: Timer,
+  "phone-missed": PhoneMissed,
+  quote: MessageSquareQuote,
+  calculator: Calculator,
+} as const;
+
+function ToolTile({ tool }: { tool: ToolCard }) {
+  const Icon = ICONS[tool.icon];
+  const live = tool.status === "live";
+
+  const body = (
+    <>
+      <span className="ft-tile-top">
+        <span className="ft-tile-icon" aria-hidden>
+          <Icon size={19} />
+        </span>
+        <span className="ft-tile-time">{live ? tool.time : "Not switched on"}</span>
+      </span>
+      <h3>{tool.title}</h3>
+      <p className="ft-tile-blurb">{tool.blurb}</p>
+      <ul className="ft-tile-gives">
+        {tool.gives.map((g) => (
+          <li key={g}>
+            <Check size={13} aria-hidden /> {g}
+          </li>
+        ))}
+      </ul>
+      {live ? (
+        <span className="ft-tile-go">
+          Run it <ArrowRight size={14} />
+        </span>
+      ) : (
+        <span className="ft-tile-off">
+          <Lock size={13} aria-hidden /> {tool.unavailableNote}
+        </span>
+      )}
+    </>
+  );
+
+  const style = { ["--ft-accent" as string]: tool.accent };
+
+  // An unavailable tool is NOT a link. It used to be, and the click landed on
+  // a dead end — the worst possible first impression from a free tool.
+  return live ? (
+    <Link href={tool.href} className="ft-tile" style={style}>
+      {body}
+    </Link>
+  ) : (
+    <div className="ft-tile ft-tile-muted" style={style}>
+      {body}
+    </div>
+  );
+}
 
 export default function ToolsHubPage() {
+  const tools = toolCards();
+  const live = liveToolCount();
+
   return (
     <>
-      <section className="book-hero">
-        <p className="book-kicker">Free tools</p>
-        <h1>Six things you can check right now, for nothing</h1>
+      <section className="book-hero ft-hero">
+        <p className="book-kicker">Free tools · no signup</p>
+        {/* The count is computed. It read "Six things you can check right now"
+            while one of the six was switched off. */}
+        <h1>
+          {countWord(live)} things you can check right now,{" "}
+          <span className="ft-hero-ac">for nothing</span>
+        </h1>
         <p className="book-hero-sub">
           No signup, no email required, no report held back until you book a call. If they
           show you something worth fixing, fix it yourself — the instructions are right
           there. If you&apos;d rather we did it, you know where we are.
         </p>
+        <div className="ft-hero-stats">
+          <span>
+            <b>€0</b> forever
+          </span>
+          <span>
+            <b>No</b> account
+          </span>
+          <span>
+            <b>Nothing</b> stored
+          </span>
+          <span>
+            <b>{PROOF.jobsProcessedLabel}</b> jobs run on the paid version
+          </span>
+        </div>
       </section>
 
-      <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
-        <div className="aseo-next">
-          {TOOLS.map((t) => {
-            const Icon = t.icon;
-            return (
-              <Link
-                key={t.href}
-                href={t.href}
-                className="aseo-next-card"
-                style={{ textDecoration: "none", color: "inherit", display: "block" }}
-              >
-                <span
-                  className="sys-pillar-icon"
-                  style={{ display: "inline-flex", marginBottom: 10 }}
-                  aria-hidden
-                >
-                  <Icon size={18} />
-                </span>
-                <strong style={{ fontSize: 16 }}>{t.title}</strong>
-                <span style={{ display: "block", marginBottom: 8 }}>{t.blurb}</span>
-                <span style={{ color: "var(--ac2, #3b82f6)", fontWeight: 600 }}>
-                  {t.time} <ArrowRight size={12} style={{ verticalAlign: "-1px" }} />
-                </span>
-              </Link>
-            );
-          })}
+      <section className="book-section ft-grid-section">
+        <div className="ft-grid">
+          {tools.map((t) => (
+            <ToolTile key={t.slug} tool={t} />
+          ))}
         </div>
       </section>
 
       <section className="book-section">
-        <h2>Why these are free</h2>
-        <p style={{ color: "var(--faint)", maxWidth: 720 }}>
-          Because most small businesses in Ireland are losing work to problems nobody has
-          ever pointed out to them — an enquiry form that goes to an inbox no one watches,
-          a Google profile with four reviews on it, a website Google can&apos;t read. You
-          can fix every one of those yourself with what&apos;s here, and plenty of people
-          will. The ones who&apos;d rather have it done properly and kept working tend to
-          come and talk to us, and that&apos;s a fair trade.
-        </p>
-        <p style={{ color: "var(--faint)", maxWidth: 720, fontSize: 13 }}>
-          Nothing is stored unless you ask us to. No tool here needs an email address to
-          show you its results.
-        </p>
-        <Link href="/book" className="btn btn-primary" style={{ marginTop: 8 }}>
-          Talk to us <ArrowRight size={14} />
-        </Link>
+        <div className="ft-why">
+          <div>
+            <p className="book-eyebrow">Why these are free</p>
+            <h2>The catch is that there isn&apos;t one.</h2>
+            <p>
+              Most small businesses in Ireland are losing work to problems nobody has ever
+              pointed out to them — an enquiry form going to an inbox no one watches, a
+              Google profile with four reviews on it, a website Google can&apos;t read.
+            </p>
+            <p>
+              You can fix every one of those yourself with what&apos;s here, and plenty of
+              people will. The ones who&apos;d rather have it done properly and kept
+              working tend to come and talk to us. That&apos;s a fair trade.
+            </p>
+          </div>
+          <div className="ft-why-facts">
+            <h3>What we do and don&apos;t do</h3>
+            <ul>
+              <li>
+                <Check size={14} aria-hidden /> No tool here needs an email address to show
+                you its results
+              </li>
+              <li>
+                <Check size={14} aria-hidden /> Nothing is stored unless you ask us to
+              </li>
+              <li>
+                <Check size={14} aria-hidden /> Full result on screen — nothing held back
+                behind a call
+              </li>
+              <li>
+                <Check size={14} aria-hidden /> Same engine our paying customers run on
+              </li>
+            </ul>
+            <div className="ft-why-cta">
+              <Link href="/book" className="btn btn-primary">
+                Talk to us <ArrowRight size={14} />
+              </Link>
+              <Link href="/products" className="btn btn-secondary">
+                See the products
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
     </>
   );

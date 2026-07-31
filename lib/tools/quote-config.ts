@@ -50,9 +50,50 @@ export const quoteConfigSchema = z.object({
 
 export type QuoteConfig = z.infer<typeof quoteConfigSchema>;
 
-/** URL-safe base64 of the JSON. Not encryption — see the note above. */
+/**
+ * URL-safe base64, implemented without Buffer. Not encryption — see the note
+ * above.
+ *
+ * WHY NOT Buffer: `encodeQuoteConfig` is called from builder.tsx, which is a
+ * "use client" component, so this runs in the browser. Node's Buffer supports
+ * the "base64url" encoding; the polyfill bundlers substitute in the browser
+ * does not, and threw
+ *
+ *     TypeError: Unknown encoding: base64url
+ *
+ * on hydration — which took the entire /freetools/quote-builder page down with
+ * it. The tool was completely unusable and had been advertised as working.
+ *
+ * The output is byte-for-byte what Buffer produced, because base64url is just
+ * base64 with `+`→`-`, `/`→`_` and the `=` padding dropped. That matters: the
+ * embed snippets already pasted into customers' own websites carry strings
+ * made by the old code, and `/embed/quote` has to keep reading them forever.
+ */
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  // Chunked: String.fromCharCode(...bytes) blows the argument limit on a large
+  // config, and this runs on user input.
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlToBytes(raw: string): Uint8Array {
+  const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+  // atob rejects an unpadded string in some engines, so pad it back.
+  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
 export function encodeQuoteConfig(config: QuoteConfig): string {
-  return Buffer.from(JSON.stringify(config)).toString("base64url");
+  // TextEncoder, not charCodeAt: a business name like "Ó Briain Plumbing" is
+  // multi-byte, and btoa alone only handles latin1.
+  return bytesToBase64Url(new TextEncoder().encode(JSON.stringify(config)));
 }
 
 export function decodeQuoteConfig(raw: string): QuoteConfig | null {
@@ -60,7 +101,7 @@ export function decodeQuoteConfig(raw: string): QuoteConfig | null {
     // Cap the input before parsing: a giant string in a query param shouldn't
     // become a giant JSON.parse on every render of a public page.
     if (raw.length > 8000) return null;
-    const json = JSON.parse(Buffer.from(raw, "base64url").toString("utf8"));
+    const json = JSON.parse(new TextDecoder().decode(base64UrlToBytes(raw)));
     const parsed = quoteConfigSchema.safeParse(json);
     return parsed.success ? parsed.data : null;
   } catch {

@@ -5959,3 +5959,262 @@ table.data-table {
   .prod-topbar-actions .btn { padding: 8px 12px; }
   .prod-access-form .btn { width: 100%; }
 }
+
+/* ==========================================================================
+   Free tools hub (/freetools)
+   --------------------------------------------------------------------------
+   These pages are front doors: someone who has never heard of AutomateIQ
+   judges the whole product by whether the free thing worked and looked
+   serious. The old hub was six flat boxes in an auto-fit grid that orphaned
+   two cards on their own row, with no accent, no hierarchy and no footer.
+   --ft-accent is per tool, from lib/tools/catalog.ts.
+   ========================================================================== */
+
+.ft-hero {
+  padding-bottom: 30px;
+}
+.ft-hero-ac {
+  background: linear-gradient(100deg, var(--ac2) 0%, #9dc4ff 46%, var(--ac2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ft-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 26px;
+  margin-top: 26px;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+.ft-hero-stats b {
+  color: var(--heading);
+  font-weight: 700;
+}
+
+.ft-grid-section {
+  border-top: none;
+  padding-top: 6px;
+}
+/* Three columns for six tools: two clean rows. The previous auto-fit
+   minmax(220px) grid resolved to four columns at desktop width, leaving the
+   last two cards stranded beside a half-page of empty space. */
+.ft-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.ft-tile {
+  --ft-accent: var(--ac2);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--panel-glass);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+.ft-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--ft-accent), transparent 72%);
+}
+a.ft-tile:hover {
+  transform: translateY(-4px);
+  border-color: var(--ft-accent);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+}
+.ft-tile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.ft-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  color: var(--ft-accent);
+  background: color-mix(in srgb, var(--ft-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ft-accent) 28%, transparent);
+}
+.ft-tile-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+}
+.ft-tile h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+.ft-tile-blurb {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.58;
+  color: var(--body);
+}
+.ft-tile-gives {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.ft-tile-gives li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--faint);
+}
+.ft-tile-gives svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ft-accent);
+}
+.ft-tile-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ft-accent);
+}
+/* A tool that isn't switched on stays visible and honest, but is not a link
+   and never wears the "Run it" affordance. */
+.ft-tile-muted {
+  opacity: 0.72;
+}
+.ft-tile-off {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+.ft-tile-off svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.ft-why {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 34px;
+  align-items: start;
+}
+.ft-why h2 {
+  font-size: clamp(21px, 3vw, 29px);
+  margin: 0 0 14px;
+}
+.ft-why p {
+  margin: 0 0 12px;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--body);
+}
+.ft-why-facts {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+  padding: 24px;
+}
+.ft-why-facts h3 {
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.ft-why-facts ul {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ft-why-facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--body);
+}
+.ft-why-facts li svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ac2);
+}
+.ft-why-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+@media (max-width: 1000px) {
+  .ft-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 820px) {
+  .ft-why { grid-template-columns: 1fr; gap: 24px; }
+}
+@media (max-width: 620px) {
+  .ft-grid { grid-template-columns: 1fr; }
+  .ft-hero-stats { gap: 8px 18px; font-size: 12px; }
+  .ft-why-cta .btn { width: 100%; }
+}
+
+/* Header and footer labels must not break mid-phrase. On a phone the tools
+   header rendered "All / free / tools" over three lines and "Book a /
+   strategy / session" over three more, which is most of the viewport spent on
+   two buttons. Same fix as the homepage nav, scoped to the shared chrome. */
+.book-topbar .btn,
+.book-footer-nav a {
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  /* nowrap alone pushed the two buttons past the viewport edge and gave the
+     whole page a horizontal scrollbar — worse than the wrapping it fixed.
+     The bar wraps to a second row instead, so the labels stay intact and the
+     page stays exactly one screen wide. */
+  .book-topbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 16px 0 12px;
+  }
+  .book-topbar > div {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+  .book-topbar .btn-sm {
+    padding: 9px 12px;
+    font-size: 11.5px;
+  }
+  .book-footer-nav {
+    gap: 10px 16px;
+  }
+}
+/* The footer nav has never wrapped. It got away with it at four links; the
+   tools footer carries six, and with nowrap labels the last two ran off the
+   right edge and took the whole page's width with them. */
+.book-footer-nav {
+  flex-wrap: wrap;
+  row-gap: 10px;
+}
