@@ -446,7 +446,9 @@ export default async function ProspectWorkspacePage({
         const overdue =
           prospect.next_follow_up_at && prospect.next_follow_up_at <= today;
         const base = `/growth/prospects/${prospect.id}`;
-        const nba: Partial<Record<string, { msg: string; cta: string; href: string }>> = {
+        const nba: Partial<
+          Record<string, { msg: string; cta: string; href: string; stop?: true }>
+        > = {
           new: { msg: "Not researched yet — one click gets the report, score, quote and drafts.", cta: "Run research", href: `${base}?tab=research` },
           researching: { msg: "Research is underway — check back for the report and drafts.", cta: "Open research", href: `${base}?tab=research` },
           research_failed: { msg: "Research failed last time (the timeline below says why) — the lead is fine; run it again.", cta: "Retry research", href: `${base}?tab=research` },
@@ -475,19 +477,60 @@ export default async function ProspectWorkspacePage({
             cta: "Adjust the timing",
             href: `${base}?tab=details`,
           },
+          // The three stop-states used to fall through to `return null`, so the
+          // panel simply vanished with no explanation. That was tolerable while
+          // every one of them was set by hand — you knew why, you'd just done
+          // it. It stopped being tolerable when the inbound classifier began
+          // setting do_not_contact AUTOMATICALLY on an opt-out reply: a lead
+          // now changes status on its own, and opening the workspace to a
+          // missing panel gives no clue what happened or whether it was right.
+          do_not_contact: {
+            msg: "They asked not to be contacted, so outreach is off for this lead — any queued cold email is held at send time rather than sent. The timeline below records who asked and when. If that was read wrong, change the status in Details and the engine picks them back up.",
+            cta: "Check the timeline or fix the status",
+            href: `${base}?tab=details`,
+            stop: true,
+          },
+          lost: {
+            msg: "Marked lost — nothing is scheduled and no outreach will go out. If it was timing rather than a no, park it as a Future opportunity instead and the engine brings it back to you on its own.",
+            cta: "Park it for later",
+            href: `${base}?tab=details`,
+            stop: true,
+          },
+          archived: {
+            msg: "Archived and out of the working list — it won't appear in due lists, the morning brief or the autopilot. Move it back to a live status whenever you want to work it again.",
+            cta: "Restore to the pipeline",
+            href: `${base}?tab=details`,
+            stop: true,
+          },
         };
         const action = nba[prospect.status];
         if (!action) return null;
         return (
           <div
             className="panel panel-block"
-            style={{ marginBottom: 14, borderLeft: "3px solid var(--green, #34d399)", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}
-            aria-label="Next best move"
+            style={{
+              marginBottom: 14,
+              // A green "go" bar over the words "they asked not to be
+              // contacted" reads as encouragement to press on. Stop-states get
+              // a neutral grey rail and a secondary button instead.
+              borderLeft: action.stop
+                ? "3px solid var(--faint, #94a3b8)"
+                : "3px solid var(--green, #34d399)",
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              flexWrap: "wrap",
+            }}
+            aria-label={action.stop ? "Status explanation" : "Next best move"}
           >
             <div style={{ flex: "1 1 280px", fontSize: 14 }}>
-              <strong>Next best move:</strong> {action.msg}
+              <strong>{action.stop ? "Where this stands:" : "Next best move:"}</strong>{" "}
+              {action.msg}
             </div>
-            <Link href={action.href} className="btn btn-primary btn-sm">
+            <Link
+              href={action.href}
+              className={`btn btn-sm ${action.stop ? "btn-secondary" : "btn-primary"}`}
+            >
               {action.cta} →
             </Link>
           </div>
