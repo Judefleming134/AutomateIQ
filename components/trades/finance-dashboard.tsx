@@ -10,7 +10,7 @@ import { FinanceAudit } from "@/components/trades/finance-audit";
 import { setExpenseStatus } from "@/app/tradeos/actions";
 
 /**
- * The finance engine, shared by BOTH surfaces — TradeOS's Finance tab and the
+ * The finance engine, shared by BOTH surfaces — TradeIQ's Finance tab and the
  * standalone AutomateIQ Finance product at /finance. One account system, one
  * data set, two front doors; a change here upgrades both at once (the "we
  * upgrade it as time goes on" contract). `supabase` is the caller's RLS-scoped
@@ -65,7 +65,7 @@ export async function FinanceDashboard({
       .from("trades_accounts")
       .select("id, business_name")
       .in("id", peerIds);
-    peers = (peerAccounts ?? []).map((p) => (p.business_name as string) || "TradeOS business");
+    peers = (peerAccounts ?? []).map((p) => (p.business_name as string) || "TradeIQ business");
   }
   const expenses = (expensesRaw ?? []) as ExpenseRow[];
   const bills = expenses.filter((e) => e.direction === "payable");
@@ -139,7 +139,7 @@ export async function FinanceDashboard({
                           <strong>{e.counterparty}</strong>
                           {e.source === "network" && (
                             <span className="badge badge-blue" style={{ marginLeft: 6 }}>
-                              TradeOS
+                              TradeIQ
                             </span>
                           )}
                           <div style={{ color: "var(--faint)", fontSize: 12 }}>
@@ -198,11 +198,11 @@ export async function FinanceDashboard({
 
             <section className="panel panel-block" style={{ marginTop: 16 }} aria-labelledby="fin-network">
               <h2 className="panel-title" id="fin-network">
-                <Link2 size={15} style={{ verticalAlign: "-2px" }} /> TradeOS network ({peers.length})
+                <Link2 size={15} style={{ verticalAlign: "-2px" }} /> TradeIQ network ({peers.length})
               </h2>
               {peers.length === 0 ? (
                 <p style={{ fontSize: 13, color: "var(--faint)", margin: 0 }}>
-                  When another TradeOS business invoices you (or you invoice
+                  When another TradeIQ business invoices you (or you invoice
                   them), claim it and you&apos;re linked — invoices then flow
                   straight into each other&apos;s books, and paid on their side
                   shows paid in yours.

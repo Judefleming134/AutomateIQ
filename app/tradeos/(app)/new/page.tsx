@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireTradesAccount, needsOnboarding } from "@/lib/trades/data";
 import { QuoteEditor } from "@/components/trades/quote-editor";
 
-export const metadata = { title: "New quote · TradeOS" };
+export const metadata = { title: "New quote · TradeIQ" };
 
 export default async function NewQuotePage() {
   const { supabase, account } = await requireTradesAccount();

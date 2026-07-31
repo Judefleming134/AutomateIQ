@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, duplicate: dupeError.code === "23505" });
   }
 
-  // TradeOS invoice payment — a one-off checkout with a tradeos_document_id in
+  // TradeIQ invoice payment — a one-off checkout with a tradeos_document_id in
   // metadata (no business_id). Kept separate from the billing logic below so it
   // can never affect account activation. Marks the invoice paid — the only
   // trusted source of "paid", never the browser redirect.

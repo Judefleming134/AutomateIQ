@@ -2,7 +2,7 @@ import Link from "next/link";
 import { FilePlus2 } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 
-export const metadata = { title: "Customers · TradeOS" };
+export const metadata = { title: "Customers · TradeIQ" };
 
 type CustomerRow = {
   id: string;

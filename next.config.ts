@@ -24,6 +24,20 @@ const nextConfig: NextConfig = {
       { source: "/autoseo", destination: "/freetools/autoseo", permanent: true },
       { source: "/tools", destination: "/freetools", permanent: true },
       { source: "/tools/:path*", destination: "/freetools/:path*", permanent: true },
+
+      // TradeOS is now TradeIQ. The BRAND changed; the route did not, and that
+      // is deliberate — /tradeos is a signed-in product with live customers,
+      // whose bookmarks, saved passwords and emailed document links all point
+      // at it. Moving the route tree to earn a tidier URL would risk all of
+      // that for cosmetics.
+      //
+      // So /tradeiq works from today (marketing, business cards, "log in at
+      // automateiq.ie/tradeiq") and lands on the same app. TEMPORARY (307), not
+      // permanent: /tradeos is still canonical, and a 308 here would have
+      // browsers cache /tradeiq → /tradeos forever, which is exactly backwards
+      // if the route tree ever does move to /tradeiq.
+      { source: "/tradeiq", destination: "/tradeos", permanent: false },
+      { source: "/tradeiq/:path*", destination: "/tradeos/:path*", permanent: false },
     ];
   },
 };

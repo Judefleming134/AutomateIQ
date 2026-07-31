@@ -26,9 +26,9 @@ export default async function FinanceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Same account system as TradeOS — a TradeOS customer signing in here is
+  // Same account system as TradeIQ — a TradeIQ customer signing in here is
   // linked automatically. Unauthenticated visitors land on Finance's own
-  // login (with the "Already a TradeOS customer?" path), not TradeOS's.
+  // login (with the "Already a TradeIQ customer?" path), not TradeIQ's.
   const { account, email } = await requireTradesAccount("/finance/login");
   const name = account.business_name || email || "Your business";
 
@@ -49,8 +49,8 @@ export default async function FinanceLayout({
     {
       label: "More",
       items: [
-        // The cross-door: quotes & invoicing live in TradeOS, same account.
-        { href: "/tradeos", label: "TradeOS", icon: <Hammer /> },
+        // The cross-door: quotes & invoicing live in TradeIQ, same account.
+        { href: "/tradeos", label: "TradeIQ", icon: <Hammer /> },
         { href: "/tradeos/assistant", label: "Assistant", icon: <Sparkles /> },
       ],
     },

@@ -220,7 +220,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
     accent: "#F472B6",
     tagline: "The central operating system for your entire business.",
     overview:
-      "A single operating system for your organisation — CRM, projects, workforce, documents and automation working together, with your AI Assistant coordinating across all of it.",
+      "A single operating system for your organisation — CRM, projects, workforce, documents and automation working together, with your AssistIQ coordinating across all of it.",
     benefits: [
       "One place to run the whole business",
       "No more disconnected tools and double entry",
@@ -230,7 +230,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
     features: [
       "CRM",
       "Project management",
-      "AI Assistant",
+      "AssistIQ",
       "Workflow automation",
       "Document management",
       "Scheduling",
@@ -247,7 +247,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "ai-logistics-control-centre",
-    name: "AI Logistics Control Centre",
+    name: "FleetIQ",
     icon: "truck",
     accent: "#FB7185",
     tagline: "Your whole fleet and network, on one intelligent map.",

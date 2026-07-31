@@ -175,7 +175,7 @@ function OrderSummary({ businessName }: { businessName: string }) {
         amount="€349 one-off"
       />
       <Row
-        title="Monthly Service — Voice Agent + AI Assistant"
+        title="Monthly Service — VoiceIQ + AssistIQ"
         desc="Live dashboard, call summaries, ongoing support. Rolling monthly."
         amount="€129 / month"
       />

@@ -1,7 +1,7 @@
 import { requireTradesAccount } from "@/lib/trades/data";
 import { SettingsForm } from "@/components/trades/settings-form";
 
-export const metadata = { title: "Settings · TradeOS" };
+export const metadata = { title: "Settings · TradeIQ" };
 
 export default async function TradesSettingsPage() {
   const { account } = await requireTradesAccount();

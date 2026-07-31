@@ -59,7 +59,7 @@ export default async function SolutionsPage() {
           <h1>Solutions</h1>
           <p>
             Bespoke enterprise systems, built around {businessName}. Each one plugs into your
-            platform as a module — sharing your AI Assistant, data, organisation and branding. This
+            platform as a module — sharing your AssistIQ, data, organisation and branding. This
             is the foundation your future systems slot into.
           </p>
         </div>

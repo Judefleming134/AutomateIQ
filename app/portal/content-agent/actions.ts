@@ -39,7 +39,7 @@ export async function generateContent(
 ): Promise<GenerateResult> {
   const { businessId, enabled, supabase } = await ctx();
   if (!enabled) {
-    return { ok: false, error: "Content Agent is not enabled for your account." };
+    return { ok: false, error: "ContentIQ is not enabled for your account." };
   }
 
   const parsed = inputSchema.safeParse({ contentType, topic, notes: notes || undefined });
@@ -76,7 +76,7 @@ export async function buildCampaign(
   theme: string
 ): Promise<CampaignResult> {
   const { businessId, enabled, supabase } = await ctx();
-  if (!enabled) return { ok: false, error: "Content Agent is not enabled." };
+  if (!enabled) return { ok: false, error: "ContentIQ is not enabled." };
 
   const parsed = campaignSchema.safeParse({ name, goal: goal || undefined, theme });
   if (!parsed.success) {

@@ -4,7 +4,7 @@ import type { AgentModule } from "@/lib/agents/types";
 
 export const speedToLeadAgentModule: AgentModule = {
   key: "speed-to-lead-agent",
-  name: "Speed-to-Lead Agent",
+  name: "LeadIQ",
   version: "1.0",
   category: "sales",
   description:
@@ -23,7 +23,7 @@ export const speedToLeadAgentModule: AgentModule = {
     {
       name: "get_lead_response_stats",
       description:
-        "Get the Speed-to-Lead Agent's stats: how many instant replies it has sent and when the last one went out. Use for questions about lead response.",
+        "Get LeadIQ's stats: how many instant replies it has sent and when the last one went out. Use for questions about lead response.",
       inputSchema: { type: "object", properties: {} },
       execute: async (ctx) => {
         const [{ count }, { data: last }] = await Promise.all([

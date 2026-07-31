@@ -25,7 +25,7 @@ export async function importContacts(): Promise<
   { ok: true; imported: number } | { ok: false; error: string }
 > {
   const { businessId, enabled, supabase } = await ctx();
-  if (!enabled) return { ok: false, error: "CRM Agent is not enabled." };
+  if (!enabled) return { ok: false, error: "ClientIQ is not enabled." };
 
   const [{ data: customers }, { data: leads }, { data: quotes }] =
     await Promise.all([
@@ -48,7 +48,7 @@ export async function importContacts(): Promise<
       name: c.name,
       email: c.email,
       phone: null,
-      source: "Review Agent",
+      source: "ReputationIQ",
       activity: "Review request sent",
       at: c.created_at,
     });
@@ -58,7 +58,7 @@ export async function importContacts(): Promise<
       name: l.name,
       email: isEmail ? l.contact : null,
       phone: isEmail ? null : l.contact,
-      source: "Website Agent",
+      source: "SiteIQ",
       activity: "Captured as a website lead",
       at: l.created_at,
     });
@@ -68,7 +68,7 @@ export async function importContacts(): Promise<
       name: q.customer_name,
       email: q.customer_email,
       phone: null,
-      source: "Instant Quote Agent",
+      source: "QuoteIQ",
       activity: `Quote created${q.total ? ` (${q.total})` : ""}`,
       at: q.created_at,
     });
@@ -152,7 +152,7 @@ export async function addContact(
   formData: FormData
 ) {
   const { businessId, enabled, supabase } = await ctx();
-  if (!enabled) return { error: "CRM Agent is not enabled." };
+  if (!enabled) return { error: "ClientIQ is not enabled." };
 
   const parsed = contactSchema.safeParse({
     name: formData.get("name"),

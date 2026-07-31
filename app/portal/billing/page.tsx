@@ -141,7 +141,7 @@ export default async function BillingPage() {
           </h2>
           {!active && (
             <p style={{ margin: "0 0 14px", fontSize: 13.5, color: "var(--body)", maxWidth: "60ch" }}>
-              Activate your account to switch on your AI Assistant and Voice
+              Activate your account to switch on your AssistIQ and Voice
               Agent. It&apos;s a one-off setup fee plus your monthly plan, paid
               securely through Stripe.
             </p>
@@ -201,7 +201,7 @@ export default async function BillingPage() {
               <div style={{ flex: "1 1 240px" }}>
                 <strong>Monthly plan</strong>
                 <div style={{ fontSize: 12.5, color: "var(--faint)" }}>
-                  €129/month — your Voice Agent + AI Assistant.
+                  €129/month — your VoiceIQ + AssistIQ.
                 </div>
               </div>
               {active ? (

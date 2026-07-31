@@ -1,5 +1,5 @@
 /**
- * Map provider abstraction for the AI Logistics Control Centre.
+ * Map provider abstraction for the FleetIQ.
  *
  * One rendering engine (Leaflet) with a swappable tile provider, so the map
  * behaves identically whether it's drawing OpenStreetMap, Mapbox or Google

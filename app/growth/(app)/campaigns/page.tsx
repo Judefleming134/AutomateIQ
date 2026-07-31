@@ -87,7 +87,7 @@ export default async function CampaignsPage() {
               <label htmlFor="nc-industry">Industry</label>
               <input id="nc-industry" name="industry" maxLength={200} />
               <label htmlFor="nc-service">Service being sold</label>
-              <input id="nc-service" name="service" maxLength={200} placeholder="e.g. Review Agent, AI Strategy Session" />
+              <input id="nc-service" name="service" maxLength={200} placeholder="e.g. ReputationIQ, AI Strategy Session" />
             </div>
             <div>
               <label htmlFor="nc-location">Location</label>

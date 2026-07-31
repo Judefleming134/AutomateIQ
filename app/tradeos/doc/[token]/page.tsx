@@ -89,7 +89,7 @@ export default async function PublicTradesDoc({
       />
 
       {/* The network hook: a viewer who runs a trade themselves can claim this
-          document into their OWN TradeOS Finance — which also connects the two
+          document into their OWN TradeIQ Finance — which also connects the two
           businesses so future invoices flow between books automatically. */}
       {await (async () => {
         const supabase = await createClient();
@@ -114,12 +114,12 @@ export default async function PublicTradesDoc({
           >
             <p style={{ margin: "0 0 6px", fontSize: 14 }}>
               <strong>
-                {account?.business_name || "This business"} runs on TradeOS —
+                {account?.business_name || "This business"} runs on TradeIQ —
                 free quotes, invoicing and finance for trades.
               </strong>
             </p>
             <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--faint)" }}>
-              In a trade yourself? Add this to your own TradeOS Finance — it
+              In a trade yourself? Add this to your own TradeIQ Finance — it
               files itself, and once your accounts are linked, future invoices
               between you land in each other&apos;s books automatically.
             </p>
@@ -138,7 +138,7 @@ export default async function PublicTradesDoc({
                 <form action={claimDocumentToFinance}>
                   <input type="hidden" name="token" value={token} />
                   <button type="submit" className="btn btn-primary btn-sm">
-                    Add this to my TradeOS Finance
+                    Add this to my TradeIQ Finance
                   </button>
                 </form>
               ) : (
@@ -147,7 +147,7 @@ export default async function PublicTradesDoc({
                     Sign up free &amp; link accounts
                   </Link>
                   <Link href={loginHref} className="btn btn-ghost btn-sm">
-                    Already on TradeOS? Sign in
+                    Already on TradeIQ? Sign in
                   </Link>
                 </>
               )}

@@ -45,7 +45,7 @@ const knowledgeSchema = z.object({
 /**
  * Platform-level business knowledge & brand voice. Stored in aa_assistants
  * but gated on session ONLY (not the ai-assistant product) — every agent
- * that writes in the business's voice (Content Agent, AI Assistant) reads
+ * that writes in the business's voice (ContentIQ, AssistIQ) reads
  * this, so any customer must be able to set it regardless of which agents
  * they own. RLS still scopes the row to the caller's own business.
  */

@@ -6,8 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 
 /**
  * Self-serve sign-up + sign-in for AutomateIQ Finance, with the explicit
- * "Already a TradeOS customer?" path. Finance and TradeOS share one account
- * system, so a TradeOS customer signing in here is linked automatically —
+ * "Already a TradeIQ customer?" path. Finance and TradeIQ share one account
+ * system, so a TradeIQ customer signing in here is linked automatically —
  * their invoices, bills and connections are already in place.
  */
 export default function FinanceLoginForm() {
@@ -81,7 +81,7 @@ export default function FinanceLoginForm() {
         overpaying — free.
       </p>
 
-      {/* The explicit TradeOS link-up path */}
+      {/* The explicit TradeIQ link-up path */}
       <div
         style={{
           border: "1px solid rgba(59,130,246,.35)",
@@ -92,7 +92,7 @@ export default function FinanceLoginForm() {
           fontSize: 13,
         }}
       >
-        <strong>Already a TradeOS customer?</strong>{" "}
+        <strong>Already a TradeIQ customer?</strong>{" "}
         <button
           type="button"
           onClick={() => {
@@ -111,7 +111,7 @@ export default function FinanceLoginForm() {
             textDecoration: "underline",
           }}
         >
-          Sign in with your TradeOS login
+          Sign in with your TradeIQ login
         </button>{" "}
         — your accounts are linked automatically: invoices, bills and
         connections are already here.

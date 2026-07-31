@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateContentCore, type ContentType } from "./generate-core";
 
 /**
- * A campaign brief: what assets to produce. The Content Agent generates the
+ * A campaign brief: what assets to produce. The ContentIQ generates the
  * whole set in the business's voice in one action — real batch automation,
  * not a single prompt. Each asset is scheduled a few days apart so the
  * campaign lands as a sequence, not all at once.

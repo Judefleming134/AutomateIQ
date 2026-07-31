@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LeadForm } from "./lead-form";
 
-// Public hosted business page (Website Agent). Served via the service-role
+// Public hosted business page (SiteIQ). Served via the service-role
 // client — published pages only. Never exposes anything beyond what the
 // business chose to publish.
 

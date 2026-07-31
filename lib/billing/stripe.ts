@@ -112,7 +112,7 @@ export async function createCheckoutSession(params: {
 }
 
 /**
- * A one-off Checkout Session for a variable amount — used by TradeOS to let a
+ * A one-off Checkout Session for a variable amount — used by TradeIQ to let a
  * tradesperson's customer pay a specific invoice online. `mode: payment` with
  * an inline price (no pre-made Product/Price needed), so any invoice total
  * works. The document id rides in metadata for the webhook to mark it paid.

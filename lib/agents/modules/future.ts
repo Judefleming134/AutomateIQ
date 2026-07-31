@@ -1,7 +1,7 @@
 import type { AgentModule } from "@/lib/agents/types";
 
 /**
- * Future agents — declared now so the Products page, the AI Assistant's
+ * Future agents — declared now so the Products page, AssistIQ's
  * awareness, and the roadmap all come from one place. Each ships later by
  * flipping availability to "live", adding tools, and (optionally) a route —
  * zero changes to the shell, navigation, or assistant architecture.

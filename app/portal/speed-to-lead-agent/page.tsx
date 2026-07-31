@@ -42,7 +42,7 @@ export default async function SpeedToLeadAgentPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Speed-to-Lead Agent</h1>
+          <h1>LeadIQ</h1>
           <p>
             Every new website lead gets a personal reply within 60 seconds —
             while your competitors are still checking their inbox.
@@ -131,7 +131,7 @@ export default async function SpeedToLeadAgentPage() {
             <li>
               <h3>Lead arrives</h3>
               <p>
-                Someone fills in the enquiry form on your Website Agent page
+                Someone fills in the enquiry form on your SiteIQ page
                 — any time, day or night.
               </p>
             </li>

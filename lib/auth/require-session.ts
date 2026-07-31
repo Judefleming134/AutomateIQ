@@ -37,10 +37,10 @@ export async function requireSession() {
     // escape hatch (role === 'growth' → /growth) can never fire: the CHECK
     // constraint on profiles.role only permits 'admin' and 'customer'.
     //
-    // The account shape that hits it is common, not exotic. TradeOS and
+    // The account shape that hits it is common, not exotic. TradeIQ and
     // Finance both have self-serve signup, and the auth trigger creates
     // role='customer' with no business_id when the metadata carries none. So
-    // any TradeOS or Finance customer reaching /portal — including straight
+    // any TradeIQ or Finance customer reaching /portal — including straight
     // from the main /login form, which defaults to /portal — got
     // ERR_TOO_MANY_REDIRECTS instead of their own product.
     //

@@ -17,8 +17,8 @@ function sanitizeIlike(q: string) {
 }
 
 /**
- * Instagram DM Setter — registered as a specialist agent in the AutomateIQ
- * ecosystem. The AI Assistant discovers these tools automatically (via the
+ * SocialIQ — registered as a specialist agent in the AutomateIQ
+ * ecosystem. AssistIQ discovers these tools automatically (via the
  * registry) and delegates Instagram work to them, keeping full visibility over
  * the conversations and outcomes. The setter's replies come from the shared
  * intelligence core (lib/instagram/setter-core), so the Assistant and the
@@ -26,11 +26,11 @@ function sanitizeIlike(q: string) {
  */
 export const instagramDmSetterModule: AgentModule = {
   key: "instagram-dm-setter",
-  name: "Instagram DM Setter",
+  name: "SocialIQ",
   version: "1.0",
   category: "sales",
   description:
-    "Engages Instagram DMs, answers questions in your brand voice and books appointments — coordinated by your AI Assistant, sharing its knowledge, CRM and booking system.",
+    "Engages Instagram DMs, answers questions in your brand voice and books appointments — coordinated by your AssistIQ, sharing its knowledge, CRM and booking system.",
   iconName: "instagram",
   accent: "#E1306C",
   href: "/portal/instagram-dm-setter",
@@ -40,10 +40,10 @@ export const instagramDmSetterModule: AgentModule = {
   availability: "coming_soon",
   capabilities: [
     "Replies to Instagram DMs in your brand voice",
-    "Shares the AI Assistant's business knowledge & memory",
+    "Shares AssistIQ's business knowledge & memory",
     "Books appointments through your booking system",
     "Full conversation history, working 24/7",
-    "The AI Assistant can read and draft DMs on your behalf",
+    "AssistIQ can read and draft DMs on your behalf",
   ],
   tools: [
     {
@@ -58,7 +58,7 @@ export const instagramDmSetterModule: AgentModule = {
           .order("last_message_at", { ascending: false })
           .limit(10);
         if (!convos || convos.length === 0) {
-          return "No Instagram conversations yet. Once the Instagram DM Setter is connected (or you run a test in the portal), leads will appear here.";
+          return "No Instagram conversations yet. Once the SocialIQ is connected (or you run a test in the portal), leads will appear here.";
         }
         return convos
           .map(
@@ -183,7 +183,7 @@ export const instagramDmSetterModule: AgentModule = {
     {
       name: "instagram_setter_stats",
       description:
-        "Get Instagram DM Setter stats: number of conversations, how many are engaged or booked, and total messages handled. Use for questions about Instagram performance.",
+        "Get SocialIQ stats: number of conversations, how many are engaged or booked, and total messages handled. Use for questions about Instagram performance.",
       inputSchema: { type: "object", properties: {} },
       execute: async (ctx) => {
         const [{ count: convos }, { count: messages }, { data: statuses }] =
@@ -197,7 +197,7 @@ export const instagramDmSetterModule: AgentModule = {
         }
         const engaged = (statuses ?? []).filter((s) => s.status === "engaged").length;
         const booked = (statuses ?? []).filter((s) => s.status === "booked").length;
-        return `Instagram DM Setter: ${convos} conversation(s), ${messages} message(s) handled, ${engaged} engaged, ${booked} booked.`;
+        return `SocialIQ: ${convos} conversation(s), ${messages} message(s) handled, ${engaged} engaged, ${booked} booked.`;
       },
     },
   ],

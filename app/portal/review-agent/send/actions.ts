@@ -21,7 +21,7 @@ export async function sendReviewRequest(
 
   const enabled = await requireProductEnabled(businessId, "review-agent");
   if (!enabled) {
-    return { error: "Review Agent is not enabled for your account." };
+    return { error: "ReputationIQ is not enabled for your account." };
   }
 
   const parsed = sendSchema.safeParse({
@@ -35,7 +35,7 @@ export async function sendReviewRequest(
 
   const supabase = await createClient();
 
-  // Shared core (also used by the AI Assistant's send_review_request tool):
+  // Shared core (also used by AssistIQ's send_review_request tool):
   // settings check, duplicate-submit guard, durable record before the
   // external call, then send + status update.
   const result = await sendReviewRequestCore(

@@ -38,7 +38,7 @@ export async function updateAssistantSettings(
   const businessId = profile.business_id!;
 
   const enabled = await requireProductEnabled(businessId, "ai-assistant");
-  if (!enabled) return { error: "AI Assistant is not enabled for your account." };
+  if (!enabled) return { error: "AssistIQ is not enabled for your account." };
 
   const parsed = knowledgeSchema.safeParse({
     knowledge: formData.get("knowledge") ?? "",
@@ -95,7 +95,7 @@ export async function sendAssistantMessage(
 
   const enabled = await requireProductEnabled(businessId, "ai-assistant");
   if (!enabled) {
-    return { ok: false, error: "AI Assistant is not enabled for your account." };
+    return { ok: false, error: "AssistIQ is not enabled for your account." };
   }
 
   const parsed = messageSchema.safeParse({ conversationId, text });

@@ -197,7 +197,7 @@ export default async function AdminCustomerDetailPage({
     ...(voiceEnabled
       ? [
           {
-            label: "Voice Agent linked (ElevenLabs)",
+            label: "VoiceIQ linked (ElevenLabs)",
             ok: Boolean(voiceConfig?.elevenlabs_agent_id),
           },
           { label: "Phone number connected", ok: Boolean(voiceConfig?.phone_number) },
@@ -209,7 +209,7 @@ export default async function AdminCustomerDetailPage({
         ]
       : []),
     ...(aiAssistantEnabled
-      ? [{ label: "AI Assistant knowledge seeded", ok: Boolean(assistant?.knowledge) }]
+      ? [{ label: "AssistIQ knowledge seeded", ok: Boolean(assistant?.knowledge) }]
       : []),
     ...(reviewEnabled
       ? [
@@ -530,7 +530,7 @@ export default async function AdminCustomerDetailPage({
         <div className="panel panel-block" style={{ marginBottom: 28 }}>
           <h2 className="panel-title">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Mic size={16} /> Voice Agent provisioning
+              <Mic size={16} /> VoiceIQ provisioning
             </span>
           </h2>
           <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
@@ -657,11 +657,11 @@ export default async function AdminCustomerDetailPage({
         <div className="panel panel-block" style={{ marginBottom: 28 }}>
           <h2 className="panel-title">
             <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Sparkles size={16} /> AI Assistant — pre-seed its knowledge
+              <Sparkles size={16} /> AssistIQ — pre-seed its knowledge
             </span>
           </h2>
           <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--body)" }}>
-            Fill this in and the customer&apos;s AI Assistant is <b>online and
+            Fill this in and the customer&apos;s AssistIQ is <b>online and
             already knows their business</b> the moment they log in — no blank
             first run. They can still edit it in their portal afterwards.
           </p>

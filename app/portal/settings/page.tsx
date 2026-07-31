@@ -136,7 +136,7 @@ export default async function SettingsPage() {
         <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--body)", maxWidth: "70ch" }}>
           The single source of truth your AI agents use to sound like you —
           services, prices, hours, service area, policies, and the tone you
-          want. Your AI Assistant and Content Agent both read this, so the
+          want. Your AssistIQ and ContentIQ both read this, so the
           more detail here, the better everything they produce.
         </p>
         <ActionForm action={updateBusinessKnowledge}>
@@ -177,7 +177,7 @@ export default async function SettingsPage() {
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: "var(--body)" }}>
             You get an email as your agents capture and complete work — new
-            jobs from your Voice Agent, review activity, website leads and more
+            jobs from your VoiceIQ, review activity, website leads and more
             — straight to your inbox, so nothing slips. Per-channel preferences
             are on the roadmap; to change anything now, email{" "}
             <a href="mailto:hello@automateiq.ie" style={{ color: "var(--ac2)" }}>
@@ -196,7 +196,7 @@ export default async function SettingsPage() {
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: "var(--body)" }}>
             Direct connections to Google Business Profile, WhatsApp, and your
-            calendar are in development. Your AI Assistant and Website Agent
+            calendar are in development. Your AssistIQ and SiteIQ
             already work out of the box with no setup required.
           </p>
         </div>

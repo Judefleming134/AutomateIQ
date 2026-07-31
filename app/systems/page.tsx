@@ -63,7 +63,7 @@ export default function SystemsPage() {
           <div className="sys-pillar">
             <span className="sys-pillar-icon"><Puzzle size={18} /></span>
             <h3>Modular &amp; connected</h3>
-            <p>Each system plugs into one connected core, sharing your AI Assistant, data and organisation.</p>
+            <p>Each system plugs into one connected core, sharing your AssistIQ, data and organisation.</p>
           </div>
           <div className="sys-pillar">
             <span className="sys-pillar-icon"><Sparkles size={18} /></span>

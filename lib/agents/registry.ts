@@ -16,7 +16,7 @@ import { FUTURE_AGENT_MODULES } from "@/lib/agents/modules/future";
 
 /**
  * Every agent module on the platform, live and upcoming. Modules register
- * here once; the AI Assistant, the Products page, and analytics all
+ * here once; AssistIQ, the Products page, and analytics all
  * discover them from this list — adding an agent never touches those
  * surfaces.
  */
@@ -104,7 +104,7 @@ function agentStatusTool(enabledKeys: Set<string>): DiscoveredTool {
 }
 
 /**
- * The AI Assistant's dynamic tool surface: platform tools (always on) plus
+ * AssistIQ's dynamic tool surface: platform tools (always on) plus
  * every tool from live, installed modules. Entitlement is enforced here —
  * a tool from a module the business doesn't have simply never reaches the
  * model.

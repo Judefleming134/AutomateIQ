@@ -4,11 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { handleInboundMessage } from "@/lib/instagram/setter-core";
 
 /**
- * Instagram DM Setter webhook.
+ * SocialIQ webhook.
  *
  * Public endpoint (visitors/Meta have no session) — routes each inbound DM to
  * the right business by the recipient IG account id, then runs the shared
- * setter pipeline (store → AI reply via the AI Assistant's intelligence →
+ * setter pipeline (store → AI reply via AssistIQ's intelligence →
  * store) and delivers the reply through the Graph API using that business's
  * stored page token. Best-effort and idempotent-friendly: it always answers
  * Meta with a fast 200 so deliveries aren't retried into duplicates.

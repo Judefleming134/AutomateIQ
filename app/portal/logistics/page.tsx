@@ -36,7 +36,7 @@ export default async function LogisticsOverviewPage() {
       <>
         <div className="page-header">
           <div>
-            <h1>AI Logistics Control Centre</h1>
+            <h1>FleetIQ</h1>
             <p>One quick database step is needed before you can use this.</p>
           </div>
         </div>
@@ -112,10 +112,10 @@ export default async function LogisticsOverviewPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>AI Logistics Control Centre</h1>
+          <h1>FleetIQ</h1>
           <p>
             Your whole operation on one live map — fleet, warehouses, routes and deliveries. Ask
-            your AI Assistant anything, e.g. &ldquo;where is {vehicles?.[0]?.registration ?? "Truck 12"}?&rdquo;
+            your AssistIQ anything, e.g. &ldquo;where is {vehicles?.[0]?.registration ?? "Truck 12"}?&rdquo;
           </p>
         </div>
         <span className={`badge ${liveOn ? "badge-green" : "badge-gray"}`} style={{ alignSelf: "center" }}>

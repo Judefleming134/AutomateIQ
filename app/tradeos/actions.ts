@@ -315,7 +315,7 @@ export async function sendDocument(
   }
 
   const label = doc.kind === "quote" ? "Quote" : "Invoice";
-  const from = account.business_name || "TradeOS";
+  const from = account.business_name || "TradeIQ";
   const link = `${siteUrl()}/tradeos/doc/${doc.public_token}`;
   const text = [
     `Hi ${customer.name || "there"},`,
@@ -348,7 +348,7 @@ export async function sendDocument(
     .eq("id", id)
     .eq("status", "draft");
 
-  // NETWORK: if the recipient's email belongs to another TradeOS account, the
+  // NETWORK: if the recipient's email belongs to another TradeIQ account, the
   // document lands straight in THEIR Finance and the two businesses connect —
   // no scanning on their side. Best-effort; the send already succeeded.
   try {
@@ -363,7 +363,7 @@ export async function sendDocument(
       .maybeSingle();
     if (peer) await linkDocumentToFinance(admin, id, peer.id);
   } catch (err) {
-    console.error("TradeOS network auto-link failed (non-fatal):", err);
+    console.error("TradeIQ network auto-link failed (non-fatal):", err);
   }
 
   revalidatePath(`/tradeos/documents/${id}`);
@@ -372,7 +372,7 @@ export async function sendDocument(
 }
 
 /**
- * Public claim from the customer-facing document page: "I'm on TradeOS too —
+ * Public claim from the customer-facing document page: "I'm on TradeIQ too —
  * add this to my Finance." Signs the viewer in first if needed (and signup
  * bootstraps their account), then links the document + connects the accounts.
  * Errors round-trip as ?claim= codes on the public page.

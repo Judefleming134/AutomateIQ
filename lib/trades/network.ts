@@ -2,9 +2,9 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * The TradeOS network: land a document in ANOTHER account's Finance as a bill
+ * The TradeIQ network: land a document in ANOTHER account's Finance as a bill
  * and connect the two businesses (both directions). Used by the public
- * "Add to my TradeOS Finance" claim and by sendDocument's automatic match on
+ * "Add to my TradeIQ Finance" claim and by sendDocument's automatic match on
  * the recipient's signup email.
  *
  * Idempotent by construction: the partial unique index on
@@ -36,7 +36,7 @@ export async function linkDocumentToFinance(
   const { error: expErr } = await admin.from("trades_expenses").insert({
     account_id: recipientAccountId,
     direction: "payable",
-    counterparty: sender?.business_name || "TradeOS business",
+    counterparty: sender?.business_name || "TradeIQ business",
     counterparty_email: sender?.email ?? null,
     doc_number: doc.number,
     issued_at: doc.issued_at,
@@ -46,7 +46,7 @@ export async function linkDocumentToFinance(
     total: doc.total,
     status: doc.status === "paid" ? "paid" : "unpaid",
     paid_at: doc.status === "paid" ? new Date().toISOString() : null,
-    summary: `${doc.kind === "quote" ? "Quote" : "Invoice"} ${doc.number} received via TradeOS`,
+    summary: `${doc.kind === "quote" ? "Quote" : "Invoice"} ${doc.number} received via TradeIQ`,
     source: "network",
     linked_document_id: doc.id,
   });
@@ -61,7 +61,7 @@ export async function linkDocumentToFinance(
       .from("trades_connections")
       .insert({ account_id: a, peer_account_id: b });
     if (error && error.code !== "23505") {
-      console.error("TradeOS connection insert failed:", error.message);
+      console.error("TradeIQ connection insert failed:", error.message);
     }
   }
   return { ok: true };
@@ -85,6 +85,6 @@ export async function syncLinkedExpensesPaid(
       })
       .eq("linked_document_id", documentId);
   } catch (err) {
-    console.error("TradeOS linked-expense paid sync failed (non-fatal):", err);
+    console.error("TradeIQ linked-expense paid sync failed (non-fatal):", err);
   }
 }

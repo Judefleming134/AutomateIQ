@@ -59,7 +59,7 @@ export default async function PortalLayout({
         { href: "/portal", label: "Dashboard", icon: <LayoutDashboard /> },
         {
           href: "/portal/ai-assistant",
-          label: "AI Assistant",
+          label: "AssistIQ",
           icon: <Sparkles />,
           disabled: !enabledKeys.has("ai-assistant"),
         },

@@ -85,7 +85,7 @@ export default async function AiAssistantPage({
     <>
       <div className="page-header">
         <div>
-          <h1>AI Assistant</h1>
+          <h1>AssistIQ</h1>
           <p>
             Your AI business partner — ask questions, draft anything, and let
             it run your installed agents for you.

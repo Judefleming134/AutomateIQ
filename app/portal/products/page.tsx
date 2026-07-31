@@ -82,7 +82,7 @@ export default async function ProductsPage() {
             <div className="product-tile-icon">
               <Sparkles size={21} />
             </div>
-            <h3>AI Assistant</h3>
+            <h3>AssistIQ</h3>
             <p>
               The platform core — your AI business partner that runs every
               other agent for you.
@@ -173,7 +173,7 @@ export default async function ProductsPage() {
 
       <h2 className="section-title">Coming soon</h2>
       <p style={{ margin: "-6px 0 16px", fontSize: 12.5, color: "var(--faint)", maxWidth: "62ch" }}>
-        Each of these plugs straight into your AI Assistant when it launches —
+        Each of these plugs straight into your AssistIQ when it launches —
         no new apps, no new logins, no re-learning anything.
       </p>
       <div className="product-grid">

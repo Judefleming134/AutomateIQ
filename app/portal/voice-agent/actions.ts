@@ -10,7 +10,7 @@ import { isMissingTableError } from "@/lib/db/errors";
 import { syncVoiceAgentKnowledge } from "@/lib/growth/voice-agent";
 
 const SETUP_PENDING =
-  "Your Voice Agent is still being set up — please try again shortly.";
+  "Your VoiceIQ is still being set up — please try again shortly.";
 
 type ActionResult = { ok?: boolean; error?: string } | undefined;
 
@@ -37,7 +37,7 @@ export async function updateVoiceConfig(
   // Belt-and-braces: the layout guards the page, but a Server Action is its
   // own entry point, so re-check entitlement before writing.
   if (!(await requireProductEnabled(profile.business_id!, "voice-agent"))) {
-    return { error: "Voice Agent is not enabled on this account." };
+    return { error: "VoiceIQ is not enabled on this account." };
   }
 
   const parsed = configSchema.safeParse({
@@ -90,7 +90,7 @@ export async function updateVoiceConfig(
     knowledge: parsed.data.knowledge ?? "",
   });
   if (!sync.synced) {
-    console.error("Voice Agent ElevenLabs sync skipped/failed:", sync.detail);
+    console.error("VoiceIQ ElevenLabs sync skipped/failed:", sync.detail);
   }
 
   revalidatePath("/portal/voice-agent");
@@ -113,7 +113,7 @@ export async function logVoiceTicket(
 ): Promise<ActionResult> {
   const { profile } = await requireSession();
   if (!(await requireProductEnabled(profile.business_id!, "voice-agent"))) {
-    return { error: "Voice Agent is not enabled on this account." };
+    return { error: "VoiceIQ is not enabled on this account." };
   }
 
   const parsed = ticketSchema.safeParse({
@@ -151,7 +151,7 @@ export async function deleteVoiceJob(
 ): Promise<ActionResult> {
   const { profile } = await requireSession();
   if (!(await requireProductEnabled(profile.business_id!, "voice-agent"))) {
-    return { error: "Voice Agent is not enabled on this account." };
+    return { error: "VoiceIQ is not enabled on this account." };
   }
   const jobId = String(formData.get("job_id") ?? "").trim();
   if (!jobId) return { error: "Missing job." };

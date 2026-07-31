@@ -152,7 +152,7 @@ export default async function VoiceAgentPage() {
           <div>
             <h1>
               <Mic size={22} style={{ verticalAlign: "-3px", marginRight: 8 }} />
-              Voice Agent
+              VoiceIQ
             </h1>
             <p>Your AI receptionist.</p>
           </div>
@@ -180,7 +180,7 @@ export default async function VoiceAgentPage() {
         <div>
           <h1>
             <Mic size={22} style={{ verticalAlign: "-3px", marginRight: 8 }} />
-            Voice Agent
+            VoiceIQ
           </h1>
           <p>
             {bizName}&apos;s AI receptionist — answering every call, booking the

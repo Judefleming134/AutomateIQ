@@ -81,7 +81,7 @@ export default async function ReviewAgentOverviewPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Review Agent</h1>
+          <h1>ReputationIQ</h1>
           <p>Send review requests and grow your online reputation.</p>
         </div>
         <Link href="/portal/review-agent/send" className="btn btn-primary">

@@ -47,10 +47,10 @@ export default async function InstagramDmSetterPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Instagram DM Setter</h1>
+          <h1>SocialIQ</h1>
           <p>
             A specialist agent in your AI workforce — it engages Instagram DMs in your brand voice,
-            using the same knowledge and booking system as your AI Assistant, and turns conversations
+            using the same knowledge and booking system as your AssistIQ, and turns conversations
             into booked appointments.
           </p>
         </div>
@@ -84,8 +84,8 @@ export default async function InstagramDmSetterPage() {
         <div className="panel panel-block" style={{ marginTop: 4 }}>
           <p className="empty-state" style={{ margin: 0 }}>
             <Sparkles size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-            The setter answers from your AI Assistant&apos;s business knowledge. Add it in{" "}
-            <Link href="/portal/ai-assistant" style={{ color: "var(--ac2)" }}>AI Assistant → Knowledge</Link>{" "}
+            The setter answers from your AssistIQ&apos;s business knowledge. Add it in{" "}
+            <Link href="/portal/ai-assistant" style={{ color: "var(--ac2)" }}>AssistIQ → Knowledge</Link>{" "}
             so replies are accurate and on-brand.
           </p>
         </div>
@@ -113,7 +113,7 @@ export default async function InstagramDmSetterPage() {
             <li>
               <h3>The setter replies instantly</h3>
               <p>
-                Using your AI Assistant&apos;s knowledge and tone, it answers questions and builds
+                Using your AssistIQ&apos;s knowledge and tone, it answers questions and builds
                 rapport — like another member of your team.
               </p>
             </li>

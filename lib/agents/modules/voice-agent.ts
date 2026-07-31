@@ -4,15 +4,15 @@ import { z } from "zod";
 import type { AgentModule } from "@/lib/agents/types";
 
 /**
- * Voice Agent — the AI receptionist. The agent that actually answers calls
+ * VoiceIQ — the AI receptionist. The agent that actually answers calls
  * runs on ElevenLabs + Twilio; this module is its portal surface, where the
  * customer sees whether it's live, reads its number, edits the knowledge
  * base it answers from, and logs a problem if something's off.
  *
- * The receptionist is *operated* from its own page, but the AI Assistant can
+ * The receptionist is *operated* from its own page, but AssistIQ can
  * READ what it captured — so "how many jobs did we get today?" / "what's my
  * most urgent call?" work in plain English from the control centre. The
- * write side (pause the line, change hours) stays on the Voice Agent page.
+ * write side (pause the line, change hours) stays on VoiceIQ page.
  */
 
 const jobsInput = z.object({
@@ -30,7 +30,7 @@ function sinceFor(timeframe: "today" | "week" | "all"): string | null {
 
 export const voiceAgentModule: AgentModule = {
   key: "voice-agent",
-  name: "Voice Agent",
+  name: "VoiceIQ",
   version: "1.0",
   category: "voice",
   description:

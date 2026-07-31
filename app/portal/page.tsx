@@ -50,7 +50,7 @@ export default async function PortalHome() {
 
   const hasReviewAgent = enabledKeys.has("review-agent");
 
-  // Review Agent snapshot for the dashboard — only queried when the
+  // ReputationIQ snapshot for the dashboard — only queried when the
   // product is actually enabled for this business (RLS-scoped).
   let totalSent = 0;
   let totalClicked = 0;
@@ -65,7 +65,7 @@ export default async function PortalHome() {
   const hasAssistant = enabledKeys.has("ai-assistant");
   const hasVoiceAgent = enabledKeys.has("voice-agent");
 
-  // Voice Agent state for the home page — a receptionist customer's #1
+  // VoiceIQ state for the home page — a receptionist customer's #1
   // product must be visible here, not buried in its own tab. Errors (e.g.
   // migration not yet run) degrade to null = "being set up".
   type VoiceConfig = { status: string; phone_number: string | null };
@@ -210,7 +210,7 @@ export default async function PortalHome() {
     ...(hasAssistant
       ? [
           {
-            label: "AI Assistant trained on your business",
+            label: "AssistIQ trained on your business",
             ok: Boolean(assistant?.knowledge),
             href: "/portal/ai-assistant",
           },
@@ -291,7 +291,7 @@ export default async function PortalHome() {
                 className={`badge ${hasAssistant ? (assistant?.knowledge ? "badge-green" : "badge-orange") : "badge-gray"}`}
               >
                 <Sparkles size={11} />
-                AI Assistant:{" "}
+                AssistIQ:{" "}
                 {hasAssistant
                   ? assistant?.knowledge
                     ? "online"
@@ -320,7 +320,7 @@ export default async function PortalHome() {
           ) : hasVoiceAgent ? (
             // A receptionist-first customer still gets a primary action.
             <Link href="/portal/voice-agent" className="btn btn-primary">
-              <Mic size={15} /> Open Voice Agent
+              <Mic size={15} /> Open VoiceIQ
             </Link>
           ) : null}
         </div>
@@ -372,12 +372,12 @@ export default async function PortalHome() {
       <div className="quick-actions">
         {hasVoiceAgent && (
           <Link href="/portal/voice-agent" className="qa-btn">
-            <Mic size={16} /> Voice Agent
+            <Mic size={16} /> VoiceIQ
           </Link>
         )}
         {hasAssistant && (
           <Link href="/portal/ai-assistant" className="qa-btn">
-            <Sparkles size={16} /> Ask AI Assistant
+            <Sparkles size={16} /> Ask AssistIQ
           </Link>
         )}
         {hasReviewAgent && (
@@ -466,7 +466,7 @@ export default async function PortalHome() {
         const notes: { text: string; href: string }[] = [];
         if (hasAssistant && !assistant?.knowledge) {
           notes.push({
-            text: "Teach your AI Assistant about your business — add knowledge",
+            text: "Teach your AssistIQ about your business — add knowledge",
             href: "/portal/ai-assistant",
           });
         }
@@ -579,7 +579,7 @@ export default async function PortalHome() {
                 <span className="sys-index">01 /</span>
                 Review requests — last 14 days
               </span>
-              <Link href="/portal/review-agent">Open Review Agent →</Link>
+              <Link href="/portal/review-agent">Open ReputationIQ →</Link>
             </h2>
             <ActivityBarChart
               buckets={bucketByDay(chartTimestamps, 14)}

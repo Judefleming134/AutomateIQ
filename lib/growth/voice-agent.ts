@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Voice Agent ↔ ElevenLabs sync. The portal is where a customer edits what
+ * VoiceIQ ↔ ElevenLabs sync. The portal is where a customer edits what
  * their receptionist says; this pushes those edits to the live ElevenLabs
  * Conversational AI agent so a change takes effect on the very next call —
  * no manual copy-paste into the ElevenLabs dashboard.

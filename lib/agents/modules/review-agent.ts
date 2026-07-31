@@ -11,7 +11,7 @@ const sendInput = z.object({
 
 export const reviewAgentModule: AgentModule = {
   key: "review-agent",
-  name: "Review Agent",
+  name: "ReputationIQ",
   version: "2.0",
   category: "reputation",
   description:

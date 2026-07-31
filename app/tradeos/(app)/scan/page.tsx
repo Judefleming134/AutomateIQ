@@ -1,7 +1,7 @@
 import { requireTradesAccount } from "@/lib/trades/data";
 import { ScanFlow } from "@/components/trades/scan-flow";
 
-export const metadata = { title: "Scan an invoice · TradeOS" };
+export const metadata = { title: "Scan an invoice · TradeIQ" };
 
 // The scan runs one AI vision call inside this route's actions.
 export const maxDuration = 60;

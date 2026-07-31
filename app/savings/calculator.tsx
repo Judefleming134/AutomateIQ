@@ -127,7 +127,7 @@ function compute(i: Inputs, detailed: boolean): Result {
     ? i.responseMins > 60 ? 0.45 : i.responseMins > 15 ? 0.3 : 0.12
     : 0.35;
   const stl = i.enquiries * perYear * slowShare * 0.3 * close * job;
-  push("speed", "Speed-to-Lead Agent", "Enquiries rescued by a <60s reply", stl, "#F59E0B");
+  push("speed", "LeadIQ", "Enquiries rescued by a <60s reply", stl, "#F59E0B");
 
   const missed = detailed ? i.missedCalls : i.enquiries * 0.15;
   const reception = missed * perYear * 0.5 * close * job;
@@ -137,26 +137,26 @@ function compute(i: Inputs, detailed: boolean): Result {
     ? i.reviewCount < 30 ? 0.12 : i.reviewCount < 100 ? 0.08 : 0.04
     : 0.08;
   const reviews = i.enquiries * perYear * reviewLift * close * job;
-  push("reviews", "Review Agent", "Extra enquiries from a stronger profile", reviews, "#7C3AED");
+  push("reviews", "ReputationIQ", "Extra enquiries from a stronger profile", reviews, "#7C3AED");
 
   const quotes = detailed ? i.quotesPerWeek : i.enquiries * 0.5;
   const quoteMins = detailed ? i.minsPerQuote : 25;
   const quoteHoursWeek = (quotes * quoteMins) / 60;
   const quoting = quoteHoursWeek * perYear * 0.7 * hourly + quotes * perYear * 0.04 * job;
-  push("quotes", "Instant Quote Agent", "Quoting time recovered + faster wins", quoting, "#EA580C");
+  push("quotes", "QuoteIQ", "Quoting time recovered + faster wins", quoting, "#EA580C");
 
   // Quick-tier baselines scale from zero with the business profile, so a
   // fresh page (all minimums) reads ~€0 and grows as the numbers do.
   const adminHours = detailed ? i.adminHours : Math.min((i.teamSize - 1) * 2, 35);
   const admin = adminHours * perYear * 0.5 * hourly;
-  push("assistant", "AI Assistant + CRM", "Routine admin off your team's plate", admin, "#3B82F6");
+  push("assistant", "AssistIQ + CRM", "Routine admin off your team's plate", admin, "#3B82F6");
 
   const chase = detailed ? i.chasingHours : i.teamSize > 3 ? 2 : i.teamSize > 1 ? 1 : 0;
   const chasing = chase * perYear * 0.6 * hourly;
   push("collections", "Automated follow-ups", "Invoice chasing handled for you", chasing, "#34D399");
 
   const content = Math.min(i.enquiries * 0.25, 2.5) * perYear * 0.7 * hourly;
-  push("content", "Content Agent", "Campaigns written in your voice", content, "#EC4899");
+  push("content", "ContentIQ", "Campaigns written in your voice", content, "#EC4899");
 
   const fleet = detailed ? i.vehicles : i.industry === "logistics" ? Math.round(i.teamSize * 0.6) : 0;
   const logistics = fleet * 160 * 12;
@@ -220,7 +220,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: lever("speed"),
       objection: "“We always get back to people eventually.”",
       answer: "Most jobs go to whoever answers first — 'eventually' is where enquiries die. Speed-to-Lead replies in under 60 seconds, every time, day or night, then hands the warm conversation to you.",
-      agent: "Speed-to-Lead Agent", accent: "#F59E0B",
+      agent: "LeadIQ", accent: "#F59E0B",
     });
   }
   if (i.afterHours !== "oncall") {
@@ -253,7 +253,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(lever("assistant") * 0.4),
       objection: "“Spreadsheets have worked fine for years.”",
       answer: "They work until the day one detail goes missing on a big job. Every lead, quote, job and payment lives on one Job Record — nothing typed twice, nothing lost between tools, and you keep the tools you like.",
-      agent: "AI Assistant + CRM", accent: "#3B82F6",
+      agent: "AssistIQ + CRM", accent: "#3B82F6",
     });
   }
   if (i.doubleEntry !== "rare") {
@@ -264,7 +264,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(lever("assistant") * 0.3),
       objection: "“That's just how our systems are.”",
       answer: "It doesn't have to be. We connect what you already use so information entered once flows everywhere it's needed — the hours that frees up are in the number above.",
-      agent: "AI Assistant + CRM", accent: "#3B82F6",
+      agent: "AssistIQ + CRM", accent: "#3B82F6",
     });
   }
   if (i.ownerEvenings > 4) {
@@ -274,7 +274,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       evidence: `~${i.ownerEvenings} hours of evening/weekend admin on the owner`,
       objection: "“Nobody can run this the way I do.”",
       answer: "Exactly — which is why we encode the way you do it into the workflows, so the system runs your way without you typing it all in at 10pm. You stay in control; you stop being the bottleneck.",
-      agent: "AI Assistant + workflows", accent: "#3B82F6",
+      agent: "AssistIQ + workflows", accent: "#3B82F6",
     });
   }
   if (i.reviewCount < 50) {
@@ -284,8 +284,8 @@ function runAudit(i: Inputs, r: Result): Audit {
       evidence: `${i.reviewCount} Google reviews today`,
       impact: lever("reviews"),
       objection: "“Our work speaks for itself.”",
-      answer: "To existing customers, yes. Strangers check reviews first — and choose the business with 150 of them. The Review Agent asks every happy customer at the right moment, automatically, until your profile matches your work.",
-      agent: "Review Agent", accent: "#7C3AED",
+      answer: "To existing customers, yes. Strangers check reviews first — and choose the business with 150 of them. The ReputationIQ asks every happy customer at the right moment, automatically, until your profile matches your work.",
+      agent: "ReputationIQ", accent: "#7C3AED",
     });
   }
   if (i.noShows > 2) {
@@ -306,8 +306,8 @@ function runAudit(i: Inputs, r: Result): Audit {
       evidence: i.marketing === "none" ? "No regular marketing output" : "Marketing happens when there's time",
       impact: lever("content"),
       objection: "“There's no time for marketing when we're busy.”",
-      answer: "That's precisely when the pipeline dries up for next month. The Content Agent keeps campaigns going in your voice while you're on the tools — so busy months feed the quiet ones.",
-      agent: "Content Agent", accent: "#EC4899",
+      answer: "That's precisely when the pipeline dries up for next month. The ContentIQ keeps campaigns going in your voice while you're on the tools — so busy months feed the quiet ones.",
+      agent: "ContentIQ", accent: "#EC4899",
     });
   }
   if (i.socialDms !== "ontop") {
@@ -317,7 +317,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       evidence: i.socialDms === "ignored" ? "Instagram/Facebook messages go unanswered" : "DMs answered when someone gets a minute",
       objection: "“DMs are just people asking prices.”",
       answer: "Price-checkers are buyers mid-decision. The DM Setter answers instantly, qualifies the serious ones and books them into your calendar — straight from the conversation.",
-      agent: "Instagram DM Setter", accent: "#E1306C",
+      agent: "SocialIQ", accent: "#E1306C",
     });
   }
   if (i.toolCount >= 5) {
