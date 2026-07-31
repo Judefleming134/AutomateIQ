@@ -17,5 +17,26 @@ export const config = {
   // Allowlist, not a denylist: only the actual app surfaces need a session
   // check. The marketing site (served from /public, including the root
   // route) is never touched by this proxy at all.
-  matcher: ["/portal/:path*", "/admin/:path*", "/growth/:path*", "/login"],
+  //
+  // The last entry is not a session surface. It matches any path whose FIRST
+  // segment contains a capital letter, and it exists because the four
+  // entries above are exactly why the case-forgiving redirect for brand URLs
+  // shipped dead: `/TradeIQ` matches none of them, so canonicalPath() was
+  // never reached and every capitalised URL on the site still 404'd —
+  // /TradeIQ, /PermitIQ, /FinanceIQ, /Products, /Book, /Systems, all of them.
+  //
+  // Deliberately narrow rather than the usual catch-all
+  // "/((?!api|_next|.*\\..*).*)": a catch-all would route the marketing
+  // homepage through a Node function on every visit, turning the site's
+  // highest-traffic, fully-static page into an invocation. An all-lowercase
+  // URL is already correct and has nothing to gain from being inspected.
+  // updateSession() short-circuits before touching Supabase for anything
+  // that isn't a session surface, so a capitalised miss costs no auth call.
+  matcher: [
+    "/portal/:path*",
+    "/admin/:path*",
+    "/growth/:path*",
+    "/login",
+    "/:segment([^/]*[A-Z][^/]*)/:path*",
+  ],
 };

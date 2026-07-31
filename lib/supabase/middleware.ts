@@ -10,7 +10,49 @@ import { canonicalPath } from "@/lib/routing/case";
  * exploitable via a crafted x-middleware-subrequest header). Treat anything
  * gated here as a convenience redirect, not a guarantee.
  */
+/**
+ * Paths where a session actually matters.
+ *
+ * The proxy matcher now also routes capitalised URLs here (see proxy.ts), so
+ * this function can be reached by a path that wants nothing from Supabase.
+ * Everything outside this list must short-circuit BEFORE the client is built:
+ * `getUser()` is a network round trip to Supabase Auth on every request, and
+ * the marketing site must not pay for one.
+ */
+function needsSession(path: string): boolean {
+  return (
+    path.startsWith("/portal") ||
+    path.startsWith("/admin") ||
+    path.startsWith("/growth") ||
+    path === "/login"
+  );
+}
+
 export async function updateSession(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+
+  // FIRST, before any Supabase work. Brand URLs are written with capitals —
+  // TradeIQ, PermitIQ, FinanceIQ — so /TradeIQ is what a new customer
+  // actually types off a card, and Next routes are case-sensitive. Only the
+  // first segment is corrected; signed tokens further down the path are
+  // case-sensitive and must never be touched. See lib/routing/case.ts.
+  //
+  // This used to sit AFTER getUser(), which spent an auth round trip on a
+  // request that was about to 308 anyway — and, more to the point, the proxy
+  // matcher never routed /TradeIQ here at all, so it never ran. See proxy.ts.
+  const canonical = canonicalPath(path);
+  if (canonical) {
+    const url = request.nextUrl.clone();
+    url.pathname = canonical;
+    return NextResponse.redirect(url, 308);
+  }
+
+  // A capitalised path that isn't a known route (/Nonsense) reaches here and
+  // wants nothing from Supabase. Neither does the marketing site.
+  if (!needsSession(path)) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -39,20 +81,6 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-
-  // Brand URLs are written with capitals — TradeIQ, PermitIQ, FinanceIQ — so
-  // /TradeIQ is what a new customer actually types off a card. Next routes are
-  // case-sensitive, so that was a 404. Only the first segment is corrected;
-  // signed tokens further down the path are case-sensitive and must never be
-  // touched. See lib/routing/case.ts.
-  const canonical = canonicalPath(path);
-  if (canonical) {
-    const url = request.nextUrl.clone();
-    url.pathname = canonical;
-    return NextResponse.redirect(url, 308);
-  }
 
   const isAppRoute = path.startsWith("/portal") || path.startsWith("/admin");
   // The Growth Engine (internal sales workspace at /growth) has its own
