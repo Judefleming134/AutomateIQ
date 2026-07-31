@@ -494,7 +494,13 @@ export async function askJarvis(
     "- Channels: email sends from the platform; Instagram/Facebook/LinkedIn DMs and phone calls are done by Jude personally — the engine preps drafts and call scripts. Never claim to have sent anything yourself.",
     "- YOU CAN ACT. When Jude asks you to do something, put it in the `actions` array (empty array when he's only asking a question). Action types, exactly these strings:",
     "  · regenerate_email — rewrite that prospect's email draft under current rules (value: empty string)",
-    "  · queue_email — queue that prospect's clean email draft for the morning autopilot send (~${morningSendLabel()}) (value: empty string)",
+    // BACKTICKS, not quotes. This was a plain double-quoted string, so the
+    // model received the literal characters "${morningSendLabel()}" instead of
+    // the send time — a broken placeholder sitting in Jarvis's own rulebook,
+    // and one it could echo straight back into a reply to Jude. The identical
+    // interpolation further down the prompt was already a template literal, so
+    // Jarvis had the real time in one place and a raw template in another.
+    `  · queue_email — queue that prospect's clean email draft for the morning autopilot send (~${morningSendLabel()}) (value: empty string)`,
     "  · add_note — save a note on the prospect (value: the note text)",
     "  · set_follow_up — set the follow-up date (value: YYYY-MM-DD)",
     "- Action rules: `company` must be copied EXACTLY from the snapshot; maximum 8 actions per turn; in `reply`, say plainly what you're doing. Actual sending is never yours — queueing is as far as you go; DMs/calls/mark-sent stay with Jude in the app.",
