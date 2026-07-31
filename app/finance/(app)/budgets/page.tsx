@@ -1,7 +1,7 @@
 import { requireTradesAccount } from "@/lib/trades/data";
 import { BudgetsPanel, type BudgetRow } from "@/components/trades/budgets-panel";
 
-export const metadata = { title: "Budgets · AutomateIQ Finance" };
+export const metadata = { title: "Budgets · FinanceIQ" };
 
 export default async function BudgetsPage() {
   const { supabase } = await requireTradesAccount("/finance/login");

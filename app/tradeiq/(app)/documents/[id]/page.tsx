@@ -29,14 +29,14 @@ export default async function TradesDocumentPage({
     .eq("document_id", id)
     .order("position");
 
-  const publicUrl = `${(process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie").replace(/\/$/, "")}/tradeos/doc/${doc.public_token}`;
+  const publicUrl = `${(process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie").replace(/\/$/, "")}/tradeiq/doc/${doc.public_token}`;
 
   return (
     <>
       <div className="page-header trades-noprint">
         <div>
           <p style={{ margin: 0 }}>
-            <Link href="/tradeos">← Dashboard</Link>
+            <Link href="/tradeiq">← Dashboard</Link>
           </p>
           <h1 style={{ marginTop: 4 }}>
             {doc.kind === "quote" ? "Quote" : "Invoice"} {doc.number}
@@ -56,7 +56,7 @@ export default async function TradesDocumentPage({
         <div className="panel panel-block trades-noprint" style={{ marginBottom: 14, borderLeft: "3px solid var(--green, #34d399)" }}>
           <p style={{ margin: 0, fontSize: 13.5 }}>
             This quote was converted to an invoice.{" "}
-            <Link href={`/tradeos/documents/${doc.converted_to}`}>Open the invoice →</Link>
+            <Link href={`/tradeiq/documents/${doc.converted_to}`}>Open the invoice →</Link>
           </p>
         </div>
       )}

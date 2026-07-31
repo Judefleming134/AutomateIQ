@@ -1,7 +1,7 @@
 import { requireTradesAccount } from "@/lib/trades/data";
 import { SettingsForm } from "@/components/trades/settings-form";
 
-export const metadata = { title: "Settings · AutomateIQ Finance" };
+export const metadata = { title: "Settings · FinanceIQ" };
 
 export default async function FinanceSettingsPage() {
   const { account } = await requireTradesAccount("/finance/login");

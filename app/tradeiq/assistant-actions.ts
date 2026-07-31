@@ -145,8 +145,8 @@ async function runAssistantAction(
   if (liErr) return `✗ ${customerName}: quote saved but the lines failed — open it and re-add them`;
   await supabase.from("trades_accounts").update({ quote_seq: nextSeq }).eq("id", account.id);
 
-  revalidatePath("/tradeos");
-  return `✓ Draft quote ${number} for ${existingCust?.name ?? customerName} — ${formatEuro(totals.total)} inc. VAT. Review & send: /tradeos/documents/${doc.id}`;
+  revalidatePath("/tradeiq");
+  return `✓ Draft quote ${number} for ${existingCust?.name ?? customerName} — ${formatEuro(totals.total)} inc. VAT. Review & send: /tradeiq/documents/${doc.id}`;
 }
 
 /**

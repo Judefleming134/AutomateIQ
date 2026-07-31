@@ -15,20 +15,20 @@ export default async function TradesLayout({
   children: React.ReactNode;
 }) {
   // Auth + account bootstrap. Every Server Action re-checks ownership itself;
-  // this is the UX gate (redirects to /tradeos/login when signed out).
+  // this is the UX gate (redirects to /tradeiq/login when signed out).
   const { account, email } = await requireTradesAccount();
   const name = account.business_name || email || "Your business";
 
   const sections: NavSection[] = [
     {
       items: [
-        { href: "/tradeos", label: "Dashboard", icon: <LayoutDashboard /> },
-        { href: "/tradeos/assistant", label: "Assistant", icon: <Sparkles /> },
-        { href: "/tradeos/new", label: "New quote", icon: <FilePlus2 /> },
-        { href: "/tradeos/scan", label: "Scan an invoice", icon: <ScanLine /> },
-        { href: "/tradeos/finance", label: "Finance", icon: <Wallet /> },
-        { href: "/tradeos/customers", label: "Customers", icon: <Users /> },
-        { href: "/tradeos/settings", label: "Settings", icon: <Settings /> },
+        { href: "/tradeiq", label: "Dashboard", icon: <LayoutDashboard /> },
+        { href: "/tradeiq/assistant", label: "Assistant", icon: <Sparkles /> },
+        { href: "/tradeiq/new", label: "New quote", icon: <FilePlus2 /> },
+        { href: "/tradeiq/scan", label: "Scan an invoice", icon: <ScanLine /> },
+        { href: "/tradeiq/finance", label: "Finance", icon: <Wallet /> },
+        { href: "/tradeiq/customers", label: "Customers", icon: <Users /> },
+        { href: "/tradeiq/settings", label: "Settings", icon: <Settings /> },
       ],
     },
   ];
@@ -40,7 +40,7 @@ export default async function TradesLayout({
       userLabel={name}
       userInitial={name.charAt(0).toUpperCase()}
       sections={sections}
-      signInHref="/tradeos/login"
+      signInHref="/tradeiq/login"
     >
       {children}
     </AppShell>

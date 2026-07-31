@@ -2,7 +2,7 @@ import { Landmark } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { BankBalanceForm } from "@/components/trades/bank-balance-form";
 
-export const metadata = { title: "Bank · AutomateIQ Finance" };
+export const metadata = { title: "Bank · FinanceIQ" };
 
 export default async function BankPage() {
   const { account } = await requireTradesAccount("/finance/login");

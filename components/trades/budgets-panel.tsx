@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { PiggyBank, Trash2 } from "lucide-react";
-import { saveBudget, deleteBudget } from "@/app/tradeos/actions";
+import { saveBudget, deleteBudget } from "@/app/tradeiq/actions";
 import { formatEuro } from "@/lib/trades/core";
 
 export type BudgetRow = {

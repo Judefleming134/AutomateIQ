@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Sparkles } from "lucide-react";
-import { runFinanceAudit } from "@/app/tradeos/actions";
+import { runFinanceAudit } from "@/app/tradeiq/actions";
 
 /**
  * The one-tap cost-saving audit: reads the account's real bills + invoices and

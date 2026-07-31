@@ -21,7 +21,7 @@ export default function TradesLoginForm() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const next = params.get("next") || "/tradeos";
+  const next = params.get("next") || "/tradeiq";
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -39,7 +39,7 @@ export default function TradesLoginForm() {
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/tradeos`,
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/tradeiq`,
         },
       });
       setLoading(false);

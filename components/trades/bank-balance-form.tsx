@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Landmark } from "lucide-react";
-import { setBankBalance } from "@/app/tradeos/actions";
+import { setBankBalance } from "@/app/tradeiq/actions";
 
 /**
  * Manual bank-balance entry — the forecast's starting point until the

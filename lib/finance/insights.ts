@@ -1,5 +1,5 @@
 /**
- * AutomateIQ Finance — pure analytics over the account's records. No I/O, so
+ * FinanceIQ — pure analytics over the account's records. No I/O, so
  * every number on the Forecast/Receivables/Budgets/Reports screens is
  * reproducible and unit-testable. Dates are YYYY-MM-DD strings throughout
  * (matching the DB columns); "today" is always passed in, never read from the

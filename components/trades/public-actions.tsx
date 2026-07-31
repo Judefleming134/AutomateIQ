@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Check, Printer, CreditCard } from "lucide-react";
-import { acceptQuoteByToken, startInvoicePayment } from "@/app/tradeos/actions";
+import { acceptQuoteByToken, startInvoicePayment } from "@/app/tradeiq/actions";
 import { formatEuro } from "@/lib/trades/core";
 
 /**

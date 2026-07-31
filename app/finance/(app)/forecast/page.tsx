@@ -10,7 +10,7 @@ import {
 } from "@/lib/finance/insights";
 import { BankBalanceForm } from "@/components/trades/bank-balance-form";
 
-export const metadata = { title: "Cash-flow forecast · AutomateIQ Finance" };
+export const metadata = { title: "Cash-flow forecast · FinanceIQ" };
 
 export default async function ForecastPage() {
   const { supabase, account } = await requireTradesAccount("/finance/login");

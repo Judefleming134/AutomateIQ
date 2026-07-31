@@ -58,7 +58,7 @@ export default async function TradesDashboard() {
           <h1>Dashboard</h1>
           <p>Your quotes and invoices — create one, send it, get paid.</p>
         </div>
-        <Link href="/tradeos/new" className="btn btn-primary">
+        <Link href="/tradeiq/new" className="btn btn-primary">
           <FilePlus2 size={15} /> New quote
         </Link>
       </div>
@@ -72,7 +72,7 @@ export default async function TradesDashboard() {
             <strong>Finish setup first.</strong> Add your business name, VAT rate
             and payment terms so your quotes and invoices look right and total
             correctly.{" "}
-            <Link href="/tradeos/settings">Go to settings →</Link>
+            <Link href="/tradeiq/settings">Go to settings →</Link>
           </p>
         </div>
       )}
@@ -88,7 +88,7 @@ export default async function TradesDashboard() {
         <h2 className="panel-title">Recent</h2>
         {docs.length === 0 ? (
           <p className="empty-state">
-            Nothing yet. <Link href="/tradeos/new">Create your first quote →</Link>
+            Nothing yet. <Link href="/tradeiq/new">Create your first quote →</Link>
           </p>
         ) : (
           <div className="table-wrap">
@@ -110,7 +110,7 @@ export default async function TradesDashboard() {
                   return (
                     <tr key={d.id}>
                       <td>
-                        <Link href={`/tradeos/documents/${d.id}`}>
+                        <Link href={`/tradeiq/documents/${d.id}`}>
                           <strong>{d.number}</strong>
                         </Link>
                       </td>
