@@ -28,7 +28,7 @@ export type BusinessSystem = {
 export const SYSTEMS_CATALOG: BusinessSystem[] = [
   {
     key: "workforce-management",
-    name: "Workforce Management System",
+    name: "WorkforceIQ",
     icon: "users",
     accent: "#3B82F6",
     tagline: "Every hour worked, scheduled and accounted for.",
@@ -58,7 +58,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "asset-management",
-    name: "Asset Management System",
+    name: "AssetIQ",
     icon: "boxes",
     accent: "#8B5CF6",
     tagline: "Know exactly what you own, where it is and its condition.",
@@ -87,7 +87,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "field-service-management",
-    name: "Job & Field Service Management System",
+    name: "JobIQ",
     icon: "wrench",
     accent: "#F59E0B",
     tagline: "From first call to signed-off job — one connected flow.",
@@ -117,7 +117,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "health-safety-compliance",
-    name: "Health, Safety & Compliance Management System",
+    name: "SafetyIQ",
     icon: "shield-check",
     accent: "#34D399",
     tagline: "Compliance, standardised and impossible to lose track of.",
@@ -148,7 +148,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "erp",
-    name: "Enterprise Resource Planning (ERP) System",
+    name: "EnterpriseIQ",
     icon: "factory",
     accent: "#22D3EE",
     tagline: "Enterprise power, shaped entirely around your operation.",
@@ -181,7 +181,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "finance-invoice-automation",
-    name: "Finance & Invoice Automation System",
+    name: "FinanceIQ",
     icon: "banknote",
     accent: "#10B981",
     tagline: "Get paid faster, with the paperwork on autopilot.",
@@ -215,7 +215,7 @@ export const SYSTEMS_CATALOG: BusinessSystem[] = [
   },
   {
     key: "business-operations-platform",
-    name: "Business Operations Platform",
+    name: "OperationsIQ",
     icon: "layout-dashboard",
     accent: "#F472B6",
     tagline: "The central operating system for your entire business.",

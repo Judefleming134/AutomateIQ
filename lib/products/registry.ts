@@ -163,7 +163,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "custom-solutions",
-    name: "Custom Solutions",
+    name: "CustomIQ",
     description: "Bespoke AI modules built specifically for your business.",
     href: "/portal/custom-solutions",
     iconName: "box",

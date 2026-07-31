@@ -59,7 +59,7 @@ export async function createModule(
 
   if (error) return { error: error.message };
 
-  // A module is only reachable if the Custom Solutions product is enabled
+  // A module is only reachable if the CustomIQ product is enabled
   // for that business — enable it automatically so "create module" is one
   // step, not two.
   const { data: product } = await supabase

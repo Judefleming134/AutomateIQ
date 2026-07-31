@@ -23,50 +23,50 @@ export type Solution = {
 export const SOLUTION_CATALOG: Solution[] = [
   {
     key: "ai-receptionist",
-    name: "AI Receptionist",
+    name: "ReceptionIQ",
     blurb:
       "Answers calls and enquiries 24/7, captures every lead, books appointments and routes urgent matters to a human.",
     flagship: true,
   },
   {
     key: "voice-ai",
-    name: "Voice AI",
+    name: "VoiceIQ",
     blurb:
       "Natural-voice phone agents for inbound/outbound calls: reminders, confirmations, qualification and customer service.",
   },
   {
     key: "workforce-management",
-    name: "Workforce Management",
+    name: "WorkforceIQ",
     blurb:
       "Rostering, timesheets, job allocation and field-team coordination without spreadsheets and phone-tag.",
   },
   {
     key: "asset-management",
-    name: "Asset Management",
+    name: "AssetIQ",
     blurb:
       "Tracks equipment, vehicles, tools and maintenance schedules with service history and automated reminders.",
   },
   {
     key: "hsc-compliance",
-    name: "Health, Safety & Compliance (incl. SOP management)",
+    name: "SafetyIQ",
     blurb:
       "Digital SOPs, inspections, incident reporting, certifications and audit trails — always inspection-ready.",
   },
   {
     key: "finance-invoice-automation",
-    name: "Finance & Invoice Automation",
+    name: "FinanceIQ",
     blurb:
       "Automated invoicing, payment chasing, reconciliation and cash-flow visibility.",
   },
   {
     key: "erp-platform",
-    name: "ERP Platform",
+    name: "EnterpriseIQ",
     blurb:
       "An integrated operations backbone inspired by enterprise systems such as SAP — sized and priced for SMEs.",
   },
   {
     key: "business-operations-platform",
-    name: "Business Operations Platform",
+    name: "OperationsIQ",
     blurb:
       "One workspace connecting jobs, customers, documents, tasks and reporting across the whole business.",
   },
@@ -110,7 +110,7 @@ export const SOLUTION_CATALOG: Solution[] = [
   },
   {
     key: "bespoke-ai-software",
-    name: "Bespoke AI Software",
+    name: "BespokeIQ",
     blurb:
       "Custom-built AI systems for processes no off-the-shelf tool fits — designed around how the business actually works.",
   },

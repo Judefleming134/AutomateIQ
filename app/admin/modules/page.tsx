@@ -29,7 +29,7 @@ export default async function AdminModulesPage() {
           <h1>Custom modules</h1>
           <p>
             Build a bespoke module for a customer — it appears in their portal
-            under Custom Solutions the moment you create it.
+            under CustomIQ the moment you create it.
           </p>
         </div>
       </div>

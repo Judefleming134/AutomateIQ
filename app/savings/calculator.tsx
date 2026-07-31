@@ -131,7 +131,7 @@ function compute(i: Inputs, detailed: boolean): Result {
 
   const missed = detailed ? i.missedCalls : i.enquiries * 0.15;
   const reception = missed * perYear * 0.5 * close * job;
-  push("reception", "AI Reception & Support", "Missed calls answered and booked", reception, "#22D3EE");
+  push("reception", "ReceptionIQ", "Missed calls answered and booked", reception, "#22D3EE");
 
   const reviewLift = detailed
     ? i.reviewCount < 30 ? 0.12 : i.reviewCount < 100 ? 0.08 : 0.04
@@ -153,7 +153,7 @@ function compute(i: Inputs, detailed: boolean): Result {
 
   const chase = detailed ? i.chasingHours : i.teamSize > 3 ? 2 : i.teamSize > 1 ? 1 : 0;
   const chasing = chase * perYear * 0.6 * hourly;
-  push("collections", "Automated follow-ups", "Invoice chasing handled for you", chasing, "#34D399");
+  push("collections", "CollectionsIQ", "Invoice chasing handled for you", chasing, "#34D399");
 
   const content = Math.min(i.enquiries * 0.25, 2.5) * perYear * 0.7 * hourly;
   push("content", "ContentIQ", "Campaigns written in your voice", content, "#EC4899");
@@ -209,7 +209,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: lever("reception"),
       objection: "“An AI answering our phone will put customers off.”",
       answer: "It answers naturally in your business's voice, books straight into your calendar and hands anything sensitive to a human. Customers don't get put off — they get answered. The alternative they're getting today is a ring-out.",
-      agent: "AI Reception & Support", accent: "#22D3EE",
+      agent: "ReceptionIQ", accent: "#22D3EE",
     });
   }
   if (i.responseMins > 30) {
@@ -231,7 +231,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(i.enquiries * 52 * 0.2 * 0.5 * close * job),
       objection: "“People can just call back in the morning.”",
       answer: "Some do. Most ring the next name on Google. Your AI agents work 24/7 — the 9pm enquiry is answered, qualified and booked before your competitors open.",
-      agent: "AI Reception & Support", accent: "#22D3EE",
+      agent: "ReceptionIQ", accent: "#22D3EE",
     });
   }
   if (i.quoteFollowUp !== "always" && i.quotesPerWeek > 0) {
@@ -296,7 +296,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(i.noShows * 12 * job * 0.5),
       objection: "“Reminders won't stop people cancelling.”",
       answer: "They won't stop all of it — they reliably cut it. Automated confirmations and well-timed reminders mean fewer forgotten appointments, and cancelled slots get refilled instead of sitting empty.",
-      agent: "Automated follow-ups", accent: "#34D399",
+      agent: "CollectionsIQ", accent: "#34D399",
     });
   }
   if (i.marketing !== "regular") {
