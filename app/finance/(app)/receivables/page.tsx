@@ -5,7 +5,7 @@ import { formatEuro } from "@/lib/trades/core";
 import { AGING_BUCKETS, agingBucket, chaseStage, daysOverdue } from "@/lib/finance/insights";
 import { ReceivableChase } from "@/components/trades/receivable-chase";
 
-export const metadata = { title: "Receivables · AutomateIQ Finance" };
+export const metadata = { title: "Receivables · FinanceIQ" };
 
 // Chase drafts run one AI call inside this route's actions.
 export const maxDuration = 60;
@@ -47,7 +47,7 @@ export default async function ReceivablesPage() {
       ref: i.number,
       due: i.due_at,
       total: Number(i.total),
-      invoiceHref: `/tradeos/documents/${i.id}`,
+      invoiceHref: `/tradeiq/documents/${i.id}`,
     })),
     ...(recv ?? []).map((e) => ({
       key: `e-${e.id}`,
@@ -101,7 +101,7 @@ export default async function ReceivablesPage() {
         <section className="panel panel-block">
           <p className="empty-state" style={{ margin: 0 }}>
             Nobody owes you right now. Invoices you send from{" "}
-            <Link href="/tradeos">TradeIQ</Link> and scanned receivables land
+            <Link href="/tradeiq">TradeIQ</Link> and scanned receivables land
             here automatically once they&apos;re out.
           </p>
         </section>

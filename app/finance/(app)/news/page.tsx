@@ -2,7 +2,7 @@ import { Newspaper, ExternalLink } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { getNews, splitByRelevance, tradeProfile, type NewsItem } from "@/lib/finance/news";
 
-export const metadata = { title: "News · AutomateIQ Finance" };
+export const metadata = { title: "News · FinanceIQ" };
 
 // Feeds are fetched server-side with per-feed caching; give slow publishers room.
 export const maxDuration = 30;

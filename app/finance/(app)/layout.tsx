@@ -17,7 +17,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
 
 export const metadata: Metadata = {
-  title: "AutomateIQ Finance",
+  title: "FinanceIQ",
   robots: { index: false, follow: false },
 };
 
@@ -50,15 +50,15 @@ export default async function FinanceLayout({
       label: "More",
       items: [
         // The cross-door: quotes & invoicing live in TradeIQ, same account.
-        { href: "/tradeos", label: "TradeIQ", icon: <Hammer /> },
-        { href: "/tradeos/assistant", label: "Assistant", icon: <Sparkles /> },
+        { href: "/tradeiq", label: "TradeIQ", icon: <Hammer /> },
+        { href: "/tradeiq/assistant", label: "Assistant", icon: <Sparkles /> },
       ],
     },
   ];
 
   return (
     <AppShell
-      brandLabel="AutomateIQ Finance"
+      brandLabel="FinanceIQ"
       topbarTitle="Finance"
       userLabel={name}
       userInitial={name.charAt(0).toUpperCase()}

@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { DocumentView } from "@/components/trades/document-view";
 import { PublicActions } from "@/components/trades/public-actions";
-import { claimDocumentToFinance } from "@/app/tradeos/actions";
+import { claimDocumentToFinance } from "@/app/tradeiq/actions";
 
 export const metadata: Metadata = {
   title: "Your document · AutomateIQ",
@@ -106,7 +106,7 @@ export default async function PublicTradesDoc({
           viewerIsOwner = acc?.id === doc.account_id;
         }
         if (viewerIsOwner) return null;
-        const loginHref = `/tradeos/login?next=${encodeURIComponent(`/tradeos/doc/${token}`)}`;
+        const loginHref = `/tradeiq/login?next=${encodeURIComponent(`/tradeiq/doc/${token}`)}`;
         return (
           <div
             className="panel panel-block trades-noprint"

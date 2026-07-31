@@ -5,15 +5,15 @@ import { Send, Sparkles } from "lucide-react";
 import {
   askTradesAssistant,
   type TradesChatTurn,
-} from "@/app/tradeos/assistant-actions";
+} from "@/app/tradeiq/assistant-actions";
 
-/** Inline text with **bold** honoured and /tradeos/... or https links tappable. */
+/** Inline text with **bold** honoured and /tradeiq/... or https links tappable. */
 function TextWithLinks({ text }: { text: string }) {
-  const parts = text.split(/(https?:\/\/[^\s<>"']+|\/tradeos\/[^\s<>"']+)/g);
+  const parts = text.split(/(https?:\/\/[^\s<>"']+|\/tradeiq\/[^\s<>"']+)/g);
   return (
     <>
       {parts.map((part, i) => {
-        if (/^(https?:\/\/|\/tradeos\/)/.test(part)) {
+        if (/^(https?:\/\/|\/tradeiq\/)/.test(part)) {
           const m = /^(.*?)([.,;:!?)]*)$/.exec(part)!;
           return (
             <span key={i}>

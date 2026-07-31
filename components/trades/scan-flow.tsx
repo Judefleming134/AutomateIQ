@@ -8,7 +8,7 @@ import {
   saveScannedExpense,
   draftExpenseEmail,
   type ScannedFields,
-} from "@/app/tradeos/actions";
+} from "@/app/tradeiq/actions";
 
 /**
  * Scan → review → email, on one screen.
@@ -18,7 +18,7 @@ import {
  * 3. Once saved, one tap drafts the right email (pay/query a supplier,
  *    send/chase a customer) — reviewed and sent from their own mail app.
  */
-export function ScanFlow({ financeHref = "/tradeos/finance" }: { financeHref?: string }) {
+export function ScanFlow({ financeHref = "/tradeiq/finance" }: { financeHref?: string }) {
   const [scanState, scanAction, scanning] = useActionState(scanInvoice, undefined);
   const [fileName, setFileName] = useState("");
 

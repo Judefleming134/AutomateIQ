@@ -36,11 +36,11 @@ export type TradesAccount = {
  * callers keep using the same authenticated context.
  */
 export async function requireTradesAccount(
-  // One account system, two surfaces: TradeIQ (/tradeos) and AutomateIQ
+  // One account system, two surfaces: TradeIQ (/tradeiq) and AutomateIQ
   // Finance (/finance) share the same auth + data, so a TradeIQ customer
   // signing into Finance is linked automatically. The only difference is
   // which login screen an unauthenticated visitor lands on.
-  loginPath: string = "/tradeos/login"
+  loginPath: string = "/tradeiq/login"
 ): Promise<{
   supabase: SupabaseClient;
   userId: string;

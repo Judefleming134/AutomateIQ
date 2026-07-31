@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /**
- * Self-serve sign-up + sign-in for AutomateIQ Finance, with the explicit
+ * Self-serve sign-up + sign-in for FinanceIQ, with the explicit
  * "Already a TradeIQ customer?" path. Finance and TradeIQ share one account
  * system, so a TradeIQ customer signing in here is linked automatically —
  * their invoices, bills and connections are already in place.

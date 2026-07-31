@@ -24,9 +24,9 @@ export default async function FinancePage({
             bills and TradeIQ invoices.
           </p>
         </div>
-        <ScanCta href="/tradeos/scan" />
+        <ScanCta href="/tradeiq/scan" />
       </div>
-      <FinanceDashboard supabase={supabase} claimed={claimed} scanHref="/tradeos/scan" />
+      <FinanceDashboard supabase={supabase} claimed={claimed} scanHref="/tradeiq/scan" />
     </>
   );
 }

@@ -25,19 +25,34 @@ const nextConfig: NextConfig = {
       { source: "/tools", destination: "/freetools", permanent: true },
       { source: "/tools/:path*", destination: "/freetools/:path*", permanent: true },
 
-      // TradeOS is now TradeIQ. The BRAND changed; the route did not, and that
-      // is deliberate — /tradeos is a signed-in product with live customers,
-      // whose bookmarks, saved passwords and emailed document links all point
-      // at it. Moving the route tree to earn a tidier URL would risk all of
-      // that for cosmetics.
+      // TradeIQ. The route tree moved to /tradeiq on 2026-07-31, so the brand
+      // and the URL finally agree.
       //
-      // So /tradeiq works from today (marketing, business cards, "log in at
-      // automateiq.ie/tradeiq") and lands on the same app. TEMPORARY (307), not
-      // permanent: /tradeos is still canonical, and a 308 here would have
-      // browsers cache /tradeiq → /tradeos forever, which is exactly backwards
-      // if the route tree ever does move to /tradeiq.
-      { source: "/tradeiq", destination: "/tradeos", permanent: false },
-      { source: "/tradeiq/:path*", destination: "/tradeos/:path*", permanent: false },
+      // The direction of these redirects is now the reverse of what it was for
+      // the day the brand led the URL. /tradeos must keep working forever, not
+      // as a courtesy but because it is load-bearing: customers have it
+      // bookmarked and saved in password managers, and — the one that would
+      // actually cost money — every signed invoice and quote link already
+      // emailed to a tradesperson's OWN customer is a /tradeos/doc/<token> URL
+      // sitting in a stranger's inbox. Those must resolve years from now.
+      //
+      // 308 permanent, because /tradeiq is genuinely canonical now and the
+      // ranking should transfer. The :path* form carries the token through.
+      { source: "/tradeos", destination: "/tradeiq", permanent: true },
+      { source: "/tradeos/:path*", destination: "/tradeiq/:path*", permanent: true },
+
+      // Two static pages retired 2026-07-31, both orphaned (nothing linked to
+      // either) but still publicly served to anyone holding the URL.
+      //
+      // demo.html was superseded by /demo, the live receptionist demo built as
+      // a real route — and it was the last place on the public site still
+      // showing the pre-rebrand product names.
+      //
+      // agents.html described the product range from before the vertical
+      // structure existed, so it could never mention PermitIQ. /systems covers
+      // the same ground, lives in the app, and updates with the product.
+      { source: "/demo.html", destination: "/demo", permanent: true },
+      { source: "/agents.html", destination: "/systems", permanent: true },
     ];
   },
 };

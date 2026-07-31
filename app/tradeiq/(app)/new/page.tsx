@@ -24,7 +24,7 @@ export default async function NewQuotePage() {
         <div className="panel panel-block" style={{ marginBottom: 16, borderLeft: "3px solid var(--orange, #fb923c)" }}>
           <p style={{ margin: 0, fontSize: 14 }}>
             Tip: set your business name and VAT rate in{" "}
-            <Link href="/tradeos/settings">settings</Link> first so the quote looks right.
+            <Link href="/tradeiq/settings">settings</Link> first so the quote looks right.
           </p>
         </div>
       )}

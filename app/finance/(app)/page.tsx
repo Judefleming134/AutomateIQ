@@ -1,7 +1,7 @@
 import { requireTradesAccount } from "@/lib/trades/data";
 import { FinanceDashboard, ScanCta } from "@/components/trades/finance-dashboard";
 
-export const metadata = { title: "Dashboard · AutomateIQ Finance" };
+export const metadata = { title: "Dashboard · FinanceIQ" };
 
 // The audit runs one AI call inside this route's actions.
 export const maxDuration = 60;

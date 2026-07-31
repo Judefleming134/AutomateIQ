@@ -7,11 +7,11 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { formatEuro } from "@/lib/trades/core";
 import { FinanceAudit } from "@/components/trades/finance-audit";
-import { setExpenseStatus } from "@/app/tradeos/actions";
+import { setExpenseStatus } from "@/app/tradeiq/actions";
 
 /**
  * The finance engine, shared by BOTH surfaces — TradeIQ's Finance tab and the
- * standalone AutomateIQ Finance product at /finance. One account system, one
+ * standalone FinanceIQ product at /finance. One account system, one
  * data set, two front doors; a change here upgrades both at once (the "we
  * upgrade it as time goes on" contract). `supabase` is the caller's RLS-scoped
  * client, so every read stays inside their own account.

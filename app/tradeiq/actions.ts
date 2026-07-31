@@ -130,8 +130,8 @@ export async function createDocument(
   // Advance the per-account quote counter so the next number is unique.
   await supabase.from("trades_accounts").update({ quote_seq: nextSeq }).eq("id", account.id);
 
-  revalidatePath("/tradeos");
-  redirect(`/tradeos/documents/${doc.id}`);
+  revalidatePath("/tradeiq");
+  redirect(`/tradeiq/documents/${doc.id}`);
 }
 
 const settingsSchema = z.object({
@@ -179,8 +179,8 @@ export async function saveSettings(
     .eq("id", account.id);
   if (error) return { error: error.message };
 
-  revalidatePath("/tradeos/settings");
-  revalidatePath("/tradeos");
+  revalidatePath("/tradeiq/settings");
+  revalidatePath("/tradeiq");
   revalidatePath("/finance/settings");
   revalidatePath("/finance");
   return { ok: true };
@@ -201,7 +201,7 @@ export async function convertToInvoice(
     .eq("id", quoteId)
     .maybeSingle();
   if (!quote || quote.kind !== "quote") return { error: "That isn't a quote." };
-  if (quote.converted_to) redirect(`/tradeos/documents/${quote.converted_to}`);
+  if (quote.converted_to) redirect(`/tradeiq/documents/${quote.converted_to}`);
 
   const { data: lines } = await supabase
     .from("trades_line_items")
@@ -254,11 +254,11 @@ export async function convertToInvoice(
       .select("converted_to")
       .eq("id", quoteId)
       .maybeSingle();
-    redirect(`/tradeos/documents/${winner?.converted_to ?? quoteId}`);
+    redirect(`/tradeiq/documents/${winner?.converted_to ?? quoteId}`);
   }
 
-  revalidatePath("/tradeos");
-  redirect(`/tradeos/documents/${inv.id}`);
+  revalidatePath("/tradeiq");
+  redirect(`/tradeiq/documents/${inv.id}`);
 }
 
 const STATUSES = ["draft", "sent", "accepted", "declined", "paid", "void"] as const;
@@ -281,8 +281,8 @@ export async function setDocumentStatus(
   // Paid here → paid in any connected account's Finance too (network bills
   // belong to the OTHER account, so this goes through the admin client).
   if (status === "paid") await syncLinkedExpensesPaid(createAdminClient(), id);
-  revalidatePath(`/tradeos/documents/${id}`);
-  revalidatePath("/tradeos");
+  revalidatePath(`/tradeiq/documents/${id}`);
+  revalidatePath("/tradeiq");
   return undefined;
 }
 
@@ -316,7 +316,7 @@ export async function sendDocument(
 
   const label = doc.kind === "quote" ? "Quote" : "Invoice";
   const from = account.business_name || "TradeIQ";
-  const link = `${siteUrl()}/tradeos/doc/${doc.public_token}`;
+  const link = `${siteUrl()}/tradeiq/doc/${doc.public_token}`;
   const text = [
     `Hi ${customer.name || "there"},`,
     "",
@@ -366,8 +366,8 @@ export async function sendDocument(
     console.error("TradeIQ network auto-link failed (non-fatal):", err);
   }
 
-  revalidatePath(`/tradeos/documents/${id}`);
-  revalidatePath("/tradeos");
+  revalidatePath(`/tradeiq/documents/${id}`);
+  revalidatePath("/tradeiq");
   return { ok: true };
 }
 
@@ -379,13 +379,13 @@ export async function sendDocument(
  */
 export async function claimDocumentToFinance(formData: FormData): Promise<void> {
   const token = String(formData.get("token") ?? "");
-  if (!token) redirect("/tradeos");
+  if (!token) redirect("/tradeiq");
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    redirect(`/tradeos/login?next=${encodeURIComponent(`/tradeos/doc/${token}`)}`);
+    redirect(`/tradeiq/login?next=${encodeURIComponent(`/tradeiq/doc/${token}`)}`);
   }
   const { account } = await requireTradesAccount();
   const admin = createAdminClient();
@@ -394,9 +394,9 @@ export async function claimDocumentToFinance(formData: FormData): Promise<void> 
     .select("id")
     .eq("public_token", token)
     .maybeSingle();
-  if (!doc) redirect(`/tradeos/doc/${token}?claim=notfound`);
+  if (!doc) redirect(`/tradeiq/doc/${token}?claim=notfound`);
   const res = await linkDocumentToFinance(admin, doc!.id, account.id);
-  if (!res.ok) redirect(`/tradeos/doc/${token}?claim=own`);
+  if (!res.ok) redirect(`/tradeiq/doc/${token}?claim=own`);
   redirect("/finance?claimed=1");
 }
 
@@ -424,7 +424,7 @@ export async function acceptQuoteByToken(
     .update({ status: "accepted", updated_at: new Date().toISOString() })
     .eq("id", doc.id);
   if (error) return { error: error.message };
-  revalidatePath(`/tradeos/doc/${token}`);
+  revalidatePath(`/tradeiq/doc/${token}`);
   return { ok: true };
 }
 
@@ -451,7 +451,7 @@ export async function startInvoicePayment(
     .eq("public_token", token)
     .maybeSingle();
   if (!doc || doc.kind !== "invoice") return { error: "This isn't a payable invoice." };
-  if (doc.status === "paid") redirect(`/tradeos/doc/${token}?paid=1`);
+  if (doc.status === "paid") redirect(`/tradeiq/doc/${token}?paid=1`);
   if (doc.status === "void") return { error: "This invoice has been voided." };
 
   const cents = Math.round(Number(doc.total) * 100);
@@ -465,8 +465,8 @@ export async function startInvoicePayment(
       currency: doc.currency || "eur",
       label: `Invoice ${doc.number}`,
       customerEmail: customer?.email ?? null,
-      successUrl: `${siteUrl()}/tradeos/doc/${token}?paid=1`,
-      cancelUrl: `${siteUrl()}/tradeos/doc/${token}`,
+      successUrl: `${siteUrl()}/tradeiq/doc/${token}?paid=1`,
+      cancelUrl: `${siteUrl()}/tradeiq/doc/${token}`,
       metadata: { tradeos_document_id: doc.id },
     });
     url = res.url;
@@ -692,7 +692,7 @@ export async function saveScannedExpense(
     .single();
   if (error || !row) return { error: error?.message ?? "Could not save it." };
 
-  revalidatePath("/tradeos/finance");
+  revalidatePath("/tradeiq/finance");
   revalidatePath("/finance");
   return { savedId: row.id };
 }
@@ -710,7 +710,7 @@ export async function setExpenseStatus(
   patch.paid_at = status === "paid" ? new Date().toISOString() : null;
   const { error } = await supabase.from("trades_expenses").update(patch).eq("id", id);
   if (error) return { error: error.message };
-  revalidatePath("/tradeos/finance");
+  revalidatePath("/tradeiq/finance");
   revalidatePath("/finance");
   return undefined;
 }

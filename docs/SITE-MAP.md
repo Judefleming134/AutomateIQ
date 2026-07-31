@@ -110,66 +110,44 @@ brand URL works today.
 
 ---
 
-## 6. What actually needs a decision
+## 6. Decisions — all five actioned 2026-07-31
 
-### 6.1 `public/demo.html` — 27KB, orphaned, and holding stale branding 🗑️
+| # | Decision | What happened |
+|---|---|---|
+| 6.1 | `public/demo.html` | **Deleted.** 27KB orphan holding all 13 remaining pre-rebrand names. `/demo.html` now 308s to `/demo`, the live receptionist demo. |
+| 6.2 | `/tradeos` → `/tradeiq` | **Moved.** The route tree is now `/tradeiq`; `/tradeos` and `/tradeos/:path*` 308 to it permanently. |
+| 6.3 | `/finance` | **Renamed to FinanceIQ**, kept as its own surface. |
+| 6.4 | `public/agents.html` | **Deleted** and removed from the sitemap. `/agents.html` 308s to `/systems`. |
+| 6.5 | Homepage | **PermitIQ added** as an eleventh agent card ("Planning & Permits"). |
 
-**Nothing links to it.** Not in the sitemap, not referenced from any page or
-route — but still publicly served at `automateiq.ie/demo.html` to anyone with
-the URL or an old search result.
+### Why the old TradeOS URLs are load-bearing, not a courtesy
 
-It contains **all 13 remaining old product names on the site**: "Review Agent"
-×3, "Content Agent" ×3, "Instant Quote" ×3, "AI Assistant" ×2, "Speed-to-Lead"
-×2. It is superseded by `/demo`, the live receptionist demo built as a Next
-route with `noindex` set.
+`/tradeos/doc/<token>` links are sitting in the inboxes of tradespeople's **own
+customers** — invoices and quotes emailed before the move. They must resolve
+years from now, and the `:path*` form is what carries the token through.
+`lib/products/redirects.test.ts` guards that: it asserts the wildcard rule
+exists, that the reverse rule was removed (the two together would loop), and
+that no source is also a destination.
 
-**Recommendation: delete it.** It is the only place on the public site still
-showing the pre-rebrand names, and it is doing no work. If you'd rather keep it,
-I'll rename the products inside it instead — but a 27KB orphan competing with
-the real demo page is worth losing.
+### On `/finance` staying separate
 
-### 6.2 `/tradeos` — do you want the URL moved to `/tradeiq`? ❓
+It shares TradeIQ's account system entirely, so folding it in is possible — but
+that is a product decision about how you sell it, not a cleanup. Renaming it
+costs nothing and can be undone; merging two navigations cannot. It is now
+FinanceIQ in the UI and still its own surface.
 
-Right now: brand says TradeIQ everywhere, URL stays `/tradeos`, and `/tradeiq`
-redirects in. That was deliberate — `/tradeos` is a signed-in product whose
-customers have bookmarks, saved passwords and emailed document links pointing at
-it.
+### On the homepage
 
-**Moving it properly** means making `/tradeiq` canonical, turning `/tradeos`
-into a permanent redirect, and re-checking every signed document link. Doable
-and safe if you want it; it just isn't free, and today's arrangement already
-lets you say "automateiq.ie/tradeiq" out loud.
-
-### 6.3 `/finance` — should it be FinanceIQ, and should it be separate? ❓
-
-It shares TradeIQ's account system entirely (`trades_accounts`); the only
-difference is which login screen you land on. It has 10 routes and its own login
-page. Two questions: does it get the **FinanceIQ** name in the UI, and should it
-stay a separate surface or become a section inside TradeIQ?
-
-### 6.4 `/agents.html` — 50KB static, indexed at priority 0.7 ❓
-
-A big static page listing the agents, ranked in your sitemap above the legal
-pages. It doesn't carry the old product names, but it predates the vertical
-structure (AutomateIQ Core / TradeIQ / ReputationIQ / PermitIQ) and won't
-mention PermitIQ at all.
-
-**Worth a decision:** refresh it to match the new product families, or fold it
-into `/systems` and redirect. Two pages describing your product range is one
-too many.
-
-### 6.5 The homepage is a 137KB static file ❓
-
-`public/index.html`. It works and it's fast, but it's outside the app — so it
-never picks up a rebrand, a new product, or the design system automatically.
-PermitIQ won't appear on your front page until someone edits that file by hand.
-
-Not urgent. Worth knowing before the next launch.
+The front page names agents by **function** ("Voice Receptionist",
+"Collections", "Workflow & Data"), not by product, so PermitIQ went in as
+"Planning & Permits" to match that voice rather than shouting a brand name into
+a page that doesn't use them. It is still a 137KB static file outside the app —
+that hasn't changed, and it will still need editing by hand next time.
 
 ---
 
-## 7. Nothing here needs removing for correctness
+## 7. State after the changes
 
-Every route resolves, no orphan pages under `/portal` or `/growth`, and the
-authenticated trees are correctly excluded from the sitemap. The only file I'd
-actually delete is `demo.html`.
+**98 page routes + 6 static HTML files.** Every route resolves, no orphan pages
+remain, the authenticated trees are correctly excluded from the sitemap, and
+every retired URL redirects somewhere live rather than 404ing.

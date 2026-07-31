@@ -25,7 +25,7 @@ describe("resolveHomeRoute", () => {
   it("THE LOOP: a trades/finance signup no longer bounces between /portal and /admin", () => {
     // role='customer', no business_id, and a trades account — exactly what the
     // auth trigger plus TradeIQ signup produces.
-    expect(resolveHomeRoute({ ...base, hasTradesAccount: true })).toBe("/tradeos");
+    expect(resolveHomeRoute({ ...base, hasTradesAccount: true })).toBe("/tradeiq");
   });
 
   it("sends a portal customer to /portal", () => {
@@ -42,7 +42,7 @@ describe("resolveHomeRoute", () => {
 
   it("a business always wins over an auto-created trades shell", () => {
     // requireTradesAccount() CREATES a trades_accounts row on first visit, so
-    // a portal customer who once clicked into /tradeos has one forever.
+    // a portal customer who once clicked into /tradeiq has one forever.
     // Without this precedence that shell would hijack their home permanently.
     expect(
       resolveHomeRoute({ ...base, businessId: "b1", hasTradesAccount: true })

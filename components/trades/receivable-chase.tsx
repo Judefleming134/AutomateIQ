@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Mail, Copy } from "lucide-react";
-import { draftExpenseEmail } from "@/app/tradeos/actions";
+import { draftExpenseEmail } from "@/app/tradeiq/actions";
 
 /**
  * One-tap chase draft for a receivable record on the aging list — reuses the

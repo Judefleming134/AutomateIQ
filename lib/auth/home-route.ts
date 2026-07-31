@@ -34,7 +34,7 @@ export type HomeRouteFlags = {
  *
  * 1. A portal business wins first. A trades_accounts row is NOT proof of a
  *    trades customer — requireTradesAccount() CREATES one on first visit, so a
- *    portal customer who once clicked into /tradeos has a shell row forever.
+ *    portal customer who once clicked into /tradeiq has a shell row forever.
  *    Checking the business first stops that shell from hijacking their home.
  * 2. Admin next: platform staff.
  * 3. Growth team: the internal sales workspace.
@@ -46,6 +46,6 @@ export function resolveHomeRoute(flags: HomeRouteFlags): string {
   if (flags.businessId) return "/portal";
   if (flags.role === "admin") return "/admin";
   if (flags.isGrowthMember) return "/growth";
-  if (flags.hasTradesAccount) return "/tradeos";
+  if (flags.hasTradesAccount) return "/tradeiq";
   return "/account-unavailable";
 }

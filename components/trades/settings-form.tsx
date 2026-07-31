@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveSettings } from "@/app/tradeos/actions";
+import { saveSettings } from "@/app/tradeiq/actions";
 import type { TradesAccount } from "@/lib/trades/data";
 
 export function SettingsForm({ account }: { account: TradesAccount }) {

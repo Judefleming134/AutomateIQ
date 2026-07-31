@@ -3,7 +3,7 @@ import { requireTradesAccount } from "@/lib/trades/data";
 import { formatEuro } from "@/lib/trades/core";
 import { recentMonths, vatPeriods } from "@/lib/finance/insights";
 
-export const metadata = { title: "Reports · AutomateIQ Finance" };
+export const metadata = { title: "Reports · FinanceIQ" };
 
 export default async function ReportsPage() {
   const { supabase, account } = await requireTradesAccount("/finance/login");

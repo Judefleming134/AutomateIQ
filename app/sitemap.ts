@@ -4,8 +4,13 @@ const SITE = "https://automateiq.ie";
 
 /**
  * Served at /sitemap.xml. Lists the public, indexable pages: the marketing
- * home, the agents overview, the AI Strategy Session booking page and the
- * legal pages. The authenticated app is intentionally excluded.
+ * home, the systems overview, the AI Strategy Session booking page, the free
+ * tools and the legal pages. The authenticated app is intentionally excluded.
+ *
+ * /agents.html was removed 2026-07-31: it was a 50KB static page nothing linked
+ * to, describing the product range from before the vertical structure existed
+ * (so it could never mention PermitIQ). /systems covers the same ground, lives
+ * in the app, and updates with the product. The old URL 308s to it.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
@@ -25,7 +30,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/freetools/missed-calls`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/freetools/reviews`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/freetools/quote-builder`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE}/agents.html`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     // The policies hub and the AI-governance statement are deliberately
     // indexable and ranked above the boilerplate legal pages: "how does this
     // company handle the EU AI Act" is a question prospects genuinely search,
