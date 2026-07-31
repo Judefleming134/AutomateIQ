@@ -491,4 +491,36 @@ pasting into the Supabase SQL editor.**
 
 ---
 
-*Phase 1 complete. Phase 2 began 2026-07-31 with F1 (product families).*
+## 10. Phase 2 progress
+
+| Ref | Item | Status |
+|---|---|---|
+| F1 | Product family layer | ✅ shipped 2026-07-31 — portal grouped into AutomateIQ Core / TradeIQ / ReputationIQ, keys frozen |
+| F4 | Agent Framework v2 | ✅ shipped 2026-07-31 — `instructions`, `permissions`, `knowledgeSources` (all optional) + `agent_runs` (migration 0032) |
+| F2 | One `requireTenant()` | next |
+| F3 | Unified `/login` | pending |
+| F6 | Vitest + CI gate | pending — **before PermitIQ** |
+| F5 | `trades_accounts` → `businesses` | last, days 71–90 |
+
+### Note on F4 as shipped
+
+Two deliberate limits, both to protect the eleven live agents:
+
+- **`permissions` is declared and displayed, not enforced.** No live module
+  declares a permission set today; switching on enforcement in the same change
+  that introduces the field would have broken all eleven at once. Enforcement is
+  a separate, verifiable change once every module declares its set.
+- **`instructions` is inert until declared.** The assistant's system prompt was
+  verified byte-for-byte identical (1089 chars before and after) with no module
+  declaring the field, so today's behaviour is unchanged and PermitIQ's agents
+  are the first real users.
+
+`agent_runs` stores **no tool input or output** — those routinely carry customer
+names, emails and quote figures, and a debug log is the wrong place for personal
+data to accumulate. The row records that a call happened, how it went and how
+long it took.
+
+---
+
+*Phase 1 complete. Phase 2 began 2026-07-31 with F1 (product families) and F4
+(Agent Framework v2).*

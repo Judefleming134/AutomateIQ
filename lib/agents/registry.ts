@@ -62,7 +62,13 @@ export function getInstalledAgents(enabledKeys: Set<string>): AgentModule[] {
   );
 }
 
-export type DiscoveredTool = AgentTool & { agentName: string };
+/**
+ * `agentKey` rides alongside `agentName` so the run log can record a STABLE
+ * identifier. agentName is display copy and can be reworded at any time —
+ * grouping a month of performance history by a display string would silently
+ * split an agent's stats in two the first time someone edits its label.
+ */
+export type DiscoveredTool = AgentTool & { agentName: string; agentKey: string };
 
 /**
  * Connect/disconnect-aware self-knowledge: lets the Assistant answer
@@ -75,6 +81,7 @@ export type DiscoveredTool = AgentTool & { agentName: string };
 function agentStatusTool(enabledKeys: Set<string>): DiscoveredTool {
   return {
     agentName: platformModule.name,
+    agentKey: platformModule.key,
     name: "get_agent_status",
     description:
       "List every AutomateIQ agent with its status on THIS account — installed (callable now), available to add, or coming soon — plus what each one does. Use when asked what you can do, whether a specific agent is set up, or what the platform offers.",
@@ -108,7 +115,7 @@ export function getToolsForBusiness(
   const modules = [platformModule, ...getInstalledAgents(enabledKeys)];
   return [
     ...modules.flatMap((m) =>
-      m.tools.map((t) => ({ ...t, agentName: m.name }))
+      m.tools.map((t) => ({ ...t, agentName: m.name, agentKey: m.key }))
     ),
     agentStatusTool(enabledKeys),
   ];
