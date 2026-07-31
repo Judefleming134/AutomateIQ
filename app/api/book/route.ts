@@ -3,6 +3,12 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isBookableSlot } from "@/lib/booking/slots";
 import {
+  clientAddress,
+  hashIp,
+  overIpLimit,
+  IP_BOOKING_WINDOW_HOURS,
+} from "@/lib/booking/ip-guard";
+import {
   sendBookingConfirmation,
   sendOwnerNotification,
 } from "@/lib/email/send-booking-emails";
@@ -68,9 +74,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Second abuse guard, on ORIGIN rather than address. The email limit above
+  // is real, but a script that varies the address walks straight past it —
+  // and each accepted booking holds a slot and sends two emails. Same
+  // fail-OPEN stance: losing a genuine booking is worse than letting one
+  // extra through, so a query error never blocks. See lib/booking/ip-guard.ts
+  // for why an IP is hashed rather than stored.
+  const ipHash = hashIp(clientAddress(request.headers));
+  if (ipHash) {
+    const windowStart = new Date(
+      Date.now() - IP_BOOKING_WINDOW_HOURS * 3600 * 1000
+    ).toISOString();
+    const { count: recentForIp, error: ipError } = await supabase
+      .from("strategy_bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("created_ip_hash", ipHash)
+      .gte("created_at", windowStart);
+    if (!ipError && overIpLimit(recentForIp ?? 0)) {
+      return NextResponse.json(
+        {
+          error:
+            "There have been a lot of bookings from your connection today. Email hello@automateiq.ie and we'll sort a time directly.",
+        },
+        { status: 429 }
+      );
+    }
+  }
+
   const { data: booking, error } = await supabase
     .from("strategy_bookings")
     .insert({
+      created_ip_hash: ipHash,
       name: d.name,
       company: d.company || null,
       email: d.email,
