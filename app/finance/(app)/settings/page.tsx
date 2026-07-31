@@ -12,7 +12,7 @@ export default async function FinanceSettingsPage() {
           <h1>Settings</h1>
           <p>
             Your business details — used on drafted emails, and shared with your
-            TradeOS account (it&apos;s the same account).
+            TradeIQ account (it&apos;s the same account).
           </p>
         </div>
       </div>

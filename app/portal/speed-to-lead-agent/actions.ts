@@ -25,7 +25,7 @@ export async function updateSpeedToLeadSettings(
 
   const enabled = await requireProductEnabled(businessId, "speed-to-lead-agent");
   if (!enabled) {
-    return { error: "Speed-to-Lead Agent is not enabled for your account." };
+    return { error: "LeadIQ is not enabled for your account." };
   }
 
   const parsed = settingsSchema.safeParse({

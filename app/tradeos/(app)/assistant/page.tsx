@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react";
 import { requireTradesAccount } from "@/lib/trades/data";
 import { TradesAssistant } from "@/components/trades/trades-assistant";
 
-export const metadata = { title: "Assistant · TradeOS" };
+export const metadata = { title: "Assistant · TradeIQ" };
 
 // Each answer runs one live AI call inside this route's actions.
 export const maxDuration = 60;

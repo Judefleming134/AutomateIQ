@@ -44,24 +44,24 @@ Welcome aboard. You've just given your business a team of AI employees that work
 
 ## What AutomateIQ does for you
 
-AutomateIQ is a single platform where specialist AI agents handle the repetitive work that eats your week. You talk to one **AI Assistant**; it coordinates the rest.
+AutomateIQ is a single platform where specialist AI agents handle the repetitive work that eats your week. You talk to one **AssistIQ**; it coordinates the rest.
 
 | Agent | What it does for you |
 | --- | --- |
-| AI Assistant | Your control centre — ask it anything, and it runs the other agents |
-| Review Agent | Automates Google review requests and reminders |
-| Website Agent | A hosted page that captures enquiries straight into the platform |
-| Instant Quote Agent | Turns a job description into a branded quote your customer accepts online |
-| Content Agent | Plans and writes whole marketing campaigns in your voice |
-| CRM Agent | Every contact, lead and customer in one pipeline |
-| Speed-to-Lead Agent | Replies to new leads within 60 seconds, day or night |
+| AssistIQ | Your control centre — ask it anything, and it runs the other agents |
+| ReputationIQ | Automates Google review requests and reminders |
+| SiteIQ | A hosted page that captures enquiries straight into the platform |
+| QuoteIQ | Turns a job description into a branded quote your customer accepts online |
+| ContentIQ | Plans and writes whole marketing campaigns in your voice |
+| ClientIQ | Every contact, lead and customer in one pipeline |
+| LeadIQ | Replies to new leads within 60 seconds, day or night |
 
 ## Your first week
 
 - [ ] Complete the **Client Onboarding Guide**
 - [ ] Fill in your **Business Knowledge** under Settings (this powers every agent)
 - [ ] Send your first review request
-- [ ] Ask the AI Assistant: *"How is my business doing right now?"*
+- [ ] Ask AssistIQ: *"How is my business doing right now?"*
 - [ ] Book your onboarding call if you haven't already
 
 ## Who to contact
@@ -92,7 +92,7 @@ Everything the AI does draws on what your business knows. Set this once and ever
 
 - [ ] Go to **Settings → Business knowledge** and describe your business: services, prices, hours, service area, and anything customers commonly ask
 - [ ] Set your **brand voice / tone**
-- [ ] Add your logo and, if you use the Review Agent, your Google review link
+- [ ] Add your logo and, if you use ReputationIQ, your Google review link
 
 > [!IMPORTANT] The quality of everything the AI produces is directly tied to the detail here. Ten minutes now saves hours later.
 
@@ -101,22 +101,22 @@ Everything the AI does draws on what your business knows. Set this once and ever
 Your enabled agents appear on your dashboard and in the Products hub. For each one:
 
 1. Open the agent from your dashboard
-2. Complete its short setup (e.g. the Instant Quote Agent needs your price guide)
+2. Complete its short setup (e.g. QuoteIQ needs your price guide)
 3. Run it once to see it work
 
 ## Stage 3 — First results
 
 | Goal | Do this |
 | --- | --- |
-| A review | Send a review request from the Review Agent |
-| A quote | Create and send a quote from the Instant Quote Agent |
-| A campaign | Launch a campaign in the Content Agent |
+| A review | Send a review request from ReputationIQ |
+| A quote | Create and send a quote from QuoteIQ |
+| A campaign | Launch a campaign in ContentIQ |
 | A tidy pipeline | Click "Import from agents" in the CRM |
 
 ## Stage 4 — Make it a habit
 
 - [ ] Bookmark your dashboard on your phone's home screen
-- [ ] Each morning, open the AI Assistant and ask what needs attention
+- [ ] Each morning, open AssistIQ and ask what needs attention
 - [ ] Review your Analytics weekly
 
 ## Onboarding checklist
@@ -178,7 +178,7 @@ The more we understand your business, the better we can configure AutomateIQ for
 
 > [!NOTE] Is there anything specific to your business we should know — busy seasons, compliance requirements, a particular tone you want, jobs you *don't* take? Tell us here.
 
-Return this to your onboarding specialist, or simply tell the AI Assistant and it will capture the essentials into your Business Knowledge.`,
+Return this to your onboarding specialist, or simply tell AssistIQ and it will capture the essentials into your Business Knowledge.`,
   },
   {
     slug: "statement-of-work",
@@ -248,13 +248,13 @@ A short, practical checklist of what we need to get you live. Most clients compl
 ## Access & accounts
 
 - [ ] A primary email address for your account owner
-- [ ] Google Business Profile access (for the Review Agent's review link)
+- [ ] Google Business Profile access (for ReputationIQ's review link)
 - [ ] Your logo file (PNG or SVG, transparent background preferred)
 
 ## Business information
 
 - [ ] Services and descriptions
-- [ ] Pricing / rate card (for the Instant Quote Agent)
+- [ ] Pricing / rate card (for QuoteIQ)
 - [ ] Opening hours and service area
 - [ ] Contact details to display to customers
 
@@ -355,7 +355,7 @@ Need something changed, added or configured differently? This is how to request 
 
 ## The process
 
-1. Submit the request to hello@automateiq.ie (or ask the AI Assistant to note it)
+1. Submit the request to hello@automateiq.ie (or ask AssistIQ to note it)
 2. We assess scope, effort and any cost, and respond with options
 3. You approve
 4. We schedule and deliver
@@ -401,11 +401,11 @@ You are fully in control of:
 
 | Frequency | Do this |
 | --- | --- |
-| Daily | Ask the AI Assistant what needs attention |
+| Daily | Ask AssistIQ what needs attention |
 | Weekly | Review Analytics; clear CRM follow-ups |
 | Monthly | Review results; refine knowledge and templates |
 
-> [!TIP] The businesses that get the most from AutomateIQ treat the AI Assistant like a team member — they check in with it daily. Build the habit early.
+> [!TIP] The businesses that get the most from AutomateIQ treat AssistIQ like a team member — they check in with it daily. Build the habit early.
 
 ## Sign-off
 
@@ -422,11 +422,11 @@ Once the checklist above is complete, your handover is done. Welcome to the ongo
 
 This manual trains your team to use AutomateIQ confidently. Work through each module; each takes about ten minutes.
 
-## Module 1 — The dashboard & AI Assistant
+## Module 1 — The dashboard & AssistIQ
 
-Your dashboard is mission control. The AI Assistant is how you get things done.
+Your dashboard is mission control. AssistIQ is how you get things done.
 
-- Open the AI Assistant and ask: *"What should I focus on today?"*
+- Open AssistIQ and ask: *"What should I focus on today?"*
 - Try a task: *"Send a review request to [name] at [email]"*
 - Notice the action chips showing what the assistant did
 
@@ -434,7 +434,7 @@ Your dashboard is mission control. The AI Assistant is how you get things done.
 
 ## Module 2 — Reviews
 
-- Open the Review Agent
+- Open ReputationIQ
 - Send a request; watch it move through sent → clicked
 - Review the History tab
 
@@ -458,7 +458,7 @@ Your dashboard is mission control. The AI Assistant is how you get things done.
 
 ## Competency checklist
 
-- [ ] Can complete a task via the AI Assistant
+- [ ] Can complete a task via AssistIQ
 - [ ] Can send a review request
 - [ ] Can create and send a quote
 - [ ] Can launch a content campaign
@@ -482,7 +482,7 @@ A reference to every area of AutomateIQ. Use it to look things up as you go.
 | Area | What it's for |
 | --- | --- |
 | Dashboard | Your daily overview, health score and quick actions |
-| AI Assistant | Ask anything; it runs your agents |
+| AssistIQ | Ask anything; it runs your agents |
 | Products | Every agent you have and what's available |
 | Analytics | Results across every agent |
 | Projects | Custom modules and your documents |
@@ -507,7 +507,7 @@ Under **Settings → Business knowledge**, keep your services, prices and polici
 
 ## Getting help
 
-- Ask the AI Assistant first — it can answer most questions
+- Ask AssistIQ first — it can answer most questions
 - See the **Support Guide** for response times and how to reach a human`,
   },
   {
@@ -525,7 +525,7 @@ Under **Settings → Business knowledge**, keep your services, prices and polici
 Most clients send their first review request or quote on day one. Meaningful momentum builds over the first two weeks.
 
 **Do I need technical skills?**
-No. If you can send an email, you can use AutomateIQ. The AI Assistant does the heavy lifting.
+No. If you can send an email, you can use AutomateIQ. AssistIQ does the heavy lifting.
 
 ## The AI agents
 
@@ -554,7 +554,7 @@ Yes — talk to us and we'll adjust your plan. See the **Change Request Form**.
 **What if I need something custom?**
 Custom modules are built for exactly how your business works. Raise a Change Request.
 
-> [!TIP] Can't find your answer? Ask the AI Assistant — it knows your account — or email hello@automateiq.ie.`,
+> [!TIP] Can't find your answer? Ask AssistIQ — it knows your account — or email hello@automateiq.ie.`,
   },
   {
     slug: "support-guide",
@@ -571,7 +571,7 @@ We're here when you need us. This guide explains how to get help and how quickly
 
 | Channel | Best for |
 | --- | --- |
-| AI Assistant | Instant answers about your account |
+| AssistIQ | Instant answers about your account |
 | hello@automateiq.ie | Anything the assistant can't resolve |
 | Your onboarding specialist | During your first two weeks |
 
@@ -764,15 +764,15 @@ AutomateIQ uses AI to do real work for your business. This policy explains how w
 - **You're in control.** Nothing goes to a customer without your say-so, other than automations you explicitly configure (like the Speed-to-Lead reply, whose wording you own).
 - **Grounded, not guessing.** Agents use your Business Knowledge and price guide. They don't invent prices, availability or policies.
 - **Your voice.** Content is generated in the tone you set, for you to review and edit.
-- **Transparency.** When the AI Assistant takes an action, it tells you what it did.
+- **Transparency.** When AssistIQ takes an action, it tells you what it did.
 
 ## How AI is used per agent
 
 | Agent | AI's role |
 | --- | --- |
-| AI Assistant | Understands your request and calls the right agent |
-| Content Agent | Drafts content in your brand voice |
-| Instant Quote Agent | Structures a quote from your price guide only |
+| AssistIQ | Understands your request and calls the right agent |
+| ContentIQ | Drafts content in your brand voice |
+| QuoteIQ | Structures a quote from your price guide only |
 | Review / Speed-to-Lead | Personalise messages you've approved |
 
 ## What the AI does *not* do
@@ -795,6 +795,6 @@ AutomateIQ uses AI to do real work for your business. This policy explains how w
 
 You agree to use AutomateIQ's AI features lawfully and not to generate misleading, harmful or unlawful content. We reserve the right to suspend misuse.
 
-Questions about how AI is used on your account? Ask the AI Assistant or email hello@automateiq.ie.`,
+Questions about how AI is used on your account? Ask AssistIQ or email hello@automateiq.ie.`,
   },
 ];

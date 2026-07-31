@@ -1,6 +1,6 @@
 /**
  * Single source of truth for the platform's LLM configuration. Every agent
- * that talks to a model (AI Assistant, Content Agent, Instant Quote Agent)
+ * that talks to a model (AssistIQ, ContentIQ, QuoteIQ)
  * imports from here, so upgrading a model or endpoint is a one-line change
  * in one place instead of a hunt across the codebase.
  *

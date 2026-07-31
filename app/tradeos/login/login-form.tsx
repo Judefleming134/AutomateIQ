@@ -84,7 +84,7 @@ export default function TradesLoginForm() {
         Quotes &amp; invoices for your trade — send them in seconds, get paid faster.
       </p>
 
-      {/* Mirror of the Finance login's TradeOS box: one account system, so a
+      {/* Mirror of the Finance login's TradeIQ box: one account system, so a
           Finance user signing in here is linked automatically. */}
       <div
         style={{

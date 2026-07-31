@@ -5,7 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
 
 export const metadata: Metadata = {
-  title: "TradeOS",
+  title: "TradeIQ",
   robots: { index: false, follow: false },
 };
 
@@ -35,8 +35,8 @@ export default async function TradesLayout({
 
   return (
     <AppShell
-      brandLabel="TradeOS"
-      topbarTitle="TradeOS"
+      brandLabel="TradeIQ"
+      topbarTitle="TradeIQ"
       userLabel={name}
       userInitial={name.charAt(0).toUpperCase()}
       sections={sections}

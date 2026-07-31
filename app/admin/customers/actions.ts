@@ -289,7 +289,7 @@ export async function setProductEnabled(
 }
 
 /**
- * Provision a business's Voice Agent from the admin, AND pre-seed the
+ * Provision a business's VoiceIQ from the admin, AND pre-seed the
  * knowledge so the customer logs in to a fully-wired receptionist — status,
  * number and ElevenLabs link (AutomateIQ-controlled) PLUS the greeting /
  * services / hours / area / extra knowledge that would otherwise be blank
@@ -404,7 +404,7 @@ export async function saveVoiceProvisioning(
 }
 
 /**
- * Pre-seed a business's AI Assistant knowledge + tone from the admin, so the
+ * Pre-seed a business's AssistIQ knowledge + tone from the admin, so the
  * assistant is "online" and already knows the business the moment the customer
  * logs in — no blank-slate first run. The customer can still edit it in their
  * portal afterwards.

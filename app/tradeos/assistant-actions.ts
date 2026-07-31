@@ -150,7 +150,7 @@ async function runAssistantAction(
 }
 
 /**
- * The TradeOS assistant: a chat over the account's LIVE books. Every question
+ * The TradeIQ assistant: a chat over the account's LIVE books. Every question
  * rebuilds a fresh snapshot (documents, customers, bills) through the caller's
  * RLS client, so answers only ever come from their own data — and money
  * figures only from real rows, never invented. It can also CREATE draft
@@ -207,7 +207,7 @@ export async function askTradesAssistant(
     .reduce((s, e) => s + Number(e.total), 0);
 
   const system = [
-    `You are the AutomateIQ assistant inside TradeOS for "${account.business_name || "this business"}"${account.trade ? ` (${account.trade})` : ""}. You help run their quotes, invoices, customers and money — plain-spoken, fast, zero fluff.`,
+    `You are the AutomateIQ assistant inside TradeIQ for "${account.business_name || "this business"}"${account.trade ? ` (${account.trade})` : ""}. You help run their quotes, invoices, customers and money — plain-spoken, fast, zero fluff.`,
     "HARD RULES:",
     "- Ground every answer in the DATA SNAPSHOT. Name real customers, documents and amounts from it. If the data doesn't hold the answer, say what's missing — never invent a number, price, or customer.",
     "- When asked for a customer's details, give exactly what's on file (phone/email/address) — and say plainly if a field is missing.",

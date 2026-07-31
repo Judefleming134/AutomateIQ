@@ -7,7 +7,7 @@ import { isMissingTableError } from "@/lib/db/errors";
 /**
  * ElevenLabs voice-agent post-call webhook → an instant job email AND a job
  * row on the owning customer's dashboard (va_jobs → portal feed, Analytics,
- * and the AI Assistant's read_voice_jobs tool).
+ * and AssistIQ's read_voice_jobs tool).
  *
  * Point the agent's Post-call webhook at:
  *   https://automateiq.ie/api/voice/job-summary?secret=<ELEVENLABS_WEBHOOK_SECRET>
@@ -166,7 +166,7 @@ async function resolveBusiness(
     via:
       liveBiz && liveBiz.length > 1
         ? "multiple voice customers and no agent ID matched — paste this agent's ID into Admin → Customers → Voice provisioning (or set VOICE_BUSINESS_ID)"
-        : "no live voice customer is provisioned — assign the Voice Agent product and save provisioning in Admin → Customers",
+        : "no live voice customer is provisioned — assign VoiceIQ product and save provisioning in Admin → Customers",
   };
 }
 

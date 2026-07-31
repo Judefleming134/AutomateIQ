@@ -5,17 +5,17 @@ import { aiComplete } from "@/lib/ai/complete";
 import { generateAvailability, BOOKING_CONFIG } from "@/lib/booking/slots";
 
 /**
- * Instagram DM Setter — shared intelligence core.
+ * SocialIQ — shared intelligence core.
  *
  * The setter is NOT a separate chatbot. It composes its system prompt from the
- * SAME business memory the AI Assistant uses (aa_assistants.knowledge + tone),
+ * SAME business memory AssistIQ uses (aa_assistants.knowledge + tone),
  * the SAME booking system (strategy_bookings availability + /book), and the
- * SAME LLM path (lib/ai/complete). It is the AI Assistant's intelligence,
+ * SAME LLM path (lib/ai/complete). It is AssistIQ's intelligence,
  * pointed at Instagram lead engagement and appointment booking.
  *
  * Every function takes a Supabase client and an explicit businessId and filters
  * by business_id on every query, so it is tenant-safe whether called with the
- * caller's RLS-scoped client (portal simulator, AI Assistant tools) or the
+ * caller's RLS-scoped client (portal simulator, AssistIQ tools) or the
  * service-role client (public webhook, which has no session).
  */
 
@@ -43,7 +43,7 @@ async function loadContext(
   const [{ data: business }, { data: assistant }, { data: settings }] =
     await Promise.all([
       supabase.from("businesses").select("name").eq("id", businessId).maybeSingle(),
-      // Shared memory: the exact knowledge base + tone the AI Assistant uses.
+      // Shared memory: the exact knowledge base + tone AssistIQ uses.
       supabase
         .from("aa_assistants")
         .select("knowledge, tone")
@@ -73,7 +73,7 @@ function buildSystemPrompt(ctx: SetterContext): string {
     .join(", ");
 
   return [
-    `You are the Instagram DM Setter for ${ctx.businessName} — a specialist member of the AutomateIQ AI workforce, working under the business's AI Assistant. You share the AI Assistant's knowledge, memory and business context; you are the same intelligence, focused on one job: engaging Instagram DMs and booking appointments.`,
+    `You are the SocialIQ for ${ctx.businessName} — a specialist member of the AutomateIQ AI workforce, working under the business's AssistIQ. You share AssistIQ's knowledge, memory and business context; you are the same intelligence, focused on one job: engaging Instagram DMs and booking appointments.`,
     `Your goals, in order: (1) reply warmly and helpfully like a real team member, (2) understand what the lead needs, (3) answer their questions using ONLY the business information below, (4) guide interested leads to book a free appointment.`,
     `Tone: ${ctx.tone || "friendly, warm and professional"}. Write like a real person in an Instagram DM — short, natural messages, no corporate stiffness, occasional emoji is fine. Keep each reply to 1–3 short sentences.`,
     ctx.persona ? `Extra guidance for this account: ${ctx.persona}` : null,

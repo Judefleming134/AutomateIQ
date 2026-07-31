@@ -79,7 +79,7 @@ export default async function ContentAgentPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Content Agent</h1>
+          <h1>ContentIQ</h1>
           <p>
             Plan campaigns, generate a week of on-brand content in one click,
             schedule it on a calendar, and publish — a full content operation.

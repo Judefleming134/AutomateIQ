@@ -31,7 +31,7 @@ export async function updateInstagramSettings(
   const businessId = profile.business_id!;
 
   const enabled = await requireProductEnabled(businessId, PRODUCT);
-  if (!enabled) return { error: "Instagram DM Setter is not enabled for your account." };
+  if (!enabled) return { error: "SocialIQ is not enabled for your account." };
 
   const parsed = settingsSchema.safeParse({
     igAccountId: formData.get("igAccountId") || "",
@@ -84,7 +84,7 @@ type SimResult =
 /**
  * Test the setter end-to-end without a live Meta connection: inject a DM as if
  * it came from a lead. Runs the exact same pipeline the webhook uses (store →
- * AI reply → store), so the conversation also appears to the AI Assistant.
+ * AI reply → store), so the conversation also appears to AssistIQ.
  */
 export async function simulateInboundMessage(
   username: string,
@@ -94,7 +94,7 @@ export async function simulateInboundMessage(
   const businessId = profile.business_id!;
 
   const enabled = await requireProductEnabled(businessId, PRODUCT);
-  if (!enabled) return { ok: false, error: "Instagram DM Setter is not enabled for your account." };
+  if (!enabled) return { ok: false, error: "SocialIQ is not enabled for your account." };
 
   const cleanText = text.trim().slice(0, 2000);
   const cleanUser = (username.trim().replace(/^@/, "") || "test_lead").slice(0, 120);

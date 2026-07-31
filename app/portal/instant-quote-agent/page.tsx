@@ -57,7 +57,7 @@ export default async function InstantQuoteAgentPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Instant Quote Agent</h1>
+          <h1>QuoteIQ</h1>
           <p>
             Price a job in seconds, send a branded quote your customer can
             accept online, and watch it move from sent to won.

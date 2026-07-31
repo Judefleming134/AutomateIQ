@@ -17,7 +17,7 @@ export type CreateQuoteResult =
   | { ok: false; error: string };
 
 /**
- * Instant Quote Agent core, shared by the portal page and the AI
+ * QuoteIQ core, shared by the portal page and the AI
  * Assistant's create_quote tool. Prices come strictly from the business's
  * own price guide — the model is instructed never to invent a price.
  */
@@ -41,12 +41,12 @@ export async function createQuoteCore(
     return {
       ok: false,
       error:
-        "Add your price guide first — the Instant Quote Agent only quotes from YOUR prices, never invented ones.",
+        "Add your price guide first — QuoteIQ only quotes from YOUR prices, never invented ones.",
     };
   }
 
   const system = [
-    `You are the Instant Quote Agent for ${business?.name ?? "a business"}. You turn a job description into an itemised quote using ONLY the price guide below.`,
+    `You are QuoteIQ for ${business?.name ?? "a business"}. You turn a job description into an itemised quote using ONLY the price guide below.`,
     `Price guide:\n${settings.price_guide}`,
     `Rules:
 - Every line item's price must come from the price guide (or be a clearly labelled estimate derived from it, e.g. "2 hrs @ €95").
@@ -70,8 +70,8 @@ export async function createQuoteCore(
       ok: false,
       error:
         err instanceof Error && err.message === "NO_PROVIDER"
-          ? "The Instant Quote Agent isn't connected yet — add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel."
-          : "The Instant Quote Agent couldn't price that just now — please try again.",
+          ? "The QuoteIQ isn't connected yet — add an ANTHROPIC_API_KEY (or GEMINI_API_KEY) in Vercel."
+          : "The QuoteIQ couldn't price that just now — please try again.",
     };
   }
 

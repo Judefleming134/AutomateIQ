@@ -37,7 +37,7 @@ export async function updateWebsitePage(
 
   const enabled = await requireProductEnabled(businessId, "website-agent");
   if (!enabled) {
-    return { error: "Website Agent is not enabled for your account." };
+    return { error: "SiteIQ is not enabled for your account." };
   }
 
   const parsed = pageSchema.safeParse({

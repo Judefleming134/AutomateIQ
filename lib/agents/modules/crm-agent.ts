@@ -15,7 +15,7 @@ function sanitizeIlike(q: string) {
 
 export const crmAgentModule: AgentModule = {
   key: "crm-agent",
-  name: "CRM Agent",
+  name: "ClientIQ",
   version: "1.0",
   category: "operations",
   description:

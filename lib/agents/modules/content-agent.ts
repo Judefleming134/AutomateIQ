@@ -18,7 +18,7 @@ const generateInput = z.object({
 
 export const contentAgentModule: AgentModule = {
   key: "content-agent",
-  name: "Content Agent",
+  name: "ContentIQ",
   version: "1.0",
   category: "content",
   description:

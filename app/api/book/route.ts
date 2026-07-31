@@ -19,7 +19,7 @@ const bookingSchema = z.object({
 
 /**
  * Public booking endpoint for the AI Strategy Session page. No session
- * (public visitors) — writes via the service-role client, like Website Agent
+ * (public visitors) — writes via the service-role client, like SiteIQ
  * lead capture. Availability is validated server-side and, decisively, by the
  * DB's partial unique index on slot_at, so two people racing for the same slot
  * can't both win.

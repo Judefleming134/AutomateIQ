@@ -10,8 +10,8 @@ import {
 } from "@/lib/ai/config";
 
 /**
- * Plain-text LLM completion shared by generative agents (Content Agent,
- * Instant Quote Agent). Provider selection and model IDs come from
+ * Plain-text LLM completion shared by generative agents (ContentIQ,
+ * QuoteIQ). Provider selection and model IDs come from
  * lib/ai/config. Throws on failure — callers surface a friendly message:
  *   - "NO_PROVIDER"  → no API key configured
  *   - "EMPTY_OUTPUT" → model returned nothing (retryable)

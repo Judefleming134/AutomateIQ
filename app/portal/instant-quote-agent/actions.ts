@@ -23,7 +23,7 @@ export async function savePriceGuide(
   const businessId = profile.business_id!;
 
   const enabled = await requireProductEnabled(businessId, "instant-quote-agent");
-  if (!enabled) return { error: "Instant Quote Agent is not enabled for your account." };
+  if (!enabled) return { error: "QuoteIQ is not enabled for your account." };
 
   const parsed = guideSchema.safeParse({ priceGuide: formData.get("priceGuide") ?? "" });
   if (!parsed.success) {
@@ -87,7 +87,7 @@ export async function createQuote(
 
   const enabled = await requireProductEnabled(businessId, "instant-quote-agent");
   if (!enabled) {
-    return { ok: false, error: "Instant Quote Agent is not enabled for your account." };
+    return { ok: false, error: "QuoteIQ is not enabled for your account." };
   }
 
   const parsed = quoteSchema.safeParse({ customerName, customerEmail, jobDescription });
@@ -119,7 +119,7 @@ export async function sendQuote(
 
   const enabled = await requireProductEnabled(businessId, "instant-quote-agent");
   if (!enabled) {
-    return { ok: false, error: "Instant Quote Agent is not enabled for your account." };
+    return { ok: false, error: "QuoteIQ is not enabled for your account." };
   }
 
   const supabase = await createClient();

@@ -22,7 +22,7 @@ function describeLocation(v: {
 }
 
 /**
- * AI Logistics Control Centre — registered as a specialist agent so the AI
+ * FleetIQ — registered as a specialist agent so the AI
  * Assistant discovers its tools and delegates logistics questions to it
  * ("where is Truck 12?", "show delayed deliveries"). Every tool reads the
  * business's own RLS-scoped logistics data, so the assistant and the Control
@@ -30,7 +30,7 @@ function describeLocation(v: {
  */
 export const logisticsAgentModule: AgentModule = {
   key: "logistics-control-centre",
-  name: "AI Logistics Control Centre",
+  name: "FleetIQ",
   version: "1.0",
   category: "operations",
   description:
@@ -44,7 +44,7 @@ export const logisticsAgentModule: AgentModule = {
     "Warehouses, vehicles, drivers, routes & deliveries",
     "Fleet, warehouse, driver & business KPIs",
     "GPS-provider ready (Samsara, Geotab, Traccar…)",
-    "Ask the AI Assistant: 'where is Aoife?', 'how full is Dublin Depot?', 'where is Truck 12?'",
+    "Ask AssistIQ: 'where is Aoife?', 'how full is Dublin Depot?', 'where is Truck 12?'",
   ],
   tools: [
     {

@@ -5,9 +5,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * Every AI product on the platform is an AgentModule. A module declares its
  * metadata (name, version, category, capabilities), its portal surface
- * (href), and — when live — the tools it exposes to the AI Assistant.
+ * (href), and — when live — the tools it exposes to AssistIQ.
  *
- * The AI Assistant discovers installed modules at runtime via the registry
+ * AssistIQ discovers installed modules at runtime via the registry
  * (`getInstalledAgents` / `getToolsForBusiness`) and calls their tools to
  * complete tasks, so a future agent integrates by adding ONE module file
  * and one registry entry — never by changing the assistant, the shell, or
@@ -111,7 +111,7 @@ export type AgentModule = {
   availability: AgentAvailability;
   /** Human-readable capability list, shown on the Products page. */
   capabilities: string[];
-  /** Callable functions exposed to the AI Assistant (live modules only). */
+  /** Callable functions exposed to AssistIQ (live modules only). */
   tools: AgentTool[];
 
   // ---- Agent Framework v2 -------------------------------------------------
@@ -119,7 +119,7 @@ export type AgentModule = {
   // compiling and behaving identically. A module opts in field by field.
 
   /**
-   * Agent-specific guidance appended to the AI Assistant's system prompt when
+   * Agent-specific guidance appended to AssistIQ's system prompt when
    * this module is installed. Use it for rules only this agent knows — the
    * order it needs facts in, what it must never guess, when to hand back.
    *

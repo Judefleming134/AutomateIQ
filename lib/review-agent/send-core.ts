@@ -8,8 +8,8 @@ export type SendReviewRequestResult =
   | { ok: false; error: string };
 
 /**
- * Core review-request send flow, shared by the Review Agent's send form and
- * the AI Assistant's `send_review_request` tool. The caller is responsible
+ * Core review-request send flow, shared by ReputationIQ's send form and
+ * AssistIQ's `send_review_request` tool. The caller is responsible
  * for auth + entitlement checks; `supabase` must be the RLS-scoped server
  * client so every read/write stays inside the caller's own business.
  */

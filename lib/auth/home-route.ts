@@ -12,9 +12,9 @@
  * hatch — role === 'growth' → /growth — can never fire, because the CHECK
  * constraint on profiles.role only permits 'admin' and 'customer'.
  *
- * That account shape is not hypothetical or rare. TradeOS and Finance both
+ * That account shape is not hypothetical or rare. TradeIQ and Finance both
  * have self-serve signup, and the auth trigger creates exactly this profile
- * when no business_id is supplied in the user metadata. So every TradeOS or
+ * when no business_id is supplied in the user metadata. So every TradeIQ or
  * Finance customer who reaches /portal hits the loop — including from the main
  * /login form, which defaults to /portal after a successful sign-in.
  *

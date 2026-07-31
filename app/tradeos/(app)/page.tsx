@@ -4,7 +4,7 @@ import { requireTradesAccount, needsOnboarding } from "@/lib/trades/data";
 import { StatCard } from "@/components/portal/stat-card";
 import { DOCUMENT_STATUS_META, formatEuro, isOverdue } from "@/lib/trades/core";
 
-export const metadata = { title: "Dashboard · TradeOS" };
+export const metadata = { title: "Dashboard · TradeIQ" };
 
 type DocRow = {
   id: string;

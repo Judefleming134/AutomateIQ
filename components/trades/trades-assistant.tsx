@@ -80,7 +80,7 @@ const STARTERS = [
 const MEMORY_KEY = "aiq-tradeos-assistant";
 
 /**
- * The TradeOS assistant chat: ask about the books, pull customer details,
+ * The TradeIQ assistant chat: ask about the books, pull customer details,
  * or have it create a draft quote — every answer from the account's live
  * data, nothing ever sent without the tradesperson.
  */

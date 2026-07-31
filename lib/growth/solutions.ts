@@ -72,7 +72,7 @@ export const SOLUTION_CATALOG: Solution[] = [
   },
   {
     key: "ai-logistics",
-    name: "AI Logistics Control Centre",
+    name: "FleetIQ",
     blurb:
       "Route planning, dispatch, delivery tracking and exception alerts for transport and distribution operations.",
   },
@@ -84,27 +84,27 @@ export const SOLUTION_CATALOG: Solution[] = [
   },
   {
     key: "review-agent",
-    name: "Review Agent",
+    name: "ReputationIQ",
     blurb:
       "Automated Google-review collection with perfectly timed requests and one polite reminder.",
     flagship: true,
   },
   {
     key: "instant-quote-agent",
-    name: "Instant Quote Agent",
+    name: "QuoteIQ",
     blurb:
       "Turns a job description into an itemised quote from the business's own price guide, sent and accepted online.",
   },
   {
     key: "speed-to-lead",
-    name: "Speed-to-Lead Agent",
+    name: "LeadIQ",
     blurb:
       "Replies personally to every new website lead within seconds, before a competitor does.",
     flagship: true,
   },
   {
     key: "ai-assistant",
-    name: "AI Assistant",
+    name: "AssistIQ",
     blurb:
       "A website/chat assistant grounded in the business's real services, prices and policies.",
   },

@@ -59,7 +59,7 @@ export default async function CrmAgentPage({
     <>
       <div className="page-header">
         <div>
-          <h1>CRM Agent</h1>
+          <h1>ClientIQ</h1>
           <p>
             Every customer and lead from every agent — in one pipeline, with
             a full history and follow-up tasks.

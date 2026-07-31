@@ -4,7 +4,7 @@ import type { AgentModule } from "@/lib/agents/types";
 
 export const websiteAgentModule: AgentModule = {
   key: "website-agent",
-  name: "Website Agent",
+  name: "SiteIQ",
   version: "2.0",
   category: "web",
   description:
@@ -39,7 +39,7 @@ export const websiteAgentModule: AgentModule = {
             .select("id", { count: "exact", head: true }),
         ]);
         if (!page) {
-          return "No website page has been set up yet — the user can create one in the Website Agent.";
+          return "No website page has been set up yet — the user can create one in SiteIQ.";
         }
         const siteUrl =
           process.env.NEXT_PUBLIC_SITE_URL || "https://automateiq.ie";

@@ -4,7 +4,7 @@ import { requireTradesAccount } from "@/lib/trades/data";
 import { DocumentView } from "@/components/trades/document-view";
 import { DocToolbar } from "@/components/trades/doc-toolbar";
 
-export const metadata = { title: "Document · TradeOS" };
+export const metadata = { title: "Document · TradeIQ" };
 
 export default async function TradesDocumentPage({
   params,

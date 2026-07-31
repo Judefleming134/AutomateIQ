@@ -4,7 +4,7 @@ import type { AgentModule } from "@/lib/agents/types";
 
 /**
  * Platform pseudo-module: always available to every business, regardless of
- * entitlements. Gives the AI Assistant cross-module awareness of the
+ * entitlements. Gives AssistIQ cross-module awareness of the
  * business itself.
  */
 export const platformModule: AgentModule = {

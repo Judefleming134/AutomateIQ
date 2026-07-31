@@ -9,7 +9,7 @@ import { resolveHomeRoute } from "@/lib/auth/home-route";
  * business_id those two are a cycle, and the browser ends it with
  * ERR_TOO_MANY_REDIRECTS.
  *
- * That shape is what TradeOS and Finance self-serve signup produces, so the
+ * That shape is what TradeIQ and Finance self-serve signup produces, so the
  * loop was reachable by any of their customers landing on /portal — including
  * straight from the main /login form, which defaults to /portal.
  */
@@ -24,7 +24,7 @@ const base = {
 describe("resolveHomeRoute", () => {
   it("THE LOOP: a trades/finance signup no longer bounces between /portal and /admin", () => {
     // role='customer', no business_id, and a trades account — exactly what the
-    // auth trigger plus TradeOS signup produces.
+    // auth trigger plus TradeIQ signup produces.
     expect(resolveHomeRoute({ ...base, hasTradesAccount: true })).toBe("/tradeos");
   });
 

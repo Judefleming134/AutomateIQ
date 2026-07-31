@@ -17,7 +17,7 @@ const leadSchema = z.object({
 });
 
 /**
- * Public lead capture for Website Agent pages. Uses the service-role
+ * Public lead capture for SiteIQ pages. Uses the service-role
  * client (public visitors have no session); the slug → business lookup
  * only matches PUBLISHED pages, so an unpublished page can't collect
  * leads even with a guessed slug.
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Store failed" }, { status: 502 });
   }
 
-  // Speed-to-Lead Agent: instant acknowledgment to the lead, only when the
+  // LeadIQ: instant acknowledgment to the lead, only when the
   // product is enabled for this business and the contact is an email.
   // Best-effort — the lead is already stored, so nothing here may fail the
   // request.

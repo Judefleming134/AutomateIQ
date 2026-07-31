@@ -11,7 +11,7 @@ const quoteInput = z.object({
 
 export const instantQuoteAgentModule: AgentModule = {
   key: "instant-quote-agent",
-  name: "Instant Quote Agent",
+  name: "QuoteIQ",
   version: "1.0",
   category: "sales",
   description:

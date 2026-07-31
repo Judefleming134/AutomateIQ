@@ -77,7 +77,7 @@ export type ProductDefinition = {
 export const PRODUCT_REGISTRY: ProductDefinition[] = [
   {
     key: "review-agent",
-    name: "Review Agent",
+    name: "ReputationIQ",
     description:
       "Automate review requests and follow-ups to grow your online reputation.",
     href: "/portal/review-agent",
@@ -88,7 +88,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "website-agent",
-    name: "Website Agent",
+    name: "SiteIQ",
     description: "AI-powered websites that convert and engage.",
     href: "/portal/website-agent",
     iconName: "globe",
@@ -98,7 +98,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "ai-assistant",
-    name: "AI Assistant",
+    name: "AssistIQ",
     description: "A smart assistant that helps your business around the clock.",
     href: "/portal/ai-assistant",
     iconName: "bot",
@@ -108,7 +108,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "content-agent",
-    name: "Content Agent",
+    name: "ContentIQ",
     description:
       "AI-written blogs, social posts, emails and ad copy — on brand, on demand.",
     href: "/portal/content-agent",
@@ -119,7 +119,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "instant-quote-agent",
-    name: "Instant Quote Agent",
+    name: "QuoteIQ",
     description:
       "Turns a job description into a priced, itemised quote in seconds.",
     href: "/portal/instant-quote-agent",
@@ -130,7 +130,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "crm-agent",
-    name: "CRM Agent",
+    name: "ClientIQ",
     description:
       "Every customer and lead in one place, searchable and up to date.",
     href: "/portal/crm-agent",
@@ -141,7 +141,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
   },
   {
     key: "speed-to-lead-agent",
-    name: "Speed-to-Lead Agent",
+    name: "LeadIQ",
     description:
       "Replies to every new lead in under 60 seconds, day or night.",
     href: "/portal/speed-to-lead-agent",

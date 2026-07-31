@@ -101,7 +101,7 @@ export default async function ReceivablesPage() {
         <section className="panel panel-block">
           <p className="empty-state" style={{ margin: 0 }}>
             Nobody owes you right now. Invoices you send from{" "}
-            <Link href="/tradeos">TradeOS</Link> and scanned receivables land
+            <Link href="/tradeos">TradeIQ</Link> and scanned receivables land
             here automatically once they&apos;re out.
           </p>
         </section>
