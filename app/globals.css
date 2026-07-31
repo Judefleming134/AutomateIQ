@@ -5638,3 +5638,324 @@ table.data-table {
   opacity: 0.9;
   transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+/* ==========================================================================
+   Public product pages (/products, /products/[slug])
+   --------------------------------------------------------------------------
+   Reuses the /book + /systems vocabulary (.book-page, .book-hero,
+   .book-section, .panel, .btn) so these pages look like the rest of the
+   marketing site rather than a third design. Only the product-specific
+   pieces live here. --prod-accent is set per product from
+   lib/products/marketing.ts.
+   ========================================================================== */
+
+/* Visually hidden, still read by screen readers. Used for the email label on
+   the request-access form, where a visible label would double the form. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.prod-page {
+  --prod-accent: var(--ac2);
+}
+.prod-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prod-kicker {
+  border-color: color-mix(in srgb, var(--prod-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--prod-accent) 12%, transparent);
+  color: var(--prod-accent);
+}
+.prod-name {
+  color: var(--prod-accent);
+}
+
+/* The two doors. Stacked on a phone so neither is a tap target hidden off
+   the edge — the whole point of the page is that both are reachable. */
+.prod-doors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+.prod-doors .btn {
+  padding: 13px 26px;
+  font-size: 14.5px;
+}
+
+/* What it does */
+.prod-does {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.prod-does-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+  padding: 22px;
+}
+.prod-does-tick {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  margin-bottom: 12px;
+  color: var(--prod-accent);
+  background: color-mix(in srgb, var(--prod-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--prod-accent) 26%, transparent);
+}
+.prod-does-card h3 {
+  font-size: 15.5px;
+  margin: 0 0 7px;
+}
+.prod-does-card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--body);
+}
+
+/* Proof + closing panels */
+.prod-proof,
+.prod-access {
+  padding: 30px;
+  text-align: center;
+}
+.prod-proof .book-eyebrow,
+.prod-access .book-eyebrow {
+  text-align: center;
+}
+.prod-proof h2,
+.prod-access h2 {
+  font-size: clamp(21px, 3.1vw, 30px);
+  margin: 0 0 12px;
+}
+.prod-proof p,
+.prod-access p {
+  max-width: 620px;
+  margin: 0 auto;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--body);
+}
+.prod-proof a {
+  color: var(--ac2);
+}
+
+/* Request-access form */
+.prod-access-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px auto 0;
+  max-width: 480px;
+}
+.prod-access-form input {
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 12px 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--heading);
+  background: var(--panel-glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.prod-access-form input:focus {
+  outline: none;
+  border-color: var(--prod-accent);
+}
+.prod-access-form .btn {
+  flex: 0 0 auto;
+  padding: 12px 22px;
+}
+.prod-access-note {
+  flex: 1 0 100%;
+  margin: 2px 0 0 !important;
+  font-size: 13px;
+  color: var(--danger, #f87171);
+}
+.prod-access-done {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  max-width: 480px;
+  margin: 22px auto 0;
+  padding: 16px 18px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+}
+.prod-access-done p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  text-align: left;
+}
+.prod-access-tick {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.prod-access-alt {
+  margin-top: 18px !important;
+  font-size: 13.5px;
+  color: var(--faint);
+}
+.prod-access-alt a {
+  color: var(--ac2);
+}
+
+/* Cross-links to the other products */
+.prod-others {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.prod-other-card {
+  display: block;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.prod-other-card:hover {
+  border-color: var(--prod-accent);
+  transform: translateY(-2px);
+}
+.prod-other-card h3 {
+  margin: 0 0 7px;
+  font-size: 17px;
+  color: var(--prod-accent);
+}
+.prod-other-card p {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--body);
+}
+.prod-other-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--heading);
+}
+
+/* Index page cards */
+.prod-index {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.prod-index-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.prod-index-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--prod-accent), transparent 70%);
+}
+.prod-index-kicker {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.prod-index-card h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+.prod-index-card h2 a {
+  color: var(--prod-accent);
+  text-decoration: none;
+}
+.prod-index-sub {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--body);
+}
+.prod-index-list {
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+.prod-index-list li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 13px;
+  color: var(--body);
+}
+.prod-index-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--prod-accent);
+}
+.prod-index-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+.prod-index-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--faint);
+  text-decoration: none;
+}
+.prod-index-more:hover {
+  color: var(--heading);
+}
+
+@media (max-width: 900px) {
+  .prod-index { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .prod-does { grid-template-columns: 1fr; }
+  .prod-others { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  /* Full-width doors on a phone: two half-width buttons side by side is how
+     the wrong one gets tapped. */
+  .prod-doors { flex-direction: column; align-items: stretch; }
+  .prod-doors .btn { width: 100%; }
+  .prod-topbar-actions .btn { padding: 8px 12px; }
+  .prod-access-form .btn { width: 100%; }
+}

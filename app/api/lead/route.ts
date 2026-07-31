@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 import { escapeLike } from "@/lib/growth/db";
+import { resolveLeadSource } from "@/lib/products/marketing";
 
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest) {
   if (!EMAIL_PATTERN.test(email)) {
     return NextResponse.json({ error: "Invalid email" }, { status: 400 });
   }
+
+  // Which product page this came from, if any. Allow-listed in
+  // lib/products/marketing.ts — see resolveLeadSource.
+  const { source, productName } = resolveLeadSource(
+    (body as { source?: unknown } | null)?.source
+  );
 
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -66,7 +73,7 @@ export async function POST(request: NextRequest) {
 
   const { error } = await supabase
     .from("leads")
-    .insert({ email, source: "automateiq-landing" });
+    .insert({ email, source });
 
   if (error) {
     return NextResponse.json(
@@ -87,9 +94,13 @@ export async function POST(request: NextRequest) {
         const result = await resend.emails.send({
           from: getFromAddress(),
           to: email,
-          subject: "Your AutomateIQ access request is in",
+          subject: productName
+            ? `Your ${productName} access request is in`
+            : "Your AutomateIQ access request is in",
           text: [
-            "Thanks for your interest in AutomateIQ.",
+            productName
+              ? `Thanks for your interest in ${productName}.`
+              : "Thanks for your interest in AutomateIQ.",
             "",
             "We've received your access request and a real person will be in touch shortly to get you set up.",
             "",
@@ -129,11 +140,18 @@ export async function POST(request: NextRequest) {
           const result = await resend.emails.send({
             from: getFromAddress(),
             to: recipients,
-            subject: "New early-access enquiry — automateiq.ie",
+            subject: productName
+              ? `New ${productName} access request — automateiq.ie`
+              : "New early-access enquiry — automateiq.ie",
             text: [
               "A new enquiry just came in from the automateiq.ie website:",
               "",
               `Email: ${email}`,
+              // Which page it came from. Without this, a request from the
+              // PermitIQ page is indistinguishable from a homepage signup,
+              // and the reply goes out talking about the wrong product.
+              `Product: ${productName ?? "AutomateIQ (homepage)"}`,
+              `Source: ${source}`,
               "",
               "It's also stored in the platform's leads list.",
             ].join("\n"),

@@ -20,6 +20,8 @@ These are in `sitemap.xml`, so Google is told about them.
 |---|---|---|
 | `/` | Marketing home — **`public/index.html`, 137KB static** | ✅ |
 | `/book` | AI Strategy Session booking | ✅ |
+| `/products` | Product range index — all three, both doors | ✅ new |
+| `/products/tradeiq` · `/financeiq` · `/permitiq` | Public product pages, each with **Log in** and **Request access** | ✅ new |
 | `/systems` | Systems overview | ✅ |
 | `/savings` | Savings calculator | ✅ |
 | `/freetools` | Free tools hub | ✅ |
@@ -173,3 +175,31 @@ The page stays hand-crafted. It just can't drift in silence any more.
 **98 page routes + 6 static HTML files.** Every route resolves, no orphan pages
 remain, the authenticated trees are correctly excluded from the sitemap, and
 every retired URL redirects somewhere live rather than 404ing.
+
+---
+
+## 8. Public product pages — added 2026-07-31
+
+`/tradeiq`, `/finance` and `/portal/permitiq` are all behind a login. Correct
+for a product, useless on a business card: the URL said out loud on a call
+landed a stranger on a password box with no explanation of what they were
+logging in to, and no way to ask for an account.
+
+`/products` and `/products/[slug]` fix that. Each product page carries **both
+doors** — **Log in** for the customer who already pays, **Request access** for
+the one who might. A page with only one turns half its visitors away.
+
+- Content is data in `lib/products/marketing.ts`, so a fourth product is a
+  data entry rather than a new page, and the sitemap picks it up automatically.
+- Statically generated (`generateStaticParams`) — three prerendered HTML files.
+- The **Log in** hrefs are plain strings, so `lib/products/marketing.test.ts`
+  checks each one against the real route tree on disk. Verified by pointing
+  TradeIQ at the retired `/tradeos/login`: the test failed.
+- **Request access** posts to the existing `/api/lead` with a `source`.
+  `source` is **allow-listed** (`resolveLeadSource`) — it is the field the
+  leads list is filtered by, and a public endpoint that writes arbitrary
+  strings into it poisons the one dimension that says which product sells.
+  An unrecognised value falls back to the landing-page source; the lead is
+  never dropped over its label.
+- Existing behaviour is untouched: the homepage form still posts no `source`
+  and still stores `automateiq-landing`.

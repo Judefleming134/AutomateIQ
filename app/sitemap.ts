@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { MARKETING_PRODUCTS } from "@/lib/products/marketing";
 
 const SITE = "https://automateiq.ie";
 
@@ -17,6 +18,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE}/book`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    // The product pages. These are the URLs said out loud on a call, and until
+    // they existed the answer to "where do I see TradeIQ?" was a login box.
+    { url: `${SITE}/products`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
+    ...MARKETING_PRODUCTS.map((p) => ({
+      url: `${SITE}/products/${p.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.9,
+    })),
     { url: `${SITE}/systems`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${SITE}/savings`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     // The free tools are front doors: people search for these problems in the
