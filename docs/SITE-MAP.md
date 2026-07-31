@@ -203,3 +203,52 @@ the one who might. A page with only one turns half its visitors away.
   never dropped over its label.
 - Existing behaviour is untouched: the homepage form still posts no `source`
   and still stores `automateiq-landing`.
+
+---
+
+## 9. Homepage brought in line — 2026-07-31
+
+The front page was still selling a pre-launch product with no way in.
+
+**Information that was wrong or missing**
+
+| Was | Now |
+|---|---|
+| No **Log in** anywhere on the marketing site | Log in in the header, the footer and the colophon |
+| Hero: "from trades to clinics", no product named | Names TradeIQ, FinanceIQ and PermitIQ in the first paragraph |
+| "Get early access" in hero, nav and colophon | Gone — the product is live with 500+ jobs through it |
+| Products section: a 5-node diagram and nothing to click | Three product cards, each with **Log in** + **See &lt;product&gt;** |
+| Colophon "Serving trades" | "Trades · finance · planning", plus a Products group |
+| Header carried **Free Tools** twice, to two different places | One Free Tools, and Products in the freed slot |
+
+**The built-in assistant was answering with pre-launch copy** — "we're
+onboarding early-access partners", "drop your email in the early-access form" —
+and had never heard of the three products, the ClearWater proof, security or
+logging in. Rewritten against what the platform actually is, and it now points
+at `/book` and `/products` instead of a waitlist.
+
+**It was also matching keywords wrong.** `answer()` returned the *first* entry
+with a matching keyword, and one early entry carried the bare key `'do'` — a
+substring of "how much **do**es it cost", "what **do**es it cost", "how **do** i
+get started" and "**do** you have a demo". **Every pricing question on the
+homepage was answered with the generic capabilities blurb**, and one of the four
+suggested chips returned the wrong answer outright. Now scored by keyword
+length, which fixes the class rather than the one key.
+
+**The agent cards said "Click to preview" and navigated away.** All four linked
+`/agents.html#<slug>` — deleted, 308s to `/systems`, and the redirect drops the
+anchor. The preview panel they promised was already built and already in the
+DOM; only the eleven chips were wired to it. The cards now carry `data-id`, so
+the existing handler catches them. Three page footers (`/book`, `/systems`,
+`/savings`) pointed at the same dead page and now point at `/products`.
+
+**Visual polish.** Every multi-word header label was breaking mid-phrase
+("Free / Tools", "Book a / Call") at every width from 1440px down — verified
+against `origin/main`, so it predates this pass. Fixed with `white-space:nowrap`
+scoped to the header. The colophon grid is `auto-fit` instead of a hard 5
+columns, which had been orphaning the last group on its own row.
+
+Verified in Chromium at 1440px and 390px: zero horizontal overflow, zero page
+errors, all four agent cards open their own preview, all eleven chips still
+work. `lib/homepage.test.ts` grew to 22 tests covering each of the above; each
+new guard was verified by re-breaking the thing it guards.
