@@ -15,6 +15,7 @@ import {
   resolveProspectSort,
   type ProspectStatus,
 } from "@/lib/growth/constants";
+import { canDial } from "@/lib/growth/dialling";
 import { dublinDate } from "@/lib/growth/dates";
 import { activeEngineLabel } from "@/lib/ai/config";
 import { cleanSocialUrl } from "@/lib/growth/research";
@@ -710,14 +711,41 @@ export default async function ProspectsPage({
                           "Has phone -> best score first", i.e. a dial list. The
                           Phone column is untouched for desktop; this just puts
                           the number where his thumb already is. */}
-                      {p.phone && (
-                        <a
-                          className="phone-inline"
-                          href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
-                          title="Tap to call"
+                      {p.phone &&
+                        (!canDial(p.status) ? (
+                          /* NOT a tel: link. This prospect asked not to be
+                             contacted, and since the inbound classifier began
+                             setting do_not_contact automatically on an opt-out
+                             reply, that status can appear without Jude ever
+                             touching the record. The "Do not contact" badge
+                             lives in the Status column — which on a phone is
+                             four columns of horizontal scrolling away, while
+                             this button sits under his thumb. One tap and he
+                             has rung someone who asked him to stop. The number
+                             stays visible and selectable; only the one-tap
+                             dial is withheld. */
+                          <span
+                            className="phone-inline"
+                            style={{ opacity: 0.55, textDecoration: "line-through" }}
+                            title="They asked not to be contacted — dialling is disabled here on purpose"
+                          >
+                            ☎ {p.phone}
+                          </span>
+                        ) : (
+                          <a
+                            className="phone-inline"
+                            href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
+                            title="Tap to call"
+                          >
+                            ☎ {p.phone}
+                          </a>
+                        ))}
+                      {!canDial(p.status) && (
+                        <div
+                          style={{ fontSize: 11, color: "var(--red, #f87171)", marginTop: 2 }}
                         >
-                          ☎ {p.phone}
-                        </a>
+                          Do not contact
+                        </div>
                       )}
                       {/* Social quick-links so a LinkedIn/DM session can open the
                           profile straight from the list — no click into each
@@ -752,9 +780,20 @@ export default async function ProspectsPage({
                     <td>{p.location ?? "—"}</td>
                     <td>
                       {p.phone ? (
-                        <a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>
-                          {p.phone}
-                        </a>
+                        !canDial(p.status) ? (
+                          /* Same reasoning as the inline number above — the
+                             record stays readable, the one-tap dial does not. */
+                          <span
+                            style={{ opacity: 0.55, textDecoration: "line-through" }}
+                            title="They asked not to be contacted"
+                          >
+                            {p.phone}
+                          </span>
+                        ) : (
+                          <a href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}>
+                            {p.phone}
+                          </a>
+                        )
                       ) : (
                         "—"
                       )}
