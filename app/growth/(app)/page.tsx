@@ -458,34 +458,17 @@ export default async function GrowthDashboardPage() {
             </h2>
             <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
               {stages.map((s) => (
-                <Link
-                  key={s.label}
-                  href={s.href}
-                  style={{
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "center",
-                    textDecoration: "none",
-                    color: "inherit",
-                    fontSize: 13.5,
-                  }}
-                >
-                  <strong style={{ minWidth: 56, textAlign: "right" }}>
-                    {s.n.toLocaleString("en-IE")}
-                  </strong>
-                  <span
-                    aria-hidden
-                    style={{
-                      height: 8,
-                      borderRadius: 4,
-                      background: "var(--ac2, #3b82f6)",
-                      width: `${total > 0 ? Math.max(1.5, (s.n / total) * 100) : 0}%`,
-                      minWidth: 6,
-                      opacity: 0.85,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span style={{ color: "var(--faint)" }}>{s.label}</span>
+                <Link key={s.label} href={s.href} className="ge-funnel-row">
+                  <strong>{s.n.toLocaleString("en-IE")}</strong>
+                  <span className="ge-funnel-label">{s.label}</span>
+                  <span className="ge-funnel-track" aria-hidden>
+                    <span
+                      className="ge-funnel-bar"
+                      style={{
+                        width: `${total > 0 ? Math.max(1.5, (s.n / total) * 100) : 0}%`,
+                      }}
+                    />
+                  </span>
                 </Link>
               ))}
             </div>
