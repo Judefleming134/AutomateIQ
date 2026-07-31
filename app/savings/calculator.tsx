@@ -149,7 +149,7 @@ function compute(i: Inputs, detailed: boolean): Result {
   // fresh page (all minimums) reads ~€0 and grows as the numbers do.
   const adminHours = detailed ? i.adminHours : Math.min((i.teamSize - 1) * 2, 35);
   const admin = adminHours * perYear * 0.5 * hourly;
-  push("assistant", "AssistIQ + CRM", "Routine admin off your team's plate", admin, "#3B82F6");
+  push("assistant", "AssistIQ + ClientIQ", "Routine admin off your team's plate", admin, "#3B82F6");
 
   const chase = detailed ? i.chasingHours : i.teamSize > 3 ? 2 : i.teamSize > 1 ? 1 : 0;
   const chasing = chase * perYear * 0.6 * hourly;
@@ -160,7 +160,7 @@ function compute(i: Inputs, detailed: boolean): Result {
 
   const fleet = detailed ? i.vehicles : i.industry === "logistics" ? Math.round(i.teamSize * 0.6) : 0;
   const logistics = fleet * 160 * 12;
-  push("logistics", "Logistics Control Centre", "Routing & fleet utilisation", logistics, "#FB7185");
+  push("logistics", "FleetIQ", "Routing & fleet utilisation", logistics, "#FB7185");
 
   const revenue = stl + reception + reviews + quotes * perYear * 0.04 * job;
   const total = levers.reduce((s, l) => s + l.value, 0);
@@ -219,7 +219,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       evidence: `Typical first reply after ${i.responseMins >= 60 ? `${Math.round(i.responseMins / 60)} hour${i.responseMins >= 120 ? "s" : ""}` : `${i.responseMins} minutes`}`,
       impact: lever("speed"),
       objection: "“We always get back to people eventually.”",
-      answer: "Most jobs go to whoever answers first — 'eventually' is where enquiries die. Speed-to-Lead replies in under 60 seconds, every time, day or night, then hands the warm conversation to you.",
+      answer: "Most jobs go to whoever answers first — 'eventually' is where enquiries die. LeadIQ replies in under 60 seconds, every time, day or night, then hands the warm conversation to you.",
       agent: "LeadIQ", accent: "#F59E0B",
     });
   }
@@ -242,7 +242,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(i.quotesPerWeek * 52 * 0.1 * close * job * 0.5),
       objection: "“Chasing people feels pushy.”",
       answer: "A polite, well-timed nudge isn't pushy — it's professional. The CRM tracks every open quote and follows up automatically until there's a yes or a no, so nothing just fades away.",
-      agent: "Instant Quote + CRM", accent: "#EA580C",
+      agent: "QuoteIQ + ClientIQ", accent: "#EA580C",
     });
   }
   if (i.tracking === "paper" || i.tracking === "sheets") {
@@ -253,7 +253,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(lever("assistant") * 0.4),
       objection: "“Spreadsheets have worked fine for years.”",
       answer: "They work until the day one detail goes missing on a big job. Every lead, quote, job and payment lives on one Job Record — nothing typed twice, nothing lost between tools, and you keep the tools you like.",
-      agent: "AssistIQ + CRM", accent: "#3B82F6",
+      agent: "AssistIQ + ClientIQ", accent: "#3B82F6",
     });
   }
   if (i.doubleEntry !== "rare") {
@@ -264,7 +264,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: Math.round(lever("assistant") * 0.3),
       objection: "“That's just how our systems are.”",
       answer: "It doesn't have to be. We connect what you already use so information entered once flows everywhere it's needed — the hours that frees up are in the number above.",
-      agent: "AssistIQ + CRM", accent: "#3B82F6",
+      agent: "AssistIQ + ClientIQ", accent: "#3B82F6",
     });
   }
   if (i.ownerEvenings > 4) {
@@ -338,7 +338,7 @@ function runAudit(i: Inputs, r: Result): Audit {
       impact: lever("logistics"),
       objection: "“GPS trackers are expensive and we'd not use the data.”",
       answer: "The Control Centre works with the trackers you have (or none, to start) and turns positions into answers — where's the van, which deliveries are at risk, which routes waste hours. You use answers, not data.",
-      agent: "Logistics Control Centre", accent: "#FB7185",
+      agent: "FleetIQ", accent: "#FB7185",
     });
   }
 
