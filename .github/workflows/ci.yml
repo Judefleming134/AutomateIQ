@@ -1,0 +1,57 @@
+name: CI
+
+# The release gate. Until this existed, "the build must be green before
+# anything ships" was a habit rather than a control — nothing stopped a broken
+# commit reaching main, and there was no evidence of a test process to show a
+# customer's procurement team.
+#
+# Runs on pull requests and on pushes to main. Deliberately does NOT run on the
+# three scheduled workflows' branches or interfere with them: morning-brief.yml,
+# nightly.yml and research-worker.yml are operational crons and this is a build
+# check. They share no state.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push supersedes an in-flight run for the same branch — no point burning
+# minutes verifying a commit that has already been replaced.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` (not `npm install`) so the lockfile is honoured exactly and a
+      # dependency can't drift underneath a passing build.
+      - name: Install dependencies
+        run: npm ci
+
+      # NOTE: there is deliberately no lint step. `npm run lint` runs
+      # `next lint`, which Next 16 removed — it now reads "lint" as a directory
+      # argument and fails ("Invalid project directory provided"). ESLint isn't
+      # installed or configured in this repo at all. Adding a step that always
+      # fails would make the gate worthless on day one, and wiring ESLint across
+      # 56k lines is its own piece of work. Tracked as K6 in docs/OUTSTANDING.md.
+
+      - name: Unit tests
+        run: npm test
+
+      # Env vars are absent in CI on purpose. The build must not require real
+      # Supabase/Resend/Stripe credentials to compile — anything that breaks
+      # here would also break a fresh clone on a new machine.
+      - name: Build
+        run: npm run build
