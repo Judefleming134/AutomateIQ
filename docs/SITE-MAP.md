@@ -136,13 +136,35 @@ that is a product decision about how you sell it, not a cleanup. Renaming it
 costs nothing and can be undone; merging two navigations cannot. It is now
 FinanceIQ in the UI and still its own surface.
 
-### On the homepage
+### On the homepage being a static file
 
-The front page names agents by **function** ("Voice Receptionist",
-"Collections", "Workflow & Data"), not by product, so PermitIQ went in as
-"Planning & Permits" to match that voice rather than shouting a brand name into
-a page that doesn't use them. It is still a 137KB static file outside the app —
-that hasn't changed, and it will still need editing by hand next time.
+Measured rather than assumed. Of the ~147KB: **54.6KB is one inline `<style>`
+block, 56.3KB is eleven inline `<script>` blocks, and only ~36.5KB is actual
+markup.**
+
+**I did not extract the CSS, and that is deliberate.** Pulling 54.6KB into
+`/home.css` would shrink the HTML and read as an improvement — but for a
+marketing page whose visitors are overwhelmingly first-time, inline CSS avoids
+a render-blocking round trip and paints *faster*. Extracting it would trade a
+real conversion metric for a tidier file listing. The eleven script blocks are
+riskier still: they are inline IIFEs that run at parse position, and moving
+them to a deferred external file changes when they execute — not something to
+do without a browser to verify in.
+
+**The size was never the real problem.** The real problem is that the app
+cannot reach the file, so codebase-wide changes miss it silently — which has
+now happened twice (the *IQ rebrand skipped it; `demo.html` sat there for weeks
+showing retired names).
+
+`lib/homepage.test.ts` fixes the cause instead of the symptom. It runs in CI on
+every pull request and asserts the page cannot silently disagree with the
+platform: no retired product name, every product family named, the proof
+figures matching `lib/proof.ts`, the conversion path intact, balanced tags,
+sequential section numbers, and no in-page anchor pointing at a section that
+doesn't exist. Verified by breaking the file five different ways — all five
+were caught.
+
+The page stays hand-crafted. It just can't drift in silence any more.
 
 ---
 
