@@ -16,7 +16,7 @@
  */
 
 /** Top-level segments that exist as routes. Redirect targets, nothing else. */
-const KNOWN_SEGMENTS = new Set([
+export const KNOWN_SEGMENTS = new Set([
   "account-unavailable",
   "admin",
   "auth",
@@ -25,10 +25,16 @@ const KNOWN_SEGMENTS = new Set([
   "demo",
   "embed",
   "finance",
+  // financeiq / permitiq are not route folders — they are redirect sources in
+  // next.config.ts pointing at the public product pages. They belong here so
+  // /FinanceIQ and /PermitIQ, the forms actually printed on a card, get
+  // lowercased first and then land on the redirect.
+  "financeiq",
   "freetools",
   "growth",
   "leaving",
   "login",
+  "permitiq",
   "portal",
   "products",
   "q",

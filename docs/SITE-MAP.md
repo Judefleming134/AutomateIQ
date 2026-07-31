@@ -31,7 +31,6 @@ These are in `sitemap.xml`, so Google is told about them.
 | `/freetools/missed-calls` | Missed-call calculator | ✅ |
 | `/freetools/reviews` | Review writer | ✅ |
 | `/freetools/quote-builder` | Quote builder | ✅ |
-| `/agents.html` | **50KB static agent catalog** | ❓ see §6 |
 | `/policies.html` | Policy hub | ✅ |
 | `/ai-act.html` | EU AI Act statement | ✅ |
 | `/privacy.html` · `/terms.html` · `/cookies.html` | Legal | ✅ |
@@ -51,7 +50,7 @@ Correctly absent from the sitemap. All keep.
 | `/demo` | Live AI receptionist demo for sales calls — `robots: noindex` on purpose |
 | `/b/[slug]` | Customer-built website pages (SiteIQ) |
 | `/q/[token]` | Signed quote view for a tradesperson's customer |
-| `/tradeos/doc/[token]` | Signed invoice/quote view |
+| `/tradeiq/doc/[token]` | Signed invoice/quote view (`/tradeos/doc/*` 308s here) |
 | `/embed/quote` | Quote widget embedded in customers' own sites |
 | `/leaving` | Outbound review-link interstitial |
 | `/account-unavailable` | Suspended/inactive tenant page |
@@ -92,11 +91,11 @@ emails. Branding lives above the URL.
 |---|---|---|
 | `/admin/*` | 9 | ✅ platform admin |
 | `/growth/*` | 15 | ✅ **your internal sales engine** — not a customer product |
-| `/tradeos/*` | 9 | ✏️ **branded TradeIQ; URL still `/tradeos`** — see §6 |
-| `/finance/*` | 10 | ❓ shares TradeIQ's account system — see §6 |
+| `/tradeiq/*` | 9 | ✅ **TradeIQ** — moved from `/tradeos` (see 6.2) |
+| `/finance/*` | 10 | ✅ **FinanceIQ**, its own surface — see §6 |
 
-`/tradeiq` and `/tradeiq/*` already redirect to `/tradeos` (307), so the new
-brand URL works today.
+`/tradeos` and `/tradeos/:path*` 308 to `/tradeiq`, permanently: the old URLs
+carry signed document tokens sitting in strangers' inboxes.
 
 ---
 
@@ -106,9 +105,18 @@ brand URL works today.
 /autoseo        → /freetools/autoseo   (308 permanent)
 /tools          → /freetools           (308 permanent)
 /tools/:path*   → /freetools/:path*    (308 permanent)
-/tradeiq        → /tradeos             (307 temporary)
-/tradeiq/:path* → /tradeos/:path*      (307 temporary)
+/tradeos        → /tradeiq             (308 permanent)
+/tradeos/:path* → /tradeiq/:path*      (308 permanent)
+/demo.html      → /demo                (308 permanent)
+/agents.html    → /systems             (308 permanent)
+/permitiq       → /products/permitiq   (308 permanent)
+/financeiq      → /products/financeiq  (308 permanent)
 ```
+
+Plus case correction in `proxy.ts`: any path whose first segment contains a
+capital letter is 308'd to its lowercase form, when that form is a route we
+actually have. `/TradeIQ`, `/PermitIQ`, `/PRODUCTS` all land; `/Nonsense`
+still 404s.
 
 ---
 
@@ -252,3 +260,53 @@ Verified in Chromium at 1440px and 390px: zero horizontal overflow, zero page
 errors, all four agent cards open their own preview, all eleven chips still
 work. `lib/homepage.test.ts` grew to 22 tests covering each of the above; each
 new guard was verified by re-breaking the thing it guards.
+
+---
+
+## 10. Correction — the case fix shipped dead, and is now live
+
+**PR #486 said "brand URLs now survive capital letters". They did not.** Every
+capitalised URL on the site still 404'd, from the day that PR merged until
+this one. Verified against a running `next start`:
+
+```
+BEFORE                              AFTER
+/TradeIQ    404                     /TradeIQ    308 -> /tradeiq
+/PermitIQ   404                     /PermitIQ   308 -> /products/permitiq
+/FinanceIQ  404                     /FinanceIQ  308 -> /products/financeiq
+/Products   404                     /Products   308 -> /products
+/Book       404                     /Book       308 -> /book
+/Nonsense   404                     /Nonsense   404      (still, correctly)
+```
+
+**Why it was dead.** `canonicalPath()` was correct and thoroughly unit-tested.
+It was called from `updateSession()`, which runs from `proxy.ts` — whose
+matcher is an **allowlist**: `/portal/:path*`, `/admin/:path*`,
+`/growth/:path*`, `/login`. `/TradeIQ` matches none of them, so the function
+was never reached. Sixteen passing unit tests, zero production effect. This is
+the "reporting success for work that didn't happen" class in CLAUDE.md, and a
+unit test of a pure function is exactly how it hides.
+
+**The fix.** One extra matcher entry — `/:segment([^/]*[A-Z][^/]*)/:path*` —
+matching any path whose first segment contains a capital. Deliberately narrow
+rather than the usual catch-all `/((?!api|_next|.*\..*).*)`: a catch-all would
+route the fully-static marketing homepage through a Node function on every
+visit. `updateSession()` also now runs the case check **before** building the
+Supabase client and short-circuits for anything that isn't a session surface,
+so a capitalised miss costs no auth round trip. Confirmed with an instrumented
+proxy: `/`, `/products`, `/book`, `/freetools` do not invoke it; `/Products`
+and `/TradeIQ` do.
+
+**Two brand names had no URL at all, in any casing.** PermitIQ lives at
+`/portal/permitiq` and FinanceIQ at `/finance`, so `/permitiq` and
+`/financeiq` — the names said out loud and printed on a card — were plain
+404s. Both now 308 to their public product page, which explains the product
+*and* carries the Log in button, rather than to the app behind a password box.
+
+**The guard.** `lib/routing/wiring.test.ts` tests the joins, not the function:
+that the matcher reaches `canonicalPath` for every known segment, that the
+static marketing site still bypasses the proxy, and that every segment in
+`KNOWN_SEGMENTS` resolves to a real route or a redirect source. Its model of
+Next's matcher is calibrated against nine results recorded from the running
+server, so it cannot quietly assert itself. Verified by restoring the original
+allowlist: 8 tests fail.

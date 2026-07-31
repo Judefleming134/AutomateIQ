@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
       // the same ground, lives in the app, and updates with the product.
       { source: "/demo.html", destination: "/demo", permanent: true },
       { source: "/agents.html", destination: "/systems", permanent: true },
+
+      // Two of the three product names had no URL of their own, in ANY
+      // casing. TradeIQ has a real route at /tradeiq, so /tradeiq and (via
+      // the proxy's case correction) /TradeIQ both land. PermitIQ and
+      // FinanceIQ don't: they live at /portal/permitiq and /finance, so
+      // /permitiq and /financeiq — the names actually said out loud and
+      // printed on a card — were plain 404s.
+      //
+      // They point at the public product pages rather than the apps, because
+      // that's the right landing for someone who typed a brand name: the page
+      // explains what it is AND carries the Log in button for a customer who
+      // already has an account.
+      { source: "/permitiq", destination: "/products/permitiq", permanent: true },
+      { source: "/financeiq", destination: "/products/financeiq", permanent: true },
     ];
   },
 };
