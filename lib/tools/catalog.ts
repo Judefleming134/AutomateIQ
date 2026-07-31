@@ -181,6 +181,11 @@ export function toolCards(): ToolCard[] {
   }).sort((a, b) => Number(b.status === "live") - Number(a.status === "live"));
 }
 
+/** One tool's card, status resolved. Returns undefined for an unknown slug. */
+export function getToolCard(slug: string): ToolCard | undefined {
+  return toolCards().find((t) => t.slug === slug);
+}
+
 /** How many are actually usable right now. Never hard-code this. */
 export function liveToolCount(): number {
   return TOOLS.filter((t) => t.isAvailable()).length;

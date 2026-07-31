@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import { Timer } from "lucide-react";
 import { ResponseTimeTester } from "./tester";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function ResponseTimePage() {
   return (
-    <>
+    <ToolAccent slug="response-time">
       <section className="book-hero">
         <p className="book-kicker">
           <Timer size={14} /> Free test
@@ -31,9 +32,12 @@ export default function ResponseTimePage() {
           the number your customers experience — and it&apos;s usually a shock.
         </p>
       </section>
+
+      <ToolGives slug="response-time" />
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <ResponseTimeTester />
       </section>
-    </>
+      <ToolNext slug="response-time" />
+    </ToolAccent>
   );
 }

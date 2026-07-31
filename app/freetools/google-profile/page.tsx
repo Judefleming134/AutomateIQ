@@ -1,9 +1,24 @@
 import type { Metadata } from "next";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import { MapPin } from "lucide-react";
 import { gbpConfigured } from "@/lib/tools/gbp";
 import { GbpChecker } from "./checker";
 
-export const metadata: Metadata = {
+/**
+ * `noindex` while the checker is off.
+ *
+ * This page was in the sitemap the whole time it was returning "not switched
+ * on yet", so Google was being told to send people searching for exactly this
+ * problem to a dead end. Being ranked for a page that can't help is worse than
+ * not being found at all. Both this and the sitemap entry come back on their
+ * own the moment GOOGLE_PLACES_API_KEY is set — nothing to remember.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  if (gbpConfigured()) return metadata;
+  return { ...metadata, robots: { index: false, follow: true } };
+}
+
+const metadata: Metadata = {
   title: "Free Google Business Profile check | AutomateIQ",
   description:
     "See why your business isn't showing in the Google map pack. Free check of your reviews, rating, hours, category and phone — with the one fix that matters most.",
@@ -20,7 +35,7 @@ export const metadata: Metadata = {
 
 export default function GoogleProfilePage() {
   return (
-    <>
+    <ToolAccent slug="google-profile">
       <section className="book-hero">
         <p className="book-kicker">
           <MapPin size={14} /> Free check
@@ -32,9 +47,12 @@ export default function GoogleProfilePage() {
           — and tells you which one to fix first.
         </p>
       </section>
+
+      <ToolGives slug="google-profile" />
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <GbpChecker configured={gbpConfigured()} />
       </section>
-    </>
+      <ToolNext slug="google-profile" />
+    </ToolAccent>
   );
 }

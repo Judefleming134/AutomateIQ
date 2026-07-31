@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import type { Metadata } from "next";
 import { Search, Gauge, MapPin, Wrench } from "lucide-react";
 import { Auditor } from "./auditor";
@@ -26,17 +27,7 @@ export const metadata: Metadata = {
 
 export default function AutoSeoPage() {
   return (
-    <div className="book-page sv-page">
-      <header className="book-topbar">
-        <Link href="/" className="book-brand">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-aiq.png" alt="AutomateIQ" />
-        </Link>
-        <Link href="/book" className="btn btn-primary btn-sm">
-          Book a strategy session
-        </Link>
-      </header>
-
+    <ToolAccent slug="autoseo">
       <section className="book-hero">
         <p className="book-kicker">
           <Search size={14} /> AutoSEO — free website check
@@ -48,6 +39,8 @@ export default function AutoSeoPage() {
           fix it. No signup, no report held to ransom, no jargon. Free, and staying free.
         </p>
       </section>
+
+      <ToolGives slug="autoseo" />
 
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <Auditor />
@@ -111,6 +104,7 @@ export default function AutoSeoPage() {
           you ask us to email it to you, and we don&apos;t need any access to your site.
         </p>
       </section>
-    </div>
+      <ToolNext slug="autoseo" />
+    </ToolAccent>
   );
 }

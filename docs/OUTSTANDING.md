@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-07-31 (free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
+Last reviewed: 2026-07-31 (second free-tools pass: F5 shipped — tool pages rebuilt, autoseo's duplicate topbar removed, quote-builder's 3,429px mobile overflow fixed, dead tools dropped from the sitemap. Earlier: free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -54,7 +54,7 @@ The six tools at `/freetools` all work. These are the loose ends.
 | F2 | **Snippets are templates, not written copy** | AutoSEO emits `[square brackets]` for the business to fill in. An AI pass could write the actual title, meta description and alt text per site. Costs money per run, so it changes "free forever" into something rate-limited on purpose. |
 | F3 | **Rate limits are per-instance, not global** | `lib/tools/rate-limit.ts` documents this honestly. Fine until a tool gets popular; the fix is a shared store, and the file names the function to move. |
 | F4 | **Review writer costs money per use** | 6/day/IP. If it takes off, that cap is the dial to turn — or gate it behind an email. |
-| F5 | **Tool pages beyond the hub are still plain** | The hub was rebuilt (accent per tool, what-you-get bullets, honest availability, a real footer). The six individual tool pages now inherit the shared footer but keep their original single-column layout. They work and they read well; they are not yet at the hub's standard. |
+| F6 | **Result states are still plain** | The six tool pages were brought up to the hub's standard (accent per tool, what-you-get strip before the tool, cross-links and a CTA after it). What each tool renders *after* it runs — the AutoSEO report, the review replies, the GBP findings — is still the original markup. It is clear and readable; it is not yet designed. |
 
 ---
 
