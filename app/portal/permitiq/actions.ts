@@ -10,7 +10,14 @@ import {
   analyseDocument,
   isAnalysableType,
 } from "@/lib/permitiq/document-intelligence";
-import { resolveRequirements } from "@/lib/permitiq/checklist";
+import {
+  resolveRequirements,
+  buildChecklist,
+  summariseChecklist,
+  type Requirement,
+} from "@/lib/permitiq/checklist";
+import { reviewApplication } from "@/lib/permitiq/review";
+import { logAgentRun } from "@/lib/agents/runs";
 
 // NOTE: no `export const maxDuration` here. A "use server" module may only
 // export async functions — any other export breaks the whole module, and the
@@ -250,6 +257,120 @@ export async function setDocumentType(
     business_id: ctx.businessId,
     type: "document_reclassified",
     detail: docType ? `Marked as ${docType}` : "Attribution cleared",
+    actor: ctx.user.id,
+  });
+
+  revalidatePath(`/portal/permitiq/${applicationId}`);
+  return { ok: true };
+}
+
+
+/**
+ * Runs the Application Review Agent over everything uploaded so far and stores
+ * the result in pq_reviews.
+ *
+ * The checklist is computed HERE, in code, and handed to the model as fact.
+ * Whether an application is complete is arithmetic — which mandatory items have
+ * evidence — and arithmetic must not be delegated to something that might round
+ * it. The model contributes judgement and prose, not counting.
+ *
+ * Every run is logged to agent_runs, so "how slow is the review agent" and
+ * "how often does it fail" are answerable for PermitIQ exactly as they are for
+ * the eleven older modules. That is the Agent Framework v2 log doing its job on
+ * its first new consumer.
+ */
+export async function runApplicationReview(
+  _prev: Result | undefined,
+  formData: FormData
+): Promise<Result> {
+  const ctx = await guard();
+  if (!ctx) return { error: "PermitIQ isn't enabled on this account." };
+
+  const applicationId = String(formData.get("application_id") ?? "");
+  const startedAt = Date.now();
+
+  const supabase = await createClient();
+  const { data: app } = await supabase
+    .from("pq_applications")
+    .select("id, jurisdiction, authority, application_type, site_address")
+    .eq("id", applicationId)
+    .maybeSingle();
+  if (!app) return { error: "Application not found." };
+
+  const admin = createAdminClient();
+  const [{ data: reqRows }, { data: docRows }] = await Promise.all([
+    admin
+      .from("pq_requirements")
+      .select("code, label, guidance, mandatory, sort_order, authority")
+      .eq("jurisdiction", app.jurisdiction)
+      .eq("application_type", app.application_type),
+    admin
+      .from("pq_documents")
+      .select("id, name, doc_type, extraction")
+      .eq("application_id", applicationId),
+  ]);
+
+  const requirements = resolveRequirements((reqRows ?? []) as Requirement[], app.authority);
+  if (requirements.length === 0) {
+    return {
+      error:
+        "No requirement list is loaded for this application type yet, so there is nothing to review against.",
+    };
+  }
+
+  const documents = (docRows ?? []) as {
+    id: string;
+    name: string;
+    doc_type: string | null;
+    extraction: { summary?: string; issues?: string[] } | null;
+  }[];
+
+  const checklist = buildChecklist(
+    requirements,
+    documents.map((d) => ({ id: d.id, name: d.name, doc_type: d.doc_type }))
+  );
+
+  const review = await reviewApplication({
+    applicationType: app.application_type,
+    jurisdiction: app.jurisdiction,
+    authority: app.authority,
+    siteAddress: app.site_address,
+    checklist,
+    summary: summariseChecklist(checklist),
+    documents: documents.map((d) => ({
+      name: d.name,
+      summary: d.extraction?.summary,
+      issues: d.extraction?.issues,
+    })),
+  });
+
+  void logAgentRun({
+    businessId: ctx.businessId,
+    agentKey: "permitiq",
+    toolName: "review_application",
+    status: review ? "ok" : "error",
+    latencyMs: Date.now() - startedAt,
+    error: review ? null : "review returned null",
+  });
+
+  if (!review) {
+    return { error: "The review couldn't run just now — try again in a moment." };
+  }
+
+  const { error } = await admin.from("pq_reviews").insert({
+    application_id: applicationId,
+    business_id: ctx.businessId,
+    agent_key: "permitiq.application_review",
+    summary: review.summary,
+    risk_flags: review.riskFlags,
+  });
+  if (error) return { error: error.message };
+
+  await admin.from("pq_events").insert({
+    application_id: applicationId,
+    business_id: ctx.businessId,
+    type: "reviewed",
+    detail: `AI review: ${review.riskFlags.length} risk ${review.riskFlags.length === 1 ? "flag" : "flags"}`,
     actor: ctx.user.id,
   });
 

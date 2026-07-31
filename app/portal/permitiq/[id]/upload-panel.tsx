@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Upload, Sparkles } from "lucide-react";
-import { uploadDocument, setDocumentType } from "../actions";
+import { uploadDocument, setDocumentType, runApplicationReview } from "../actions";
 
 export function UploadPanel({
   applicationId,
@@ -84,6 +84,26 @@ export function ReclassifyForm({
         {pending ? "Saving…" : "Save"}
       </button>
       {state?.error && <span className="form-error">{state.error}</span>}
+    </form>
+  );
+}
+
+/** Runs the Application Review Agent over everything uploaded so far. */
+export function ReviewButton({ applicationId }: { applicationId: string }) {
+  const [state, action, pending] = useActionState(runApplicationReview, undefined);
+
+  return (
+    <form action={action} style={{ display: "grid", gap: 6 }}>
+      <input type="hidden" name="application_id" value={applicationId} />
+      <button type="submit" className="btn btn-primary" disabled={pending}>
+        <Sparkles size={14} />{" "}
+        {pending ? "Reviewing the application…" : "Run a full review"}
+      </button>
+      {state?.error && (
+        <p className="form-error" role="alert">
+          {state.error}
+        </p>
+      )}
     </form>
   );
 }

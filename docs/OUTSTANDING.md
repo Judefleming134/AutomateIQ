@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
+Last reviewed: 2026-07-31 (J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -26,7 +26,6 @@ Last reviewed: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earli
 | J2 | **Verify Resend sending domain, then send yourself a response-time test** | `/freetools/response-time` writes to strangers' inboxes. If it lands in spam it teaches people the wrong thing, and a damaged sending reputation would hurt the 07:00 outreach that actually earns money. Confirm `RESEND_FROM_EMAIL` is on a verified domain and run one test end-to-end before promoting the tool anywhere. | 20 min |
 | J3 | **Booking `minLeadHours: 24` blocks the slot the call script offers** | The phone script says "would tomorrow morning suit?" — the booking page won't offer it. One of the two has to change. Raised 2026-07-27, no decision yet. | decision |
 | J5 | **PDPL scope** | `/policies.html` covers GDPR and the Irish DPA 2018 fully, and scopes PDPL as "contact us before onboarding from outside the EEA" rather than asserting compliance. If a specific Gulf PDPL was meant, that section needs rewriting against it. | decision |
-| J7 | **Paste four migrations into the Supabase SQL editor, in order: `0031_send_target_50.sql`, `0032_agent_runs.sql`, `0033_permitiq.sql`, `0034_permitiq_active.sql`** | Nothing in this repo applies migrations — no CI step, no Supabase CLI in any workflow — so a migration file is inert until Jude pastes it. All four are idempotent; 0031–0033 are validated on scratch PG16 and 0034 is a single UPDATE. **0031** sets the daily send target to 50; until it runs, saving at `/growth/settings` fails if 0030 is also unapplied. **0032** creates `agent_runs`; until it runs the assistant behaves exactly as today. **0033** creates the PermitIQ schema, the private `permits` bucket, the product row and the Irish requirements catalog — until it runs, `/portal/permitiq` shows a plain 'run this migration' notice rather than a broken page. **0034** flips PermitIQ from coming_soon to active; it does NOT grant access to anyone — that still needs a `business_products` row added from the admin area, same as every other module. | 8 min |
 | J6 | **Workforce tools and the EU AI Act's high-risk tier** | If any customer uses the workforce-management tooling to evaluate, monitor or rank *employees*, that likely lands in the high-risk tier — a materially different compliance burden. Needs a yes/no on whether any customer does this. | decision |
 
 ---
