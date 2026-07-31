@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dublinDate } from "@/lib/growth/dates";
+import { resolveChaseDate } from "@/lib/growth/dates";
 
 /**
  * The prospect's REAL outreach history, formatted for a drafting prompt — so
@@ -50,8 +50,10 @@ export async function outreachHistoryLines(
 /**
  * Marks outreach as having gone out: message row + prospect bookkeeping +
  * the automatic follow-up. Sending moves new/researched prospects to
- * "Contacted" and schedules a follow-up reminder 3 days out, so the
- * dashboard chases the reply without anyone having to remember to.
+ * "Contacted" and makes sure a chase is in the diary — three days out when
+ * there isn't one, so the dashboard chases the reply without anyone having to
+ * remember to. A chase already booked for a later day is left where it is
+ * (see resolveChaseDate).
  * Shared by the composer, the queue view and the email autopilot so every
  * send updates the CRM identically.
  */
@@ -74,7 +76,7 @@ export async function recordOutreachSent(
   // follow-up draft, counts as chasing.
   const { data: fresh } = await admin
     .from("ge_prospects")
-    .select("last_contact_at")
+    .select("last_contact_at, next_follow_up_at")
     .eq("id", prospect.id)
     .maybeSingle();
   const lastContact = fresh?.last_contact_at
@@ -84,10 +86,21 @@ export async function recordOutreachSent(
   const explicitFollowUp =
     purpose && ["follow_up", "second_follow_up"].includes(purpose);
 
+  // A send can PUT a chase in the diary; it must never MOVE one already
+  // there. This was an unconditional +3, and it is the same defect fixed in
+  // addActivity — reached from "Mark sent" on the DM list, the composer, the
+  // queue view and the 07:00 autopilot, so it fired on every outreach path in
+  // the engine. A prospect who said "try us after the summer" had that date
+  // pulled from September to three days out, which is a cold DM six weeks
+  // early to someone who explicitly asked to be left alone until then.
+  //
+  // A date that has already come round is still rescheduled: that date IS the
+  // chase this send just was.
+  const chase = resolveChaseDate(fresh?.next_follow_up_at as string | null);
   const bump: Record<string, unknown> = {
     last_contact_at: new Date().toISOString(),
-    next_follow_up_at: dublinDate(3),
   };
+  if (!chase.kept) bump.next_follow_up_at = chase.date;
   // First outreach → Contacted; chasing an unanswered prospect (or sending
   // an explicit follow-up draft) → Follow-up sent. Later stages (replied,
   // qualified, …) are never regressed by sending another message.
@@ -110,10 +123,15 @@ export async function recordOutreachSent(
   await admin.from("ge_activities").insert({
     prospect_id: prospect.id,
     type: channel,
+    // Says what actually happened rather than asserting a 3-day follow-up
+    // that may not have been scheduled at all.
     content:
-      channel === "call"
-        ? `Call made by ${memberName} — follow-up scheduled in 3 days`
-        : `Outreach sent via ${channel} by ${memberName} — follow-up scheduled in 3 days`,
+      (channel === "call"
+        ? `Call made by ${memberName}`
+        : `Outreach sent via ${channel} by ${memberName}`) +
+      (chase.kept
+        ? ` — chase kept for ${chase.date}`
+        : ` — follow-up scheduled for ${chase.date}`),
     created_by: memberId,
   });
 }
