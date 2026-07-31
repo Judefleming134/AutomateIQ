@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-07-31 (second free-tools pass: F5 shipped — tool pages rebuilt, autoseo's duplicate topbar removed, quote-builder's 3,429px mobile overflow fixed, dead tools dropped from the sitemap. Earlier: free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
+Last reviewed: 2026-07-31 (tool ENGINE pass: AutoSEO's 1,000-line scorer had no tests and two real bugs — a single-bundle SPA passed the check meant to catch it, and the report led with the meta description on a site with no HTTPS. Missed-calls workings contradicted their own headline. Earlier: second free-tools pass: F5 shipped — tool pages rebuilt, autoseo's duplicate topbar removed, quote-builder's 3,429px mobile overflow fixed, dead tools dropped from the sitemap. Earlier: free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -54,6 +54,7 @@ The six tools at `/freetools` all work. These are the loose ends.
 | F2 | **Snippets are templates, not written copy** | AutoSEO emits `[square brackets]` for the business to fill in. An AI pass could write the actual title, meta description and alt text per site. Costs money per run, so it changes "free forever" into something rate-limited on purpose. |
 | F3 | **Rate limits are per-instance, not global** | `lib/tools/rate-limit.ts` documents this honestly. Fine until a tool gets popular; the fix is a shared store, and the file names the function to move. |
 | F4 | **Review writer costs money per use** | 6/day/IP. If it takes off, that cap is the dial to turn — or gate it behind an email. |
+| F7 | **The GBP checker's scoring has never run** | `lib/tools/gbp.ts` builds a score and findings from the Places API response, and the key has never been set — so that logic has never executed against a real payload, in production or in a test. AutoSEO's engine had two real bugs found the moment it was tested; assume this one does too. Needs J1 first, then a fixture-driven test suite like `lib/seo/audit.test.ts`. | half a day |
 | F6 | **Result states are still plain** | The six tool pages were brought up to the hub's standard (accent per tool, what-you-get strip before the tool, cross-links and a CTA after it). What each tool renders *after* it runs — the AutoSEO report, the review replies, the GBP findings — is still the original markup. It is clear and readable; it is not yet designed. |
 
 ---
