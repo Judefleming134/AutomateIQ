@@ -10,7 +10,7 @@ import {
   BookOpen,
   Layers,
 } from "lucide-react";
-import { requireSession } from "@/lib/auth/require-session";
+import { requireTenant } from "@/lib/auth/require-tenant";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
 import type { NavSection } from "@/components/shell/types";
@@ -20,19 +20,24 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Redirects to /login (no session) or /admin (admin account) as needed.
-  const { user, profile } = await requireSession();
+  // Redirects to /login (no session), /admin (admin account), or
+  // /account-unavailable (suspended or soft-deleted tenant).
+  //
+  // This used to be requireSession() plus a businesses lookup right here. The
+  // lookup ran through the RLS-scoped client, and the RLS helper requires
+  // status='active' AND deleted_at IS NULL — so for a suspended customer the
+  // row came back null, businessName fell through to the placeholder "Your
+  // business", and the whole portal rendered with every panel empty because
+  // the same predicate hid their data too. It looked exactly like their
+  // account had been wiped. requireTenant does the same query and turns that
+  // null into an honest page instead of a hollow portal.
+  const { user, profile, business } = await requireTenant();
   const supabase = await createClient();
 
-  const [{ data: business }, { data: enabledRows }] = await Promise.all([
-    supabase
-      .from("businesses")
-      .select("name")
-      .eq("id", profile.business_id)
-      .single(),
-    // RLS already scopes this to the caller's own business.
-    supabase.from("business_products").select("products(key)"),
-  ]);
+  // RLS already scopes this to the caller's own business.
+  const { data: enabledRows } = await supabase
+    .from("business_products")
+    .select("products(key)");
 
   const enabledKeys = new Set(
     (enabledRows ?? [])
@@ -40,7 +45,9 @@ export default async function PortalLayout({
       .filter((k): k is string => Boolean(k))
   );
 
-  const businessName = business?.name ?? "Your business";
+  // requireTenant guarantees an active business, so the placeholder fallback
+  // that used to hide the suspended case is no longer needed.
+  const businessName = business.name;
 
   // V2 navigation: one clean set of destinations. Individual products live
   // inside the Products hub (and are driven by the agent registry), so
