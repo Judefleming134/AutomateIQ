@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendReviewRequestEmail } from "@/lib/email/send-review-request";
+import { escapeLike } from "@/lib/growth/db";
 
 export type SendReviewRequestResult =
   | { ok: true; customerName: string }
@@ -38,16 +39,19 @@ export async function sendReviewRequestCore(
 
   // Duplicate-submit guard: a fat-fingered double click (or an eager
   // re-click before the page updates) shouldn't send two initial emails
-  // from the business's sending identity. Queried from ra_review_requests
-  // (not ra_customers) because a new ra_customers row is created on every
-  // send — the same email can have several customer rows over time, so the
-  // check has to look at requests across all of them.
+  // from the business's sending identity — to their own customer.
+  //
+  // Matched case-INSENSITIVELY. A plain .eq() compares byte-for-byte, so
+  // re-typing "Mary.Byrne@gmail.com" a minute after "mary.byrne@gmail.com"
+  // walked straight past this guard and sent a second review request. Exactly
+  // the hole already closed in /api/book and /api/lead. The wildcards are
+  // escaped because % and _ are legal in an email local part.
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const { data: recentRequests } = await supabase
     .from("ra_review_requests")
     .select("id, created_at, status, ra_customers!inner(email)")
     .eq("business_id", businessId)
-    .eq("ra_customers.email", customerEmail)
+    .ilike("ra_customers.email", escapeLike(customerEmail))
     .order("created_at", { ascending: false })
     .limit(1);
 
@@ -63,14 +67,50 @@ export async function sendReviewRequestCore(
     };
   }
 
-  const { data: customer, error: customerError } = await supabase
+  // Reuse the customer row rather than inserting a new one on every send.
+  // A new row per send meant the Customers page listed the same person once
+  // per review request ever sent to them — six rows for two people after a
+  // fortnight — and the per-customer request and click counts underneath were
+  // split across those rows, so nobody's real history was visible anywhere.
+  //
+  // Scoped by business_id as well as email: this table is multi-tenant, and
+  // two businesses can legitimately have the same customer.
+  const { data: existingCustomer } = await supabase
     .from("ra_customers")
-    .insert({ business_id: businessId, name: customerName, email: customerEmail })
-    .select("id")
-    .single();
+    .select("id, name")
+    .eq("business_id", businessId)
+    .ilike("email", escapeLike(customerEmail))
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  if (customerError || !customer) {
-    return { ok: false, error: customerError?.message ?? "Could not save customer." };
+  let customer: { id: string } | null = existingCustomer
+    ? { id: existingCustomer.id }
+    : null;
+
+  if (existingCustomer) {
+    // A corrected spelling on a later send should stick, otherwise the review
+    // email keeps greeting them by the name that was wrong the first time.
+    if (customerName && customerName !== existingCustomer.name) {
+      await supabase
+        .from("ra_customers")
+        .update({ name: customerName })
+        .eq("id", existingCustomer.id);
+    }
+  } else {
+    const { data: created, error: customerError } = await supabase
+      .from("ra_customers")
+      .insert({ business_id: businessId, name: customerName, email: customerEmail })
+      .select("id")
+      .single();
+    if (customerError || !created) {
+      return { ok: false, error: customerError?.message ?? "Could not save customer." };
+    }
+    customer = created;
+  }
+
+  if (!customer) {
+    return { ok: false, error: "Could not save customer." };
   }
 
   // Durable record BEFORE the external call — a Resend failure must never
