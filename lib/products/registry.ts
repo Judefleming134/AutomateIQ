@@ -158,7 +158,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     href: "/portal/permitiq",
     iconName: "file-check",
     accent: "#0EA5E9",
-    status: "coming_soon",
+    status: "active",
     family: "permitiq",
   },
   {
