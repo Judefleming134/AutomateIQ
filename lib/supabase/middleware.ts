@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { canonicalPath } from "@/lib/routing/case";
 
 /**
  * Session refresh + coarse UX redirect ONLY. This is NOT the security
@@ -40,6 +41,19 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+
+  // Brand URLs are written with capitals — TradeIQ, PermitIQ, FinanceIQ — so
+  // /TradeIQ is what a new customer actually types off a card. Next routes are
+  // case-sensitive, so that was a 404. Only the first segment is corrected;
+  // signed tokens further down the path are case-sensitive and must never be
+  // touched. See lib/routing/case.ts.
+  const canonical = canonicalPath(path);
+  if (canonical) {
+    const url = request.nextUrl.clone();
+    url.pathname = canonical;
+    return NextResponse.redirect(url, 308);
+  }
+
   const isAppRoute = path.startsWith("/portal") || path.startsWith("/admin");
   // The Growth Engine (internal sales workspace at /growth) has its own
   // login screen — unauthenticated visitors go there, never to the
