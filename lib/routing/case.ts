@@ -30,6 +30,7 @@ const KNOWN_SEGMENTS = new Set([
   "leaving",
   "login",
   "portal",
+  "products",
   "q",
   "savings",
   "setup",
