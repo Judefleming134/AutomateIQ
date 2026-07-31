@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Layers, ArrowRight, Sparkles, Puzzle, Wand2 } from "lucide-react";
 import { SYSTEMS_CATALOG } from "@/lib/systems/catalog";
+import { PROOF } from "@/lib/proof";
 import { SystemCard } from "./system-card";
 
 export const metadata: Metadata = {
@@ -45,6 +46,12 @@ export default function SystemsPage() {
           AutomateIQ designs and develops completely bespoke platforms tailored to the way your
           organisation actually works. The systems below are examples of what we can build and
           customise around you.
+        </p>
+        {/* Proof, from lib/proof.ts — one source of truth so this number
+            can never disagree with the homepage or an outreach email. */}
+        <p className="book-hero-sub" style={{ marginTop: 10, fontWeight: 600 }}>
+          {PROOF.jobsProcessedLabel} jobs processed and {PROOF.revenueLiftLabel} revenue
+          {" "}{PROOF.revenueLiftWindow} for {PROOF.client} — a system we designed and built.
         </p>
         <div className="book-hero-cta">
           <a href="#systems" className="btn btn-primary">Explore the systems</a>
