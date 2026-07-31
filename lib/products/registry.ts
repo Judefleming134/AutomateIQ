@@ -151,6 +151,17 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     family: "tradeiq",
   },
   {
+    key: "permitiq",
+    name: "PermitIQ",
+    description:
+      "Planning permission and building permits — upload the documents, get a checklist, a summary and the gaps before you submit.",
+    href: "/portal/permitiq",
+    iconName: "file-check",
+    accent: "#0EA5E9",
+    status: "coming_soon",
+    family: "permitiq",
+  },
+  {
     key: "custom-solutions",
     name: "Custom Solutions",
     description: "Bespoke AI modules built specifically for your business.",
@@ -168,7 +179,7 @@ export function getProductByKey(key: string) {
 
 /**
  * The registry grouped for rendering, in family order, with empty families
- * dropped. A family with no products yet (PermitIQ today) simply doesn't
+ * dropped. A family with no products yet (FinanceIQ today) simply doesn't
  * appear — no placeholder section, no "coming soon" shell to maintain.
  *
  * Products are returned in their registry order within each family, so the
