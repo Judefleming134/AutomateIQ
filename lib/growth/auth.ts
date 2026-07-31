@@ -106,18 +106,38 @@ export async function requireGrowth(): Promise<{
 /** Growth Engine settings with safe defaults if the row is missing. */
 export async function loadGrowthSettings() {
   const admin = createAdminClient();
-  const { data } = await admin
+  // SELECT *, not a column list.
+  //
+  // The list named daily_send_target, which arrives with a migration. Naming a
+  // column that isn't there yet doesn't degrade — PostgREST 400s the whole
+  // request, supabase-js hands back { data: null }, and because every field
+  // below reads through `data?.`, ALL FOUR settings quietly become defaults.
+  // The comment underneath this used to claim the opposite ("falls back if the
+  // column isn't there yet, so the engine keeps sending through a migration
+  // gap") and it was the one thing the code couldn't do. The real cost isn't
+  // the send target: bookingUrl is pasted into outreach emails, so a schema
+  // gap silently swaps Jude's booking link for the generic one in everything
+  // that goes out. Verified against Postgres 16 in the scratchpad.
+  //
+  // ge_settings is a single-row config table, so * is free, and a column that
+  // hasn't landed yet is simply an absent key — which is what `??` is for.
+  const { data, error } = await admin
     .from("ge_settings")
-    .select("booking_url, qualify_threshold, review_threshold, daily_send_target")
+    .select("*")
     .eq("id", true)
     .maybeSingle();
+  if (error) {
+    // Never silent. Defaults are about to be used for everything, and that is
+    // a fact worth finding in the logs rather than in a customer's inbox.
+    console.error("loadGrowthSettings: falling back to defaults —", error.message);
+  }
   return {
     bookingUrl: data?.booking_url ?? "https://automateiq.ie/book",
     qualifyThreshold: data?.qualify_threshold ?? 70,
     reviewThreshold: data?.review_threshold ?? 40,
     // Destination for daily outreach, not a daily quota — the ramp paces the
-    // climb toward it. Falls back to the default if the column isn't there
-    // yet, so the engine keeps sending through a deploy/migration gap.
-    dailySendTarget: data?.daily_send_target ?? 250,
+    // climb toward it. 50/day is the number Jude set on 2026-07-31; see
+    // migration 0031, which also writes it to the row.
+    dailySendTarget: data?.daily_send_target ?? 50,
   };
 }
