@@ -164,14 +164,23 @@ export function parseReturnDate(body: string, now = new Date()): string | null {
     candidates.push(base);
   };
 
+  // The (?!\d) after every day capture matters more than it looks. Without it,
+  // "back on 25 August 2026" matched the month-first pattern as well, reading
+  // the YEAR's first two digits as a day — August 20 — and since the earliest
+  // future candidate wins, the chase was scheduled five days early while the
+  // prospect was still away. "back on 12 August 2028" was worse: the correct
+  // 2028 date fell outside the 90-day horizon and the phantom 2026-08-20 was
+  // returned in its place. A day is one or two digits and never the front of a
+  // longer number.
+  //
   // "12 August" / "3rd Sept 2026"
   const dm = new RegExp(
-    `${cue.source}(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthName})[a-z]*\\.?(?:\\s+(\\d{4}))?`,
+    `${cue.source}(\\d{1,2})(?!\\d)(?:st|nd|rd|th)?\\s+(${monthName})[a-z]*\\.?(?:\\s+(\\d{4}))?`,
     "gi"
   );
   // "August 12" / "Sept 3rd, 2026"
   const md = new RegExp(
-    `${cue.source}(${monthName})[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?`,
+    `${cue.source}(${monthName})[a-z]*\\.?\\s+(\\d{1,2})(?!\\d)(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?`,
     "gi"
   );
   // "12/08" / "12-08-2026"

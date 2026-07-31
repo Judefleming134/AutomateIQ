@@ -497,9 +497,9 @@ pasting into the Supabase SQL editor.**
 |---|---|---|
 | F1 | Product family layer | ✅ shipped 2026-07-31 — portal grouped into AutomateIQ Core / TradeIQ / ReputationIQ, keys frozen |
 | F4 | Agent Framework v2 | ✅ shipped 2026-07-31 — `instructions`, `permissions`, `knowledgeSources` (all optional) + `agent_runs` (migration 0032) |
+| F6 | Vitest + CI gate | ✅ shipped 2026-07-31 — 97 tests, `.github/workflows/ci.yml` gates every PR |
 | F2 | One `requireTenant()` | next |
 | F3 | Unified `/login` | pending |
-| F6 | Vitest + CI gate | pending — **before PermitIQ** |
 | F5 | `trades_accounts` → `businesses` | last, days 71–90 |
 
 ### Note on F4 as shipped
@@ -519,6 +519,25 @@ Two deliberate limits, both to protect the eleven live agents:
 names, emails and quote figures, and a debug log is the wrong place for personal
 data to accumulate. The row records that a call happened, how it went and how
 long it took.
+
+### Note on F6 as shipped
+
+97 tests over the five places a silent regression is most expensive: the
+outbound **send-review gates**, **inbound classification**, **review-link
+safety**, the **product/entitlement registry**, and **return-date parsing**.
+Scope is pure logic only — functions that decide something important and can be
+checked without a database, a network call or a running server. D2 in §3 is
+closed as a *control*; coverage is a starting point, not a finish line.
+
+The suite earned its keep on the first run by catching a live bug: `parseReturnDate`
+read a 4-digit year's first two digits as a day, so *"back on 25 August 2026"*
+resolved to **20 August** and the chase went out five days early, while the
+prospect was still away.
+
+**There is no lint step in CI, deliberately.** `npm run lint` runs `next lint`,
+which Next 16 removed, and ESLint isn't installed or configured in this repo at
+all — so the script has been dead since the Next 16 upgrade. A step that always
+fails would make the gate worthless on day one. Tracked as K6.
 
 ---
 

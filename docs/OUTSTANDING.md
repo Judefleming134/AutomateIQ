@@ -39,6 +39,7 @@ not forgotten and they are not free to ignore forever.
 | # | Item | Why it wasn't shipped | Risk of leaving it |
 |---|---|---|---|
 | K4 | **`ra_customers` has no dedupe by email** | Same customer can be added twice and get two review requests. | Annoyance, looks sloppy |
+| K6 | **`npm run lint` is broken and ESLint isn't installed** | The script runs `next lint`, which Next 16 removed — it now reads "lint" as a directory and fails with *"Invalid project directory provided: /home/user/AutomateIQ/lint"*. There is no `eslint` dependency, no `eslint-config-next` and no config file anywhere in the repo, so this has been dead since the Next 16 upgrade. Left out of the CI gate rather than adding a step that always fails. Fixing it means installing ESLint + a config and then triaging whatever it reports across 56k lines — worth doing, but its own piece of work, not a side effect of adding tests. The script itself is left in place (nothing removed). | half a day |
 | K5 | **Booking has no IP-based rate limit** | Needs a nullable column, so it needs a migration and scratch-Postgres validation before it can go near production. | Abuse vector |
 
 ---
