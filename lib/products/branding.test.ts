@@ -15,12 +15,13 @@ import { PRODUCT_REGISTRY, PRODUCT_FAMILIES } from "@/lib/products/registry";
  * ships a tile that looks like it belongs to a different company.
  */
 
-/** Deliberately exempt, with a reason each. */
-const EXEMPT = new Set([
-  // Not a product with a brand — it's the bespoke-build service, and
-  // "CustomIQ" would imply an off-the-shelf module that doesn't exist.
-  "custom-solutions",
-]);
+/**
+ * No exemptions. Jude's call on 2026-07-31: EVERY product carries the IQ
+ * suffix. I had argued for leaving "Custom Solutions" alone — that "CustomIQ"
+ * implies an off-the-shelf module — and he overrode it, so the exemption set is
+ * empty and stays empty. An exemption here is how a brand starts drifting.
+ */
+const EXEMPT = new Set<string>([]);
 
 describe("product branding", () => {
   it("every product name ends in IQ", () => {
@@ -28,6 +29,8 @@ describe("product branding", () => {
       (p) => !EXEMPT.has(p.key) && !p.name.endsWith("IQ")
     ).map((p) => `${p.key} → "${p.name}"`);
     expect(offenders).toEqual([]);
+    // And the exemption door stays shut.
+    expect(EXEMPT.size).toBe(0);
   });
 
   it("every family label carries the IQ brand", () => {

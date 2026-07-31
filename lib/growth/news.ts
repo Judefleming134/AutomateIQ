@@ -51,17 +51,17 @@ const FEEDS: { url: string; source: string; weight: number }[] = [
 /** Exported so the branding guard can assert no retired product name survives
  *  here — these angle labels end up in captions Jude posts under his own name. */
 export const ANGLE_TERMS: { angle: string; terms: string[]; weight: number }[] = [
-  { angle: "AI Receptionist", terms: ["missed call", "call centre", "call center", "receptionist", "phone answering", "customer service", "chatbot", "virtual assistant"], weight: 3 },
-  { angle: "Voice AI", terms: ["voice ai", "speech", "voice assistant", "voice agent", "conversational ai"], weight: 3 },
+  { angle: "ReceptionIQ", terms: ["missed call", "call centre", "call center", "receptionist", "phone answering", "customer service", "chatbot", "virtual assistant"], weight: 3 },
+  { angle: "VoiceIQ", terms: ["voice ai", "speech", "voice assistant", "voice agent", "conversational ai"], weight: 3 },
   { angle: "LeadIQ", terms: ["lead response", "response time", "speed to lead", "enquiries", "inquiries", "sales follow-up"], weight: 3 },
   { angle: "ReputationIQ", terms: ["review", "reputation", "google business", "star rating", "customer feedback"], weight: 2 },
   { angle: "QuoteIQ", terms: ["quote", "quoting", "estimate", "pricing tool"], weight: 2 },
-  { angle: "Finance & Invoice Automation", terms: ["invoice", "late payment", "cash flow", "accounts payable", "bookkeeping", "e-invoicing"], weight: 3 },
-  { angle: "Workforce Management", terms: ["rota", "scheduling", "workforce", "staff shortage", "recruitment", "labour shortage", "skills gap"], weight: 2 },
+  { angle: "FinanceIQ", terms: ["invoice", "late payment", "cash flow", "accounts payable", "bookkeeping", "e-invoicing"], weight: 3 },
+  { angle: "WorkforceIQ", terms: ["rota", "scheduling", "workforce", "staff shortage", "recruitment", "labour shortage", "skills gap"], weight: 2 },
   { angle: "FleetIQ", terms: ["logistics", "delivery", "fleet", "route", "supply chain", "haulage"], weight: 2 },
-  { angle: "Health, Safety & Compliance", terms: ["compliance", "regulation", "health and safety", "hse", "audit", "gdpr", "ai act"], weight: 3 },
+  { angle: "SafetyIQ", terms: ["compliance", "regulation", "health and safety", "hse", "audit", "gdpr", "ai act"], weight: 3 },
   { angle: "SiteIQ", terms: ["website", "seo", "search", "google ranking", "web traffic"], weight: 2 },
-  { angle: "Bespoke AI Software", terms: ["small business", "sme", "smes", "productivity", "automation", "adoption", "digital transformation"], weight: 2 },
+  { angle: "BespokeIQ", terms: ["small business", "sme", "smes", "productivity", "automation", "adoption", "digital transformation"], weight: 2 },
 ];
 
 /** The story has to be ABOUT this space at all. Nothing scores without one. */

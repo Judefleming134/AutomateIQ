@@ -45,7 +45,7 @@ export default async function CustomModulePage({
               marginBottom: 8,
             }}
           >
-            <ArrowLeft size={13} /> Custom Solutions
+            <ArrowLeft size={13} /> CustomIQ
           </Link>
           <h1>{mod.name}</h1>
           {mod.description && <p>{mod.description}</p>}

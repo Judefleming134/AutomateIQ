@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { PhoneCall, ClipboardList, MailCheck, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Live AI Receptionist Demo | AutomateIQ",
+  title: "Live ReceptionIQ Demo | AutomateIQ",
   description:
     "Talk to a live AutomateIQ AI receptionist — it answers, captures the job and sends the details instantly.",
   // Demo surface for sales calls — keep it out of search results.

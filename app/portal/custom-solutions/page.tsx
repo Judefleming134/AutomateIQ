@@ -18,7 +18,7 @@ export default async function CustomSolutionsPage() {
     <>
       <div className="page-header">
         <div>
-          <h1>Custom Solutions</h1>
+          <h1>CustomIQ</h1>
           <p>
             Bespoke AI modules built specifically for your business — quote
             generators, invoicing tools, custom CRMs, and more.

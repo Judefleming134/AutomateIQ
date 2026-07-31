@@ -39,27 +39,33 @@ const RETIRED = [
   "Website with Lead Capture",
   "Website & Lead Capture",
   "TradeOS",
-];
-
-/**
- * Service CATEGORIES, not products — correctly not IQ-branded. A category
- * describes a body of work Jude sells; only a named product carries the brand.
- */
-const CATEGORY_NAMES = new Set([
+  // Retired 2026-07-31 when the service categories were folded into the brand.
+  // Listed here so a future edit cannot quietly reintroduce a half-branded
+  // catalog — which is exactly how the last rename went wrong.
   "AI Receptionist",
   "Voice AI",
   "Workforce Management",
   "Asset Management",
-  // Both forms are in use and both are correct: the catalog carries the long
-  // label (it's a proposal line item), the LinkedIn angles the short one (it's
-  // a caption tag). A pre-existing wording difference, not rebrand damage.
-  "Health, Safety & Compliance (incl. SOP management)",
   "Health, Safety & Compliance",
   "Finance & Invoice Automation",
   "ERP Platform",
   "Business Operations Platform",
   "Bespoke AI Software",
-]);
+  "Custom Solutions",
+];
+
+/**
+ * There are no longer any "service categories" sitting outside the brand.
+ * They were the last things on the platform without an IQ suffix, and on
+ * 2026-07-31 Jude folded them in: AI Receptionist became ReceptionIQ, Workforce
+ * Management became WorkforceIQ, ERP Platform became EnterpriseIQ, and so on.
+ *
+ * So this set is empty and the assertions below are absolute: every entry in
+ * the sales catalog and every LinkedIn angle ends in IQ, with nothing waved
+ * through. That is a stricter guard than the one it replaces.
+ */
+const CATEGORY_NAMES = new Set<string>([]);
+
 
 describe("solution catalog branding", () => {
   it("carries no retired product name", () => {
