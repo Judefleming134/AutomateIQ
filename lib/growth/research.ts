@@ -433,7 +433,7 @@ export async function runCompanyResearch(
   ).join(", ");
 
   const system = [
-    "You are the senior business analyst and sales strategist at AutomateIQ, an Irish AI-automation agency (automateiq.ie) selling practical AI systems to small and mid-sized businesses. The commercial goal is a free 30-minute AI Strategy Session.",
+    "You are the senior business analyst and sales strategist at AutomateIQ, an Irish AI-automation agency (automateiq.ie) selling practical AI systems to small and mid-sized businesses. The commercial goal is a free 15-minute AI Strategy Session.",
     "You produce honest, useful company research. HARD RULES:",
     "- Ground every claim in the provided website text and prospect details. Where you must infer, use hedged language ('likely', 'typically for this sector') — NEVER present a guess as fact.",
     "- Never invent named clients, revenue figures, staff counts or certifications.",

@@ -15,7 +15,7 @@ import {
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { getLocalWeather, greetingForNow } from "@/lib/weather";
-import { PRODUCT_REGISTRY } from "@/lib/products/registry";
+import { productsByFamily } from "@/lib/products/registry";
 import { ProductIcon } from "@/lib/products/icons";
 import { StatCard } from "@/components/portal/stat-card";
 import { StatusBadge } from "@/components/portal/status-badge";
@@ -640,8 +640,32 @@ export default async function PortalHome() {
       )}
 
       <h2 className="section-title">Your products</h2>
-      <div className="product-grid" style={{ marginBottom: 28 }}>
-        {PRODUCT_REGISTRY.map((product) => {
+      {/* Grouped by product family (AutomateIQ Core / TradeIQ / ReputationIQ…)
+          rather than one flat grid, so the portal reads as a platform with
+          industry products rather than a list of eight agents. Purely a
+          display grouping — every tile, link, icon and entitlement check is
+          exactly as it was, and product keys are untouched on purpose:
+          business_products joins on them, so renaming one would revoke it
+          from every customer who has it. */}
+      {productsByFamily().map(({ family, products }) => (
+        <div key={family.key} style={{ marginBottom: 28 }}>
+          <div style={{ margin: "0 0 12px" }}>
+            <h3
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                margin: 0,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {family.label}
+            </h3>
+            <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "2px 0 0" }}>
+              {family.tagline}
+            </p>
+          </div>
+          <div className="product-grid">
+            {products.map((product) => {
           const isEnabled = enabledKeys.has(product.key);
           const style = { "--tile-accent": product.accent } as React.CSSProperties;
 
@@ -684,8 +708,10 @@ export default async function PortalHome() {
               {tile}
             </div>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </div>
+      ))}
 
     </>
   );

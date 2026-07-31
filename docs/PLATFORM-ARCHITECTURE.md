@@ -405,17 +405,90 @@ Stated rather than asked, per your instruction — tell me if you want any rever
 6. **No new technologies.** Vitest is the only addition, and it's a dev dependency.
 7. **`ge_*` stays single-tenant.** It's internal tooling, not a product.
 
-## 8. What needs your answer
+## 8. Answered 2026-07-31
 
-1. **Does the Growth Engine become a product?** ("TradeIQ Growth Agent" implies
-   yes — that's a real multi-tenant conversion, and a much bigger job than the
-   rename suggests. It is currently your internal sales workspace.)
-2. **Ireland or US first for PermitIQ's rule set?** Both is not an MVP. I'd
-   start Ireland — it's where you can physically sit with a design partner.
-3. **J1–J6 in `OUTSTANDING.md` are still open**, including the session length
-   contradiction (15 vs 30 vs 45 minutes) that now affects three products.
+### 8.1 The Growth Engine becomes a product — as a **separate, minimal build**
+
+Jude: *"Yes but a minimal version compared to what we use privately for outreach."*
+
+**Decision: build TradeIQ Growth Agent as a new, small product on `businesses`.
+Do NOT multi-tenant the existing `ge_*` tables.**
+
+This is the safest reading of "minimal", and it's also the right architecture:
+
+- The `ge_*` engine is 17 tables, a 07:00 send pipeline, editorial review gates,
+  an autopilot ramp, a nightly routine and a research worker. It is the thing
+  that earns the company's money, and it must never break. Retro-fitting a
+  `business_id` onto all 17 tables and re-writing every query, cron and RLS
+  policy around it is the single highest-risk change available in this codebase
+  — for a *lite* product that needs maybe 20% of it.
+- A customer's Growth Agent needs: import leads, AI-draft an intro, queue,
+  send, capture replies, chase. Not: proposal studio, LinkedIn caption
+  generation, lead recycling, solution matching, call sheets, the morning brief.
+
+So: **new `gr_*` tables on `businesses`, reusing `lib/growth` as a library** —
+`ai.ts` (drafting), `email.ts` (the send-review gates), `inbound-classify.ts`,
+`scoring.ts`, `dates.ts`. The valuable, hard-won parts are shared as code; the
+internal engine's schema and crons are untouched.
+
+**The send-review gates are mandatory in the customer product.** A customer
+whose outreach goes out with another company's details in it is a lost customer
+and a damaged sending domain — the exact failure those gates exist to prevent.
+
+### 8.2 PermitIQ — Ireland production-ready, USA visible
+
+Jude: *"Ireland and USA but product ready for Ireland today and base for USA visible."*
+
+**Decision: `jurisdiction` is a first-class column from the first migration, not
+retro-fitted.** `pq_applications.jurisdiction` (`ie` | `us`) and
+`pq_requirements` keyed on `(jurisdiction, authority, application_type)`.
+
+- **Ireland** ships with a fully seeded requirements catalog and is sellable.
+- **USA** ships with the same schema, the jurisdiction selectable, and an
+  honest empty state naming the municipalities not yet covered — visible,
+  demoable, and truthful about what it does today.
+
+The catalog is rows, not code, so adding a US municipality is a seed insert
+rather than a release. That's what makes "base for USA visible" cheap instead
+of a second build.
+
+### 8.3 Session length (J4) — decided, since the answer was "I don't know"
+
+**Decision: the customer hears ONE number everywhere — 15 minutes.**
+
+15 is the right *promise* in cold outreach: it's what makes a stranger say yes,
+and there's no benefit to talking a prospect up to 30 before they've met you.
+Every ask in the product already uses it — the call script, touch 3, the
+morning brief, the prospect call sheet.
+
+**Two corrections to the register while fixing this.** `OUTSTANDING.md` J4 said
+*"`lib/booking/slots.ts` books 45 minutes (the actual calendar hold)"*. That was
+wrong, and I repeated it in the first draft of this document:
+
+1. **Nothing has ever held 45 minutes.** `durationLabel: "45 minutes"` is a
+   *string*, used only in the booking page hero, the FAQ answer and the
+   confirmation email. Slot spacing is `slotMinutes: 30` and nothing else. So
+   leads were being told 45 minutes while slots sat 30 apart — if the session
+   had really run 45, back-to-back bookings would have overlapped by 15.
+2. **There were more than three variants.** The AI system prompts that *generate
+   the outreach* (`lib/growth/ai.ts` ×2, `lib/growth/research.ts`) instructed the
+   model to sell a **30-minute** session, while the ask instructions in the same
+   file said **15**. So `ai.ts` contradicted itself, and generated cold emails
+   were likely promising 30 against a 15-minute call script.
+
+Changed to 15: the lead confirmation email, the three AI system prompts, and
+`durationLabel`. **No booking logic touched** — `slotMinutes`, `minLeadHours`
+and availability generation are untouched, so this stays a copy-only change to
+a revenue path. At 15 minutes against 30-minute spacing there's now a real
+buffer rather than a phantom overlap.
 
 ---
 
-*Phase 1 complete. No implementation has begun. Phase 2 starts with F1 + F4 on
-your go.*
+## 9. Still open
+
+`OUTSTANDING.md` J1, J2, J3, J5, J6 — plus **J7: migration 0031 still needs
+pasting into the Supabase SQL editor.**
+
+---
+
+*Phase 1 complete. Phase 2 began 2026-07-31 with F1 (product families).*

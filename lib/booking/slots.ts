@@ -20,7 +20,14 @@ export const BOOKING_CONFIG = {
   // Minimum lead time before a slot can be booked (no same-hour bookings).
   minLeadHours: 24,
   timezoneLabel: "Irish time (IST)",
-  durationLabel: "45 minutes",
+  // 15, matching every other surface. This is a LABEL ONLY — it is shown on
+  // the booking page, in the FAQ and in the confirmation email, and it does
+  // not size any calendar hold. Nothing in this file ever held 45 minutes;
+  // slot spacing is `slotMinutes` alone. Worth stating because the old
+  // "45 minutes" string was widely believed to be the real duration, which
+  // also meant slots 30 minutes apart looked like they overlapped by 15.
+  // At 15 minutes against 30-minute spacing there is a genuine buffer.
+  durationLabel: "15 minutes",
 } as const;
 
 export type BookingSlot = { iso: string; label: string };
