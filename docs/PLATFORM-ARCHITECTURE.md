@@ -600,5 +600,23 @@ fails would make the gate worthless on day one. Tracked as K6.
 
 ---
 
+### PermitIQ progress
+
+| Agent | Status |
+|---|---|
+| Document Intelligence | ✅ reads an uploaded PDF/image, attributes it to a requirement, flags visible problems |
+| Compliance Checklist | ✅ national baseline + authority overrides, evidence matching, strict "ready to submit" |
+| Application Review | ✅ whole-application summary, ranked risk flags, next steps — logged to `agent_runs` |
+| Planning Rules Assistant | next — needs `knowledgeSources` wired to the requirements catalog |
+| Communication | pending — must inherit the Growth Engine's send-review gates |
+
+Migrations 0031–0034 were applied to production on 2026-07-31, so PermitIQ is
+live behind the entitlement. Ireland ships against the seeded catalog; the USA
+is selectable, stores applications correctly, and says plainly that no
+municipality's requirement list is loaded rather than showing an empty
+checklist that reads as a pass.
+
+---
+
 *Phase 1 complete. Phase 2 began 2026-07-31 with F1 (product families) and F4
 (Agent Framework v2).*

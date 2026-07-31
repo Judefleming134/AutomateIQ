@@ -9,13 +9,15 @@ import {
   summariseChecklist,
   type Requirement,
 } from "@/lib/permitiq/checklist";
-import { UploadPanel, ReclassifyForm } from "./upload-panel";
+import { UploadPanel, ReclassifyForm, ReviewButton } from "./upload-panel";
 
 export const metadata = { title: "Application — PermitIQ" };
 
 // Uploading a large drawing and then READING it with the model is the one
 // slow path in this product; the default budget is not enough for a big PDF.
 export const maxDuration = 60;
+
+type RiskFlagRow = { severity: string; title: string; detail?: string };
 
 type DocRow = {
   id: string;
@@ -42,7 +44,8 @@ export default async function ApplicationPage({
     .maybeSingle();
   if (!app) notFound();
 
-  const [{ data: reqRows }, { data: docRows }, { data: eventRows }] = await Promise.all([
+  const [{ data: reqRows }, { data: docRows }, { data: eventRows }, { data: latestReview }] =
+    await Promise.all([
     supabase
       .from("pq_requirements")
       .select("code, label, guidance, mandatory, sort_order, authority")
@@ -59,6 +62,13 @@ export default async function ApplicationPage({
       .eq("application_id", id)
       .order("created_at", { ascending: false })
       .limit(20),
+    supabase
+      .from("pq_reviews")
+      .select("summary, risk_flags, created_at")
+      .eq("application_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const requirements = resolveRequirements(
@@ -130,6 +140,42 @@ export default async function ApplicationPage({
           </p>
         )}
       </div>
+
+      {latestReview && (
+        <div className="panel panel-block" style={{ marginBottom: 16 }}>
+          <p className="aseo-block-label">
+            PermitIQ review ·{" "}
+            {new Date(latestReview.created_at as string).toLocaleDateString("en-IE", {
+              day: "numeric",
+              month: "short",
+            })}
+          </p>
+          <p style={{ margin: "0 0 10px", fontSize: 13.5, lineHeight: 1.6 }}>
+            {latestReview.summary as string}
+          </p>
+          {Array.isArray(latestReview.risk_flags) && latestReview.risk_flags.length > 0 && (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+              {(latestReview.risk_flags as RiskFlagRow[]).map((f, n) => (
+                <li key={n} style={{ fontSize: 12.5, lineHeight: 1.55 }}>
+                  <span
+                    className={`badge ${
+                      f.severity === "high"
+                        ? "badge-red"
+                        : f.severity === "medium"
+                          ? "badge-orange"
+                          : "badge-gray"
+                    }`}
+                  >
+                    {f.severity}
+                  </span>{" "}
+                  <strong>{f.title}</strong>
+                  {f.detail ? ` — ${f.detail}` : ""}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="grid-2" style={{ gap: 18, alignItems: "start" }}>
         <div>
@@ -219,6 +265,15 @@ export default async function ApplicationPage({
         </div>
 
         <div>
+          <h2 className="section-title">Review</h2>
+          <div className="panel panel-block" style={{ marginBottom: 18 }}>
+            <p style={{ margin: "0 0 10px", fontSize: 12.5, color: "var(--faint)", lineHeight: 1.55 }}>
+              Reads everything uploaded so far against the checklist and writes a
+              summary, the risks an assessor would flag, and what to do next.
+            </p>
+            <ReviewButton applicationId={id} />
+          </div>
+
           <h2 className="section-title">Add a document</h2>
           <UploadPanel applicationId={id} requirements={reqOptions} />
 
