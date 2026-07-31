@@ -4,6 +4,7 @@ import { Sparkles, Map, Clock, ShieldCheck } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateAvailability, BOOKING_CONFIG } from "@/lib/booking/slots";
 import { BookingWidget } from "./booking-widget";
+import { PROOF } from "@/lib/proof";
 
 export const metadata: Metadata = {
   title: "Book Your Free AI Strategy Session | AutomateIQ",
@@ -98,6 +99,12 @@ export default async function BookPage() {
           One focused session. We map what&apos;s draining your week, put numbers
           on it, and hand you a clear roadmap — whether or not you ever work
           with us.
+        </p>
+        {/* Proof, from lib/proof.ts — one source of truth so this number
+            can never disagree with the homepage or an outreach email. */}
+        <p className="book-hero-sub" style={{ marginTop: 10, fontWeight: 600 }}>
+          {PROOF.jobsProcessedLabel} jobs processed and {PROOF.revenueLiftLabel} revenue
+          {" "}{PROOF.revenueLiftWindow} for {PROOF.client} — the system this is built on.
         </p>
         <div className="book-hero-cta">
           <a href="#booking" className="btn btn-primary">Pick your time below</a>

@@ -149,6 +149,13 @@ h2{font-size:clamp(2rem,4.4vw,3.5rem)}
 .secmon{position:relative;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:18px;overflow:hidden;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .secmon-scan{position:absolute;left:0;right:0;height:64px;background:linear-gradient(180deg,transparent,rgba(59,130,246,.07),transparent);pointer-events:none;animation:secscan 7s linear infinite;z-index:0}
 @keyframes secscan{0%{transform:translateY(-64px)}100%{transform:translateY(340px)}}
+/* proof stats (#proof) — the numbers carry this section, so they are set at
+   display size in the display face and the labels stay quiet underneath */
+.proofstats{display:flex;flex-wrap:wrap;gap:34px 48px;margin:26px 0 4px}
+.ps-item{display:flex;flex-direction:column;gap:6px}
+.ps-n{font:700 clamp(2rem,4.4vw,2.9rem)/1 var(--display);color:var(--ac2);letter-spacing:-.02em}
+.ps-l{font-size:12.5px;line-height:1.45;color:var(--faint);text-transform:uppercase;letter-spacing:.08em}
+@media(max-width:600px){.proofstats{gap:24px 32px}}
 .secmon-row{position:relative;z-index:1;display:flex;align-items:center;gap:18px;padding:22px 26px;border-top:1px solid var(--line);transition:background .3s}
 .secmon-row:hover{background:rgba(59,130,246,.03)}
 .secmon-row:hover .secmon-icon{border-color:var(--ac-line);box-shadow:0 0 18px rgba(59,130,246,.2)}
@@ -560,7 +567,7 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
   </div>
   <div class="hero2-block">
    <h1>Win more work. <span class="ac">Automate the busywork.</span></h1>
-   <p class="seq-in">AutomateIQ builds AI that answers every call, quotes on the spot, chases every lead and books the job &mdash; so nothing slips through. Built for Irish businesses, from trades to clinics.</p>
+   <p class="seq-in">AutomateIQ builds AI that answers every call, quotes on the spot, chases every lead and books the job &mdash; so nothing slips through. Built for Irish businesses, from trades to clinics. <span class="hl">Already running 500+ jobs and +25% revenue for ClearWater Ireland.</span></p>
    <div class="hero-cta seq-in"><a href="/book" class="btn btn-p">Book a free AI session <span class="ar">&rarr;</span></a><a href="#access" class="btn">Get early access</a><a href="/freetools" class="btn">Try a free tool</a><a href="#trade" class="btn">See it work</a></div>
   </div>
   <div class="hero2-block reveal">
@@ -767,6 +774,11 @@ span.ac.rv-w{transform:none;filter:blur(0);transition:opacity .7s cubic-bezier(.
   <div class="proof">
    <div class="reveal"><h2>Already running a <span class="ac">real business.</span></h2>
     <p class="lead" style="margin-top:20px">AutomateIQ isn't a concept deck. <span class="hl">Its blueprint is live today powering ClearWater Ireland</span> &mdash; a complete operation, not a landing page with a form on it.</p>
+    <div class="proofstats reveal">
+     <div class="ps-item"><span class="ps-n">500+</span><span class="ps-l">jobs processed<br/>through the system</span></div>
+     <div class="ps-item"><span class="ps-n">+25%</span><span class="ps-l">revenue, in the first<br/>month after launch</span></div>
+     <div class="ps-item"><span class="ps-n">3</span><span class="ps-l">linked portals on<br/>one database</span></div>
+    </div>
     <p style="margin-top:16px;font-size:14.5px;line-height:1.7;color:var(--body)">Three linked portals on one database. <b>Customers</b> get their own login to quotes, jobs and payments. <b>Installers and staff</b> get a separate portal for the work in front of them. An <b>admin control room</b> sits over both &mdash; every portal, every record and the system itself visible in one place, and changes made there flow straight through to everyone. Nothing is typed twice because nothing is stored twice.</p>
     <p style="margin-top:14px;font-size:14.5px;line-height:1.7;color:var(--body)">It tests itself every single day. Automated checks run across the whole system on a schedule, catching bugs before anyone using it ever meets one &mdash; <span class="hl">the same discipline behind every product on this page.</span></p>
     <div class="badges"><span class="badge">Three linked portals</span><span class="badge">One database</span><span class="badge">Tested daily, automatically</span><span class="badge">Admin control room</span></div>
