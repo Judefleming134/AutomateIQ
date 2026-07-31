@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { assignProducts, entitlementNotice } from "@/lib/admin/entitlements";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -64,30 +65,37 @@ export async function createCustomer(
 
   // Assign the selected products in the same step — onboarding a customer
   // is ONE form, not create-then-go-assign-things.
-  if (productKeys.length > 0) {
-    const { data: products } = await supabase
-      .from("products")
-      .select("id")
-      .in("key", productKeys);
-    if (products && products.length > 0) {
-      await supabase.from("business_products").insert(
-        products.map((p) => ({
-          business_id: business.id,
-          product_id: p.id,
-        }))
-      );
-    }
-  }
+  //
+  // The result is CHECKED now. This used to discard the insert error and
+  // return { ok: true } regardless, so the two worst outcomes on this path
+  // were both invisible: a failed write, or a key that resolved to no product
+  // row (products.key is the entitlement foreign key, so a renamed key
+  // quietly takes its product with it). Either way Jude saw "Customer
+  // created", and the customer logged in to an empty portal.
+  //
+  // Deliberately NOT rolled back: the business exists and the invite has
+  // already gone out. Undoing that is worse than a partial assignment — the
+  // fix is to say exactly what is missing.
+  const entitlements = await assignProducts(supabase, business.id, productKeys);
 
   await logAdminAction({
     actorId: admin.id,
     action: "customer.create",
     targetBusinessId: business.id,
-    metadata: { businessName, email, products: productKeys },
+    // What was actually assigned, not what was requested — an audit log that
+    // records the intention rather than the outcome is worse than none.
+    metadata: {
+      businessName,
+      email,
+      products: entitlements.assigned,
+      ...(entitlements.unknown.length > 0 ? { skipped: entitlements.unknown } : {}),
+      ...(entitlements.error ? { productsError: entitlements.error } : {}),
+    },
   });
 
   revalidatePath("/admin/customers");
-  return { ok: true };
+  const notice = entitlementNotice(entitlements);
+  return notice ? { ok: true, notice } : { ok: true };
 }
 
 export async function setBusinessStatus(

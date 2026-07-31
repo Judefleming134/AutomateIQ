@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { assignProducts } from "@/lib/admin/entitlements";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -62,29 +63,36 @@ export async function createModule(
   // A module is only reachable if the CustomIQ product is enabled
   // for that business — enable it automatically so "create module" is one
   // step, not two.
-  const { data: product } = await supabase
-    .from("products")
-    .select("id")
-    .eq("key", "custom-solutions")
-    .single();
-  if (product) {
-    await supabase
-      .from("business_products")
-      .upsert(
-        { business_id: businessId, product_id: product.id },
-        { onConflict: "business_id,product_id" }
-      );
-  }
+  //
+  // CHECKED now. Both the lookup miss (`if (product)` silently skipped) and
+  // the upsert error were dropped, so the module could be created while the
+  // entitlement that makes it reachable was not — leaving a module nobody can
+  // open, and an admin who was told it worked. The comment above already
+  // states the consequence; the code just wasn't acting on it.
+  const entitlements = await assignProducts(supabase, businessId, ["custom-solutions"]);
 
   await logAdminAction({
     actorId: admin.id,
     action: "module.create",
     targetBusinessId: businessId,
-    metadata: { name },
+    metadata: {
+      name,
+      ...(entitlements.assigned.length === 0
+        ? { customSolutionsEnabled: false, reason: entitlements.error ?? "product key not found" }
+        : {}),
+    },
   });
 
   revalidatePath("/admin/modules");
-  return { ok: true };
+  // Say so if the module is not reachable yet, rather than reporting a clean
+  // success for a module the customer cannot open.
+  return entitlements.assigned.length === 0
+    ? {
+        ok: true,
+        notice:
+          "Module created, but Custom Solutions could not be enabled for this customer, so they can't open it yet. Enable it on their Products tab.",
+      }
+    : { ok: true };
 }
 
 export async function deleteModule(moduleId: string) {
