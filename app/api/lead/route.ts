@@ -93,7 +93,14 @@ export async function POST(request: NextRequest) {
             "",
             "We've received your access request and a real person will be in touch shortly to get you set up.",
             "",
-            "Want to skip the queue? Book a free 30-minute AI Strategy Session and we'll map out exactly where AI and automation can save your business the most time:",
+            // 15, not 30. Every other surface a lead touches — the outreach
+            // emails, the phone script, the LinkedIn caption — promises 15
+            // minutes, and this confirmation was the only one saying 30. A
+            // lead could be invited to 15 and confirmed at 30 in the same
+            // hour. The 45-minute calendar hold in lib/booking/slots.ts is
+            // deliberately left alone: that's an internal buffer so calls
+            // can't collide, not a promise anyone is shown.
+            "Want to skip the queue? Book a free 15-minute AI Strategy Session and we'll map out exactly where AI and automation can save your business the most time:",
             "https://automateiq.ie/book",
             "",
             "Talk soon,",

@@ -25,7 +25,6 @@ Last reviewed: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earli
 | J1 | **`GOOGLE_PLACES_API_KEY` not set** | The Google Business Profile checker at `/freetools/google-profile` is built and tested but shows its "not switched on yet" state. Needs a Google Cloud project with billing attached — the standing monthly free credit covers this volume, but the card has to be on file. | 15 min |
 | J2 | **Verify Resend sending domain, then send yourself a response-time test** | `/freetools/response-time` writes to strangers' inboxes. If it lands in spam it teaches people the wrong thing, and a damaged sending reputation would hurt the 07:00 outreach that actually earns money. Confirm `RESEND_FROM_EMAIL` is on a verified domain and run one test end-to-end before promoting the tool anywhere. | 20 min |
 | J3 | **Booking `minLeadHours: 24` blocks the slot the call script offers** | The phone script says "would tomorrow morning suit?" — the booking page won't offer it. One of the two has to change. Raised 2026-07-27, no decision yet. | decision |
-| J4 | **The session is THREE different lengths depending where you read it** | `lib/booking/slots.ts` books **45 minutes** (the actual calendar hold). The confirmation email every website lead gets (`app/api/lead/route.ts`) promises **30 minutes**. The outreach drafts, phone script and LinkedIn caption (`lib/growth/ai.ts`, `research.ts`, the prospect call sheet) all promise **15 minutes**. So a lead can be told 15, confirmed at 30, and booked for 45. Pick one number and I'll make every surface say it — this is a business decision about your own call length, not a bug I should guess at. Raised 2026-07-27; the 30-minute third variant found on the nightly run 2026-07-30. | decision |
 | J5 | **PDPL scope** | `/policies.html` covers GDPR and the Irish DPA 2018 fully, and scopes PDPL as "contact us before onboarding from outside the EEA" rather than asserting compliance. If a specific Gulf PDPL was meant, that section needs rewriting against it. | decision |
 | J7 | **Paste `supabase/migrations/0031_send_target_50.sql` into the Supabase SQL editor** | Nothing in this repo applies migrations — no CI step, no Supabase CLI in any workflow — so a migration file is just a file until Jude pastes it. 0031 sets the daily send target to the 50 he asked for on 2026-07-31 and is safe to run whether or not 0030 ever went in (validated on scratch PG16, both states, idempotent). Until it runs: the code default of 50 covers the send target, but **saving anything at `/growth/settings` will fail** if 0030 is also unapplied, because that write names `daily_send_target`. One paste fixes both. | 2 min |
 | J6 | **Workforce tools and the EU AI Act's high-risk tier** | If any customer uses the workforce-management tooling to evaluate, monitor or rank *employees*, that likely lands in the high-risk tier — a materially different compliance burden. Needs a yes/no on whether any customer does this. | decision |
@@ -59,7 +58,10 @@ The six tools at `/freetools` all work. These are the loose ends.
 
 ## Decided against
 
-*(nothing yet — when Jude says no to something above, it moves here with the reason so it doesn't get re-raised in six weeks)*
+| Item | Decision | Date |
+|---|---|---|
+| **J4 — the session length contradicted itself across five surfaces** | Asked to pick, Jude said "I don't know", so decided as CTO: **the customer hears 15 minutes everywhere.** Two things this register had recorded wrongly, found while fixing it: (1) **nothing ever held 45 minutes** — `durationLabel` is a display string only; slot spacing is `slotMinutes: 30`, so leads were told 45 while slots sat 30 apart; (2) the **AI system prompts that generate the outreach** said 30 while the ask instructions in the same file said 15, so `ai.ts` contradicted itself. Changed to 15: lead confirmation email, three AI system prompts, `durationLabel`. No booking logic touched. | 2026-07-31 |
+
 
 ---
 

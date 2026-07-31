@@ -9,6 +9,60 @@
  */
 export type ProductStatus = "active" | "coming_soon" | "framework";
 
+/**
+ * The vertical each product belongs to.
+ *
+ * THIS IS A DISPLAY LAYER, AND DELIBERATELY SO. `key` above is an entitlement
+ * foreign key: `business_products` joins on it and `guardProduct("review-agent")`
+ * is called across the codebase, so renaming a key would silently strip the
+ * product from every customer who has it. Families give the portal the
+ * Salesforce-style vertical structure without touching a single key.
+ *
+ * "core" is the cross-vertical infrastructure every customer can use whatever
+ * industry they're in; the named families are industry products.
+ */
+export type ProductFamily =
+  | "core"
+  | "tradeiq"
+  | "financeiq"
+  | "permitiq"
+  | "reputationiq";
+
+export type FamilyDefinition = {
+  key: ProductFamily;
+  label: string;
+  tagline: string;
+};
+
+/** Render order of the family sections in the portal. */
+export const PRODUCT_FAMILIES: FamilyDefinition[] = [
+  {
+    key: "core",
+    label: "AutomateIQ Core",
+    tagline: "The shared AI layer every product on the platform runs on.",
+  },
+  {
+    key: "tradeiq",
+    label: "TradeIQ",
+    tagline: "For trades and service businesses — quoting, leads and jobs.",
+  },
+  {
+    key: "reputationiq",
+    label: "ReputationIQ",
+    tagline: "Reviews and online reputation, in every industry.",
+  },
+  {
+    key: "financeiq",
+    label: "FinanceIQ",
+    tagline: "Document processing, onboarding and reporting for finance teams.",
+  },
+  {
+    key: "permitiq",
+    label: "PermitIQ",
+    tagline: "Planning permission and building permit workflows.",
+  },
+];
+
 export type ProductDefinition = {
   key: string;
   name: string;
@@ -17,6 +71,7 @@ export type ProductDefinition = {
   iconName: string;
   accent: string; // per-product tile accent color, chrome stays brand blue
   status: ProductStatus; // mirrors products.status, drives the tile's badge
+  family: ProductFamily;
 };
 
 export const PRODUCT_REGISTRY: ProductDefinition[] = [
@@ -29,6 +84,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "star",
     accent: "#7C3AED",
     status: "active",
+    family: "reputationiq",
   },
   {
     key: "website-agent",
@@ -38,6 +94,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "globe",
     accent: "#3B82F6",
     status: "active",
+    family: "core",
   },
   {
     key: "ai-assistant",
@@ -47,6 +104,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "bot",
     accent: "#22D3EE",
     status: "active",
+    family: "core",
   },
   {
     key: "content-agent",
@@ -57,6 +115,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "pen-line",
     accent: "#EC4899",
     status: "active",
+    family: "core",
   },
   {
     key: "instant-quote-agent",
@@ -67,6 +126,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "calculator",
     accent: "#EA580C",
     status: "active",
+    family: "tradeiq",
   },
   {
     key: "crm-agent",
@@ -77,6 +137,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "contact",
     accent: "#3B82F6",
     status: "active",
+    family: "tradeiq",
   },
   {
     key: "speed-to-lead-agent",
@@ -87,6 +148,7 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "zap",
     accent: "#F59E0B",
     status: "active",
+    family: "tradeiq",
   },
   {
     key: "custom-solutions",
@@ -96,9 +158,28 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     iconName: "box",
     accent: "#F472B6",
     status: "framework",
+    family: "core",
   },
 ];
 
 export function getProductByKey(key: string) {
   return PRODUCT_REGISTRY.find((p) => p.key === key);
+}
+
+/**
+ * The registry grouped for rendering, in family order, with empty families
+ * dropped. A family with no products yet (PermitIQ today) simply doesn't
+ * appear — no placeholder section, no "coming soon" shell to maintain.
+ *
+ * Products are returned in their registry order within each family, so the
+ * existing hand-tuned ordering is preserved rather than re-sorted.
+ */
+export function productsByFamily(): {
+  family: FamilyDefinition;
+  products: ProductDefinition[];
+}[] {
+  return PRODUCT_FAMILIES.map((family) => ({
+    family,
+    products: PRODUCT_REGISTRY.filter((p) => p.family === family.key),
+  })).filter((group) => group.products.length > 0);
 }
