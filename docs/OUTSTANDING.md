@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-07-31 (J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
+Last reviewed: 2026-07-31 (free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -22,7 +22,7 @@ Last reviewed: 2026-07-31 (J7 cleared — migrations 0031-0034 applied to produc
 
 | # | Item | Why it's blocking | Effort |
 |---|---|---|---|
-| J1 | **`GOOGLE_PLACES_API_KEY` not set** | The Google Business Profile checker at `/freetools/google-profile` is built and tested but shows its "not switched on yet" state. Needs a Google Cloud project with billing attached — the standing monthly free credit covers this volume, but the card has to be on file. | 15 min |
+| J1 | **`GOOGLE_PLACES_API_KEY` not set** | The Google Business Profile checker at `/freetools/google-profile` is built and tested but shows its "not switched on yet" state. Needs a Google Cloud project with billing attached — the standing monthly free credit covers this volume, but the card has to be on file. **No longer a dead end**: the hub reads availability from `lib/tools/catalog.ts` per request, so the card renders unclickable with the reason on it and the headline count drops. Adding the key switches it back on within one request, no deploy. | 15 min |
 | J2 | **Verify Resend sending domain, then send yourself a response-time test** | `/freetools/response-time` writes to strangers' inboxes. If it lands in spam it teaches people the wrong thing, and a damaged sending reputation would hurt the 07:00 outreach that actually earns money. Confirm `RESEND_FROM_EMAIL` is on a verified domain and run one test end-to-end before promoting the tool anywhere. | 20 min |
 | J3 | **Booking `minLeadHours: 24` blocks the slot the call script offers** | The phone script says "would tomorrow morning suit?" — the booking page won't offer it. One of the two has to change. Raised 2026-07-27, no decision yet. | decision |
 | J5 | **PDPL scope** | `/policies.html` covers GDPR and the Irish DPA 2018 fully, and scopes PDPL as "contact us before onboarding from outside the EEA" rather than asserting compliance. If a specific Gulf PDPL was meant, that section needs rewriting against it. | decision |
@@ -53,6 +53,7 @@ The six tools at `/freetools` all work. These are the loose ends.
 | F2 | **Snippets are templates, not written copy** | AutoSEO emits `[square brackets]` for the business to fill in. An AI pass could write the actual title, meta description and alt text per site. Costs money per run, so it changes "free forever" into something rate-limited on purpose. |
 | F3 | **Rate limits are per-instance, not global** | `lib/tools/rate-limit.ts` documents this honestly. Fine until a tool gets popular; the fix is a shared store, and the file names the function to move. |
 | F4 | **Review writer costs money per use** | 6/day/IP. If it takes off, that cap is the dial to turn — or gate it behind an email. |
+| F5 | **Tool pages beyond the hub are still plain** | The hub was rebuilt (accent per tool, what-you-get bullets, honest availability, a real footer). The six individual tool pages now inherit the shared footer but keep their original single-column layout. They work and they read well; they are not yet at the hub's standard. |
 
 ---
 
