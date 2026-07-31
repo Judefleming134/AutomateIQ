@@ -1,6 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { selectAllRowsByIds } from "@/lib/growth/db";
+import { selectAllRows, selectAllRowsByIds } from "@/lib/growth/db";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
@@ -186,7 +186,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       { data: ready, count: readyCount },
       { data: overnightReplies },
       { data: meetingsToday },
-      { data: allInbound },
+      allInbound,
     ] = await Promise.all([
       // Both windows from ONE table load (same fix as Jarvis chat) — two
       // loadGrowthMetrics calls scanned all six growth tables twice inside
@@ -234,13 +234,29 @@ export async function sendJarvisMorningBrief(): Promise<{
       // Every reply ever received, newest first — the raw material for "who is
       // STILL waiting on me". The overnight section above is a 24-hour window,
       // so a reply Jude didn't answer that day fell out of the brief entirely
-      // and never came back. Inbound is a small fraction of message volume.
-      admin
-        .from("ge_messages")
-        .select("prospect_id, channel, subject, body, created_at, ge_prospects(company)")
-        .eq("direction", "inbound")
-        .order("created_at", { ascending: false })
-        .limit(200),
+      // and never came back.
+      //
+      // PAGED, not capped at 200. The cap ran BEFORE the "unanswered and older
+      // than 24h" filter, and it kept the NEWEST 200 — so the rows it dropped
+      // were the oldest, which is precisely what this section sorts to the top
+      // and calls "most at risk of going cold". With a year of replies on file
+      // it showed one neglected reply out of five, and hid the four that had
+      // been waiting longest. Inbound is a small fraction of message volume
+      // (roughly one reply per twenty sends), so paging it is cheap.
+      selectAllRows<{
+        prospect_id: string;
+        channel: string;
+        subject: string | null;
+        body: string | null;
+        created_at: string;
+        ge_prospects: unknown;
+      }>(() =>
+        admin
+          .from("ge_messages")
+          .select("prospect_id, channel, subject, body, created_at, ge_prospects(company)")
+          .eq("direction", "inbound")
+          .order("created_at", { ascending: false })
+      ),
     ]);
 
     // ── STILL WAITING ON YOU ───────────────────────────────────────────
@@ -257,7 +273,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       string,
       { company: string; channel: string; body: string; created_at: string }
     >();
-    for (const m of allInbound ?? []) {
+    for (const m of allInbound) {
       // An out-of-office is not someone waiting on an answer. Skipping it here
       // rather than after the map is built is the whole point: if a prospect
       // sent a real reply and THEN went on holiday, their auto-responder is the
