@@ -1,6 +1,22 @@
 import Link from "next/link";
 
 /**
+ * Every free-tool page renders per request, set once here rather than six
+ * times.
+ *
+ * These pages read which tools are switched on (lib/tools/catalog.ts) to show
+ * the "keep going" strip, and a statically prerendered page freezes that
+ * answer at build time. It already bit twice: the hub kept advertising a dead
+ * Google checker, and then the cross-links did the same thing more quietly —
+ * the review writer appeared on one tool page and was missing from four
+ * others, purely because those four were prerendered before the key existed.
+ *
+ * Declaring it on the segment means a seventh tool inherits it instead of
+ * having to remember. The pages do no I/O beyond reading env.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * Shared chrome for the free tools. Every one of them is a front door for
  * someone who has never heard of AutomateIQ, so each page carries the same
  * header, the same way back to the others, and the same one-line promise.

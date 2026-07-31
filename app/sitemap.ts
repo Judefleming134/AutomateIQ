@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_PRODUCTS } from "@/lib/products/marketing";
+import { toolCards } from "@/lib/tools/catalog";
 
 const SITE = "https://automateiq.ie";
 
@@ -13,6 +14,13 @@ const SITE = "https://automateiq.ie";
  * (so it could never mention PermitIQ). /systems covers the same ground, lives
  * in the app, and updates with the product. The old URL 308s to it.
  */
+/**
+ * Rendered per request. It was `○ Static`, which is fine for a fixed list of
+ * URLs but not for one that now depends on which tools are switched on — the
+ * answer would have frozen at build time, exactly as it did on the hub page.
+ */
+export const dynamic = "force-dynamic";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   return [
@@ -34,12 +42,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // embed route is deliberately absent — it renders inside customers' own
     // sites and must never compete with them in search results.
     { url: `${SITE}/freetools`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${SITE}/freetools/autoseo`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
-    { url: `${SITE}/freetools/google-profile`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE}/freetools/response-time`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE}/freetools/missed-calls`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE}/freetools/reviews`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
-    { url: `${SITE}/freetools/quote-builder`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    // LIVE tools only. The Google Business Profile checker has been switched
+    // off for want of an API key, and it was still listed here — so Google was
+    // being told to send people searching for exactly that problem to a page
+    // that says "not switched on yet". A dead end you were ranked for is worse
+    // than one nobody can find. It comes back automatically with the key.
+    ...toolCards()
+      .filter((t) => t.status === "live")
+      .map((t) => ({
+        url: `${SITE}${t.href}`,
+        lastModified: now,
+        changeFrequency: "monthly" as const,
+        priority: t.slug === "autoseo" ? 0.9 : 0.8,
+      })),
     // The policies hub and the AI-governance statement are deliberately
     // indexable and ranked above the boilerplate legal pages: "how does this
     // company handle the EU AI Act" is a question prospects genuinely search,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import { MessageSquareQuote } from "lucide-react";
 import { ReviewReplyGenerator } from "./generator";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function ReviewsPage() {
   return (
-    <>
+    <ToolAccent slug="reviews">
       <section className="book-hero">
         <p className="book-kicker">
           <MessageSquareQuote size={14} /> Free tool
@@ -31,9 +32,12 @@ export default function ReviewsPage() {
           anything that can&apos;t be stood over. Free, no signup.
         </p>
       </section>
+
+      <ToolGives slug="reviews" />
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <ReviewReplyGenerator />
       </section>
-    </>
+      <ToolNext slug="reviews" />
+    </ToolAccent>
   );
 }

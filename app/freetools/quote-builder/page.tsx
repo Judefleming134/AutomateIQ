@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import { Calculator } from "lucide-react";
 import { QuoteBuilder } from "./builder";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function QuoteBuilderPage() {
   return (
-    <>
+    <ToolAccent slug="quote-builder">
       <section className="book-hero">
         <p className="book-kicker">
           <Calculator size={14} /> Free tool
@@ -31,9 +32,12 @@ export default function QuoteBuilderPage() {
           your website — no signup, no account, no monthly fee.
         </p>
       </section>
+
+      <ToolGives slug="quote-builder" />
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <QuoteBuilder />
       </section>
-    </>
+      <ToolNext slug="quote-builder" />
+    </ToolAccent>
   );
 }

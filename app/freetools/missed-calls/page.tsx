@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ToolAccent, ToolGives, ToolNext } from "@/components/tools/tool-extras";
 import { PhoneMissed } from "lucide-react";
 import { MissedCallsCalculator } from "./calculator";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function MissedCallsPage() {
   return (
-    <>
+    <ToolAccent slug="missed-calls">
       <section className="book-hero">
         <p className="book-kicker">
           <PhoneMissed size={14} /> Free calculator
@@ -31,9 +32,12 @@ export default function MissedCallsPage() {
           the maths is shown so you can argue with it.
         </p>
       </section>
+
+      <ToolGives slug="missed-calls" />
       <section className="book-section" style={{ borderTop: "none", paddingTop: 0 }}>
         <MissedCallsCalculator />
       </section>
-    </>
+      <ToolNext slug="missed-calls" />
+    </ToolAccent>
   );
 }

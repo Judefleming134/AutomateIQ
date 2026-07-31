@@ -6218,3 +6218,180 @@ a.ft-tile:hover {
   flex-wrap: wrap;
   row-gap: 10px;
 }
+
+/* --------------------------------------------------------------------------
+   Individual free-tool pages (/freetools/<tool>)
+   The hub was rebuilt first; these were still a bare hero, the tool, and then
+   nothing at all. --ft-accent is set per page by <ToolAccent> so each tool
+   has its own identity rather than six identical blue ones.
+   -------------------------------------------------------------------------- */
+
+.ft-tool .book-kicker {
+  border-color: color-mix(in srgb, var(--ft-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--ft-accent) 12%, transparent);
+  color: var(--ft-accent);
+}
+
+/* What you get, said BEFORE you type your website in — that is the moment the
+   "no signup, nothing stored" promise actually matters. */
+.ft-gives {
+  max-width: 780px;
+  margin: 0 auto 34px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+}
+.ft-gives ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 20px;
+}
+.ft-gives li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--body);
+}
+.ft-gives li svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ft-accent);
+}
+.ft-gives-trust {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--faint);
+}
+
+/* The way onward. Every tool page used to end on whitespace. */
+.ft-next-head {
+  text-align: center;
+  margin-bottom: 22px;
+}
+.ft-next-head .book-eyebrow {
+  text-align: center;
+}
+.ft-next-head h2 {
+  font-size: clamp(20px, 2.8vw, 27px);
+  margin: 0;
+}
+/* Two columns, not three: a live tool page shows the other four, and three
+   columns left the fourth stranded on a row of its own. */
+.ft-next-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.ft-next-card {
+  --ft-accent: var(--ac2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+.ft-next-card:hover {
+  border-color: var(--ft-accent);
+  transform: translateY(-2px);
+}
+.ft-next-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: var(--ft-accent);
+  background: color-mix(in srgb, var(--ft-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ft-accent) 26%, transparent);
+}
+.ft-next-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ft-next-body strong {
+  font-size: 13.5px;
+  color: var(--heading);
+}
+.ft-next-body span {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--faint);
+}
+.ft-next-time {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.ft-next-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+}
+.ft-next-cta h3 {
+  font-size: 17px;
+  margin: 0 0 7px;
+}
+.ft-next-cta p {
+  margin: 0;
+  max-width: 560px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--body);
+}
+.ft-next-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+@media (max-width: 900px) {
+  .ft-gives ul { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 620px) {
+  .ft-gives { padding: 16px; }
+  .ft-gives ul { grid-template-columns: 1fr; }
+  .ft-next-grid { grid-template-columns: 1fr; }
+  .ft-next-cta-actions { width: 100%; }
+  .ft-next-cta-actions .btn { flex: 1 1 auto; }
+}
+
+/* Grid and flex children default to `min-width: auto`, which means they refuse
+   to shrink below their content's min-content width. The quote builder's embed
+   snippet is a single unbroken ~450-character URL, so the column holding it
+   grew to 3,797px and gave the whole page a 3,429px horizontal scrollbar on a
+   phone — .aseo-code's own `overflow-x: auto` could never engage, because the
+   box it lives in was never constrained in the first place. */
+.grid-main-side > * {
+  min-width: 0;
+}
+.aseo-code {
+  min-width: 0;
+  max-width: 100%;
+}
