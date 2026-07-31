@@ -33,7 +33,18 @@ export async function autoDraftReply(
       .eq("channel", "email")
       .eq("direction", "outbound")
       .eq("purpose", "reply")
-      .eq("status", "draft")
+      // DRAFT *OR* QUEUED. This only looked for "draft", so a suggested reply
+      // Jude had already QUEUED didn't block a second one being written — and
+      // "reply" is not in COLD_PURPOSES, so a queued reply sails through the
+      // reply-race gate and genuinely sends at 07:00. The sequence that bites:
+      // reply queued, a second inbound (or a forwarder retry) arrives, a fresh
+      // draft is created, Jude sends it — and the prospect gets two answers to
+      // one message from the same person.
+      //
+      // The file's own contract says "only ever one suggested reply per
+      // prospect at a time", and the research worker's chase-draft guard
+      // already uses this exact pair; this was the outlier.
+      .in("status", ["draft", "queued"])
       .limit(1)
       .maybeSingle();
     if (pending) return false;
