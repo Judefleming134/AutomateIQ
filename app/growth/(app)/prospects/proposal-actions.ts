@@ -148,24 +148,38 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
     .select("status")
     .eq("id", proposal.prospect_id)
     .maybeSingle();
-  if (
-    prospect &&
-    !["proposal_sent", "negotiation", "won", "lost", "do_not_contact", "archived"].includes(
-      prospect.status
-    )
-  ) {
-    await admin
-      .from("ge_prospects")
-      .update({
-        status: "proposal_sent",
-        // Sending a proposal IS contacting them — stamp last_contact_at like
-        // every other outreach action (recordOutreachSent) so "Recently
-        // contacted" and the last-contact display stay accurate.
-        last_contact_at: new Date().toISOString(),
-        // Chase the proposal if there's no word within a week.
-        next_follow_up_at: dublinDate(7),
-      })
-      .eq("id", proposal.prospect_id);
+  // TWO SEPARATE QUESTIONS, which this used to answer as one.
+  //
+  // The old guard skipped the whole update when the prospect was already at
+  // proposal_sent or negotiation — so marking a REVISED proposal as sent
+  // touched nothing: last_contact_at kept the original send date and the chase
+  // clock never restarted. Proposals get revised and re-sent constantly, and
+  // the second one is the one that matters. "Recently contacted" showed the
+  // old date and the follow-up could already be overdue on the day it went.
+  //
+  //  - STATUS may only move FORWARD. Dragging a negotiation back to
+  //    proposal_sent would be a regression, so later stages keep their status.
+  //  - THE DATES always refresh, because sending a proposal is contact
+  //    whatever stage they're at.
+  //
+  // A closed lead (won/lost/do-not-contact/archived) is untouched either way —
+  // nothing should put a chase date back on a finished deal.
+  const CLOSED = ["won", "lost", "do_not_contact", "archived"];
+  const LATER_THAN_SENT = ["proposal_sent", "negotiation"];
+  if (prospect && !CLOSED.includes(prospect.status)) {
+    const update: Record<string, unknown> = {
+      // Sending a proposal IS contacting them — stamp last_contact_at like
+      // every other outreach action (recordOutreachSent) so "Recently
+      // contacted" and the last-contact display stay accurate.
+      last_contact_at: new Date().toISOString(),
+      // Chase the proposal if there's no word within a week. Matches the
+      // on-screen copy in the Proposal tab and the activity line below.
+      next_follow_up_at: dublinDate(7),
+    };
+    if (!LATER_THAN_SENT.includes(prospect.status)) {
+      update.status = "proposal_sent";
+    }
+    await admin.from("ge_prospects").update(update).eq("id", proposal.prospect_id);
   }
 
   await admin.from("ge_activities").insert({
