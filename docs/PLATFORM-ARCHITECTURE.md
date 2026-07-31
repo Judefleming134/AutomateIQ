@@ -499,7 +499,7 @@ pasting into the Supabase SQL editor.**
 | F4 | Agent Framework v2 | ✅ shipped 2026-07-31 — `instructions`, `permissions`, `knowledgeSources` (all optional) + `agent_runs` (migration 0032) |
 | F6 | Vitest + CI gate | ✅ shipped 2026-07-31 — 97 tests, `.github/workflows/ci.yml` gates every PR |
 | F2 | One `requireTenant()` | ✅ shipped 2026-07-31 — session + active business in one guard; suspended tenants get an honest page instead of a hollow portal |
-| F3 | Unified `/login` | next |
+| F3 | Post-auth routing by account | ✅ shipped 2026-07-31 — fixed an infinite `/portal ↔ /admin` redirect. **Login pages deliberately NOT merged, see below** |
 | F5 | `trades_accounts` → `businesses` | last, days 71–90 |
 
 ### Note on F4 as shipped
@@ -519,6 +519,45 @@ Two deliberate limits, both to protect the eleven live agents:
 names, emails and quote figures, and a debug log is the wrong place for personal
 data to accumulate. The row records that a call happened, how it went and how
 long it took.
+
+### Note on F3 — scope changed on the evidence
+
+F3 was written as *"unified `/login`, four existing login routes kept as
+redirects."* **I did not merge them, and I'd argue against it.**
+
+Reading the four surfaces first changed the picture. All four use the same
+`signInWithPassword`; where they differ is real — `/login` carries password
+reset, and **TradeOS and Finance both carry self-serve signup** with
+product-specific `emailRedirectTo` targets. Folding those into one page means
+either dropping signup or building a four-mode login. That is a redesign of the
+one surface where a mistake locks every customer *and Jude* out, for a benefit
+that is mostly cosmetic — and it does not unblock PermitIQ, which can use
+`/login` + `/portal` like any other portal product. The original worry ("adding
+PermitIQ naively makes five logins") is answered by not adding a fifth, which
+costs nothing.
+
+What reading them *did* find was a hard failure worth far more than the merge:
+
+`requireSession()` sent anyone without a `business_id` to `/admin`, and
+`requireAdmin()` sent any non-admin to `/portal`. For `role='customer'` with no
+business those two are a **cycle** — `/portal → /admin → /portal → …` ending in
+`ERR_TOO_MANY_REDIRECTS`. requireAdmin's escape hatch (`role === 'growth'`) can
+never fire, because the CHECK constraint on `profiles.role` only permits
+`'admin'` and `'customer'` — **that's D5 from §3, and it was load-bearing after
+all.**
+
+And the account shape is common: TradeOS and Finance have self-serve signup, and
+the auth trigger creates exactly `role='customer'` with no `business_id` when the
+metadata carries none. So **any TradeOS or Finance customer reaching `/portal`
+hit the loop** — including straight from the main `/login` form, which defaults
+to `/portal` after sign-in.
+
+`resolveHomeRoute()` now answers where an account belongs, with two properties
+that matter: a portal business always outranks a `trades_accounts` row (because
+`requireTradesAccount()` *creates* one on first visit, so a portal customer who
+once clicked into `/tradeos` has a shell row forever), and the fallback is a
+**terminal page that runs no guard**, so a wrong answer can never re-form a
+cycle. D5 needs no migration now — nothing routes on `role === 'growth'` any more.
 
 ### Note on F6 as shipped
 
