@@ -102,3 +102,41 @@ export function morningSendLabel(): string {
     .replace(/\s/g, "")
     .toLowerCase();
 }
+
+/**
+ * What logging a call or a meeting should do to the chase date.
+ *
+ * The rule, in one line: **a call can put a chase in the diary, but it can
+ * never move one that is already there.**
+ *
+ * Logging a call used to overwrite `next_follow_up_at` with today+3
+ * unconditionally, which destroyed the date in both directions:
+ *
+ *   - a prospect who said "ring me tomorrow" had the callback pushed OUT to
+ *     day 3, and got rung two days after he was promised;
+ *   - a proposal sitting on its deliberate 7-day decision nudge, a review
+ *     booked in a fortnight, and a 90-day `future_opportunity` nurture were
+ *     all yanked FORWARD to day 3 — the nurture chased 87 days early.
+ *
+ * Nothing on screen said the date had moved. `setProspectStatus` already
+ * states this exact rule in its own comment ("can add a chase but can never
+ * move one"); the two paths to the same outcome were following different ones.
+ *
+ * A date that has already come round is not a plan, it is the chase this call
+ * just was — so that one is rescheduled, which is what stops a called lead
+ * reappearing on the list every single day.
+ *
+ * @param existing the stored `next_follow_up_at` (a date column, or null)
+ * @param today    Irish calendar day, defaults to now
+ */
+export function resolveChaseDate(
+  existing: string | null | undefined,
+  today: string = dublinDate()
+): { date: string; kept: boolean } {
+  const current = typeof existing === "string" ? existing.slice(0, 10) : null;
+  // Guard the shape: a malformed value must not be treated as a deliberate
+  // future date and silently suppress the chase entirely.
+  const looksLikeDate = !!current && /^\d{4}-\d{2}-\d{2}$/.test(current);
+  if (looksLikeDate && current! > today) return { date: current!, kept: true };
+  return { date: dublinDate(3), kept: false };
+}

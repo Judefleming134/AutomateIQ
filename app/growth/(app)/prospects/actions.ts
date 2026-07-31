@@ -7,7 +7,7 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
 import { escapeLike } from "@/lib/growth/db";
-import { dublinDate } from "@/lib/growth/dates";
+import { dublinDate, resolveChaseDate } from "@/lib/growth/dates";
 import { cleanSocialUrl, fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
 import {
   mapResearchError,
@@ -939,29 +939,50 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   if (!finalContent) return { error: "Write something first." };
 
   const admin = createAdminClient();
+
+  // A logged call or meeting IS contact — mirror a sent message: stamp the
+  // last-contact date, make sure a chase is in the diary so a called lead
+  // can't leak, and nudge an untouched prospect to "Contacted". Notes never
+  // change the pipeline. Later stages are never regressed.
+  //
+  // Read BEFORE the activity is written so the activity line can say what
+  // happened to the chase date, the way a status change does.
+  const p =
+    type === "call" || type === "meeting"
+      ? (
+          await admin
+            .from("ge_prospects")
+            .select("status, next_follow_up_at")
+            .eq("id", id)
+            .maybeSingle()
+        ).data
+      : null;
+
+  // See resolveChaseDate: a call can put a chase in the diary, never move one
+  // that is already there.
+  const chase = p ? resolveChaseDate(p.next_follow_up_at as string | null) : null;
+  const chaseNote = !chase
+    ? ""
+    : chase.kept
+      ? ` \u00b7 chase kept for ${chase.date}`
+      : ` \u00b7 follow-up scheduled for ${chase.date}`;
+
   const { error } = await admin.from("ge_activities").insert({
     prospect_id: id,
     type,
-    content: finalContent.slice(0, 4000),
+    content: `${finalContent.slice(0, 4000)}${chaseNote}`,
     created_by: member.id,
   });
   if (error) return { error: error.message };
 
-  // A logged call or meeting IS contact — mirror a sent message: stamp the
-  // last-contact date and schedule the +3-day follow-up so a called lead
-  // can't leak, and nudge an untouched prospect to "Contacted". Notes never
-  // change the pipeline. Later stages are never regressed.
   if (type === "call" || type === "meeting") {
-    const { data: p } = await admin
-      .from("ge_prospects")
-      .select("status")
-      .eq("id", id)
-      .maybeSingle();
     if (p) {
       const bump: Record<string, unknown> = {
         last_contact_at: new Date().toISOString(),
-        next_follow_up_at: dublinDate(3),
       };
+      // Only written when the chase is genuinely being (re)scheduled. A date
+      // still ahead of today is left exactly where it was put.
+      if (chase && !chase.kept) bump.next_follow_up_at = chase.date;
       if (
         ["new", "researching", "research_complete", "outreach_ready"].includes(
           p.status
