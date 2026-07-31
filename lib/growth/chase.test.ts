@@ -100,6 +100,37 @@ describe("the caller records what it did", () => {
   });
 });
 
+describe("every send path is wired to it too", () => {
+  // recordOutreachSent is reached from "Mark sent" on the DM list, the message
+  // composer, the inbox queue view AND the 07:00 autopilot — so the same
+  // unconditional +3 was rewriting the diary on every outreach path in the
+  // engine, not just one button. A prospect who said "try us after the
+  // summer" had that September date pulled to three days out.
+  const OUT = readFileSync(
+    path.resolve(import.meta.dirname, "outreach.ts"),
+    "utf8"
+  );
+
+  it("recordOutreachSent resolves the chase through the shared rule", () => {
+    expect(OUT).toContain("resolveChaseDate");
+  });
+
+  it("no longer writes an unconditional +3 on every send", () => {
+    expect(OUT).not.toMatch(/next_follow_up_at:\s*dublinDate\(3\)/);
+  });
+
+  it("reads the existing date before deciding", () => {
+    // It only selected last_contact_at, so it could not have known.
+    expect(OUT).toMatch(/select\("last_contact_at, next_follow_up_at"\)/);
+  });
+
+  it("stops claiming a 3-day follow-up it may not have scheduled", () => {
+    // The activity line said "follow-up scheduled in 3 days" regardless.
+    expect(OUT).not.toContain("follow-up scheduled in 3 days");
+    expect(OUT).toContain("chase kept for");
+  });
+});
+
 describe("the action is actually wired to it", () => {
   // The lesson from lib/routing/wiring.test.ts: a pure function can be
   // perfectly correct and perfectly tested while nothing calls it. These check
