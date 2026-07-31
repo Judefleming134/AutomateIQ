@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import type { Metadata } from "next";
 import { AlertTriangle, ArrowRight, Timer } from "lucide-react";
 import { readToken } from "@/lib/tools/token";
@@ -133,6 +134,15 @@ export default async function SeenPage({
             </Link>
           </div>
         </div>
+
+        <ToolLeadForm
+          tool="response-time"
+          subject={payload.h}
+          headline={`${big} ${unit} to notice an enquiry`}
+          topFinding={v.title}
+          title="Want this result and the fix sent over?"
+          blurb="Leave your email and we'll send your number with what we'd change to close the gap. One reply from a person, no list."
+        />
 
         <p style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 12 }}>
           <AlertTriangle size={11} style={{ verticalAlign: "-1px" }} /> Nothing about this

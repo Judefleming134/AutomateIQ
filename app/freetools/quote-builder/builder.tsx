@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import { encodeQuoteConfig, quoteConfigSchema, type QuoteConfig } from "@/lib/tools/quote-config";
 import { QuoteWidget } from "./widget";
@@ -312,6 +313,15 @@ export function QuoteBuilder() {
           )}
         </div>
       </div>
+    {valid.success && (
+        <ToolLeadForm
+          tool="quote-builder"
+          subject={valid.data.b}
+          headline={`${valid.data.s.length} service${valid.data.s.length === 1 ? "" : "s"} priced`}
+          title="Want us to put it on your site?"
+          blurb="Leave your email and we'll send the code with instructions — or we'll install it and wire the quotes into your inbox for you."
+        />
+      )}
     </div>
   );
 }
