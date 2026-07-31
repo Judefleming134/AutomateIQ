@@ -50,7 +50,6 @@ The six tools at `/freetools` all work. These are the loose ends.
 
 | # | Item | Notes |
 |---|---|---|
-| F8 | **Only two tools capture leads so far** | F1 shipped: `ToolLeadForm` drops into any tool result and `/api/tools/lead` is slug-agnostic, but only AutoSEO and the missed-calls calculator render it. The reply-speed test, review writer and quote builder all end on a result with no way to ask for follow-up. Each is a two-line change now the plumbing exists. |
 | F2 | **Snippets are templates, not written copy** | AutoSEO emits `[square brackets]` for the business to fill in. An AI pass could write the actual title, meta description and alt text per site. Costs money per run, so it changes "free forever" into something rate-limited on purpose. |
 | F3 | **Rate limits are per-instance, not global** | `lib/tools/rate-limit.ts` documents this honestly. Fine until a tool gets popular; the fix is a shared store, and the file names the function to move. |
 | F4 | **Review writer costs money per use** | 6/day/IP. If it takes off, that cap is the dial to turn — or gate it behind an email. |

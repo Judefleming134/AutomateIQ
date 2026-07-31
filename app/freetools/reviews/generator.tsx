@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, Check, Copy, Loader2, Star } from "lucide-react";
 
@@ -201,6 +202,13 @@ export function ReviewReplyGenerator() {
             happened — if any detail is wrong, change it. Never post a reply that claims
             something you can&apos;t stand over.
           </p>
+
+          <ToolLeadForm
+            tool="reviews"
+            headline={`${result.replies.length} replies written`}
+            title="Want these sent to you?"
+            blurb="Leave your email and we'll send the three replies over, plus how we'd set this up to run on every review automatically."
+          />
 
           <div
             className="panel panel-block"

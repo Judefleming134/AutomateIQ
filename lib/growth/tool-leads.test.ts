@@ -168,3 +168,45 @@ describe("the capture is gated on asking, not on using", () => {
     expect(FORM).toMatch(/catch \{/);
   });
 });
+
+describe("every tool that produces a result offers the follow-up", () => {
+  // F8: the plumbing is slug-agnostic, so a tool ending on a result with no
+  // way to ask for follow-up is a hole in the funnel, not a design choice.
+  const FILES: Record<string, string> = {
+    autoseo: "app/freetools/autoseo/auditor.tsx",
+    "missed-calls": "app/freetools/missed-calls/calculator.tsx",
+    reviews: "app/freetools/reviews/generator.tsx",
+    "response-time": "app/freetools/response-time/seen/page.tsx",
+    "quote-builder": "app/freetools/quote-builder/builder.tsx",
+  };
+
+  it.each(Object.entries(FILES))("%s renders the lead form", (slug, file) => {
+    const src = readFileSync(path.join(ROOT, file), "utf8");
+    expect(src).toContain("<ToolLeadForm");
+    expect(src).toContain(`tool="${slug}"`);
+  });
+
+  it("asks on the page where the result actually lands", () => {
+    // The reply-speed test emails a link; the number is only revealed on
+    // /seen. Asking on the send page would ask before there is anything to
+    // show, and would reuse an address they published rather than gave us.
+    const tester = readFileSync(
+      path.join(ROOT, "app", "freetools", "response-time", "tester.tsx"),
+      "utf8"
+    );
+    expect(tester).not.toContain("<ToolLeadForm");
+  });
+
+  it("only offers it once the quote widget is actually valid", () => {
+    const src = readFileSync(path.join(ROOT, FILES["quote-builder"]), "utf8");
+    expect(src).toMatch(/valid\.success && \(\s*<ToolLeadForm/);
+  });
+
+  it("covers every slug the catalog ships except the one that is switched off", () => {
+    const wired = new Set(Object.keys(FILES));
+    const missing = ALL_TOOL_SLUGS.filter(
+      (s) => s !== "google-profile" && !wired.has(s)
+    );
+    expect(missing).toEqual([]);
+  });
+});
