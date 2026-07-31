@@ -78,7 +78,7 @@ export const SOLUTION_CATALOG: Solution[] = [
   },
   {
     key: "website-lead-capture",
-    name: "Website with Lead Capture",
+    name: "SiteIQ",
     blurb:
       "A professional website with built-in lead capture and instant enquiry alerts — for businesses with no site (or a dead one) who are invisible on Google and losing after-hours enquiries to competitors.",
   },

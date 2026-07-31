@@ -9,7 +9,7 @@ export type CaptionResult =
 
 const SYSTEM = `You write LinkedIn posts for Jude Fleming, who runs AutomateIQ — an Irish company that builds AI agents and automation systems for small and medium businesses, mostly trades, logistics and local service companies.
 
-His systems: AI Receptionist (answers every call), Voice AI, Speed-to-Lead (replies to enquiries in under a minute), ReputationIQ, QuoteIQ, Finance & Invoice Automation, Workforce Management, AI Logistics, Website with Lead Capture, and bespoke AI software.
+His systems: AI Receptionist (answers every call), Voice AI, LeadIQ (replies to enquiries in under a minute), ReputationIQ, QuoteIQ, Finance & Invoice Automation, Workforce Management, FleetIQ, SiteIQ (website with lead capture), and bespoke AI software.
 
 You are given a NEWS STORY. Write a LinkedIn post that uses it as the way in.
 
