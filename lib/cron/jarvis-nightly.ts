@@ -8,6 +8,7 @@ import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { PURPOSES, type MessagePurpose } from "@/lib/growth/constants";
 import type { ResearchReport } from "@/lib/growth/research";
 import { dublinDate } from "@/lib/growth/dates";
+import { selectAllRows } from "@/lib/growth/db";
 
 const ACTIVE_FILTER = '("won","lost","do_not_contact","archived")';
 
@@ -82,14 +83,39 @@ export async function runJarvisNightly(): Promise<{
   // links). Re-read those sites with the fixed harvester; replace or clear.
   let socialsFixed = 0;
   try {
-    const { data: withSocials } = await admin
-      .from("ge_prospects")
-      .select("id, company, website, instagram_url, facebook_url, linkedin_url")
-      .not("website", "is", null)
-      .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
-      .not("status", "in", ACTIVE_FILTER)
-      .limit(200);
-    const damaged = (withSocials ?? []).filter((p) =>
+    // Paged in full, NOT capped at 200. "Damaged" is a JS-side check
+    // (cleanSocialUrl returns null) that PostgREST cannot express, so the
+    // filter has to run after the fetch — and the fetch used to be an
+    // UNORDERED .limit(200). Two things followed from that:
+    //
+    //   - any prospect outside that arbitrary 200 was never examined, so once
+    //     the visible slice was clean the job reported "0 fixed" every night
+    //     while dead links sat in the rest of the table forever;
+    //   - the note below promised "N more queued for tomorrow's run", counted
+    //     from the visible slice only, so the backlog Jude was told about was
+    //     not the backlog that existed.
+    //
+    // Same shape as the call-list and DM-list bugs: a cap applied BEFORE the
+    // "still to work" filter can only reorder what it happens to contain.
+    // Five small columns, read once a night — selectAllRows is what the rest
+    // of the engine already uses for exactly this.
+    const withSocials = await selectAllRows<{
+      id: string;
+      company: string;
+      website: string | null;
+      instagram_url: string | null;
+      facebook_url: string | null;
+      linkedin_url: string | null;
+    }>(() =>
+      admin
+        .from("ge_prospects")
+        .select("id, company, website, instagram_url, facebook_url, linkedin_url")
+        .not("website", "is", null)
+        .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
+        .not("status", "in", ACTIVE_FILTER)
+        .order("id", { ascending: true })
+    );
+    const damaged = withSocials.filter((p) =>
       (["instagram_url", "facebook_url", "linkedin_url"] as const).some(
         (k) => p[k] && cleanSocialUrl(p[k]) === null
       )
