@@ -6395,3 +6395,84 @@ a.ft-tile:hover {
   min-width: 0;
   max-width: 100%;
 }
+
+/* Free-tool lead capture — the one place a tool asks for an email, and only
+   ever underneath a finished result. See components/tools/tool-lead-form.tsx. */
+.ft-lead {
+  margin-top: 20px;
+  border-left: 3px solid var(--ft-accent, var(--ac2));
+}
+.ft-lead > strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.ft-lead > strong svg {
+  color: var(--ft-accent, var(--ac2));
+}
+.ft-lead > p {
+  margin: 6px 0 12px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--body);
+  max-width: 620px;
+}
+.ft-lead-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  max-width: 480px;
+}
+.ft-lead-form input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 11px 13px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--heading);
+  background: var(--panel-glass);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.ft-lead-form input:focus {
+  outline: none;
+  border-color: var(--ft-accent, var(--ac2));
+}
+.ft-lead-form .btn {
+  flex: 0 0 auto;
+  padding: 11px 20px;
+}
+.ft-lead-note {
+  flex: 1 0 100%;
+  margin: 0 !important;
+  font-size: 12.5px;
+  color: var(--danger, #f87171);
+}
+.ft-lead-small {
+  margin: 10px 0 0 !important;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.ft-lead-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+.ft-lead-done p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--body);
+}
+.ft-lead-done a {
+  color: var(--ac2);
+}
+.ft-lead-tick {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--green, #34d399);
+}
+@media (max-width: 560px) {
+  .ft-lead-form .btn { width: 100%; }
+}
