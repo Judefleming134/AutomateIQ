@@ -498,8 +498,8 @@ pasting into the Supabase SQL editor.**
 | F1 | Product family layer | ✅ shipped 2026-07-31 — portal grouped into AutomateIQ Core / TradeIQ / ReputationIQ, keys frozen |
 | F4 | Agent Framework v2 | ✅ shipped 2026-07-31 — `instructions`, `permissions`, `knowledgeSources` (all optional) + `agent_runs` (migration 0032) |
 | F6 | Vitest + CI gate | ✅ shipped 2026-07-31 — 97 tests, `.github/workflows/ci.yml` gates every PR |
-| F2 | One `requireTenant()` | next |
-| F3 | Unified `/login` | pending |
+| F2 | One `requireTenant()` | ✅ shipped 2026-07-31 — session + active business in one guard; suspended tenants get an honest page instead of a hollow portal |
+| F3 | Unified `/login` | next |
 | F5 | `trades_accounts` → `businesses` | last, days 71–90 |
 
 ### Note on F4 as shipped
@@ -533,6 +533,26 @@ The suite earned its keep on the first run by catching a live bug: `parseReturnD
 read a 4-digit year's first two digits as a day, so *"back on 25 August 2026"*
 resolved to **20 August** and the chase went out five days early, while the
 prospect was still away.
+
+### Note on F2 as shipped
+
+`requireSession()` is **unchanged** — 51 call sites depend on its shape and
+redirect behaviour, and several are Server Actions and Route Handlers where a
+new redirect would be a behaviour change. `requireTenant()` builds on top of it
+and is adopted in **one place**: the portal layout, which every portal page
+already passes through.
+
+It closed a real hole rather than just tidying the guards. The layout loaded the
+business through the **RLS-scoped** client, and `is_active_tenant_member`
+requires `status = 'active' AND deleted_at IS NULL`. For a suspended customer
+the row came back null, the business name fell through to the placeholder
+*"Your business"*, and the portal rendered in full with every panel empty —
+because the same predicate hid all their data too. Someone suspended over an
+unpaid invoice saw what looked exactly like their account being wiped, with
+nothing on screen to say otherwise. `/account-unavailable` says it plainly.
+
+That page sits **outside** the `/portal` tree on purpose: inside it, the portal
+layout would guard the page that exists to explain why the guard fired.
 
 **There is no lint step in CI, deliberately.** `npm run lint` runs `next lint`,
 which Next 16 removed, and ESLint isn't installed or configured in this repo at
