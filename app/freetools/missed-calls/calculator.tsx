@@ -91,12 +91,20 @@ export function MissedCallsCalculator() {
     // later. The recapture assumption is deliberately generous to the status
     // quo (a third come back to you anyway) so the number is defensible when
     // someone pushes back on it.
-    const RECAPTURED = 0.33;
+    // Exactly a third, because that is what the workings below SAY. It was
+    // 0.33, and the line explaining the sum multiplied by a separately
+    // hard-coded 0.67 — so the workings read "9.0 unanswered → 6.0 genuinely
+    // gone → 2.4 jobs × €450" while the headline said €1,085. Anyone who did
+    // the multiplication got €1,080 and caught the tool contradicting itself.
+    // This is the one number Jude quotes in a sales conversation; it has to
+    // survive being checked on the back of an envelope.
+    const RECAPTURED = 1 / 3;
     const trulyLost = missedPerWeek * (1 - RECAPTURED);
     const jobsLostWeek = trulyLost * (v.closeRate / 100);
     const weekly = jobsLostWeek * v.jobValue;
     return {
       missedPerWeek,
+      trulyLost,
       jobsLostWeek,
       weekly,
       monthly: weekly * 4.33,
@@ -177,9 +185,10 @@ export function MissedCallsCalculator() {
           <p style={{ fontSize: 13.5, color: "var(--faint)" }}>
             {v.enquiries} enquiries a week × {v.missedPct}% missed ={" "}
             {result.missedPerWeek.toFixed(1)} unanswered. A third of those ring back or
-            get caught later, so {(result.missedPerWeek * 0.67).toFixed(1)} are genuinely
+            get caught later, so {result.trulyLost.toFixed(1)} are genuinely
             gone. At your {v.closeRate}% close rate that&apos;s{" "}
-            {result.jobsLostWeek.toFixed(1)} jobs a week at {money(v.jobValue)} each.
+            {result.jobsLostWeek.toFixed(result.jobsLostWeek < 2 ? 2 : 1)} jobs a week
+            at {money(v.jobValue)} each &mdash; {money(result.weekly)} a week.
             Deliberately conservative — no multipliers, no repeat-custom or
             referral value added on top.
           </p>

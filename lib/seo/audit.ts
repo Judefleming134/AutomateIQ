@@ -56,6 +56,8 @@ export type SiteFacts = {
   addressHint: string | null;
   mapEmbed: boolean;
   scriptCount: number;
+  /** The page is a framework mount point (<div id="root">, app-root, …). */
+  appShell: boolean;
   htmlBytes: number;
   loadMs: number;
   https: boolean;
@@ -367,6 +369,12 @@ function extractFacts(
     addressHint,
     mapEmbed: /google\.com\/maps\/embed|maps\.google\.[a-z.]+\/maps\?/i.test(html),
     scriptCount: (html.match(/<script\b/gi) ?? []).length,
+    // The tell of a single-bundle SPA: a framework mount point with nothing
+    // inside it. React, Next, Vue, Nuxt, Angular and Svelte all leave one.
+    appShell:
+      /<div[^>]+id=["'](root|app|__next|__nuxt|svelte)["']/i.test(html) ||
+      /<app-root[\s>]/i.test(html) ||
+      /data-reactroot/i.test(html),
     htmlBytes: page.bytes,
     loadMs: page.loadMs,
     https: origin.startsWith("https:"),
@@ -620,7 +628,21 @@ function buildChecks(f: SiteFacts, host: string): SeoCheck[] {
   // page in the browser afterwards. Every technical check above passes, the
   // site looks perfect to a human — and Google's crawler frequently indexes
   // the blank shell. Worth catching precisely because nothing else here would.
-  const jsRendered = f.wordCount < 120 && f.scriptCount >= 3;
+  // Two shapes of the same problem. The original rule was `wordCount < 120 &&
+  // scriptCount >= 3`, which missed the most common one by a mile: a React,
+  // Next, Vue or Angular app ships ONE bundle, so a completely empty shell
+  // with <div id="root"></div> and a single <script> sailed through as a pass.
+  // That is precisely the site this check exists to catch — the comment above
+  // calls it "the single most common reason a good-looking modern site ranks
+  // for nothing at all", and it was the one case it could not see.
+  //
+  // The mount-point condition is what keeps this honest. A thin brochure page
+  // — 40 words and an analytics tag — is NOT server-rendering-broken, and
+  // telling its owner to "enable SSR" would be confidently wrong advice. The
+  // content check already covers that case properly.
+  const jsRendered =
+    (f.wordCount < 120 && f.scriptCount >= 3) ||
+    (f.wordCount < 120 && f.appShell && f.scriptCount >= 1);
   add({
     id: "js_rendered",
     label: "Content visible without JavaScript",
@@ -805,16 +827,64 @@ const SHOWSTOPPER_IDS = new Set(["robots", "js_rendered"]);
 const BLOCKED_CEILING = 35;
 
 /**
+ * Which finding to lead with, when several are equally severe.
+ *
+ * This used to tie-break on the order the checks happen to be DECLARED in,
+ * with a comment claiming that order "runs roughly most- to least-important
+ * already". It does not — the declarations are grouped by kind (page content
+ * first, then technical), not by importance. The result was that
+ * `meta_description` sat at index 1 and outranked `viewport` at 7 and `https`
+ * at 8, so a site with no HTTPS and no mobile setup opened its report with:
+ *
+ *   "The site works, but the two lines under your link in Google aren't
+ *    selling anything — so people scroll past to whoever's below you."
+ *
+ * On a site scoring 21/100. It even began "The site works". A meta
+ * description is not a ranking factor at all; it affects click-through only.
+ * Not being secure and not being usable on a phone are both real ranking
+ * signals, and both are what the owner should hear first.
+ *
+ * So the order is explicit now, roughly: can Google read it → can a visitor
+ * use it → can Google tell what it is → can Google tell where it is → is
+ * there anything to rank → the polish.
+ */
+const LEAD_ORDER = [
+  "js_rendered",
+  "robots",
+  "https",
+  "viewport",
+  "title",
+  "h1",
+  "schema_local",
+  "nap",
+  "content",
+  "speed",
+  "meta_description",
+  "social_preview",
+  "image_alt",
+  "phone_link",
+  "internal_links",
+  "canonical",
+  "sitemap",
+  "h2",
+  "lang",
+  "favicon",
+];
+
+/**
  * Ranks findings so the report can lead with ONE thing. Showstoppers first,
- * then failures before warnings, then by impact, then by the order the checks
- * are declared in (which runs roughly most- to least-important already).
- * A report that opens with a list of nineteen is a report nobody acts on.
+ * then failures before warnings, then by impact, then by the explicit order
+ * above. A report that opens with a list of nineteen is a report nobody acts on.
  */
 function priority(check: SeoCheck, index: number): number {
   const blocker = SHOWSTOPPER_IDS.has(check.id) && check.status === "fail" ? 0 : 1;
   const byStatus = { fail: 0, warn: 1, pass: 2 }[check.status];
   const byImpact = { high: 0, medium: 1, low: 2 }[check.impact];
-  return blocker * 1000 + byStatus * 100 + byImpact * 10 + index / 100;
+  // Falls back to declaration order for any id not listed, so adding a check
+  // without touching LEAD_ORDER degrades gracefully instead of jumping the queue.
+  const seq = LEAD_ORDER.indexOf(check.id);
+  const byLead = seq === -1 ? LEAD_ORDER.length + index : seq;
+  return blocker * 1000 + byStatus * 100 + byImpact * 10 + byLead / 100;
 }
 
 /**
