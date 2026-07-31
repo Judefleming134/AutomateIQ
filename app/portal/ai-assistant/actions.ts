@@ -12,6 +12,7 @@ import {
   AGENT_MODULES,
   type DiscoveredTool,
 } from "@/lib/agents/registry";
+import { logAgentRun } from "@/lib/agents/runs";
 import type { AgentToolContext } from "@/lib/agents/types";
 import {
   ANTHROPIC_MESSAGES_URL,
@@ -196,6 +197,26 @@ export async function sendAssistantMessage(
       ? `Specialist agents installed on this account (you call them via tools — the customer never needs to switch between them):\n${installed.map((m) => `- ${m.name}: ${m.description}`).join("\n")}`
       : `No specialist agents are installed yet.`,
     `Coming soon to AutomateIQ (not yet available — if asked, say it's on the roadmap): ${upcoming.map((m) => m.name).join(", ")}.`,
+    // Agent Framework v2: a module can contribute its own rules to the prompt.
+    // No module declares `instructions` today, so this entry is an empty string
+    // and .filter(Boolean) drops it — the assembled prompt is byte-for-byte
+    // what it was before the field existed. Knowledge sources are named the
+    // same way, so the model knows what an agent can look up rather than
+    // guessing at it.
+    installed
+      .filter((m) => m.instructions || m.knowledgeSources?.length)
+      .map((m) =>
+        [
+          `Agent-specific rules — ${m.name}:`,
+          m.instructions,
+          m.knowledgeSources?.length
+            ? `It can look things up in: ${m.knowledgeSources.map((k) => `${k.label} (${k.description})`).join("; ")}.`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      )
+      .join("\n\n"),
     `Rules for tools:
 - When a request maps to a tool, use the tool rather than describing what the user could do manually.
 - Before sending anything to a real customer (e.g. a review request), make sure you have the customer's name AND email — ask a follow-up question if either is missing. Never guess an email address.
@@ -205,7 +226,13 @@ export async function sendAssistantMessage(
       ? `Business information:\n${assistant.knowledge}`
       : `No business information has been added yet — if asked something business-specific, suggest filling in the Knowledge panel.`,
     `Never invent prices, availability or policies that aren't in the business information.`,
-  ].join("\n\n");
+  ]
+    // Drops the agent-instructions entry when no installed module declares any.
+    // Without this the empty string would still be joined, adding a blank gap
+    // to the prompt — small, but it means the prompt is genuinely unchanged
+    // today rather than nearly unchanged.
+    .filter(Boolean)
+    .join("\n\n");
 
   const turns = history;
 
@@ -303,8 +330,25 @@ async function executeTool(
 ): Promise<string> {
   const tool = tools.find((t) => t.name === name);
   if (!tool) {
+    // Logged as 'denied' against the platform module: the model asked for a
+    // capability this account doesn't have, which is worth seeing — it's the
+    // signal that a customer is repeatedly reaching for an agent to sell them.
+    void logAgentRun({
+      businessId: ctx.businessId,
+      agentKey: "platform",
+      toolName: name,
+      status: "denied",
+      latencyMs: 0,
+      error: "tool not available on this account",
+    });
     return `Error: the "${name}" capability isn't connected on this account — the agent that provides it may not be installed. Offer what IS available instead.`;
   }
+  // Every tool execution on the platform funnels through here, so this is the
+  // one place the run log has to be wired. Fire-and-forget on purpose: an
+  // awaited insert would add a database round-trip to every tool call inside
+  // an assistant turn that already has a latency budget, and the contract in
+  // lib/agents/runs.ts is that logging never affects the thing it describes.
+  const startedAt = Date.now();
   try {
     const result = await Promise.race([
       tool.execute(ctx, input ?? {}),
@@ -312,11 +356,31 @@ async function executeTool(
         setTimeout(() => reject(new Error("TOOL_TIMEOUT")), TOOL_TIMEOUT_MS)
       ),
     ]);
+    void logAgentRun({
+      businessId: ctx.businessId,
+      agentKey: tool.agentKey,
+      toolName: tool.name,
+      status: "ok",
+      latencyMs: Date.now() - startedAt,
+    });
     actions.push({ agent: tool.agentName, tool: tool.name });
     return result;
   } catch (err) {
     console.error(`Tool ${name} failed:`, err);
-    return err instanceof Error && err.message === "TOOL_TIMEOUT"
+    const timedOut = err instanceof Error && err.message === "TOOL_TIMEOUT";
+    void logAgentRun({
+      businessId: ctx.businessId,
+      agentKey: tool.agentKey,
+      toolName: tool.name,
+      status: timedOut ? "timeout" : "error",
+      latencyMs: Date.now() - startedAt,
+      error: timedOut
+        ? "exceeded TOOL_TIMEOUT_MS"
+        : err instanceof Error
+          ? err.message
+          : "unknown",
+    });
+    return timedOut
       ? `Error: the ${tool.agentName} is taking too long to respond — tell the user it's busy and to try again in a minute.`
       : `Error: the ${tool.agentName} couldn't complete that just now.`;
   }
