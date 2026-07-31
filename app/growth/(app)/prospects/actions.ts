@@ -591,7 +591,11 @@ const CHASE_DAYS_IF_UNSET: Record<string, number> = {
   // Your own task, not theirs: finish the proposal.
   proposal_in_progress: 1,
   // The decision nudge. Nothing in the engine was scheduling it.
-  proposal_sent: 3,
+  // SEVEN, not three: markProposalSent already uses dublinDate(7), the
+  // Proposal tab tells Jude "a follow-up in 7 days" and the activity line says
+  // the same. Two routes to one status handing out different chase dates is
+  // how the engine starts disagreeing with its own copy.
+  proposal_sent: 7,
 };
 
 /**
