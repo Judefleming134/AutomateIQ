@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dublinDate } from "@/lib/growth/dates";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 
 // The capture itself is instant, but the best-effort reply draft makes one AI
 // call — give the invocation room so it finishes in the same request.
@@ -94,6 +95,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Headers, when the forwarder passes them. RFC 3834's `auto-submitted` is
+  // conclusive for auto-replies, so it beats every text heuristic below.
+  const headersRaw = pick("headers");
+  const headers =
+    headersRaw && typeof headersRaw === "object" && !Array.isArray(headersRaw)
+      ? (headersRaw as Record<string, unknown>)
+      : null;
+
   const senderEmail = extractEmail(pick("from"));
   if (!senderEmail || !text) {
     return NextResponse.json(
@@ -110,7 +119,7 @@ export async function POST(request: NextRequest) {
   const { data: prospect } = await admin
     .from("ge_prospects")
     .select(
-      "id, campaign_id, status, company, contact_name, job_title, industry, website, location, notes"
+      "id, campaign_id, status, company, contact_name, job_title, industry, website, location, notes, next_follow_up_at"
     )
     .ilike("email", senderPattern)
     .order("created_at", { ascending: false })
@@ -139,6 +148,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, matched: true, duplicate: true });
   }
 
+  // WHAT kind of inbound this is. An out-of-office and a "remove me" are not
+  // replies, and treating them as one is what silently drained live leads out
+  // of the automation — see lib/growth/inbound-classify.ts. When unsure it
+  // says "human", which is exactly the behaviour that shipped before.
+  const kind = classifyInbound(subject, text, headers);
+
   const { error } = await admin.from("ge_messages").insert({
     prospect_id: prospect.id,
     campaign_id: prospect.campaign_id,
@@ -147,11 +162,90 @@ export async function POST(request: NextRequest) {
     status: "received",
     subject: subject ? subject.slice(0, 300) : null,
     body: text.slice(0, 10000),
-    sentiment: "neutral",
+    sentiment: kind.kind === "opt_out" ? "negative" : "neutral",
     created_by: null,
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 502 });
+  }
+
+  if (kind.kind === "auto_reply") {
+    // An auto-responder is not a conversation. Log it (nothing is ever
+    // discarded — it's in the timeline and the thread), but leave the status,
+    // the chase sequence and the drafting budget alone.
+    //
+    // The one thing worth acting on is a return date: chasing someone the day
+    // after their mailbox told us they're away until the 12th wastes the touch,
+    // so push the follow-up out to the day they're back. Forward only, and only
+    // from a pre-reply status, so this can never pull a chase earlier or
+    // reschedule someone further down the pipeline.
+    let deferredTo: string | null = null;
+    if (
+      kind.returnsOn &&
+      PRE_REPLY_STATUSES.includes(prospect.status) &&
+      kind.returnsOn > dublinDate(0) &&
+      (!prospect.next_follow_up_at || kind.returnsOn > prospect.next_follow_up_at)
+    ) {
+      const { error: deferErr } = await admin
+        .from("ge_prospects")
+        .update({ next_follow_up_at: kind.returnsOn })
+        .eq("id", prospect.id);
+      if (!deferErr) deferredTo = kind.returnsOn;
+    }
+
+    await admin.from("ge_activities").insert({
+      prospect_id: prospect.id,
+      type: "email",
+      content:
+        `Auto-reply from ${senderEmail} (${kind.reason}) — logged, not counted as a reply. ` +
+        (deferredTo
+          ? `Chase moved to ${deferredTo}, when they're back.`
+          : "Chase sequence left running."),
+      created_by: null,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      matched: true,
+      classified: "auto_reply",
+      deferredTo,
+      replyDrafted: false,
+    });
+  }
+
+  if (kind.kind === "opt_out") {
+    // They asked to be left alone. Honouring that is an ePrivacy obligation,
+    // not a courtesy — and `do_not_contact` is outside PRE_REPLY_STATUSES, so
+    // it also holds any cold touch already queued for the 07:00 send.
+    //
+    // A won customer is the exception: flipping them out of the pipeline would
+    // be destructive, so their follow-up is cleared and the request is logged
+    // loudly instead.
+    const closed = ["won", "do_not_contact"].includes(prospect.status);
+    await admin
+      .from("ge_prospects")
+      .update(
+        closed
+          ? { next_follow_up_at: null }
+          : { status: "do_not_contact", next_follow_up_at: null }
+      )
+      .eq("id", prospect.id);
+
+    await admin.from("ge_activities").insert({
+      prospect_id: prospect.id,
+      type: "email",
+      content: closed
+        ? `${senderEmail} asked to be removed (${kind.reason}) — follow-ups cleared. Status left as '${prospect.status}'; review this one by hand.`
+        : `${senderEmail} asked to be removed (${kind.reason}) — marked Do not contact, follow-ups cleared, no reply drafted.`,
+      created_by: null,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      matched: true,
+      classified: "opt_out",
+      replyDrafted: false,
+    });
   }
 
   // A reply resets the clock: answer within a day, not on the +3-day chase.
@@ -178,5 +272,5 @@ export async function POST(request: NextRequest) {
   // written, not a blank box. Best-effort and never auto-sent — see autoDraftReply.
   const replyDrafted = await autoDraftReply(admin, prospect, text, null);
 
-  return NextResponse.json({ ok: true, matched: true, replyDrafted });
+  return NextResponse.json({ ok: true, matched: true, classified: "human", replyDrafted });
 }

@@ -13,6 +13,7 @@ import { pricingLines } from "@/lib/growth/pricing";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { isAuthorizedCron } from "@/lib/cron/auth";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 import { dublinDate } from "@/lib/growth/dates";
 import { selectAllRows } from "@/lib/growth/db";
 import type { ResearchReport } from "@/lib/growth/research";
@@ -529,13 +530,19 @@ export async function GET(request: NextRequest) {
         // The message to answer: their most recent inbound.
         const { data: lastIn } = await admin
           .from("ge_messages")
-          .select("body")
+          .select("body, subject")
           .eq("prospect_id", p.id)
           .eq("direction", "inbound")
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
         if (!lastIn?.body) continue;
+        // Don't spend a draft answering a robot. Replies captured before the
+        // inbound classifier existed left out-of-office notices and "remove me"
+        // messages sitting in 'replied' status, and this catch-up pass would
+        // cheerfully write a warm pitch back to both of them every night.
+        const kind = classifyInbound(lastIn.subject ?? "", lastIn.body);
+        if (kind.kind !== "human") continue;
         const drafted = await autoDraftReply(admin, p, lastIn.body, null);
         if (drafted) {
           repliesDrafted += 1;

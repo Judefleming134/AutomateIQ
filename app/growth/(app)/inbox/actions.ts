@@ -8,6 +8,7 @@ import { sendOutreachEmail, sanitizeOutreachBody, draftLooksBroken } from "@/lib
 import { recordOutreachSent, outreachHistoryLines } from "@/lib/growth/outreach";
 import { COLD_PURPOSES, PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 import { dublinDate } from "@/lib/growth/dates";
 import { pricingLines } from "@/lib/growth/pricing";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
@@ -528,8 +529,24 @@ export async function logInboundMessage(_prev: Result, formData: FormData): Prom
 
   // Same courtesy as the auto-capture webhook: leave a suggested email reply
   // waiting in the Studio. Email only — DMs are quick enough to answer live.
-  if (channel === "email") {
+  //
+  // But not for an opt-out or an auto-responder. Jude is standing here, so
+  // unlike the unattended webhook this path doesn't change his status for him
+  // — it just declines to spend an AI draft answering "remove me from your
+  // list", and says in the timeline what it saw and what he probably wants.
+  const kind = classifyInbound("", body);
+  if (channel === "email" && kind.kind === "human") {
     await autoDraftReply(admin, prospect, body, member.id);
+  } else if (kind.kind !== "human") {
+    await admin.from("ge_activities").insert({
+      prospect_id: prospect.id,
+      type: "system",
+      content:
+        kind.kind === "opt_out"
+          ? `Jarvis: that reads as an opt-out (${kind.reason}) — no reply drafted. Set them to Do not contact so no further outreach queues.`
+          : `Jarvis: that reads as an auto-reply (${kind.reason}) — no reply drafted.`,
+      created_by: member.id,
+    });
   }
 
   revalidateProspect(prospect.id);
