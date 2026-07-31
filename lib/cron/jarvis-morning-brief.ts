@@ -6,6 +6,7 @@ import { ownerNotifyRecipients } from "@/lib/email/send-booking-emails";
 import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
 import { aiComplete } from "@/lib/ai/complete";
 import { dublinDate, dublinWeekday } from "@/lib/growth/dates";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 import {
   CLOSED_STATUSES,
   PROSPECT_STATUS_META,
@@ -217,7 +218,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         .limit(10),
       admin
         .from("ge_messages")
-        .select("channel, body, sentiment, created_at, ge_prospects(company)")
+        .select("channel, subject, body, sentiment, created_at, ge_prospects(company)")
         .eq("direction", "inbound")
         .gte("created_at", since24h)
         .order("created_at", { ascending: false })
@@ -236,7 +237,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       // and never came back. Inbound is a small fraction of message volume.
       admin
         .from("ge_messages")
-        .select("prospect_id, channel, body, created_at, ge_prospects(company)")
+        .select("prospect_id, channel, subject, body, created_at, ge_prospects(company)")
         .eq("direction", "inbound")
         .order("created_at", { ascending: false })
         .limit(200),
@@ -257,6 +258,15 @@ export async function sendJarvisMorningBrief(): Promise<{
       { company: string; channel: string; body: string; created_at: string }
     >();
     for (const m of allInbound ?? []) {
+      // An out-of-office is not someone waiting on an answer. Skipping it here
+      // rather than after the map is built is the whole point: if a prospect
+      // sent a real reply and THEN went on holiday, their auto-responder is the
+      // newest inbound and would otherwise mask the genuine reply underneath
+      // it. Skipping non-human messages means the map holds each prospect's
+      // last HUMAN inbound, so the real one still surfaces.
+      if (classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind !== "human") {
+        continue;
+      }
       // Newest-first, so the first sighting of a prospect is their last reply.
       if (!latestInbound.has(m.prospect_id)) {
         latestInbound.set(m.prospect_id, {
@@ -519,10 +529,23 @@ export async function sendJarvisMorningBrief(): Promise<{
       readyTotal > readyLines.length
         ? `\n• …and ${readyTotal - readyLines.length} more researched and waiting.`
         : "";
-    const replyLines = (overnightReplies ?? []).map(
+    // OVERNIGHT REPLIES counts people, not auto-responders. Jude is measuring
+    // this number to work out why 757 leads produced two conversations, so a
+    // holiday auto-reply inflating it is worse than useless — it hides the
+    // problem he's trying to see. Auto-replies and opt-outs are counted
+    // separately and named on one line rather than dropped, so nothing is
+    // hidden and the reply count means what it says.
+    const humanReplies = (overnightReplies ?? []).filter(
+      (m) => classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind === "human"
+    );
+    const nonHumanCount = (overnightReplies ?? []).length - humanReplies.length;
+    const replyLines = humanReplies.map(
       (m) =>
         `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
     );
+    const autoReplyNote = nonHumanCount
+      ? `\n(+${nonHumanCount} auto-reply/opt-out ${nonHumanCount === 1 ? "message" : "messages"} — logged, not counted as replies.)`
+      : "";
     const meetingLines = (meetingsToday ?? []).map(
       // Manually recorded meetings are stored as real UTC instants, so render
       // them in Dublin. Public-booking slots are labelled by their UTC
@@ -557,7 +580,7 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
             `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
-            `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}`,
+            `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}${autoReplyNote}`,
             `Replied EARLIER and still unanswered (${awaitingLines.length}) — these outrank everything else today:\n${awaitingLines.join("\n") || "none"}`,
             `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
@@ -653,7 +676,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         nightlyBlock,
         deliveryBlock,
         replyLines.length
-          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + replyDraftNote
+          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + autoReplyNote + replyDraftNote
           : "",
         // Worth carrying into the weekend brief too — a reply left on Friday
         // is precisely the one that gets lost.
@@ -681,7 +704,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         deliveryBlock,
         sentBlock,
         nightlyBlock,
-        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + replyDraftNote,
+        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + autoReplyNote + replyDraftNote,
         // Above meetings and due chases on purpose: someone who wrote back and
         // hasn't heard anything outranks both.
         awaitingLines.length
