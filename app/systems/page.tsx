@@ -135,7 +135,7 @@ export default function SystemsPage() {
         <p>Bespoke enterprise software, designed around your business · automateiq.ie</p>
         <nav className="book-footer-nav">
           <Link href="/">Home</Link>
-          <Link href="/agents.html">Agents</Link>
+          <Link href="/products">Products</Link>
           <Link href="/book">Book a call</Link>
           <a href="https://www.instagram.com/auto__mateiq/" target="_blank" rel="noopener">Instagram</a>
         </nav>
