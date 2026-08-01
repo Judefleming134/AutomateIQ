@@ -61,6 +61,82 @@ export type AutopilotCandidate = {
   staleKind: "research" | "age" | null;
 };
 
+/**
+ * Whether a candidate can be auto-queued for the 07:00 send.
+ *
+ * Broken drafts (leftover placeholder, invented sender name) and drafts whose
+ * RESEARCH changed underneath them are skipped. An AGE-stale draft is fine: a
+ * cold first-touch intro doesn't rot, and excluding it starved the run
+ * whenever a batch of drafts crossed the 5-day mark together.
+ *
+ * Pure and exported so the widening below can be tested without a database —
+ * and so the rule lives in one place rather than inline in the caller.
+ */
+export function isAutoQueueable(
+  c: Pick<AutopilotCandidate, "queued" | "broken" | "staleKind">
+): boolean {
+  return !c.queued && !c.broken && c.staleKind !== "research";
+}
+
+/**
+ * How far down the score-ranked list to look, in widening steps.
+ *
+ * WHY THIS EXISTS. `listAutopilotCandidates(limit)` caps at `limit` candidates
+ * BEFORE anything knows which of them are sendable — the broken/stale flags are
+ * computed, but the truncation is on the raw score order. The caller then
+ * filtered that fixed slice. So a night where many top-scored drafts came back
+ * flagged produced a short queue while perfectly clean drafts sat just below
+ * the cut, unreachable. That is the exact "score-ordered cap applied before the
+ * still-to-work filter" shape this codebase has now hit four times.
+ *
+ * It is not hypothetical here: a research refresh marks every draft written
+ * before it as research-stale, and Jarvis refreshes research nightly — so the
+ * flags arrive in BATCHES, precisely when the queue needs filling.
+ *
+ * The first window is the old behaviour, so an ordinary night does exactly one
+ * fetch and costs nothing new. The wider ones are only paid for on a night that
+ * is actually starved, which is the night worth paying for.
+ */
+export function autoQueueWindows(need: number): number[] {
+  return [Math.min(need * 2, 50), Math.min(need * 6, 150), 300];
+}
+
+/**
+ * Collects up to `need` auto-queueable drafts, widening the search until it
+ * has enough or widening stops finding anything new.
+ *
+ * `fetchCandidates` is injected so this is testable against a fake pool; the
+ * caller passes `listAutopilotCandidates`.
+ */
+export async function collectQueueableDrafts(
+  need: number,
+  fetchCandidates: (limit: number) => Promise<AutopilotCandidate[]>
+): Promise<{ clean: AutopilotCandidate[]; scanned: number; passes: number }> {
+  let clean: AutopilotCandidate[] = [];
+  let scanned = 0;
+  let passes = 0;
+  let previousScanned = -1;
+  for (const window of autoQueueWindows(need)) {
+    // A later window can be no wider than one already tried (need*2 and need*6
+    // both clamp to their ceilings on a big target) — re-fetching it would be
+    // pure latency for an identical answer.
+    if (window <= previousScanned) continue;
+    const candidates = await fetchCandidates(window);
+    passes += 1;
+    scanned = candidates.length;
+    clean = candidates.filter(isAutoQueueable);
+    if (clean.length >= need) break;
+    // Nothing at all came back: there are no drafted, uncontacted prospects to
+    // find, and a wider window can only return the same empty list.
+    if (scanned === 0) break;
+    // Widening returned no additional candidates, so the pool really is
+    // exhausted and looking further is wasted work rather than a missed draft.
+    if (scanned === previousScanned) break;
+    previousScanned = scanned;
+  }
+  return { clean: clean.slice(0, need), scanned, passes };
+}
+
 const READY_STATUSES = ["research_complete", "outreach_ready"];
 /** Drafts older than this are flagged for a refresh even if research
  *  hasn't changed — an outreach angle written days ago goes off the boil. */
@@ -346,6 +422,12 @@ export async function resolveSendRamp(
 export async function autoQueueTopDrafts(): Promise<{
   queued: number;
   detail: string;
+  /** Drafted prospects looked at. Additive — existing callers read queued/detail. */
+  scanned?: number;
+  /** How many widening passes it took. 1 on an ordinary night. */
+  passes?: number;
+  /** How far short of today's target the queue came up. 0 when it filled. */
+  shortfall?: number;
 }> {
   // WHERE THE DESTINATION COMES FROM.
   //
@@ -381,17 +463,18 @@ export async function autoQueueTopDrafts(): Promise<{
     return { queued: 0, detail: `queue already at ${already} — ${ramp.reason}` };
   }
 
-  // Over-fetch: some candidates come back flagged and are skipped. Auto-queue
-  // top-scored drafts that are clean and not-out-of-date. Broken drafts and
-  // research-STALE drafts (the research changed under them) are skipped — but
-  // an AGE-stale draft (an old but still-valid cold first-touch) is fine to
-  // send, and excluding it was starving the 8am run whenever a batch of
-  // drafts aged past the 5-day mark. Every queued email still passes the full
+  // Auto-queue top-scored drafts that are clean and not out of date. The
+  // over-fetch used to be a single fixed window (need * 2), filtered
+  // afterwards — so a night where many of the top-scored drafts came back
+  // flagged queued short while clean drafts sat just below the cut. See
+  // collectQueueableDrafts: it now widens until it has enough or the pool
+  // genuinely runs out. Every queued email still passes the full
   // reviewOutreachEmail gate at send time.
-  const candidates = await listAutopilotCandidates(Math.min(need * 2, 50));
-  const clean = candidates
-    .filter((c) => !c.queued && !c.broken && c.staleKind !== "research")
-    .slice(0, need);
+  const { clean, scanned, passes } = await collectQueueableDrafts(
+    need,
+    listAutopilotCandidates
+  );
+  const shortfall = need - clean.length;
 
   let queued = 0;
   for (const c of clean) {
@@ -416,10 +499,25 @@ export async function autoQueueTopDrafts(): Promise<{
       created_by: null,
     });
   }
-  return {
-    queued,
-    detail: `topped the queue up from ${already ?? 0} to ${(already ?? 0) + queued} — ${ramp.reason}`,
-  };
+  // Say what actually happened. "topped the queue up from 12 to 12" reads as
+  // work done, so a run that queued NOTHING was indistinguishable in the
+  // morning brief from one that filled the queue — and a shortfall is the one
+  // thing worth knowing about, because it means the day's send is smaller than
+  // the target and nothing else says so.
+  const from = already ?? 0;
+  let detail: string;
+  if (queued === 0) {
+    detail =
+      scanned === 0
+        ? `nothing to queue — no researched prospect has a clean email draft waiting (queue still at ${from}) — ${ramp.reason}`
+        : `nothing queued — scanned ${scanned} drafted prospect${scanned === 1 ? "" : "s"} and none were sendable (queue still at ${from}) — ${ramp.reason}`;
+  } else {
+    detail = `topped the queue up from ${from} to ${from + queued} — ${ramp.reason}`;
+    if (shortfall > 0) {
+      detail += ` (${shortfall} short of today's ${target}: only ${clean.length} sendable draft${clean.length === 1 ? "" : "s"} in ${scanned} scanned — regenerate the flagged ones or research more prospects)`;
+    }
+  }
+  return { queued, detail, scanned, passes, shortfall: Math.max(0, shortfall) };
 }
 
 /**
