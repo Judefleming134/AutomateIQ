@@ -126,17 +126,26 @@ export function morningSendLabel(): string {
  * just was — so that one is rescheduled, which is what stops a called lead
  * reappearing on the list every single day.
  *
- * @param existing the stored `next_follow_up_at` (a date column, or null)
- * @param today    Irish calendar day, defaults to now
+ * `fallbackDays` only changes the date used when there is NOTHING to keep.
+ * "No answer" wants the lead back tomorrow rather than in three days — an
+ * unanswered ring bought three days of silence, and on a dial week that is the
+ * difference between three attempts and one. The KEEP half of the rule is
+ * identical either way: whatever the fallback, a date already in the diary is
+ * still never moved.
+ *
+ * @param existing     the stored `next_follow_up_at` (a date column, or null)
+ * @param today        Irish calendar day, defaults to now
+ * @param fallbackDays days out to schedule when there is no date to keep
  */
 export function resolveChaseDate(
   existing: string | null | undefined,
-  today: string = dublinDate()
+  today: string = dublinDate(),
+  fallbackDays: number = 3
 ): { date: string; kept: boolean } {
   const current = typeof existing === "string" ? existing.slice(0, 10) : null;
   // Guard the shape: a malformed value must not be treated as a deliberate
   // future date and silently suppress the chase entirely.
   const looksLikeDate = !!current && /^\d{4}-\d{2}-\d{2}$/.test(current);
   if (looksLikeDate && current! > today) return { date: current!, kept: true };
-  return { date: dublinDate(3), kept: false };
+  return { date: dublinDate(fallbackDays), kept: false };
 }

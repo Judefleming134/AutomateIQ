@@ -131,6 +131,52 @@ describe("every send path is wired to it too", () => {
   });
 });
 
+describe("the fallback is configurable, the KEEP half never is (K7)", () => {
+  // "No answer" wants the lead back tomorrow, not in three days. That is the
+  // ONLY thing that differs — the half of the rule that protects an agreed
+  // date has to behave identically, or the new caller reintroduces the bug.
+  it("schedules tomorrow instead of +3 when asked", () => {
+    expect(resolveChaseDate(null, today, 1)).toEqual({ date: day(1), kept: false });
+  });
+
+  it("still defaults to +3 for every existing caller", () => {
+    expect(resolveChaseDate(null)).toEqual({ date: day(3), kept: false });
+    expect(resolveChaseDate(null, today)).toEqual({ date: day(3), kept: false });
+  });
+
+  it("reschedules an overdue chase to the fallback, not to +3", () => {
+    expect(resolveChaseDate(day(-4), today, 1)).toEqual({ date: day(1), kept: false });
+  });
+
+  it("reschedules a chase due today, so the lead does come back tomorrow", () => {
+    // Otherwise a no-answer on a due chase leaves the date at today and the
+    // lead sits on the list for good.
+    expect(resolveChaseDate(today, today, 1)).toEqual({ date: day(1), kept: false });
+  });
+
+  it.each([
+    ["they said ring me Monday", 4],
+    ["proposal sent — 7-day decision nudge", 7],
+    ["review booked in a fortnight", 14],
+    ["future_opportunity — 90-day nurture", 90],
+  ])("a no-answer never pulls %s forward to tomorrow", (_label, days) => {
+    const existing = day(days);
+    expect(resolveChaseDate(existing, today, 1)).toEqual({ date: existing, kept: true });
+  });
+
+  it("keeps a chase booked for tomorrow rather than rewriting it", () => {
+    // Same date either way, but kept:false would write the column for no
+    // reason — and it is the flag the activity line reads.
+    expect(resolveChaseDate(day(1), today, 1)).toEqual({ date: day(1), kept: true });
+  });
+
+  it("still schedules rather than suppresses on a malformed value", () => {
+    for (const junk of ["", "not-a-date", "31/07/2026"]) {
+      expect(resolveChaseDate(junk, today, 1), junk).toEqual({ date: day(1), kept: false });
+    }
+  });
+});
+
 describe("the action is actually wired to it", () => {
   // The lesson from lib/routing/wiring.test.ts: a pure function can be
   // perfectly correct and perfectly tested while nothing calls it. These check
@@ -152,5 +198,84 @@ describe("the action is actually wired to it", () => {
 
   it("only writes the date when it is genuinely being rescheduled", () => {
     expect(SRC).toMatch(/if \(chase && !chase\.kept\) bump\.next_follow_up_at/);
+  });
+
+  // --- logNoAnswer (K7) -----------------------------------------------------
+  // The last path still writing the date unconditionally. It is reached from
+  // the "No answer" button on the call list, which is the single most-tapped
+  // control on a dial day.
+  const NO_ANSWER = SRC.slice(
+    SRC.indexOf("export async function logNoAnswer"),
+    SRC.indexOf("export async function addActivity")
+  );
+
+  it("logNoAnswer goes through the shared rule too", () => {
+    expect(NO_ANSWER).toContain("resolveChaseDate");
+  });
+
+  it("logNoAnswer no longer stamps tomorrow unconditionally", () => {
+    // The bug, in one line: `next_follow_up_at: dublinDate(1)`. Both the
+    // object-literal AND the assignment form — reverting the fix to
+    // `bump.next_follow_up_at = dublinDate(1)` slipped past the colon-only
+    // pattern when this guard was first written.
+    expect(NO_ANSWER).not.toMatch(/next_follow_up_at:\s*dublinDate\(1\)/);
+    expect(NO_ANSWER).not.toMatch(/next_follow_up_at\s*=\s*dublinDate\(1\)/);
+  });
+
+  it("asks for tomorrow as the fallback, not the default +3", () => {
+    // A no-answer must still bring an undated lead back TOMORROW — the fix
+    // must not quietly turn every voicemail into three days of silence.
+    expect(NO_ANSWER).toMatch(/resolveChaseDate\([^)]*,\s*dublinDate\(\),\s*1\)/);
+  });
+
+  it("reads the existing date before deciding", () => {
+    expect(NO_ANSWER).toMatch(/select\("next_follow_up_at"\)/);
+  });
+
+  it("only writes the date when it is genuinely being rescheduled", () => {
+    expect(NO_ANSWER).toMatch(/if \(!chase\.kept\) bump\.next_follow_up_at/);
+  });
+
+  it("stops promising 'tomorrow' when it kept a later date", () => {
+    // The activity line is the ONLY place this promise is visible — the
+    // call-list card's "back on the list TOMORROW" is a JSX comment.
+    expect(NO_ANSWER).toContain("Chase stays");
+    expect(NO_ANSWER).toMatch(/chase\.kept\s*\n?\s*\?/);
+  });
+
+  it("still stamps last_contact_at, so the lead drops off today's list", () => {
+    expect(NO_ANSWER).toMatch(/last_contact_at: new Date\(\)\.toISOString\(\)/);
+  });
+
+  it("never advances the pipeline stage — an unanswered ring isn't contact", () => {
+    expect(NO_ANSWER).not.toMatch(/status:\s*["']contacted["']/);
+  });
+
+  it("does not report success when the reschedule failed", () => {
+    // Without last_contact_at the lead never drops off the call list, so a
+    // silent ok here is a number Jude redials all afternoon.
+    expect(NO_ANSWER).toContain("bumpError");
+    expect(NO_ANSWER).toMatch(/if \(bumpError\)/);
+  });
+});
+
+describe("the call-list card no longer contradicts what happens", () => {
+  const CARD = readFileSync(
+    path.resolve(
+      import.meta.dirname, "..", "..", "app", "growth", "(app)", "call-list", "page.tsx"
+    ),
+    "utf8"
+  );
+
+  it("still shows a booked-ahead chase on the card before the number is tapped", () => {
+    // This is what makes keeping the date legible rather than mysterious.
+    expect(CARD).toContain("chase booked for");
+    expect(CARD).toContain("not due yet");
+  });
+
+  it("keeps both outcome buttons — nothing Jude uses was removed", () => {
+    expect(CARD).toContain("logNoAnswer");
+    expect(CARD).toContain("No answer");
+    expect(CARD).toContain("Log call");
   });
 });

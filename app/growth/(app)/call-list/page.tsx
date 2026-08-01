@@ -347,7 +347,10 @@ export default async function CallListPage() {
                       </SubmitButton>
                     </ActionForm>
                     {/* The other outcome of most dials. Logged as an attempt,
-                        but back on the list TOMORROW instead of in 3 days. */}
+                        and back on the list TOMORROW instead of in 3 days —
+                        unless a later chase is already agreed, which a
+                        no-answer never overwrites (see logNoAnswer / K7). The
+                        timeline entry says which of the two happened. */}
                     <ActionForm action={logNoAnswer} className="inline-form">
                       <input type="hidden" name="id" value={p.id} />
                       <SubmitButton className="btn btn-secondary btn-sm" pendingText="…">
