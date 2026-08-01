@@ -6,6 +6,8 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { QuoteGenerator } from "./generator";
 import { QuoteRow } from "./quote-row";
+import { CreateInvoiceButton, InvoiceCard, type InvoiceView } from "./invoice-panel";
+import { isMissingTableError } from "@/lib/db/errors";
 import { savePriceGuide } from "./actions";
 import type { QuoteLine } from "@/lib/quote-agent/create-core";
 
@@ -20,7 +22,7 @@ export default async function InstantQuoteAgentPage() {
   const { profile } = await requireSession();
   const supabase = await createClient();
 
-  const [{ data: settings }, { data: quotes }] = await Promise.all([
+  const [{ data: settings }, { data: quotes }, invoiceResult] = await Promise.all([
     supabase
       .from("qa_settings")
       .select("price_guide")
@@ -33,7 +35,25 @@ export default async function InstantQuoteAgentPage() {
       )
       .order("created_at", { ascending: false })
       .limit(50),
+    // Invoices, keyed by the quote they came from. Tolerates 0037 not being
+    // run yet: the panel simply doesn't appear rather than the page failing.
+    supabase
+      .from("qa_invoices")
+      .select(
+        "id, quote_id, number, customer_name, customer_email, amount_cents, paid_amount_cents, currency, status, due_date, view_token"
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
   ]);
+
+  const invoicingReady = !isMissingTableError(invoiceResult.error);
+  const invoiceByQuote = new Map<string, InvoiceView>();
+  for (const inv of invoiceResult.data ?? []) {
+    if (inv.quote_id && !invoiceByQuote.has(inv.quote_id)) {
+      invoiceByQuote.set(inv.quote_id, inv as InvoiceView);
+    }
+  }
+  const today = new Date().toISOString().slice(0, 10);
 
   const hasPriceGuide = Boolean(settings?.price_guide?.trim());
   const all = quotes ?? [];
@@ -135,8 +155,8 @@ export default async function InstantQuoteAgentPage() {
       ) : (
         <div className="content-library">
           {all.map((quote) => (
+            <div key={quote.id}>
             <QuoteRow
-              key={quote.id}
               quote={{
                 id: quote.id,
                 customerName: quote.customer_name,
@@ -149,6 +169,20 @@ export default async function InstantQuoteAgentPage() {
                 createdAt: quote.created_at,
               }}
             />
+            {/* The money half. An accepted quote can be turned into an invoice
+                in one step — the thing /products/tradeiq has been selling —
+                and once raised, the invoice lives beside the quote it came
+                from rather than in a separate ledger to reconcile. */}
+            {invoicingReady && quote.status === "accepted" && (
+              invoiceByQuote.has(quote.id) ? (
+                <InvoiceCard invoice={invoiceByQuote.get(quote.id)!} today={today} />
+              ) : (
+                <div style={{ margin: "8px 0 0 2px" }}>
+                  <CreateInvoiceButton quoteId={quote.id} />
+                </div>
+              )
+            )}
+            </div>
           ))}
         </div>
       )}
