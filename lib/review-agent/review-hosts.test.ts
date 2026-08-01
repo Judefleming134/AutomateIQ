@@ -141,7 +141,7 @@ describe("what the settings form tells you about a pasted link", () => {
       const s = reviewLinkStatus(raw);
       expect(s.ok).toBe(false);
       expect(s.url).toBeNull();
-      expect(s.message.length).toBeGreaterThan(20);
+      expect(s.message!.length).toBeGreaterThan(20);
     }
   );
 

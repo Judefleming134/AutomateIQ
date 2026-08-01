@@ -100,3 +100,75 @@ describe("the backlog it reports is the backlog that exists", () => {
     expect(now[4].actual).toBe(0);
   });
 });
+
+describe("job 1 can no longer starve on the same dead domains (K8)", () => {
+  const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  const JOB1 = CODE.slice(0, CODE.indexOf("Job 1b"));
+
+  it("orders by when each prospect was last ATTEMPTED, not by score alone", () => {
+    // Score-only ordering re-read the same eight sites every night. If those
+    // eight have dead domains the job harvests nothing, reports 0 forever, and
+    // never reaches the ninth — no error, no progress, no signal.
+    expect(JOB1).toMatch(
+      /\.order\("last_harvest_attempt_at", \{ ascending: true, nullsFirst: true \}\)/
+    );
+  });
+
+  it("keeps score as the tie-break among equally-stale prospects", () => {
+    expect(JOB1).toMatch(/\.order\("lead_score", \{ ascending: false/);
+  });
+
+  it("stamps the attempt BEFORE fetching, not after a success", () => {
+    // Stamping only successes would leave the dead domains permanently
+    // unstamped and permanently first — the bug itself.
+    const stamp = JOB1.indexOf("last_harvest_attempt_at: new Date()");
+    // The CALL inside the loop, not the import at the top of the file —
+    // comparing against the import compared against line 1 and always failed.
+    const fetchAt = JOB1.indexOf("fetchWebsiteText(p.website");
+    expect(stamp).toBeGreaterThan(-1);
+    expect(stamp).toBeLessThan(fetchAt);
+  });
+
+  it("falls back to the old ordering when the column isn't there yet", () => {
+    // A migration Jude hasn't run must never take a working nightly job down.
+    expect(JOB1).toContain("if (orderError)");
+    expect(JOB1).toContain("canStampAttempt = false");
+  });
+
+  it("says so in the brief when the migration is still outstanding", () => {
+    expect(JOB1).toContain("run migration 0036");
+  });
+
+  it("does not stamp when the column is missing", () => {
+    expect(JOB1).toMatch(/if \(canStampAttempt\) \{/);
+  });
+});
+
+describe("migration 0036", () => {
+  const SQL = readFileSync(
+    path.resolve(import.meta.dirname, "..", "..", "supabase", "migrations", "0036_harvest_attempt.sql"),
+    "utf8"
+  );
+
+  it("is idempotent", () => {
+    expect(SQL).toContain("add column if not exists");
+    expect(SQL).toContain("create index if not exists");
+  });
+
+  it("adds a nullable column, so every existing prospect is untouched", () => {
+    expect(SQL).not.toMatch(/last_harvest_attempt_at timestamptz not null/i);
+  });
+
+  it("indexes exactly what the harvest orders by", () => {
+    expect(SQL).toMatch(/\(last_harvest_attempt_at nulls first, lead_score desc\)/);
+  });
+
+  it("is partial on the rows the harvest actually considers", () => {
+    expect(SQL).toMatch(/where email is null and website is not null/);
+  });
+
+  it("explains in the schema what null means", () => {
+    expect(SQL).toMatch(/comment on column ge_prospects\.last_harvest_attempt_at/i);
+    expect(SQL).toMatch(/[Nn]ever attempted/);
+  });
+});

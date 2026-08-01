@@ -14,7 +14,7 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-08-01 daytime (**K7 SHIPPED and removed** — `logNoAnswer`
+Last reviewed: 2026-08-02 (**K8 SHIPPED and removed** — Jarvis's nightly contact harvest now orders by `last_harvest_attempt_at` (migration 0036, validated on scratch Postgres) instead of score alone, so eight dead domains can no longer monopolise the batch forever. Needs J9 run to take effect; falls back safely until then. Also today: LeadIQ gained a live preview, an unfilled-placeholder guard and a real test-send; ReputationIQ's review link is now validated by the same parser the redirect uses.) Earlier: 2026-08-01 daytime (**K7 SHIPPED and removed** — `logNoAnswer`
 now goes through `resolveChaseDate` with tomorrow as the fallback, so a
 no-answer puts a chase in the diary but never moves one already agreed. The
 reason this item had been deferred turned out to be **wrong**: the register
@@ -35,6 +35,7 @@ of the two happened.) Earlier: 2026-08-01 overnight (F1 SHIPPED — free-tool re
 | J3 | **Booking `minLeadHours: 24` blocks the slot the call script offers** | The phone script says "would tomorrow morning suit?" — the booking page won't offer it. One of the two has to change. Raised 2026-07-27, no decision yet. | decision |
 | J5 | **PDPL scope** | `/policies.html` covers GDPR and the Irish DPA 2018 fully, and scopes PDPL as "contact us before onboarding from outside the EEA" rather than asserting compliance. If a specific Gulf PDPL was meant, that section needs rewriting against it. | decision |
 | J8 | **Run migration `0035_booking_ip_guard.sql`** | Adds a nullable `created_ip_hash` column + partial index to `strategy_bookings`, closing K5 (a script varying the email could book unlimited slots). Validated on scratch Postgres 16: applies clean, idempotent on re-run, existing rows untouched, and the planner uses the index (bitmap index scan, 2 rows from 20,000). The code guards on `if (ipHash)` and fails open, so it is harmless until the column exists — but the guard does nothing until you run it. Optionally also set `BOOKING_IP_SALT` to make the hash irreversible. | 2 min |
+| J9 | **Run migration `0036_harvest_attempt.sql`** | Adds a nullable `last_harvest_attempt_at` column + partial index to `ge_prospects`, closing K8 (Jarvis's nightly contact harvest re-read the same eight dead domains every night and never reached the ninth). Validated on scratch Postgres 16: applies clean, idempotent on re-run, 20,008 existing rows untouched and all NULL, planner uses the partial index, and the replay shows night 2 reaching real prospects instead of the same dead eight. The code falls back to the old ordering until you run it, so nothing breaks in the meantime — it just doesn't improve. | 2 min |
 | J6 | **Workforce tools and the EU AI Act's high-risk tier** | If any customer uses the workforce-management tooling to evaluate, monitor or rank *employees*, that likely lands in the high-risk tier — a materially different compliance burden. Needs a yes/no on whether any customer does this. | decision |
 
 ---
@@ -46,7 +47,6 @@ not forgotten and they are not free to ignore forever.
 
 | # | Item | Why it wasn't shipped | Risk of leaving it |
 |---|---|---|---|
-| K8 | **Jarvis nightly job 1 can starve on the same eight prospects** | The contact harvest takes the top 8 by `lead_score` with a website and no email, and re-reads their sites. If those eight have permanently dead domains it retries the same eight every night and never reaches the ninth — no progress, no error, and the run reports 0 harvested indefinitely. Same family as the job 1b bug fixed 2026-08-01, but the fix needs somewhere to record an attempt (a `last_harvest_attempt_at` column), so it needs a migration and is not a same-night change. Job 1b is now unaffected. | needs a migration |
 | K6 | **`npm run lint` is broken and ESLint isn't installed** | The script runs `next lint`, which Next 16 removed — it now reads "lint" as a directory and fails with *"Invalid project directory provided: /home/user/AutomateIQ/lint"*. There is no `eslint` dependency, no `eslint-config-next` and no config file anywhere in the repo, so this has been dead since the Next 16 upgrade. Left out of the CI gate rather than adding a step that always fails. Fixing it means installing ESLint + a config and then triaging whatever it reports across 56k lines — worth doing, but its own piece of work, not a side effect of adding tests. The script itself is left in place (nothing removed). | half a day |
 
 ---
