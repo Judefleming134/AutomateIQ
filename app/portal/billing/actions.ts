@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isMissingTableError } from "@/lib/db/errors";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 import {
   isStripeConfigured,
   createStripeCustomer,
@@ -66,7 +66,7 @@ export async function saveOrderForm(
     .eq("business_id", businessId)
     .maybeSingle();
   if (readErr && isMissingTableError(readErr)) {
-    return { error: "Order form isn't available yet — run supabase/manual_update_0025.sql." };
+    return { error: reportMissingTable("Your order form", "supabase/manual_update_0025.sql", readErr) };
   }
   if (existing?.agreed) {
     return { error: "This order has already been confirmed — it's locked." };
@@ -103,7 +103,7 @@ export async function saveOrderForm(
   if (error) {
     return {
       error: isMissingTableError(error)
-        ? "Order form isn't available yet — run supabase/manual_update_0025.sql."
+        ? reportMissingTable("Your order form", "supabase/manual_update_0025.sql", error)
         : error.message,
     };
   }

@@ -18,6 +18,7 @@ import {
 } from "@/lib/permitiq/checklist";
 import { reviewApplication } from "@/lib/permitiq/review";
 import { logAgentRun } from "@/lib/agents/runs";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 // NOTE: no `export const maxDuration` here. A "use server" module may only
 // export async functions — any other export breaks the whole module, and the
@@ -86,8 +87,8 @@ export async function createApplication(
     .single();
 
   if (error) {
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/migrations/0033_permitiq.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("PermitIQ", "supabase/migrations/0033_permitiq.sql", error) };
     }
     return { error: error.message };
   }

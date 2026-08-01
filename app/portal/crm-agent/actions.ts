@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 async function ctx() {
   const { profile } = await requireSession();
@@ -109,8 +110,8 @@ export async function importContacts(): Promise<
         .select("id")
         .single();
       if (error) {
-        if (error.code === "42P01") {
-          return { ok: false, error: "Database update required — run supabase/manual_update_0008.sql." };
+        if (isMissingTableError(error)) {
+          return { ok: false, error: reportMissingTable("ClientIQ", "supabase/manual_update_0008.sql", error) };
         }
         continue;
       }
@@ -172,7 +173,8 @@ export async function addContact(
   });
   if (error) {
     if (error.code === "23505") return { error: "A contact with that email already exists." };
-    if (error.code === "42P01") return { error: "Database update required — run supabase/manual_update_0008.sql." };
+    if (isMissingTableError(error))
+      return { error: reportMissingTable("ClientIQ", "supabase/manual_update_0008.sql", error) };
     return { error: error.message };
   }
   revalidatePath("/portal/crm-agent");
@@ -248,7 +250,8 @@ export async function addTask(
     due_date: dueDate || null,
   });
   if (error) {
-    if (error.code === "42P01") return { error: "Database update required — run supabase/manual_update_0008.sql." };
+    if (isMissingTableError(error))
+      return { error: reportMissingTable("ClientIQ", "supabase/manual_update_0008.sql", error) };
     return { error: error.message };
   }
   revalidatePath("/portal/crm-agent");

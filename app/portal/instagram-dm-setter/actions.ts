@@ -6,10 +6,14 @@ import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
 import { handleInboundMessage } from "@/lib/instagram/setter-core";
-import { isMissingTableError } from "@/lib/db/errors";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
-const NEEDS_MIGRATION =
-  "Database update required — run supabase/manual_update_0011.sql in the Supabase SQL Editor, then try again.";
+// The customer never sees the filename — reportMissingTable logs it instead.
+const NEEDS_MIGRATION = reportMissingTable(
+  "The Instagram DM setter",
+  "supabase/manual_update_0011.sql",
+  null
+);
 
 const PRODUCT = "instagram-dm-setter";
 

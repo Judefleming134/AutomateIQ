@@ -24,6 +24,7 @@ import {
   resolveProvider,
 } from "@/lib/ai/config";
 import { ACTION_PREFIX, type AssistantAction } from "./shared";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 const knowledgeSchema = z.object({
   knowledge: z.string().trim().max(8000, "Keep the knowledge under 8000 characters"),
@@ -60,8 +61,8 @@ export async function updateAssistantSettings(
   );
 
   if (error) {
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0005.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("AssistIQ", "supabase/manual_update_0005.sql", error) };
     }
     return { error: error.message };
   }
@@ -135,8 +136,8 @@ export async function sendAssistantMessage(
       .single();
     if (convError || !conv) {
       const hint =
-        convError?.code === "42P01"
-          ? "Database update required — run supabase/manual_update_0005.sql."
+        isMissingTableError(convError)
+          ? reportMissingTable("AssistIQ", "supabase/manual_update_0005.sql", convError)
           : convError?.message ?? "Could not start a conversation.";
       return { ok: false, error: hint };
     }

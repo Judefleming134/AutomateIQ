@@ -3,6 +3,7 @@ import { FileCheck, MapPin } from "lucide-react";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { ApplicationForm } from "./application-form";
+import { isMissingTableError } from "@/lib/db/errors";
 
 export const metadata = { title: "PermitIQ — AutomateIQ" };
 
@@ -43,9 +44,12 @@ export default async function PermitIqHome({
     .order("created_at", { ascending: false })
     .limit(50);
 
-  // 42P01 = the migration hasn't been pasted in yet. Say so plainly rather
-  // than rendering an empty list that looks like "you have no applications".
-  const migrationMissing = error?.code === "42P01";
+  // The migration hasn't been pasted in yet. Say so plainly rather than
+  // rendering an empty list that looks like "you have no applications".
+  // Via the shared check, not a bare 42P01: PostgREST answers PGRST205 for a
+  // missing table over the REST API, so the direct code test missed the
+  // ordinary case and the page showed a convincing, wrong "nothing here yet".
+  const migrationMissing = isMissingTableError(error);
   const applications = (data ?? []) as AppRow[];
 
   return (

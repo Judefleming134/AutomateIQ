@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 import {
   createQuoteCore,
   type QuoteLine,
@@ -41,8 +42,8 @@ export async function savePriceGuide(
   );
 
   if (error) {
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0007.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("QuoteIQ", "supabase/manual_update_0007.sql", error) };
     }
     return { error: error.message };
   }

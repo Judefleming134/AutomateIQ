@@ -6,13 +6,17 @@ import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddress } from "@/lib/logistics/core";
-import { isMissingTableError } from "@/lib/db/errors";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 type Result = { ok?: boolean; error?: string } | undefined;
 
 const PRODUCT = "logistics-control-centre";
-const NEEDS_MIGRATION =
-  "Database update required — run supabase/manual_update_0015.sql in the Supabase SQL Editor, then try again.";
+// The customer never sees the filename — reportMissingTable logs it instead.
+const NEEDS_MIGRATION = reportMissingTable(
+  "The logistics control centre",
+  "supabase/manual_update_0015.sql",
+  null
+);
 
 async function ctx() {
   const { profile } = await requireSession();
