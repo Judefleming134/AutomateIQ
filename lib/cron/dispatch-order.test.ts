@@ -72,22 +72,34 @@ describe("the ge_ chain stays in order", () => {
 });
 
 describe("the disjoint task is off the critical path", () => {
-  it("starts review reminders without awaiting them", () => {
-    expect(CODE).toMatch(/const reviewRemindersPromise = isolated\("reviewReminders"/);
+  // The reminders now share a promise with the review autopilot — both write
+  // ra_review_requests, so they are chained to each other rather than raced.
+  // The constraint this block protects is unchanged: the review work starts
+  // before the ge_ chain, is not awaited across it, and is settled before the
+  // response.
+  it("starts the review work without awaiting it", () => {
+    expect(CODE).toMatch(/const reviewChainPromise = \(async \(\) => \{/);
+    expect(CODE).toMatch(/isolated\("reviewReminders", sendReviewReminders\)/);
   });
 
-  it("starts them before the chain, not after", () => {
-    expect(at("const reviewRemindersPromise")).toBeLessThan(task("bookingSync"));
+  it("starts it before the chain, not after", () => {
+    expect(at("const reviewChainPromise")).toBeLessThan(task("bookingSync"));
   });
 
-  it("still settles them before responding, so a failure is reported", () => {
+  it("still settles it before responding, so a failure is reported", () => {
     // Abandoning it mid-flight would drop the outcome and could cut the sends
     // off when the function returns.
-    expect(at("await reviewRemindersPromise")).toBeLessThan(at("ok: true,"));
+    expect(at("await reviewChainPromise")).toBeLessThan(at("ok: true,"));
+  });
+
+  it("runs the autopilot after the reminders, never alongside", () => {
+    expect(at('isolated("reviewReminders"')).toBeLessThan(at('isolated("reviewAutopilot"'));
+    // Both awaited inside the same async IIFE, so they cannot overlap.
+    expect(CODE).toMatch(/await isolated\("reviewReminders"[\s\S]{0,200}await isolated\("reviewAutopilot"/);
   });
 
   it("still reports every task in the response", () => {
-    for (const t of ["reviewReminders", "bookingSync", "autoQueue", "autoFollowups", "emailAutopilot", "jarvisBrief"]) {
+    for (const t of ["reviewReminders", "reviewAutopilot", "invoiceChaser", "bookingSync", "autoQueue", "autoFollowups", "emailAutopilot", "jarvisBrief"]) {
       expect(CODE, t).toContain(t);
     }
   });
@@ -95,7 +107,7 @@ describe("the disjoint task is off the critical path", () => {
 
 describe("the whole dispatch is still authorised and isolated", () => {
   it("refuses an unauthorised caller before doing any work", () => {
-    expect(at("if (!isAuthorizedCron")).toBeLessThan(at("const reviewRemindersPromise"));
+    expect(at("if (!isAuthorizedCron")).toBeLessThan(at("const reviewChainPromise"));
   });
 
   it("wraps every task so one failure cannot take the others down", () => {
