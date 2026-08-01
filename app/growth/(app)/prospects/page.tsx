@@ -25,6 +25,7 @@ import { addProspect, importProspects, quickResearch } from "./actions";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
 import { activeFilterChips } from "@/lib/growth/prospect-filters";
 import { applyDueBucket, resolveDueBucket } from "@/lib/growth/prospect-query";
+import { loadProspectQueues } from "@/lib/growth/prospect-queue";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -121,43 +122,18 @@ export default async function ProspectsPage({
   const [
     { data: prospects, count: totalMatching },
     { data: campaigns },
-    industriesRaw,
+    queues,
     { data: team },
-    allProspects,
-    researched,
     { data: missingEmailRaw },
     { count: grandTotal },
   ] = await Promise.all([
     query,
     admin.from("ge_campaigns").select("id, name").order("name"),
-    // Full scans (paged past the 1,000-row cap) so the research queue sees
-    // EVERY imported batch — not just the first 1,000 — and never re-offers
-    // an already-researched prospect once research rows pass 1,000.
-    selectAllRows<{ industry: string | null }>(() =>
-      admin.from("ge_prospects").select("industry").not("industry", "is", null)
-    ),
+    // The industry dropdown and the research queue, in three small reads
+    // instead of three full table scans — see lib/growth/prospect-queue.ts.
+    // Falls back to the old scans if migration 0042 has not been run.
+    loadProspectQueues(admin),
     admin.from("ge_team_members").select("id, name"),
-    selectAllRows<{
-      id: string;
-      company: string;
-      website: string | null;
-      status: string;
-    }>(() =>
-      admin
-        .from("ge_prospects")
-        .select("id, company, website, status")
-        .not("status", "in", '("won","lost","do_not_contact","archived")')
-        .order("created_at", { ascending: false })
-        // Bulk imports share timestamps: without a unique tiebreak the order
-        // shuffles between refreshes (the research queue looks like "the same
-        // batch again") and paged reads can skip/duplicate rows. id fixes it.
-        .order("id", { ascending: true })
-    ),
-    selectAllRows<{ prospect_id: string }>(() =>
-      // Ordered so paged reads stay exact once research rows pass 1,000 — an
-      // unordered range can skip a row, which would re-offer a researched lead.
-      admin.from("ge_research").select("prospect_id").order("prospect_id")
-    ),
     // Over-fetch (300, not the ~100 shown) so that after dropping prospects
     // already checked with no email, there's still a full page of fresh leads.
     admin
@@ -180,25 +156,16 @@ export default async function ProspectsPage({
   const SOFT_CAP = 5000;
   const dbTotal = grandTotal ?? 0;
   const teamById = new Map((team ?? []).map((t) => [t.id, t.name]));
-  const researchedIds = new Set(researched.map((r) => r.prospect_id));
   // Leads whose research FAILED live in their own status group — completely
   // out of the fresh pool. They're retried from their own button, or filtered
   // (Status → Research failed) in the table below to archive/delete in bulk.
-  const failedGroup = allProspects.filter(
-    (p) => p.status === "research_failed" && !researchedIds.has(p.id)
-  );
-  // Research the most-researchable FRESH leads first: a website is by far the
-  // strongest signal for research quality (the engine reads the site).
-  // Array.sort is stable, so within each group the created_at-desc order is
-  // preserved.
-  const unresearched = allProspects
-    .filter((p) => !researchedIds.has(p.id) && p.status !== "research_failed")
-    .sort((a, b) => Number(Boolean(b.website)) - Number(Boolean(a.website)));
-  // Hand the queue an accurate TOTAL but only a bounded working slice — the
-  // component researches 40 per click, so shipping thousands of rows to the
-  // browser is wasted payload. It refills from the server on each refresh.
-  const unresearchedTotal = unresearched.length;
-  const unresearchedBatch = unresearched.slice(0, 300);
+  //
+  // The queue is handed an accurate TOTAL but only a bounded working slice:
+  // the component researches 40 per click, so shipping thousands of rows to
+  // the browser is wasted payload. It refills from the server each refresh.
+  const failedGroup = queues.failed;
+  const unresearchedTotal = queues.freshTotal;
+  const unresearchedBatch = queues.fresh;
 
   // The email finder: drop prospects already checked with no email (they carry
   // a "Contact harvest:" timeline note) so the list refills with fresh leads
@@ -219,9 +186,7 @@ export default async function ProspectsPage({
     .filter((p) => !harvestedSet.has(p.id))
     .slice(0, 100);
 
-  const industries = [
-    ...new Set(industriesRaw.map((r) => r.industry?.trim()).filter(Boolean)),
-  ].sort() as string[];
+  const industries = queues.industries;
 
   const rows = prospects ?? [];
   // Today in Irish time, to flag a follow-up whose chase date has arrived or
@@ -422,8 +387,8 @@ export default async function ProspectsPage({
       <ResearchQueue
         pending={unresearchedBatch}
         totalPending={unresearchedTotal}
-        failedRecently={failedGroup.slice(0, 60)}
-        failedTotal={failedGroup.length}
+        failedRecently={failedGroup}
+        failedTotal={queues.failedTotal}
         claude={Boolean(process.env.ANTHROPIC_API_KEY)}
         engine={activeEngineLabel()}
       />
