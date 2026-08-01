@@ -7,6 +7,7 @@ import { loadGrowthMetricsMulti } from "@/lib/growth/metrics";
 import { aiComplete } from "@/lib/ai/complete";
 import { dublinDate, dublinWeekday } from "@/lib/growth/dates";
 import { classifyInbound } from "@/lib/growth/inbound-classify";
+import { loadMoneySummary, formatMoneyBlock } from "@/lib/cron/money-block";
 import {
   CLOSED_STATUSES,
   PROSPECT_STATUS_META,
@@ -650,6 +651,14 @@ export async function sendJarvisMorningBrief(): Promise<{
         ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyTotal ?? nightlyLines.length})\n${nightlyLines.join("\n")}${nightlyMore}${queueLine}`
         : "";
 
+    // MONEY. The brief has always covered leads, replies and overnight fixes
+    // and said nothing about what Jude is owed — and since the invoice chaser
+    // shipped it also said nothing about the reminders it sends real customers
+    // every morning. Returns null (and the block disappears) until 0037/0038
+    // are run, so an unconfigured install never reads as "nothing is owed".
+    const moneySummary = await loadMoneySummary(admin, new Date().toISOString());
+    const moneyBlock = moneySummary ? formatMoneyBlock(moneySummary) : "";
+
     // "It worked itself" headline — the first thing Jude sees: what the engine
     // did overnight/this morning with zero input from him, so logging on = just
     // working the lists below. When NOTHING was auto-processed (0/0/0 — usually
@@ -690,6 +699,7 @@ export async function sendJarvisMorningBrief(): Promise<{
           : "",
         changedLine,
         nightlyBlock,
+        moneyBlock,
         deliveryBlock,
         replyLines.length
           ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + autoReplyNote + replyDraftNote
@@ -720,6 +730,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         deliveryBlock,
         sentBlock,
         nightlyBlock,
+        moneyBlock,
         section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + autoReplyNote + replyDraftNote,
         // Above meetings and due chases on purpose: someone who wrote back and
         // hasn't heard anything outranks both.
