@@ -19,6 +19,7 @@ import { COMPLEXITY_META, sanitizeRecommendations } from "@/lib/growth/solutions
 import { formatPrice, buildQuote, formatEuro, FOUNDING_OFFER } from "@/lib/growth/pricing";
 import { markdownToHtml } from "@/lib/growth/markdown";
 import { dublinDate } from "@/lib/growth/dates";
+import { pickScriptTouches } from "@/lib/growth/call-sheet";
 import type { ResearchReport } from "@/lib/growth/research";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import {
@@ -278,6 +279,19 @@ export default async function ProspectWorkspacePage({
     subject: string | null;
     preview: string;
     inbound?: boolean;
+    /**
+     * What KIND of touch this was. The history renders all three identically,
+     * but the call sheet below does not: every line it writes from the last
+     * touch ("I sent you a…", "Send me an email" → "I did") only makes sense
+     * about something that was actually SENT. Without this discriminator a
+     * logged call became "I sent you a call on Monday" in the opener Jude
+     * reads down the phone — and the second dial to the same prospect is
+     * exactly when that happens.
+     */
+    kind: "message" | "call" | "meeting";
+    /** Whether this touch was literally an email — the "send me an email"
+     *  objection can only be answered with "I did" when it was. */
+    isEmail?: boolean;
     /** 1-based position among SENT touches only — assigned after sort so the
      *  list reads 1, 2, 3 even when replies are interleaved. */
     sentNo?: number;
@@ -303,6 +317,8 @@ export default async function ProspectWorkspacePage({
         subject: m.subject,
         preview: (m.body ?? "").trim(),
         inbound: m.direction === "inbound",
+        kind: "message" as const,
+        isEmail: m.channel === "email",
       })),
     ...(activities ?? [])
       .filter((a) => a.type === "call" || a.type === "meeting")
@@ -313,6 +329,7 @@ export default async function ProspectWorkspacePage({
         purposeLabel: null,
         subject: null,
         preview: (a.content ?? "").trim(),
+        kind: (a.type === "call" ? "call" : "meeting") as "call" | "meeting",
       })),
   ].sort((x, y) => (x.at < y.at ? -1 : 1));
   // Number the SENT touches 1, 2, 3… in time order. Using the array index
@@ -1073,23 +1090,44 @@ export default async function ProspectWorkspacePage({
               // prospect gets a detailed personalised script with zero AI
               // calls — a saved Studio call draft (which adds full objection
               // handling) still takes precedence when one exists.
-              const lastSent = [...outreachTouches].filter((t) => !t.inbound).pop();
+              // The last touch that was actually SENT — a message, not a dial.
+              // Every "I sent you a…" line below is written from this, and
+              // `outreachTouches` also carries logged calls and meetings: with
+              // those in the mix the opener read "I sent you a call on Monday",
+              // and the objection line told a prospect he'd emailed them when
+              // he had only rung. The second dial to the same prospect is
+              // precisely when a call is the most recent touch, so the script
+              // was at its most wrong exactly when it was most needed.
+              // lastDial is the last time Jude actually got them on the phone
+              // (or sat down with them) — a different sentence, and it must
+              // never be described as something that was sent.
+              const { lastMessage, lastDial, dialledSinceMessage } =
+                pickScriptTouches(outreachTouches);
               const firstName = (prospect.contact_name || "").trim().split(/\s+/)[0] || "there";
               const dayOf = (iso: string) =>
                 new Date(iso).toLocaleDateString("en-IE", { weekday: "long", day: "numeric", month: "short", timeZone: "Europe/Dublin" });
-              const touchTopic = lastSent?.subject
-                ? `"${lastSent.subject}"`
-                : lastSent
+              const touchTopic = lastMessage?.subject
+                ? `"${lastMessage.subject}"`
+                : lastMessage
                   ? `what AI could take off ${prospect.company}'s plate`
                   : "";
               const sheet: string[] = [];
               if (report) {
                 sheet.push("OPENER:");
                 sheet.push(
-                  lastSent
-                    ? `• "Hi ${firstName}, Jude from AutomateIQ — I sent you a ${lastSent.channelLabel.toLowerCase()} on ${dayOf(lastSent.at)} about ${touchTopic}, and wanted to put a voice to it."`
-                    : `• "Hi ${firstName}, Jude from AutomateIQ — I was looking at ${prospect.company} and had one thought worth thirty seconds of your day."`
+                  lastMessage
+                    ? `• "Hi ${firstName}, Jude from AutomateIQ — I sent you ${lastMessage.isEmail ? "an email" : `a message on ${lastMessage.channelLabel}`} on ${dayOf(lastMessage.at)} about ${touchTopic}, and wanted to put a voice to it."`
+                    : lastDial
+                      ? `• "Hi ${firstName}, Jude from AutomateIQ — I tried you on ${dayOf(lastDial.at)} and said I'd come back to you."`
+                      : `• "Hi ${firstName}, Jude from AutomateIQ — I was looking at ${prospect.company} and had one thought worth thirty seconds of your day."`
                 );
+                // Rung before AND written to: say both, in the right order, so
+                // the second dial doesn't open as if it were the first.
+                if (dialledSinceMessage && lastDial) {
+                  sheet.push(
+                    `  (You also tried them on ${dayOf(lastDial.at)} — "I know I've chased you once already, I'll be quick.")`
+                  );
+                }
                 const pains = [
                   ...report.inefficiencies,
                   ...report.manual_processes,
@@ -1110,8 +1148,16 @@ export default async function ProspectWorkspacePage({
                     ? `• "How much?" → "${quote.hasFrom ? "From " : ""}${formatEuro(quote.setupTotal)} setup${quote.monthlyTotal > 0 ? ` plus ${formatEuro(quote.monthlyTotal)} a month` : ""} at the founding rate — first 10 customers only, then it rises."`
                     : `• "How much?" → "Depends what'd actually help — that's exactly what the 15 minutes is for."`
                 );
-                if (lastSent) {
-                  sheet.push(`• "Send me an email" → "I did — ${dayOf(lastSent.at)}, ${touchTopic}. This is me making sure it didn't drown. Fifteen minutes shows you more than any email."`);
+                // "I did" is only true if an EMAIL went out. A DM or an SMS
+                // answers the objection differently, and a lead that has only
+                // ever been rung has no send to point at — claiming one down
+                // the phone is the kind of thing a prospect checks.
+                if (lastMessage?.isEmail) {
+                  sheet.push(`• "Send me an email" → "I did — ${dayOf(lastMessage.at)}, ${touchTopic}. This is me making sure it didn't drown. Fifteen minutes shows you more than any email."`);
+                } else if (lastMessage) {
+                  sheet.push(`• "Send me an email" → "I will, today. I'd sent you ${touchTopic} on ${lastMessage.channelLabel} on ${dayOf(lastMessage.at)} — easy missed. Fifteen minutes shows you more than any email."`);
+                } else {
+                  sheet.push(`• "Send me an email" → "I will, today — what's the best address? Though fifteen minutes shows you more than any email would."`);
                 }
                 sheet.push(`• "We're grand as we are" → "I'd say you are — this isn't about replacing anything, it's the calls and enquiries ye already miss going to someone else."`);
                 if (report.discovery_questions.length > 0) {
@@ -1121,7 +1167,13 @@ export default async function ProspectWorkspacePage({
                 sheet.push(
                   "",
                   "VOICEMAIL (20 seconds):",
-                  `• "Hi ${firstName}, Jude from AutomateIQ${lastSent ? ` — I ${lastSent.channelLabel === "Email" ? "emailed" : "messaged"} you about ${touchTopic}` : ""}. Nothing urgent — I'll try you again tomorrow."`
+                  `• "Hi ${firstName}, Jude from AutomateIQ${
+                    lastMessage
+                      ? ` — I ${lastMessage.isEmail ? "emailed" : "messaged"} you about ${touchTopic}`
+                      : lastDial
+                        ? ` — I tried you on ${dayOf(lastDial.at)}`
+                        : ""
+                  }. Nothing urgent — I'll try you again."`
                 );
               }
               const script = callDraft?.body || (sheet.length > 0 ? sheet.join("\n") : "");
