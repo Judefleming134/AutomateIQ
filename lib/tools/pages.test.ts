@@ -106,7 +106,8 @@ describe("search engines are not sent to a dead tool", () => {
   async function sitemapUrls(): Promise<string[]> {
     vi.resetModules();
     const mod = await import("@/app/sitemap");
-    return mod.default().map((e) => e.url);
+    // Async since it now reads the published SiteIQ pages from the database.
+    return (await mod.default()).map((e) => e.url);
   }
 
   it("drops the Google checker from the sitemap while it is switched off", async () => {

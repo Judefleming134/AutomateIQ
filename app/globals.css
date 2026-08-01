@@ -1536,6 +1536,108 @@ table.data-table {
   box-shadow: var(--shadow-glow-blue);
 }
 
+/* Open/closed, areas covered and opening hours — the three things a visitor
+   looks for that the page used to have no way to say. */
+
+.wa-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 16px 0 0;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+}
+
+.wa-open::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.wa-open.is-open {
+  color: var(--green, #34d399);
+  background: rgba(52, 211, 153, 0.1);
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+.wa-open.is-shut {
+  color: var(--faint);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.wa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* Secondary contact routes. Ringing suits some people; a lot of visitors —
+   especially outside opening hours — want to type instead. */
+.wa-phone-alt {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--heading);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.wa-areas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wa-areas li {
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 13px;
+  color: var(--heading);
+}
+
+.wa-hours {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.wa-hours th,
+.wa-hours td {
+  padding: 9px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.wa-hours tr:last-child th,
+.wa-hours tr:last-child td {
+  border-bottom: 0;
+}
+
+.wa-hours th {
+  font-weight: 500;
+  color: var(--body);
+}
+
+.wa-hours td {
+  text-align: right;
+  color: var(--heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.wa-hours tr.is-closed th,
+.wa-hours tr.is-closed td {
+  color: var(--faint);
+}
+
 .wa-main {
   display: flex;
   flex-direction: column;
