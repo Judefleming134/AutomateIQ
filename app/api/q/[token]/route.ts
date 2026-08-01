@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { syncQuoteDecisionToCrm } from "@/lib/quote-agent/quote-to-crm";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
 
 const bodySchema = z.object({ decision: z.enum(["accept", "decline"]) });
@@ -25,7 +26,7 @@ export async function POST(
   const admin = createAdminClient();
   const { data: quote } = await admin
     .from("qa_quotes")
-    .select("id, business_id, customer_name, total, status")
+    .select("id, business_id, customer_name, customer_email, job_description, total, status")
     .eq("view_token", token)
     .maybeSingle();
 
@@ -61,6 +62,22 @@ export async function POST(
       .eq("id", quote.id)
       .maybeSingle();
     return NextResponse.json({ ok: true, status: current?.status ?? newStatus });
+  }
+
+  // The decision is recorded — now make it mean something elsewhere.
+  //
+  // Accepting a quote is the highest-value event in the platform, and until
+  // now it produced no record beyond the quote row: ClientIQ, sold as "every
+  // customer and lead in one place", did not know about the customer who had
+  // just agreed to pay. This creates or updates that contact, moves them to
+  // won (or lost), records the value and writes it into their timeline.
+  //
+  // Strictly best-effort and deliberately un-awaited-for-failure: the customer
+  // has already decided and the quote is already updated, so nothing here may
+  // fail their action or delay the response they are waiting on.
+  const crmSync = await syncQuoteDecisionToCrm(admin, quote, newStatus);
+  if (!crmSync.ok) {
+    console.error(`[quote-accept] CRM sync failed for quote ${quote.id}: ${crmSync.reason}`);
   }
 
   // Best-effort: notify the business that a decision was made. Never fails
