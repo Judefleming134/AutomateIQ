@@ -25,6 +25,7 @@ import { CsvFileField } from "@/components/growth/csv-file-field";
 import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
+import { activeFilterChips } from "@/lib/growth/prospect-filters";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -297,6 +298,14 @@ export default async function ProspectsPage({
   exportSp.set("sort", sortKey);
   const exportHref = `/growth/reports/export?${exportSp.toString()}`;
 
+  // Every active filter, as a chip that clears only itself. Campaign ids are
+  // resolved to names — an id on a chip tells a human nothing.
+  const campaignNameById = new Map((campaigns ?? []).map((c) => [c.id, c.name]));
+  const filterChips = activeFilterChips(
+    { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, due: due ?? undefined, sort: params.sort },
+    (id) => campaignNameById.get(id)
+  );
+
   // Show up to 10 numbered pages, windowed around the current one so the
   // strip never runs off the screen on a big database.
   const WINDOW = 10;
@@ -319,13 +328,41 @@ export default async function ProspectsPage({
             {q || status || industry || campaign || phoneOnly || due ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
-          {/* Arriving from a dashboard or Jarvis count: say which bucket this
-              is and give one tap back to everything. Without it the page looks
-              like the full list with a mysteriously small total. */}
-          {due && (
-            <p style={{ fontSize: 12.5, margin: "6px 0 0" }}>
-              <span className="badge badge-orange">{DUE_LABELS[due]}</span>{" "}
-              <Link href="/growth/prospects">clear filter</Link>
+          {/* EVERY active filter, each clearable on its own.
+              This used to render for `due` alone, so arriving from a dashboard
+              count gave you a way back — but ticking "Has phone", or picking a
+              status, industry or campaign, narrowed the list with nothing on
+              screen to widen it again. The header still said "matching your
+              filters", so the page told you it was filtered and then offered
+              no way out; the only other clear link lived in the empty state,
+              i.e. it appeared exactly when there was nothing to clear from.
+              Each chip drops just itself and keeps the rest. */}
+          {filterChips.length > 0 && (
+            <p
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+                fontSize: 12.5,
+                margin: "6px 0 0",
+              }}
+            >
+              {filterChips.map((chip) => (
+                <Link
+                  key={chip.key}
+                  href={chip.clearHref}
+                  className="badge badge-orange"
+                  style={{ textDecoration: "none" }}
+                  title={`Remove the ${chip.label} filter`}
+                >
+                  {chip.label} <span aria-hidden="true">×</span>
+                  <span className="sr-only"> — remove this filter</span>
+                </Link>
+              ))}
+              {filterChips.length > 1 && (
+                <Link href="/growth/prospects">clear all</Link>
+              )}
             </p>
           )}
           {totalPages > 1 && (
@@ -364,7 +401,10 @@ export default async function ProspectsPage({
           href={exportHref}
           className="btn btn-secondary"
           title={
-            q || status || industry || campaign || phoneOnly
+            // `due` belongs here: the export DOES carry it (exportSp sets it),
+            // so arriving from a "Gone cold (43)" link and reading "Exports
+            // every prospect" was the tooltip contradicting the button.
+            filterChips.length > 0
               ? "Exports the filtered list you're looking at"
               : "Exports every prospect"
           }
