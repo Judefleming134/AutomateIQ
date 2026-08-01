@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateContentCore, type ContentType } from "./generate-core";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 /**
  * A campaign brief: what assets to produce. The ContentIQ generates the
@@ -40,8 +41,8 @@ export async function buildCampaignCore(
     .single();
 
   if (campaignError || !campaign) {
-    if (campaignError?.code === "42P01") {
-      return { ok: false, error: "Database update required — run supabase/manual_update_0008.sql." };
+    if (isMissingTableError(campaignError)) {
+      return { ok: false, error: reportMissingTable("ContentIQ", "supabase/manual_update_0008.sql", campaignError) };
     }
     return { ok: false, error: campaignError?.message ?? "Could not create the campaign." };
   }

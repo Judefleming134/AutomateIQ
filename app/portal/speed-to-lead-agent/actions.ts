@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 const settingsSchema = z.object({
   enabled: z.boolean(),
@@ -50,8 +51,8 @@ export async function updateSpeedToLeadSettings(
   );
 
   if (error) {
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0007.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("LeadIQ", "supabase/manual_update_0007.sql", error) };
     }
     return { error: error.message };
   }

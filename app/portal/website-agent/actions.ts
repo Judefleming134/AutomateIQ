@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireSession } from "@/lib/auth/require-session";
 import { requireProductEnabled } from "@/lib/auth/require-product";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 const pageSchema = z.object({
   slug: z
@@ -81,8 +82,8 @@ export async function updateWebsitePage(
     if (error.code === "23505") {
       return { error: "That web address is already taken — pick another slug." };
     }
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0005.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("SiteIQ", "supabase/manual_update_0005.sql", error) };
     }
     return { error: error.message };
   }

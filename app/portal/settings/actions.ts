@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
+import { isMissingTableError, reportMissingTable } from "@/lib/db/errors";
 
 const passwordSchema = z
   .object({
@@ -76,8 +77,8 @@ export async function updateBusinessKnowledge(
   );
 
   if (error) {
-    if (error.code === "42P01") {
-      return { error: "Database update required — run supabase/manual_update_0005.sql." };
+    if (isMissingTableError(error)) {
+      return { error: reportMissingTable("Your settings", "supabase/manual_update_0005.sql", error) };
     }
     return { error: error.message };
   }
