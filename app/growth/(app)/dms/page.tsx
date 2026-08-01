@@ -6,6 +6,7 @@ import { selectAllRows } from "@/lib/growth/db";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
+import { summariseDmQueue } from "@/lib/growth/dm-list";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { DmSendButton } from "@/components/growth/dm-send-button";
@@ -124,7 +125,13 @@ export default async function DmListPage() {
     }
   }
 
-  const items: WorkItem[] = [];
+  // Build EVERY ready item in the lookup window, then slice to a screenful.
+  // The loop used to stop at MAX_ITEMS, which meant the page had no idea how
+  // many more were genuinely ready — so the header counted un-DM'd prospects
+  // instead, most of which have no message written and can never appear here.
+  // Sanitising 150 short bodies in memory is nothing next to telling Jude the
+  // wrong number. See summariseDmQueue.
+  const ready: WorkItem[] = [];
   for (const p of candidates) {
     // Prefer a channel with a CLEAN draft; only fall back to a flagged one so
     // the prospect still surfaces (with a "fix it" nudge) rather than vanishing.
@@ -146,9 +153,18 @@ export default async function DmListPage() {
       if (!flagged) flagged = item;
     }
     const chosen = clean ?? flagged;
-    if (chosen) items.push(chosen);
-    if (items.length >= MAX_ITEMS) break;
+    if (chosen) ready.push(chosen);
   }
+  const items = ready.slice(0, MAX_ITEMS);
+
+  const queue = summariseDmQueue({
+    shown: items.length,
+    ready: ready.length,
+    available: available.length,
+    lookupCapped: available.length > DRAFT_LOOKUP,
+    poolMaxedOut,
+  });
+  const plus = queue.approximate ? "+" : "";
 
   return (
     <>
@@ -176,12 +192,12 @@ export default async function DmListPage() {
               problem, and telling him to research MORE prospects there sends
               him the wrong way entirely. */}
           <p className="empty-state" style={{ margin: 0 }}>
-            {available.length > 0 ? (
+            {queue.awaitingDraft > 0 ? (
               <>
                 You&apos;ve DM&apos;d everyone who has a message ready.{" "}
-                <strong>{available.length}</strong>
-                {poolMaxedOut ? "+" : ""} prospect
-                {available.length === 1 ? "" : "s"} with a profile link are
+                <strong>{queue.awaitingDraft}</strong>
+                {plus} prospect
+                {queue.awaitingDraft === 1 ? "" : "s"} with a profile link are
                 still waiting on a DM draft — open one and generate it in the
                 Studio, or run the overnight engine and they&apos;ll be written
                 for you.{" "}
@@ -201,16 +217,30 @@ export default async function DmListPage() {
         <>
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "0 0 12px" }}>
             {items.length} ready to send · highest score first
-            {/* The real number still to work, so the page never implies 40 is
-                all there is. */}
-            {available.length > items.length && (
+            {/* TWO numbers, because they are two different jobs. "More ready"
+                really does load when these are marked sent. "Waiting on a
+                draft" never will — those need the Studio or an overnight run,
+                and lumping them into one "still to DM" figure both inflated it
+                and promised something the page could not deliver. */}
+            {queue.readyBeyond > 0 && (
               <>
                 {" "}·{" "}
                 <strong>
-                  {available.length - items.length}
-                  {poolMaxedOut ? "+" : ""} more
+                  {queue.readyBeyond}
+                  {plus} more ready
                 </strong>{" "}
-                still to DM — mark these sent and the next batch loads
+                — mark these sent and the next batch loads
+              </>
+            )}
+            {queue.awaitingDraft > 0 && (
+              <>
+                {" "}·{" "}
+                <strong>
+                  {queue.awaitingDraft}
+                  {plus}
+                </strong>{" "}
+                with a profile link still need a DM written —{" "}
+                <Link href="/growth/prospects?sort=score">write them →</Link>
               </>
             )}
           </p>
