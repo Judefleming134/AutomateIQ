@@ -4,6 +4,10 @@ import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { CheckCircle2, AlertTriangle } from "lucide-react";
 import { reviewLinkStatus } from "@/lib/review-agent/review-hosts";
+import {
+  MAX_JOB_AGE_DAYS,
+  ASK_COOLDOWN_DAYS,
+} from "@/lib/review-agent/auto-request";
 import { updateBusinessSettings } from "./actions";
 
 export default async function ReviewAgentSettingsPage() {
@@ -12,7 +16,7 @@ export default async function ReviewAgentSettingsPage() {
 
   const { data: business } = await supabase
     .from("businesses")
-    .select("name, google_review_link, logo_url, email_signature")
+    .select("*")
     .eq("id", profile.business_id!)
     .single();
 
@@ -107,6 +111,32 @@ export default async function ReviewAgentSettingsPage() {
               rows={3}
               defaultValue={business?.email_signature ?? ""}
             />
+          </div>
+          {/* The whole promise of the product — "ask while the job is still
+              fresh" — used to depend on remembering to press Send on the day.
+              Off by default; nothing changes for anyone until they tick it. */}
+          <div className="field" style={{ gap: 8 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                id="autoRequests"
+                type="checkbox"
+                name="autoRequests"
+                defaultChecked={Boolean(business?.auto_review_requests)}
+                style={{ width: 16, height: 16 }}
+              />
+              <label htmlFor="autoRequests" style={{ margin: 0 }}>
+                Ask automatically when a job is paid
+              </label>
+            </span>
+            <span style={{ fontSize: 11.5, color: "var(--faint)", maxWidth: "62ch" }}>
+              When you mark a QuoteIQ invoice paid, the review request goes out
+              on the next morning run — while the job is still fresh, without
+              anyone having to remember. Only jobs paid in the last{" "}
+              {MAX_JOB_AGE_DAYS} days, never the same person twice in{" "}
+              {ASK_COOLDOWN_DAYS} days, and never anyone who has already
+              reviewed you. Switching this on does not reach back over older
+              invoices.
+            </span>
           </div>
           <div className="form-actions">
             <SubmitButton pendingText="Saving…">Save changes</SubmitButton>

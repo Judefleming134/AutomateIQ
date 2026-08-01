@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendReviewReminders } from "@/lib/cron/send-review-reminders";
 import { runInvoiceChaser } from "@/lib/cron/invoice-chaser";
+import { runReviewAutopilot } from "@/lib/cron/review-autopilot";
 import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
 import {
   runQueuedEmailAutopilot,
@@ -48,7 +49,16 @@ export async function GET(request: NextRequest) {
   // sit on the critical path of a 60-second budget that also has to fit an AI
   // call. Awaited at the end, so a failure is still reported and the function
   // cannot return before it settles.
-  const reviewRemindersPromise = isolated("reviewReminders", sendReviewReminders);
+  //
+  // The review autopilot is CHAINED behind the reminders rather than run
+  // alongside them: both write ra_review_requests, and serialising the two is
+  // free here (they are already off the critical path) where reasoning about
+  // whether they can race is not.
+  const reviewChainPromise = (async () => {
+    const reminders = await isolated("reviewReminders", sendReviewReminders);
+    const autopilot = await isolated("reviewAutopilot", runReviewAutopilot);
+    return { reminders, autopilot };
+  })();
 
   // Same treatment, same reasoning: the invoice chaser touches qa_invoices and
   // businesses only — disjoint from the ge_* and strategy_bookings tables every
@@ -95,11 +105,22 @@ export async function GET(request: NextRequest) {
 
   // Settle the disjoint task before responding, so its outcome is reported
   // rather than abandoned mid-flight when the function returns.
-  const reviewReminders = await reviewRemindersPromise;
+  const { reminders: reviewReminders, autopilot: reviewAutopilot } =
+    await reviewChainPromise;
   const invoiceChaser = await invoiceChasePromise;
 
   return NextResponse.json({
     ok: true,
-    tasks: { reviewReminders, invoiceChaser, bookingSync, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
+    // reviewReminders keeps its key and its shape — it is watched.
+    tasks: {
+      reviewReminders,
+      reviewAutopilot,
+      invoiceChaser,
+      bookingSync,
+      autoQueue,
+      autoFollowups,
+      emailAutopilot,
+      jarvisBrief,
+    },
   });
 }
