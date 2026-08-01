@@ -892,6 +892,23 @@ export async function qualifyProspect(_prev: Result, formData: FormData): Promis
  * attempt (so the timeline and analytics stay honest and the lead drops off
  * today's call list) but brings them back TOMORROW, and never advances the
  * pipeline stage — an unanswered ring isn't contact.
+ *
+ * REGISTER ITEM K7. "Tomorrow" used to be written unconditionally, which is
+ * the same bug already fixed in addActivity and recordOutreachSent: a lead
+ * carrying a DELIBERATE future date had it collapsed to tomorrow by one tap.
+ * The call list deliberately shows those leads (tier 2, "chase booked for Fri
+ * 8 Aug — not due yet"), so ringing one and getting no answer is an ordinary
+ * dial-day event, not an edge case — and an unanswered ring is the weakest
+ * possible reason to tear up an agreed callback date or pull a 90-day nurture
+ * 89 days forward.
+ *
+ * So it now goes through the shared rule, with tomorrow as the fallback
+ * instead of +3: a chase already in the diary is kept, and one is only PUT
+ * there when there isn't one. The activity line says which of the two
+ * happened, because it is the only place the promise was ever visible — the
+ * "back on the list TOMORROW" note on the call-list card is a JSX comment and
+ * never rendered, so claiming tomorrow while keeping Friday would have been a
+ * silent contradiction in the one record Jude actually reads.
  */
 export async function logNoAnswer(_prev: Result, formData: FormData): Promise<Result> {
   const { member } = await requireGrowth();
@@ -899,24 +916,45 @@ export async function logNoAnswer(_prev: Result, formData: FormData): Promise<Re
   if (!id) return { error: "Missing prospect." };
 
   const admin = createAdminClient();
+
+  // Read BEFORE writing the activity, so the line it leaves can state the real
+  // outcome — same ordering, and the same reason, as addActivity.
+  const { data: p } = await admin
+    .from("ge_prospects")
+    .select("next_follow_up_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!p) return { error: "Prospect not found." };
+
+  const chase = resolveChaseDate(p.next_follow_up_at as string | null, dublinDate(), 1);
+
   const { error } = await admin.from("ge_activities").insert({
     prospect_id: id,
     type: "call",
-    content: "No answer — voicemail left, trying again tomorrow",
+    content: chase.kept
+      ? `No answer — voicemail left. Chase stays ${chase.date} as agreed.`
+      : "No answer — voicemail left, trying again tomorrow",
     created_by: member.id,
   });
   if (error) return { error: error.message };
 
   // last_contact_at IS stamped: it's what drops them off today's call list so
-  // the same number isn't redialled in the same session. The follow-up date is
-  // tomorrow rather than +3 days, and the status is deliberately untouched.
-  await admin
+  // the same number isn't redialled in the same session. The status is
+  // deliberately untouched. The date is only written when it is genuinely
+  // being (re)scheduled — a date still ahead of today is left where it was put.
+  const bump: Record<string, unknown> = { last_contact_at: new Date().toISOString() };
+  if (!chase.kept) bump.next_follow_up_at = chase.date;
+  const { error: bumpError } = await admin
     .from("ge_prospects")
-    .update({
-      last_contact_at: new Date().toISOString(),
-      next_follow_up_at: dublinDate(1),
-    })
+    .update(bump)
     .eq("id", id);
+  // Never report a no-answer as filed when the part that reschedules it
+  // failed: without last_contact_at the lead does not drop off today's list,
+  // so a silent "ok" here is a lead the call list keeps offering and Jude
+  // keeps redialling.
+  if (bumpError) {
+    return { error: `Logged the attempt, but rescheduling failed: ${bumpError.message}` };
+  }
 
   revalidatePath("/growth/call-list");
   revalidatePath(`/growth/prospects/${id}`);

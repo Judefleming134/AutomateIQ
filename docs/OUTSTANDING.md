@@ -14,7 +14,15 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-08-01 overnight (F1 SHIPPED — free-tool results now create warm inbound prospects, ungated. Earlier: tool ENGINE pass: AutoSEO's 1,000-line scorer had no tests and two real bugs — a single-bundle SPA passed the check meant to catch it, and the report led with the meta description on a site with no HTTPS. Missed-calls workings contradicted their own headline. Earlier: second free-tools pass: F5 shipped — tool pages rebuilt, autoseo's duplicate topbar removed, quote-builder's 3,429px mobile overflow fixed, dead tools dropped from the sitemap. Earlier: free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
+Last reviewed: 2026-08-01 daytime (**K7 SHIPPED and removed** — `logNoAnswer`
+now goes through `resolveChaseDate` with tomorrow as the fallback, so a
+no-answer puts a chase in the diary but never moves one already agreed. The
+reason this item had been deferred turned out to be **wrong**: the register
+said "back on the list TOMORROW" was "an explicit, user-visible promise
+printed on the call-list card" — it is a JSX comment at
+`app/growth/(app)/call-list/page.tsx:350` and is never rendered. The only
+place the promise was ever visible is the activity line, which now says which
+of the two happened.) Earlier: 2026-08-01 overnight (F1 SHIPPED — free-tool results now create warm inbound prospects, ungated. Earlier: tool ENGINE pass: AutoSEO's 1,000-line scorer had no tests and two real bugs — a single-bundle SPA passed the check meant to catch it, and the report led with the meta description on a site with no HTTPS. Missed-calls workings contradicted their own headline. Earlier: second free-tools pass: F5 shipped — tool pages rebuilt, autoseo's duplicate topbar removed, quote-builder's 3,429px mobile overflow fixed, dead tools dropped from the sitemap. Earlier: free-tools pass: the quote builder was crashing in every browser — see below; J1 no longer presents as a broken tool. Earlier: J7 cleared — migrations 0031-0034 applied to production by Jude). Earlier: 2026-07-30 nightly (K1 + K3 shipped and removed; K2 removed earlier — verified already shipped: the 5-minute Svix timestamp window is live in app/api/webhooks/resend/route.ts)
 
 ---
 
@@ -40,7 +48,6 @@ not forgotten and they are not free to ignore forever.
 |---|---|---|---|
 | K8 | **Jarvis nightly job 1 can starve on the same eight prospects** | The contact harvest takes the top 8 by `lead_score` with a website and no email, and re-reads their sites. If those eight have permanently dead domains it retries the same eight every night and never reaches the ninth — no progress, no error, and the run reports 0 harvested indefinitely. Same family as the job 1b bug fixed 2026-08-01, but the fix needs somewhere to record an attempt (a `last_harvest_attempt_at` column), so it needs a migration and is not a same-night change. Job 1b is now unaffected. | needs a migration |
 | K6 | **`npm run lint` is broken and ESLint isn't installed** | The script runs `next lint`, which Next 16 removed — it now reads "lint" as a directory and fails with *"Invalid project directory provided: /home/user/AutomateIQ/lint"*. There is no `eslint` dependency, no `eslint-config-next` and no config file anywhere in the repo, so this has been dead since the Next 16 upgrade. Left out of the CI gate rather than adding a step that always fails. Fixing it means installing ESLint + a config and then triaging whatever it reports across 56k lines — worth doing, but its own piece of work, not a side effect of adding tests. The script itself is left in place (nothing removed). | half a day |
-| K7 | **`logNoAnswer` still sets the chase to tomorrow unconditionally** | Same shape as the `addActivity` bug fixed 2026-07-31: a no-answer on a lead with a deliberate future date (a 90-day nurture, a booked review) collapses it to tomorrow. Left alone because "back on the list TOMORROW" is an explicit, user-visible promise printed on the call-list card, and quietly changing it would surprise Jude mid-dial. The blast radius is much smaller than the call path (a no-answer on a long-nurture lead is rare). Fix is one call to `resolveChaseDate` plus a copy change on the card. | Rare mis-scheduling |
 
 ---
 
