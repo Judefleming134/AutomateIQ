@@ -17,6 +17,11 @@ import {
   type Sentiment,
 } from "@/lib/growth/constants";
 import { sendQueuedEmail, markMessageSent, deleteMessage, logInboundMessage } from "./actions";
+import {
+  messageInstant,
+  sortByInstantDesc,
+  latestRealMessage,
+} from "@/lib/growth/inbox-order";
 
 function fmt(ts: string | null | undefined): string {
   if (!ts) return "—";
@@ -106,11 +111,12 @@ export default async function InboxPage({
     inboundPids,
     (chunk) => admin.from("ge_messages").select(MSG_COLS).in("prospect_id", chunk)
   );
-  // Newest-first, matching the global fetch's ordering the conversation
-  // builder relies on (thread[0] = latest).
-  const convMessages = (threadRows ?? [])
-    .slice()
-    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  // Newest-first by when each message ACTUALLY happened — sent_at for a
+  // message that sent, created_at otherwise. Ordering on created_at replays
+  // the conversation in the order it was typed rather than exchanged, and
+  // autopilot drafts hours before the 07:00 cron sends, so that is the normal
+  // case here rather than an edge one. See lib/growth/inbox-order.ts.
+  const convMessages = sortByInstantDesc(threadRows ?? []);
 
   // The queue gets the same treatment as conversations: fetched directly, not
   // filtered out of the capped global window. Once sent-mail history passes
@@ -165,14 +171,11 @@ export default async function InboxPage({
       const thread = convMessages.filter((m) => m.prospect_id === pid);
       const latest = thread[0];
       // "Who spoke last" must only count messages that actually happened —
-      // inbound, or outbound that genuinely SENT. The engine auto-drafts a
-      // suggested reply after every inbound, and that unsent draft would
-      // otherwise register as "we replied" and silently clear the Reply-due
-      // flag on every single conversation.
-      const latestReal =
-        thread.find(
-          (m) => m.direction === "inbound" || m.status === "sent"
-        ) ?? latest;
+      // inbound, or outbound that genuinely SENT — and must rank them by when
+      // they happened. The engine auto-drafts a suggested reply after every
+      // inbound, and that unsent draft would otherwise register as "we
+      // replied" and silently clear the Reply-due flag on every conversation.
+      const latestReal = latestRealMessage(thread) ?? latest;
       const awaitingUs = latestReal?.direction === "inbound";
       return { pid, thread, latest, latestReal, awaitingUs };
     })
@@ -194,11 +197,11 @@ export default async function InboxPage({
       // which already sorts longest-waiting first. The two surfaces answering
       // the same question in opposite orders is its own bug.
       if (a.awaitingUs && b.awaitingUs) {
-        return a.latestReal.created_at < b.latestReal.created_at ? -1 : 1;
+        return messageInstant(a.latestReal) < messageInstant(b.latestReal) ? -1 : 1;
       }
       // Already answered: newest activity first, which is what you want when
       // you're looking back over a thread rather than working a queue.
-      return a.latestReal.created_at < b.latestReal.created_at ? 1 : -1;
+      return messageInstant(a.latestReal) < messageInstant(b.latestReal) ? 1 : -1;
     });
 
   const selectedId =
@@ -212,7 +215,7 @@ export default async function InboxPage({
     ? []
     : convMessages.some((m) => m.prospect_id === selectedId)
       ? convMessages.filter((m) => m.prospect_id === selectedId)
-      : messages.filter((m) => m.prospect_id === selectedId);
+      : sortByInstantDesc(messages.filter((m) => m.prospect_id === selectedId));
   const lastInbound = selectedThread.find((m) => m.direction === "inbound");
 
   // Surface what needs a decision first: a FAILED send (retry or delete) then
@@ -487,7 +490,7 @@ export default async function InboxPage({
                         <strong style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.company}</strong>
                         <span style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                           {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
-                          <span style={{ fontSize: 11, color: "var(--faint)" }}>{relTime(c.latestReal.created_at)}</span>
+                          <span style={{ fontSize: 11, color: "var(--faint)" }}>{relTime(messageInstant(c.latestReal))}</span>
                         </span>
                       </div>
                       {/* Preview the last message actually exchanged — an
