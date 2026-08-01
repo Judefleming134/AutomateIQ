@@ -1,5 +1,5 @@
 import "server-only";
-import { isPublicWebHost } from "@/lib/growth/research";
+import { isPublicWebHost, safeFetch } from "@/lib/net/safe-fetch";
 
 /**
  * The AutoSEO engine behind automateiq.ie/freetools/autoseo.
@@ -178,8 +178,11 @@ type PageFetch = {
 
 async function fetchPage(target: string, timeoutMs: number): Promise<PageFetch | null> {
   const started = Date.now();
-  const res = await fetch(target, {
-    redirect: "follow",
+  // safeFetch re-checks isPublicWebHost on EVERY redirect hop. With
+  // `redirect: "follow"` the guard at the entry point ran once and a 302 to a
+  // private address was followed unsupervised — from a public, unauthenticated
+  // free tool.
+  const attempt = await safeFetch(target, {
     signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "user-agent": UA,
@@ -187,6 +190,8 @@ async function fetchPage(target: string, timeoutMs: number): Promise<PageFetch |
       "accept-language": "en-IE,en-GB;q=0.9,en;q=0.8",
     },
   });
+  if (!attempt.ok) return null;
+  const res = attempt.response;
   if (!res.ok) return null;
   const type = res.headers.get("content-type") ?? "";
   if (type && !type.includes("html") && !type.includes("text")) return null;
@@ -195,7 +200,9 @@ async function fetchPage(target: string, timeoutMs: number): Promise<PageFetch |
   const html = (await res.text()).slice(0, 1_000_000);
   return {
     html,
-    finalUrl: res.url || target,
+    // attempt.url is the LAST hop we followed and validated. res.url is
+    // empty under manual redirects, so this is the only correct source.
+    finalUrl: attempt.url || res.url || target,
     loadMs: Date.now() - started,
     bytes: html.length,
   };
@@ -204,13 +211,12 @@ async function fetchPage(target: string, timeoutMs: number): Promise<PageFetch |
 /** robots.txt and sitemap.xml — both optional, both fail quietly. */
 async function fetchText(target: string, timeoutMs: number): Promise<string | null> {
   try {
-    const res = await fetch(target, {
-      redirect: "follow",
+    const attempt = await safeFetch(target, {
       signal: AbortSignal.timeout(timeoutMs),
       headers: { "user-agent": UA },
     });
-    if (!res.ok) return null;
-    return (await res.text()).slice(0, 200_000);
+    if (!attempt.ok || !attempt.response.ok) return null;
+    return (await attempt.response.text()).slice(0, 200_000);
   } catch {
     return null;
   }
