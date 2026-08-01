@@ -7,6 +7,12 @@ import { cleanSocialUrl } from "@/lib/growth/research";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
 import { summariseDmQueue } from "@/lib/growth/dm-list";
+import {
+  collectDmPool,
+  dmEmptyReason,
+  MAX_POOL_PAGES,
+  POOL_PAGE,
+} from "@/lib/growth/dm-pool";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import { DmSendButton } from "@/components/growth/dm-send-button";
@@ -44,8 +50,6 @@ type WorkItem = {
 };
 
 const MAX_ITEMS = 40;
-/** Prospects pulled by score before the already-DM'd filter runs. */
-const POOL_LIMIT = 600;
 /** How far down the un-DM'd pool to look for drafts to fill one screen. */
 const DRAFT_LOOKUP = 150;
 
@@ -67,38 +71,49 @@ export default async function DmListPage() {
   // hundreds of researched, drafted, un-DM'd prospects sat just below the
   // score cut. Same shape as the call-list bug: a score cap applied before
   // the "still to work" filter can only reorder what it happens to contain.
-  const [{ data: pool }, dmdRows] = await Promise.all([
+  // Everyone already DM'd on ANY social channel. Fetched on its own terms,
+  // paged with selectAllRows: an unranged select silently caps at 1,000
+  // rows, and a dropped "sent" row would put an already-DM'd prospect BACK
+  // on the list — the one mistake this page exists to prevent.
+  const dmdRows = await selectAllRows<{ prospect_id: string }>(() =>
     admin
-      .from("ge_prospects")
-      .select("id, company, contact_name, lead_score, instagram_url, facebook_url, linkedin_url")
-      .not(
-        "status",
-        "in",
-        '("won","lost","do_not_contact","archived","replied","qualified","meeting_booked","proposal_in_progress","proposal_sent","negotiation")'
-      )
-      .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
-      .order("lead_score", { ascending: false, nullsFirst: false })
-      .limit(POOL_LIMIT),
-    // Everyone already DM'd on ANY social channel. Fetched on its own terms,
-    // paged with selectAllRows: an unranged select silently caps at 1,000
-    // rows, and a dropped "sent" row would put an already-DM'd prospect BACK
-    // on the list — the one mistake this page exists to prevent.
-    selectAllRows<{ prospect_id: string }>(() =>
-      admin
-        .from("ge_messages")
-        .select("prospect_id")
-        .eq("direction", "outbound")
-        .in("channel", SOCIAL_CHANNELS)
-        .eq("status", "sent")
-        .order("prospect_id", { ascending: true })
-    ),
-  ]);
-
+      .from("ge_messages")
+      .select("prospect_id")
+      .eq("direction", "outbound")
+      .in("channel", SOCIAL_CHANNELS)
+      .eq("status", "sent")
+      .order("prospect_id", { ascending: true })
+  );
   const alreadyDmd = new Set(dmdRows.map((r) => r.prospect_id));
-  // Everyone genuinely still to DM, best score first — the true remaining
-  // pool, not "whatever survived the cut".
-  const available = ((pool ?? []) as ProspectRow[]).filter((p) => !alreadyDmd.has(p.id));
-  const poolMaxedOut = (pool ?? []).length >= POOL_LIMIT;
+
+  // Read DOWN the score order until enough genuinely un-DM'd prospects are
+  // found, rather than taking one fixed slice and hoping it contains some.
+  // A fixed slice means the already-DM'd filter can only reorder what that
+  // slice happens to hold, so the list starves once Jude has worked through
+  // that many — which is the bug this page has now had twice, at 200 and at
+  // 600. See lib/growth/dm-pool.ts. Bounded, and it stops as soon as it has
+  // enough, so the common case costs exactly what the single slice did.
+  const { available, exhausted } = await collectDmPool<ProspectRow>(
+    async (from, to) => {
+      const { data } = await admin
+        .from("ge_prospects")
+        .select("id, company, contact_name, lead_score, instagram_url, facebook_url, linkedin_url")
+        .not(
+          "status",
+          "in",
+          '("won","lost","do_not_contact","archived","replied","qualified","meeting_booked","proposal_in_progress","proposal_sent","negotiation")'
+        )
+        .or("instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null")
+        .order("lead_score", { ascending: false, nullsFirst: false })
+        // Unique tiebreak: bulk imports share scores, and without it a paged
+        // read can skip or repeat a prospect across page boundaries.
+        .order("id", { ascending: true })
+        .range(from, to);
+      return (data ?? []) as ProspectRow[];
+    },
+    alreadyDmd,
+    { need: DRAFT_LOOKUP }
+  );
 
   // Only look up drafts for the slice we might actually render.
   const candidates = available.slice(0, DRAFT_LOOKUP);
@@ -162,9 +177,17 @@ export default async function DmListPage() {
     ready: ready.length,
     available: available.length,
     lookupCapped: available.length > DRAFT_LOOKUP,
-    poolMaxedOut,
+    // Not reaching the end of the list means both counts are floors.
+    poolMaxedOut: !exhausted,
   });
   const plus = queue.approximate ? "+" : "";
+  // Three genuinely different situations behind an empty list — "research
+  // more prospects" is right for one of them and wrong for the other two.
+  const emptyReason = dmEmptyReason({
+    available: available.length,
+    ready: ready.length,
+    exhausted,
+  });
 
   return (
     <>
@@ -192,7 +215,7 @@ export default async function DmListPage() {
               problem, and telling him to research MORE prospects there sends
               him the wrong way entirely. */}
           <p className="empty-state" style={{ margin: 0 }}>
-            {queue.awaitingDraft > 0 ? (
+            {emptyReason === "awaiting-drafts" ? (
               <>
                 You&apos;ve DM&apos;d everyone who has a message ready.{" "}
                 <strong>{queue.awaitingDraft}</strong>
@@ -202,6 +225,21 @@ export default async function DmListPage() {
                 Studio, or run the overnight engine and they&apos;ll be written
                 for you.{" "}
                 <Link href="/growth/prospects?sort=score">See them →</Link>
+              </>
+            ) : emptyReason === "scan-limit" ? (
+              /* The third case, and the one that used to give the WRONG
+                 advice. Everyone in the stretch of the score order we read is
+                 already DM'd — but we stopped before the end of the list, so
+                 there are more below it. Telling him to research new prospects
+                 here sends him off to do the one thing that cannot help. */
+              <>
+                Everyone in your top{" "}
+                <strong>{MAX_POOL_PAGES * POOL_PAGE}</strong> by lead score has
+                already been DM&apos;d — which is a good problem. There are more
+                prospects below that, so this isn&apos;t the end of the list:
+                archive the cold ones to bring the rest into range, or work{" "}
+                <Link href="/growth/prospects?sort=score">the list by score</Link>{" "}
+                directly.
               </>
             ) : (
               <>
