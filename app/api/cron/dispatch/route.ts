@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendReviewReminders } from "@/lib/cron/send-review-reminders";
+import { runInvoiceChaser } from "@/lib/cron/invoice-chaser";
 import { sendJarvisMorningBrief } from "@/lib/cron/jarvis-morning-brief";
 import {
   runQueuedEmailAutopilot,
@@ -49,6 +50,13 @@ export async function GET(request: NextRequest) {
   // cannot return before it settles.
   const reviewRemindersPromise = isolated("reviewReminders", sendReviewReminders);
 
+  // Same treatment, same reasoning: the invoice chaser touches qa_invoices and
+  // businesses only — disjoint from the ge_* and strategy_bookings tables every
+  // sequential task below uses — so there is nothing to race and no reason for
+  // its outbound emails to sit on the critical path of a 60-second budget that
+  // also has to fit an AI call. Awaited at the end so a failure is reported.
+  const invoiceChasePromise = isolated("invoiceChaser", runInvoiceChaser);
+
   // ─────────────────────────────────────────────────────────────────────
   // EVERYTHING BELOW IS STRICTLY SEQUENTIAL, AND THE ORDER IS LOAD-BEARING.
   //
@@ -88,9 +96,10 @@ export async function GET(request: NextRequest) {
   // Settle the disjoint task before responding, so its outcome is reported
   // rather than abandoned mid-flight when the function returns.
   const reviewReminders = await reviewRemindersPromise;
+  const invoiceChaser = await invoiceChasePromise;
 
   return NextResponse.json({
     ok: true,
-    tasks: { reviewReminders, bookingSync, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
+    tasks: { reviewReminders, invoiceChaser, bookingSync, autoQueue, autoFollowups, emailAutopilot, jarvisBrief },
   });
 }
