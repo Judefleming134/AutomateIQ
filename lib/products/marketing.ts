@@ -32,6 +32,20 @@ export type MarketingProduct = {
   /** True when the product is live; false shows an honest "in build" note. */
   live: boolean;
   accent: string;
+  /**
+   * Which half of the range this belongs to.
+   *
+   * "industry" — solves one trade's problem (TradeIQ, FinanceIQ, PermitIQ,
+   *   ReputationIQ). The question a visitor asks is "is this for me?".
+   * "core" — works whatever you run (AssistIQ, SiteIQ, ContentIQ). The
+   *   question is "what else do I get?".
+   *
+   * The index used to render all seven as one flat list, which contradicted
+   * its own hero ("start with the core and switch on what your industry
+   * needs") and left a lone card stranded on a third row of a 3-column grid —
+   * the exact orphan the free-tools hub already had to fix once.
+   */
+  group: "industry" | "core";
 };
 
 export const MARKETING_PRODUCTS: MarketingProduct[] = [
@@ -64,6 +78,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-tradeiq",
     live: true,
     accent: "#EA580C",
+    group: "industry",
   },
   {
     slug: "financeiq",
@@ -94,6 +109,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-financeiq",
     live: true,
     accent: "#34D399",
+    group: "industry",
   },
   {
     slug: "assistiq",
@@ -124,6 +140,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-assistiq",
     live: true,
     accent: "#22D3EE",
+    group: "core",
   },
   {
     slug: "siteiq",
@@ -154,6 +171,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-siteiq",
     live: true,
     accent: "#3B82F6",
+    group: "core",
   },
   {
     slug: "contentiq",
@@ -184,6 +202,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-contentiq",
     live: true,
     accent: "#EC4899",
+    group: "core",
   },
   {
     slug: "reputationiq",
@@ -214,6 +233,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-reputationiq",
     live: true,
     accent: "#7C3AED",
+    group: "industry",
   },
   {
     slug: "permitiq",
@@ -244,8 +264,37 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     leadSource: "product-permitiq",
     live: true,
     accent: "#0EA5E9",
+    group: "industry",
   },
 ];
+
+/** Section headings for the index, in render order. */
+export const MARKETING_GROUPS = [
+  {
+    key: "industry" as const,
+    label: "Built for your industry",
+    blurb: "Each one is a full product for a specific kind of business. Switch on the one that matches what you do.",
+  },
+  {
+    key: "core" as const,
+    label: "The core three, whatever you run",
+    blurb: "Not industry-specific — these sit under everything else and any account can switch them on.",
+  },
+];
+
+/**
+ * The range grouped for rendering. Empty groups are dropped, so a group with
+ * nothing in it never renders an empty heading.
+ */
+export function marketingGroups(): {
+  group: (typeof MARKETING_GROUPS)[number];
+  products: MarketingProduct[];
+}[] {
+  return MARKETING_GROUPS.map((group) => ({
+    group,
+    products: MARKETING_PRODUCTS.filter((p) => p.group === group.key),
+  })).filter((g) => g.products.length > 0);
+}
 
 export function getMarketingProduct(slug: string): MarketingProduct | undefined {
   return MARKETING_PRODUCTS.find((p) => p.slug === slug);

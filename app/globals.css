@@ -5860,10 +5860,31 @@ table.data-table {
 }
 
 /* Index page cards */
+/* Column counts chosen so no row is ever left with a single orphan card —
+   the same lesson the free-tools hub above had to learn. Four industry
+   products sit 2x2 (and the wider column suits their longer copy); the core
+   three fit one clean row. Both collapse to one column on a phone. */
 .prod-index {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 18px;
+}
+.prod-index--industry { grid-template-columns: repeat(2, 1fr); }
+.prod-index--core { grid-template-columns: repeat(3, 1fr); }
+
+.prod-group-head {
+  margin: 0 0 18px;
+}
+.prod-group-head h2 {
+  margin: 0 0 6px;
+  font-size: clamp(1.15rem, 2vw, 1.5rem);
+}
+.prod-group-head p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--faint);
 }
 .prod-index-card {
   display: flex;
@@ -5944,8 +5965,15 @@ table.data-table {
   color: var(--heading);
 }
 
+@media (max-width: 1000px) {
+  /* The core three go two-up before they go single — three narrow columns
+     squeeze the copy long before the viewport is actually phone-sized. */
+  .prod-index--core { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
-  .prod-index { grid-template-columns: 1fr; }
+  .prod-index,
+  .prod-index--industry,
+  .prod-index--core { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
   .prod-does { grid-template-columns: 1fr; }
