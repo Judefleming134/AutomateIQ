@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeLike } from "@/lib/growth/db";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { ingestCrmContact } from "@/lib/crm/ingest";
 import {
   renderTemplate,
   DEFAULT_STL_SUBJECT,
@@ -96,6 +97,27 @@ export async function POST(request: NextRequest) {
 
   if (error || !lead) {
     return NextResponse.json({ error: "Store failed" }, { status: 502 });
+  }
+
+  // ClientIQ, immediately. Until now a web lead only reached the CRM when
+  // somebody remembered to press Import — so a form filled in at 3am did not
+  // exist in the system until a human clicked. "Every customer and lead in one
+  // place" has to be true at the moment the lead arrives, not whenever the
+  // next sync happens.
+  //
+  // Best-effort: the lead row is already stored and the visitor is waiting on
+  // a response, so nothing here may fail the capture.
+  const crm = await ingestCrmContact(supabase, {
+    businessId: page.business_id,
+    name,
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? contact : null,
+    phone: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact) ? null : contact,
+    source: "SiteIQ",
+    activity: `Captured as a website lead${message ? `: ${String(message).slice(0, 160)}` : ""}`,
+    stage: "new",
+  });
+  if (!crm.ok) {
+    console.error(`[wa-lead] ClientIQ ingest failed for lead ${lead.id}: ${crm.reason}`);
   }
 
   // LeadIQ: instant acknowledgment to the lead, only when the
