@@ -23,7 +23,8 @@ const ROOT = path.resolve(import.meta.dirname, "..", "..");
 /** A fake fetch driven by a redirect map. Records every URL requested. */
 function fakeNet(routes: Record<string, { status?: number; location?: string; body?: string }>) {
   const requested: string[] = [];
-  const impl = vi.fn(async (input: string | URL) => {
+  const impl = vi.fn(async (input: string | URL, init?: RequestInit) => {
+    void init;
     const url = String(input);
     requested.push(url);
     const route = routes[url] ?? { status: 200, body: "ok" };
@@ -165,6 +166,7 @@ describe("it still fetches real websites", () => {
     await safeFetch("https://a.example/", { headers: { "user-agent": "Chrome" } });
     for (const call of impl.mock.calls) {
       const init = call[1] as RequestInit;
+      expect(init).toBeTruthy();
       expect((init.headers as Record<string, string>)["user-agent"]).toBe("Chrome");
       // And redirects are always manual — this is the whole point.
       expect(init.redirect).toBe("manual");
