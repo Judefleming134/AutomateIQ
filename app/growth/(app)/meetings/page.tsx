@@ -6,7 +6,7 @@ import { SubmitButton } from "@/components/admin/submit-button";
 import { CopyButton } from "@/components/portal/copy-button";
 import { MEETING_STATUS_META, type MeetingStatus } from "@/lib/growth/constants";
 import { selectAllRows } from "@/lib/growth/db";
-import { dublinLocalToUtcISO } from "@/lib/growth/dates";
+import { splitMeetings } from "@/lib/growth/meeting-order";
 import { recordMeeting, setMeetingStatus, syncStrategyBookings } from "./actions";
 
 function fmt(ts: string, fromBooking = false): string {
@@ -77,46 +77,12 @@ export default async function MeetingsPage() {
   ]);
 
   const prospectById = new Map(prospects.map((p) => [p.id, p]));
-  const nowIso = new Date().toISOString();
-  // Booking-page meetings store the Irish wall-clock AS UTC (a 14:00 session
-  // is 14:00Z), so "has it passed?" must compare them against Irish wall-clock
-  // now — the real-UTC comparison left a finished summer booking sitting in
-  // "Upcoming" (with no outcome buttons) for an extra hour. Manually recorded
-  // meetings are true instants and compare against real now, same as before.
-  const dublinWallNow = new Date()
-    .toLocaleString("sv-SE", { timeZone: "Europe/Dublin" })
-    .replace(" ", "T");
-  const hasPassed = (m: { scheduled_at: string; strategy_booking_id: string | null }) =>
-    m.strategy_booking_id
-      ? String(m.scheduled_at).slice(0, 19) < dublinWallNow
-      : m.scheduled_at < nowIso;
-  // A booking-page slot stores the Irish wall-clock AS UTC, a manually recorded
-  // meeting stores a true instant. Sorting the raw column mixes those two
-  // frames, so in summer a 14:00 booking and a 14:00 manual meeting sort an
-  // hour apart. Normalise the booking to a real instant first — same rule
-  // hasPassed uses, just applied to ordering.
-  const instantOf = (m: { scheduled_at: string; strategy_booking_id: string | null }) =>
-    m.strategy_booking_id
-      ? (dublinLocalToUtcISO(String(m.scheduled_at).slice(0, 16)) ?? String(m.scheduled_at))
-      : String(m.scheduled_at);
-  // SOONEST FIRST. The query orders scheduled_at DESCENDING (right for the past
-  // lists below), and filtering preserves that order — so "Upcoming" was listing
-  // the furthest-away meeting first and the one happening NEXT at the bottom.
-  // On the page whose whole job is "what's coming up", the next session was the
-  // last thing Jude saw.
-  const upcoming = (meetings ?? [])
-    .filter((m) => m.status === "booked" && !hasPassed(m))
-    .sort((a, b) => (instantOf(a) < instantOf(b) ? -1 : 1));
-  // A meeting still marked "booked" whose time has passed happened but was
-  // never closed out (completed / no-show / cancelled). Previously these fell
-  // into the generic "Past & closed" list — mixed among finished meetings and
-  // cut off at 30 — so a call Jude forgot to mark could drop off the page
-  // entirely. Pull them into their own "Awaiting outcome" section up top so
-  // they never get lost and the outcome buttons are always one tap away.
-  const awaitingOutcome = (meetings ?? []).filter(
-    (m) => m.status === "booked" && hasPassed(m)
-  );
-  const past = (meetings ?? []).filter((m) => m.status !== "booked");
+  // The three lists, and the ordering rules behind them, live in
+  // lib/growth/meeting-order.ts so they can be tested. Doing it inline here is
+  // how "Upcoming" ended up sorted soonest-first and then reversed at render,
+  // which put the furthest-away meeting back at the top for the whole life of
+  // the fix that was meant to correct it.
+  const { upcoming, awaitingOutcome, past } = splitMeetings(meetings ?? []);
 
   const MeetingRow = ({ m }: { m: NonNullable<typeof meetings>[number] }) => {
     const p = prospectById.get(m.prospect_id);
@@ -196,7 +162,7 @@ export default async function MeetingsPage() {
             </div>
           ) : (
             <div style={{ display: "grid", gap: 12 }}>
-              {[...upcoming].reverse().map((m) => (
+              {upcoming.map((m) => (
                 <MeetingRow key={m.id} m={m} />
               ))}
             </div>
