@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendReviewRequestEmail } from "@/lib/email/send-review-request";
 import { escapeLike } from "@/lib/growth/db";
+import { ingestCrmContact } from "@/lib/crm/ingest";
 
 export type SendReviewRequestResult =
   | { ok: true; customerName: string }
@@ -159,6 +160,26 @@ export async function sendReviewRequestCore(
     .from("ra_review_requests")
     .update({ status: "sent", sent_at: new Date().toISOString() })
     .eq("id", reviewRequest.id);
+
+  // ClientIQ, immediately. A review request means a job just finished — which
+  // makes them a customer, not a lead — and until now that only reached the
+  // CRM if somebody pressed Import. Stage 'won' because the work is done and
+  // paid-for enough to be asking for a review; highestStage() means this can
+  // only ever move them forward, never back.
+  //
+  // Best-effort and last: the request has already been sent, so nothing here
+  // may turn a successful send into a reported failure.
+  const crm = await ingestCrmContact(supabase, {
+    businessId,
+    name: customerName,
+    email: customerEmail,
+    source: "ReputationIQ",
+    activity: `Review request sent${business?.name ? ` by ${business.name}` : ""}`,
+    stage: "won",
+  });
+  if (!crm.ok) {
+    console.error(`[review-send] ClientIQ ingest failed for ${customerEmail}: ${crm.reason}`);
+  }
 
   return { ok: true, customerName };
 }
