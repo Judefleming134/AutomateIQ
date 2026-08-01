@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Megaphone, CalendarClock, CheckCircle2 } from "lucide-react";
+import { Megaphone, CalendarClock, CheckCircle2, Send } from "lucide-react";
 import { buildCampaign, scheduleContent, markPublished } from "./actions";
+import { previewAudience, publishContent } from "./publish-actions";
 
 export function CampaignBuilder() {
   const router = useRouter();
@@ -117,6 +118,104 @@ export function PublishButton({ id }: { id: string }) {
     >
       {pending ? "…" : <><CheckCircle2 size={13} /> Mark published</>}
     </button>
+  );
+}
+
+/**
+ * Actually sends the piece to the business's customer list.
+ *
+ * Two presses, always. The first one only ASKS the server who would receive
+ * it; nothing leaves. The second one sends. Sending to a list cannot be
+ * undone, so the person pressing the button reads the real recipient count —
+ * and who is being skipped and why — before anyone gets an email.
+ */
+export function SendToCustomers({ id }: { id: string }) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+  const [preview, setPreview] = useState<{ summary: string; count: number } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function check() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    setNotice(null);
+    // try/finally throughout: a network blip must never leave this stuck on
+    // "Checking…" with no way back.
+    try {
+      const res = await previewAudience(id);
+      if (res.ok) setPreview({ summary: res.summary, count: res.count });
+      else setError(res.error);
+    } catch {
+      setError("Connection hiccup — nothing was sent. Try again.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function send() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const res = await publishContent(id);
+      if (res.ok) {
+        setNotice(res.notice ?? "Sent.");
+        setPreview(null);
+        router.refresh();
+      } else {
+        setError(res.error ?? "Could not send.");
+      }
+    } catch {
+      // Deliberately NOT "nothing was sent" — a timeout can happen after some
+      // of the emails have gone. Re-running is safe and skips anyone already
+      // emailed, so that is what we tell them to do.
+      setError("The send was interrupted. Check again — running it a second time only sends to whoever is left.");
+      router.refresh();
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <span
+      style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {!preview && (
+        <button type="button" className="btn btn-secondary btn-sm" disabled={pending} onClick={check}>
+          {pending ? "Checking…" : <><Send size={13} /> Send to customers</>}
+        </button>
+      )}
+
+      {preview && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <span style={{ fontSize: 11.5, color: "var(--faint)", maxWidth: "42ch", textAlign: "right" }}>
+            {preview.summary}
+          </span>
+          {preview.count > 0 && (
+            <button type="button" className="btn btn-primary btn-sm" disabled={pending} onClick={send}>
+              {pending ? "Sending…" : `Send to ${preview.count}`}
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            disabled={pending}
+            onClick={() => {
+              setPreview(null);
+              setError(null);
+            }}
+          >
+            Cancel
+          </button>
+        </span>
+      )}
+
+      {notice && <span style={{ fontSize: 11.5, color: "var(--green, #34D399)" }}>{notice}</span>}
+      {error && <span style={{ fontSize: 11.5, color: "var(--red, #F87171)", maxWidth: "42ch", textAlign: "right" }}>{error}</span>}
+    </span>
   );
 }
 
