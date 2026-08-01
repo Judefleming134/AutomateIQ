@@ -154,11 +154,23 @@ describe("no customer-facing surface tells a customer to run SQL", () => {
       // the sanctioned path. The exemption has to span the WHOLE call, not one
       // line: a multi-line call puts the filename on a continuation line, and
       // a per-line skip flagged the very calls it was meant to allow.
+      //
+      // console.error is exempt for the same reason and no other: this rule is
+      // about what a CUSTOMER can read, and a server log is the one place the
+      // migration name belongs — it is how Jude finds out. A returned or
+      // rendered string naming a .sql file is still caught, because the check
+      // is per line.
+      const SANCTIONED = ["reportMissingTable(", "console.error("];
+      const openerAt = (line: string) => {
+        const hits = SANCTIONED.map((s) => line.indexOf(s)).filter((i) => i >= 0);
+        return hits.length ? Math.min(...hits) : -1;
+      };
       let depth = 0;
       for (const line of lines) {
-        const inCall = depth > 0 || line.includes("reportMissingTable(");
+        const opener = openerAt(line);
+        const inCall = depth > 0 || opener >= 0;
         if (inCall) {
-          const from = depth > 0 ? 0 : line.indexOf("reportMissingTable(");
+          const from = depth > 0 ? 0 : opener;
           const tail = line.slice(from);
           depth += (tail.match(/\(/g) ?? []).length - (tail.match(/\)/g) ?? []).length;
           if (depth < 0) depth = 0;

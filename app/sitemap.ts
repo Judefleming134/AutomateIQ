@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { MARKETING_PRODUCTS } from "@/lib/products/marketing";
 import { toolCards } from "@/lib/tools/catalog";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const SITE = "https://automateiq.ie";
 
@@ -21,7 +22,42 @@ const SITE = "https://automateiq.ie";
  */
 export const dynamic = "force-dynamic";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+/**
+ * Every published SiteIQ page.
+ *
+ * These pages were built, published and then told to nobody. A customer
+ * paying for "a page that works, live today" had a URL that appeared in no
+ * sitemap and was linked from nowhere — findable only by someone who already
+ * had the link, which is the one person who doesn't need to find it.
+ *
+ * Admin client because a sitemap request has no session, so the query itself
+ * does the scoping: published pages only, and nothing but the slug and the
+ * date is read.
+ */
+async function publishedPages(now: Date): Promise<MetadataRoute.Sitemap> {
+  try {
+    const supabase = createAdminClient();
+    const { data, error } = await supabase
+      .from("wa_pages")
+      .select("slug, updated_at")
+      .eq("published", true)
+      .order("updated_at", { ascending: false })
+      .limit(1000);
+    if (error || !data) return [];
+    return data.map((p) => ({
+      url: `${SITE}/b/${p.slug}`,
+      lastModified: p.updated_at ? new Date(p.updated_at) : now,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch {
+    // The rest of the sitemap matters more than this part of it: a database
+    // blip must not take the marketing pages out of the index as well.
+    return [];
+  }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   return [
     { url: `${SITE}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
@@ -64,5 +100,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE}/privacy.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/terms.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/cookies.html`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    ...(await publishedPages(now)),
   ];
 }
