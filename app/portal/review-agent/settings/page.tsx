@@ -2,6 +2,8 @@ import { requireSession } from "@/lib/auth/require-session";
 import { createClient } from "@/lib/supabase/server";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { reviewLinkStatus } from "@/lib/review-agent/review-hosts";
 import { updateBusinessSettings } from "./actions";
 
 export default async function ReviewAgentSettingsPage() {
@@ -13,6 +15,11 @@ export default async function ReviewAgentSettingsPage() {
     .select("name, google_review_link, logo_url, email_signature")
     .eq("id", profile.business_id!)
     .single();
+
+  // The status of the link ALREADY saved, judged by the same parser the
+  // redirect uses. Previously nothing on this page said whether the link
+  // worked — the first thing to find out was a customer clicking it.
+  const link = reviewLinkStatus(business?.google_review_link);
 
   return (
     <>
@@ -42,11 +49,45 @@ export default async function ReviewAgentSettingsPage() {
             <label htmlFor="googleReviewLink">Google Review Link</label>
             <input
               id="googleReviewLink"
-              type="url"
+              /* type="text", not "url": the browser's own URL validation
+                 rejects "g.page/r/xyz/review" before the form is even
+                 submitted, and that is the commonest correct paste. The
+                 server checks it properly with the redirect's own parser. */
+              type="text"
               name="googleReviewLink"
-              placeholder="https://g.page/r/…/review"
+              placeholder="g.page/r/…/review"
               defaultValue={business?.google_review_link ?? ""}
+              maxLength={2000}
             />
+            {/* What a customer clicking this link will actually experience. */}
+            <p
+              style={{
+                display: "flex",
+                gap: 7,
+                alignItems: "flex-start",
+                margin: "8px 0 0",
+                fontSize: 12.5,
+                lineHeight: 1.55,
+                color: link.ok && link.known
+                  ? "var(--green, #34d399)"
+                  : "var(--orange, #fb923c)",
+              }}
+            >
+              {link.ok && link.known ? (
+                <>
+                  <CheckCircle2 size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    Recognised review site — customers go straight through to{" "}
+                    {link.url.hostname}.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>{link.message}</span>
+                </>
+              )}
+            </p>
           </div>
           <div className="field">
             <label htmlFor="logoUrl">Company Logo (URL)</label>
