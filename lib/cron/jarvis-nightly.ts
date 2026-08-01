@@ -48,15 +48,53 @@ export async function runJarvisNightly(): Promise<{
   // tomorrow's run.
   let harvested = 0;
   try {
-    const { data: missing } = await admin
-      .from("ge_prospects")
-      .select("id, company, website, email, phone, instagram_url, facebook_url, linkedin_url")
-      .not("website", "is", null)
-      .is("email", null)
-      .not("status", "in", ACTIVE_FILTER)
+    // OUTSTANDING K8. Ordering by lead_score alone re-read the SAME eight
+    // sites every night: if the top eight have dead domains (parked, expired,
+    // blocking bots) nothing is ever harvested, the job reports 0 forever, and
+    // the NINTH prospect is never reached — no error, no progress, no signal.
+    //
+    // last_harvest_attempt_at (migration 0036) is stamped on every attempt,
+    // successful or not, and NULL sorts first — so never-tried always wins and
+    // the dead eight fall to the back of the queue after one night.
+    const COLS =
+      "id, company, website, email, phone, instagram_url, facebook_url, linkedin_url";
+    const base = () =>
+      admin
+        .from("ge_prospects")
+        .select(COLS)
+        .not("website", "is", null)
+        .is("email", null)
+        .not("status", "in", ACTIVE_FILTER);
+
+    let { data: missing, error: orderError } = await base()
+      .order("last_harvest_attempt_at", { ascending: true, nullsFirst: true })
       .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(8);
+
+    // Until 0036 is run the column doesn't exist and that ordering errors.
+    // Fall back to the old behaviour rather than harvesting NOTHING — a
+    // migration Jude hasn't run yet must never take a working nightly job
+    // down with it.
+    let canStampAttempt = true;
+    if (orderError) {
+      canStampAttempt = false;
+      notes.push("harvest: run migration 0036 to stop dead domains blocking the queue");
+      ({ data: missing } = await base()
+        .order("lead_score", { ascending: false, nullsFirst: false })
+        .limit(8));
+    }
+
     for (const p of missing ?? []) {
+      // Stamped BEFORE the fetch and regardless of what it returns. The whole
+      // point is to record that this one was TRIED — recording only successes
+      // would leave the dead domains permanently unstamped and permanently
+      // first, which is the bug itself.
+      if (canStampAttempt) {
+        await admin
+          .from("ge_prospects")
+          .update({ last_harvest_attempt_at: new Date().toISOString() })
+          .eq("id", p.id);
+      }
       const site = await fetchWebsiteText(p.website as string).catch(() => null);
       if (!site) continue;
       const update: Record<string, string> = {};
