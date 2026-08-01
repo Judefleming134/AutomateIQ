@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   MARKETING_PRODUCTS,
+  MARKETING_GROUPS,
+  marketingGroups,
   MARKETING_LEAD_SOURCES,
   DEFAULT_LEAD_SOURCE,
   getMarketingProduct,
@@ -233,6 +235,84 @@ describe("the products index describes what is actually on it", () => {
   });
 
   it("renders every product from the list, so a new one needs no page edit", () => {
-    expect(INDEX).toContain("MARKETING_PRODUCTS.map((p) => (");
+    // Was MARKETING_PRODUCTS.map directly; the index now maps the GROUPED
+    // list and renders products inside each group. Same guarantee — the page
+    // is still driven by the data, not by hand-written cards.
+    expect(INDEX).toContain("marketingGroups().map");
+    expect(INDEX).toContain("products.map((p) => (");
+  });
+});
+
+describe("the index is grouped, and no row is left with an orphan", () => {
+  const CSS = readFileSync(path.join(ROOT, "app", "globals.css"), "utf8");
+  const INDEX = readFileSync(path.join(ROOT, "app", "products", "page.tsx"), "utf8");
+
+  /** Column count declared for a grid class at desktop width. */
+  function columnsFor(cls: string): number {
+    const m = CSS.match(
+      new RegExp(`\\.${cls.replace(".", "\\.")}\\s*\\{[^}]*grid-template-columns:\\s*repeat\\((\\d+)`)
+    );
+    return m ? Number(m[1]) : 0;
+  }
+
+  it("puts every product in exactly one group", () => {
+    const grouped = marketingGroups().flatMap((g) => g.products);
+    expect(grouped).toHaveLength(MARKETING_PRODUCTS.length);
+    expect(new Set(grouped.map((p) => p.slug)).size).toBe(MARKETING_PRODUCTS.length);
+  });
+
+  it("declares a group for every product", () => {
+    const keys = new Set(MARKETING_GROUPS.map((g) => g.key));
+    const stray = MARKETING_PRODUCTS.filter((p) => !keys.has(p.group));
+    expect(stray.map((p) => p.slug)).toEqual([]);
+  });
+
+  it("never renders an empty group heading", () => {
+    expect(marketingGroups().every((g) => g.products.length > 0)).toBe(true);
+  });
+
+  it("leaves no lone card on its own row, in any group", () => {
+    // THE BUG. Seven products in a hard-coded 3-column grid rendered 3 + 3 + 1,
+    // stranding one card beside two empty cells. The free-tools hub already had
+    // to fix exactly this ("orphaned two cards on their own row"), and the
+    // products index still had it.
+    const offenders: string[] = [];
+    for (const { group, products } of marketingGroups()) {
+      const cols = columnsFor(`prod-index--${group.key}`);
+      expect(cols, `no column count declared for ${group.key}`).toBeGreaterThan(0);
+      const remainder = products.length % cols;
+      // A remainder of 0 fills the last row; anything else leaves gaps. One
+      // lone card beside empties is the case that reads as unfinished.
+      if (remainder === 1 && products.length > cols) {
+        offenders.push(`${group.key}: ${products.length} cards in ${cols} columns`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("collapses every grid to one column on a phone", () => {
+    const mobile = CSS.slice(CSS.indexOf("@media (max-width: 900px)"));
+    for (const g of MARKETING_GROUPS) {
+      expect(mobile).toContain(`.prod-index--${g.key}`);
+    }
+  });
+
+  it("renders from the grouper, so a new product needs no page edit", () => {
+    expect(INDEX).toContain("marketingGroups().map");
+  });
+
+  it("keeps both doors on every card", () => {
+    // The whole point of the page: log in for people who pay, request access
+    // for people who might. Grouping must not have dropped either.
+    expect(INDEX).toContain("Log in");
+    expect(INDEX).toContain("Request access");
+    expect(INDEX).toContain("p.loginHref");
+  });
+
+  it("says something useful under each heading", () => {
+    for (const g of MARKETING_GROUPS) {
+      expect(g.label.length).toBeGreaterThan(8);
+      expect(g.blurb.length).toBeGreaterThan(40);
+    }
   });
 });

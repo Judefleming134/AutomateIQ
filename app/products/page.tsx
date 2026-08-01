@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, LogIn, Layers } from "lucide-react";
-import { MARKETING_PRODUCTS } from "@/lib/products/marketing";
+import { MARKETING_PRODUCTS, marketingGroups } from "@/lib/products/marketing";
 import { PROOF } from "@/lib/proof";
 
 const SITE = "https://automateiq.ie";
@@ -70,9 +70,21 @@ export default function ProductsIndexPage() {
         </p>
       </section>
 
-      <section className="book-section">
-        <div className="prod-index">
-          {MARKETING_PRODUCTS.map((p) => (
+      {/* GROUPED, not one flat list of seven.
+          The hero above already promises "start with the core and switch on
+          what your industry needs" — rendering all seven undifferentiated
+          contradicted the sentence directly above them, and left a lone card
+          stranded on a third row of a 3-column grid. That orphan is the exact
+          failure the free-tools hub had to fix once already.
+          Four industry products lay out 2x2, the core three in one row. */}
+      {marketingGroups().map(({ group, products }) => (
+        <section className="book-section" key={group.key}>
+          <div className="prod-group-head">
+            <h2>{group.label}</h2>
+            <p>{group.blurb}</p>
+          </div>
+          <div className={`prod-index prod-index--${group.key}`}>
+            {products.map((p) => (
             <article
               key={p.slug}
               className="panel prod-index-card"
@@ -103,9 +115,10 @@ export default function ProductsIndexPage() {
                 What {p.name} does <ArrowRight size={14} />
               </Link>
             </article>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section className="book-section">
         <div className="panel prod-proof">
