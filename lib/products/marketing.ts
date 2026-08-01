@@ -96,6 +96,96 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     accent: "#34D399",
   },
   {
+    slug: "assistiq",
+    name: "AssistIQ",
+    kicker: "For everyone — the layer that runs the rest",
+    headline: "Ask for the work, don't go looking for it.",
+    sub: "One assistant that knows your business and actually operates the other products on your account — so you say what you want done instead of finding the screen that does it.",
+    who: "Every AutomateIQ customer. It's the front door to whatever else you have switched on.",
+    does: [
+      {
+        title: "It does the job, not a tutorial",
+        body: "Ask it to send a review request or write this month's offer and it goes and does it through the products on your account. It tells you plainly what it did afterwards.",
+      },
+      {
+        title: "It knows your business",
+        body: "Fill in the knowledge panel once — services, prices, area, hours — and every answer and every piece of writing uses it. Set the tone and it keeps to it.",
+      },
+      {
+        title: "It won't make things up",
+        body: "Hard rule: never invent a price, a service or a policy that isn't in your business information. If it doesn't know, it says so and asks.",
+      },
+      {
+        title: "It won't act on half an instruction",
+        body: "Before anything reaches a real customer it checks it has what it needs — a name AND an email for a review request, never a guessed address.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-assistiq",
+    live: true,
+    accent: "#22D3EE",
+  },
+  {
+    slug: "siteiq",
+    name: "SiteIQ",
+    kicker: "For anyone whose website is a business card",
+    headline: "A page that works, live today.",
+    sub: "A hosted page with what you do, where you work and how to reach you — and an enquiry form whose leads land in your account instead of an inbox you forget to check.",
+    who: "Businesses with no website, or one so old it's costing them work. Also anyone who wants a fast page for one service or one area.",
+    does: [
+      {
+        title: "Live on your own address",
+        body: "Pick your name and the page is published at automateiq.ie/b/yourname. Change the headline, what you do, your services or your number and it updates immediately.",
+      },
+      {
+        title: "Enquiries land in the system",
+        body: "The form on the page writes straight into your leads list — visible in the portal, not sitting in a personal inbox behind a phone screen.",
+      },
+      {
+        title: "On and off in one click",
+        body: "Publish when you're ready, unpublish while you rewrite it. Nothing goes public until you say so.",
+      },
+      {
+        title: "Written for you if you want",
+        body: "AssistIQ and ContentIQ can write the page copy in your voice from what they already know about the business.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-siteiq",
+    live: true,
+    accent: "#3B82F6",
+  },
+  {
+    slug: "contentiq",
+    name: "ContentIQ",
+    kicker: "For the marketing nobody has time for",
+    headline: "The posts, emails and ads you keep meaning to write.",
+    sub: "Blogs, social posts, marketing emails and ad copy — written in your voice, from what the system already knows about your business, ready to publish.",
+    who: "Any business that knows it should be posting and isn't, because the day job comes first.",
+    does: [
+      {
+        title: "Four kinds of content, on demand",
+        body: "A 600–900 word blog post, a set of three social posts, a marketing email with a subject line, or three ad variants. Say the topic; it writes the piece.",
+      },
+      {
+        title: "In your voice, not a robot's",
+        body: "It uses the same business knowledge and tone as AssistIQ — your services, your area, your way of putting things — and is barred from inventing prices you never set.",
+      },
+      {
+        title: "A campaign, not a one-off",
+        body: "Build a run of content around one theme and one goal, so a promotion has a blog, the posts and the email all pulling the same way.",
+      },
+      {
+        title: "Ready to publish, not a first draft",
+        body: "No preamble, no 'here's what I wrote' — output is the content itself. Schedule it, mark it published, and see what's gone out.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-contentiq",
+    live: true,
+    accent: "#EC4899",
+  },
+  {
     slug: "reputationiq",
     name: "ReputationIQ",
     kicker: "For any business that lives on its rating",

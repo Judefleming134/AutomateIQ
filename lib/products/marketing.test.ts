@@ -154,10 +154,14 @@ describe("the homepage links to the product pages", () => {
     // Any *IQ name printed in a heading is a promise; this checks the page
     // behind it exists. Names that are deliberately not standalone products
     // (the shared core modules, sold inside a product) are listed out.
+    // SiteIQ, AssistIQ and ContentIQ came OFF this list when they got their
+    // own pages — that is the point of the guard: the exemption shrinks as
+    // products become real, it does not grow to silence failures.
     const NOT_STANDALONE = new Set([
       "AutomateIQ", // the company
-      "ReceptionIQ", "SiteIQ", "AssistIQ", "ContentIQ",
-      "QuoteIQ", "ClientIQ", "LeadIQ", "CustomIQ",
+      "ReceptionIQ", // sold inside TradeIQ
+      "QuoteIQ", "ClientIQ", "LeadIQ", // sold inside TradeIQ
+      "CustomIQ", // a framework, not a catalogue product
     ]);
     const named = new Set(
       [...HTML.matchAll(/<h[1-4][^>]*>([A-Z][A-Za-z]*IQ)<\/h[1-4]>/g)].map((m) => m[1])
@@ -173,15 +177,18 @@ describe("the homepage links to the product pages", () => {
     // "Three products you can switch on now" sat above four cards, and the
     // footer said "All three, compared" while linking four. A number written
     // out in prose is the one thing adding a product silently invalidates.
-    const WORDS = ["one", "two", "three", "four", "five", "six"];
+    const WORDS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
     const correct = WORDS[MARKETING_PRODUCTS.length - 1];
+    // If the list outgrows WORDS, `correct` is undefined and every number
+    // reads as wrong — the test would fail for the wrong reason and get muted.
+    expect(correct, "extend WORDS when a product is added").toBeDefined();
     const wrong = WORDS.filter((w) => w !== correct);
     // Only phrasings that are genuinely counting PRODUCTS. A looser pattern
     // (`just|only \w+`) flagged "Just one connected core", which counts the
     // core, not the range — a test that cries wolf gets muted.
     const claims = [
-      ...HTML.matchAll(/\ball (one|two|three|four|five|six)\b/gi),
-      ...HTML.matchAll(/\b(one|two|three|four|five|six) products\b/gi),
+      ...HTML.matchAll(/\ball (one|two|three|four|five|six|seven|eight|nine|ten)\b/gi),
+      ...HTML.matchAll(/\b(one|two|three|four|five|six|seven|eight|nine|ten) products\b/gi),
     ]
       .map((m) => m[1].toLowerCase())
       .filter((w) => wrong.includes(w));
