@@ -6,15 +6,27 @@ import { PROOF } from "@/lib/proof";
 
 const SITE = "https://automateiq.ie";
 
+/**
+ * Built from the product list, not typed out. The title and description used
+ * to name the three products literally, so ReputationIQ shipped onto the page
+ * while the <title> and the search snippet still said there were three — the
+ * same trap the sitemap test already guards against ("hard-coding them would
+ * let a fourth product ship invisible to Google").
+ */
+const PRODUCT_NAMES = MARKETING_PRODUCTS.map((p) => p.name).join(", ");
+const TITLE = `Products — ${PRODUCT_NAMES} | AutomateIQ`;
+const DESCRIPTION = `The AutomateIQ product range: ${MARKETING_PRODUCTS.map(
+  (p) => `${p.name} ${p.kicker.replace(/^For /i, "for ")}`
+).join("; ")}. One login, one set of records, one platform.`;
+
 export const metadata: Metadata = {
-  title: "Products — TradeIQ, FinanceIQ, PermitIQ | AutomateIQ",
-  description:
-    "The AutomateIQ product range: TradeIQ for trades and service businesses, FinanceIQ for the money side, PermitIQ for planning applications. One login, one set of records, one platform.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: `${SITE}/products` },
   openGraph: {
     type: "website",
     url: `${SITE}/products`,
-    title: "Products — TradeIQ, FinanceIQ, PermitIQ | AutomateIQ",
+    title: TITLE,
     description:
       "One platform, built out by industry. Log in, or request access to any AutomateIQ product.",
     siteName: "AutomateIQ",
