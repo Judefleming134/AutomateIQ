@@ -18,6 +18,7 @@ import {
   Zap,
   Euro,
   Phone,
+  ShieldCheck,
 } from "lucide-react";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -256,9 +257,16 @@ export default async function AdminHome() {
               signed in as {user.email}
             </p>
           </div>
-          <Link href="/admin/customers" className="btn btn-primary">
-            <Plus size={15} /> New customer
-          </Link>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {/* Straight to "can I sell this today" — the check that used to be
+                answered by selling it and finding out. */}
+            <Link href="/admin/readiness" className="btn btn-secondary">
+              <ShieldCheck size={15} /> Product readiness
+            </Link>
+            <Link href="/admin/customers" className="btn btn-primary">
+              <Plus size={15} /> New customer
+            </Link>
+          </div>
         </div>
       </section>
 
