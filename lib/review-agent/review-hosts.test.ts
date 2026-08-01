@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isKnownReviewHost, normaliseReviewLink } from "@/lib/review-agent/review-hosts";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  isKnownReviewHost,
+  normaliseReviewLink,
+  reviewLinkStatus,
+} from "@/lib/review-agent/review-hosts";
 
 /**
  * Review-link safety.
@@ -87,5 +93,116 @@ describe("normaliseReviewLink", () => {
     // unlisted platform never has their flow broken.
     expect(unknown).not.toBeNull();
     expect(unknown && isKnownReviewHost(unknown.hostname)).toBe(false);
+  });
+});
+
+describe("what the settings form tells you about a pasted link", () => {
+  it("ACCEPTS the schemeless paste that the old form rejected", () => {
+    // z.string().url() refused this, and it is how an owner actually copies a
+    // Google review link. The form turned away the commonest correct input.
+    const s = reviewLinkStatus("g.page/r/CQXyz/review");
+    expect(s.ok).toBe(true);
+    expect(s.known).toBe(true);
+    expect(s.ok && s.url.protocol).toBe("https:");
+  });
+
+  it.each([
+    "https://g.page/r/CQXyz/review",
+    "https://maps.app.goo.gl/abc123",
+    "https://www.trustpilot.com/review/example.ie",
+    "https://www.facebook.com/example/reviews",
+    "https://www.checkatrade.com/trades/example",
+  ])("recognises %s and sends customers straight through", (raw) => {
+    const s = reviewLinkStatus(raw);
+    expect(s.ok).toBe(true);
+    expect(s.known).toBe(true);
+    expect(s.message).toBeNull();
+  });
+
+  it("WARNS about a valid link that isn't a review site", () => {
+    // Saved happily by the old form; every customer then met an interstitial
+    // on the one action the product exists to cause, and nothing said so.
+    const s = reviewLinkStatus("https://example.com");
+    expect(s.ok).toBe(true);
+    expect(s.known).toBe(false);
+    expect(s.message).toContain("example.com");
+    expect(s.message).toMatch(/confirmation/i);
+  });
+
+  it("does not BLOCK an unrecognised host", () => {
+    // review-hosts is explicit that blocking off-list would break a legitimate
+    // customer whose platform isn't listed. A warning, never a refusal.
+    expect(reviewLinkStatus("https://some-local-directory.ie/biz").ok).toBe(true);
+  });
+
+  it.each(["not a url", "file:///etc/passwd", "javascript:alert(1)", "localhost", "http://"])(
+    "rejects %s as unusable",
+    (raw) => {
+      const s = reviewLinkStatus(raw);
+      expect(s.ok).toBe(false);
+      expect(s.url).toBeNull();
+      expect(s.message.length).toBeGreaterThan(20);
+    }
+  );
+
+  it("says something useful when nothing is set", () => {
+    for (const empty of ["", "   ", null, undefined]) {
+      const s = reviewLinkStatus(empty);
+      expect(s.ok).toBe(false);
+      expect(s.message).toMatch(/no review link/i);
+    }
+  });
+
+  it("normalises so what is stored is what redirects", () => {
+    // The saved value is the absolute URL, resolved once here rather than
+    // re-guessed on every redirect.
+    const s = reviewLinkStatus("g.page/r/CQXyz/review");
+    expect(s.ok && s.url.toString()).toBe("https://g.page/r/CQXyz/review");
+  });
+
+  it("agrees with the redirect path — same parser, same verdict", () => {
+    // The whole point: settings and redirect must never disagree about a link.
+    for (const raw of ["g.page/r/x/review", "https://example.com", "nonsense"]) {
+      const s = reviewLinkStatus(raw);
+      const direct = normaliseReviewLink(raw);
+      expect(s.ok).toBe(direct !== null);
+      if (direct) expect(s.ok && s.known).toBe(isKnownReviewHost(direct.hostname));
+    }
+  });
+});
+
+describe("the settings form is actually wired to it", () => {
+  const ROOT = path.resolve(import.meta.dirname, "..", "..");
+  const ACTIONS = readFileSync(
+    path.join(ROOT, "app", "portal", "review-agent", "settings", "actions.ts"),
+    "utf8"
+  );
+  const PAGE = readFileSync(
+    path.join(ROOT, "app", "portal", "review-agent", "settings", "page.tsx"),
+    "utf8"
+  );
+
+  it("validates with the shared status, not a bare URL check", () => {
+    expect(ACTIONS).toContain("reviewLinkStatus(link)");
+    expect(ACTIONS).not.toContain('.url("Enter a valid URL")\n    .or(z.literal(""))');
+  });
+
+  it("stores the normalised absolute URL", () => {
+    expect(ACTIONS).toContain("storedLink = status.url.toString()");
+  });
+
+  it("saves an unrecognised host with a notice rather than refusing it", () => {
+    expect(ACTIONS).toMatch(/notice \? \{ ok: true, notice \}/);
+  });
+
+  it("shows the saved link's real status on the page", () => {
+    expect(PAGE).toContain("reviewLinkStatus(business?.google_review_link)");
+    expect(PAGE).toContain("Recognised review site");
+  });
+
+  it("stops the browser rejecting a schemeless paste before submit", () => {
+    // type="url" fails "g.page/…" client-side, so the server never sees it.
+    const field = PAGE.slice(PAGE.indexOf('id="googleReviewLink"'));
+    expect(field.slice(0, 400)).not.toContain('type="url"');
   });
 });

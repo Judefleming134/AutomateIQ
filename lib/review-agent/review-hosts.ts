@@ -90,3 +90,70 @@ export function normaliseReviewLink(raw: string | null | undefined): URL | null 
   if (!url.hostname.includes(".")) return null;
   return url;
 }
+
+export type ReviewLinkStatus =
+  | { ok: false; url: null; known: false; message: string }
+  | { ok: true; url: URL; known: boolean; message: string | null };
+
+/**
+ * What the SETTINGS FORM should say about a pasted review link.
+ *
+ * Both of the functions above existed only at redirect time — i.e. the first
+ * thing that judged a saved link was a real customer clicking it. The settings
+ * form validated `z.string().url()` and nothing else, which got it wrong in
+ * both directions:
+ *
+ *   REJECTED something that works. "g.page/r/xyz/review" is how an owner
+ *   actually copies a Google review link, and normaliseReviewLink handles a
+ *   missing scheme deliberately ("owners paste these without a scheme
+ *   constantly"). z.string().url() refuses it, so the form turned away the
+ *   commonest correct input with "Enter a valid URL".
+ *
+ *   ACCEPTED something that doesn't. "https://example.com" saves happily, and
+ *   every customer who taps "Leave a review" is then sent to example.com — or,
+ *   for an unrecognised host, made to click through an interstitial first,
+ *   adding friction to the single action the whole product exists to cause.
+ *   Nothing said so until reviews stopped arriving.
+ *
+ * A non-review host is a WARNING, not a rejection. review-hosts is explicit
+ * that blocking off-list would break a legitimate customer whose platform
+ * simply isn't listed, and that silently breaking a paying customer is worse
+ * than the abuse being prevented. That reasoning holds here: tell them what
+ * their customers will see, and let them save it.
+ */
+export function reviewLinkStatus(raw: string | null | undefined): ReviewLinkStatus {
+  const trimmed = raw?.trim() ?? "";
+  if (!trimmed) {
+    return {
+      ok: false,
+      url: null,
+      known: false,
+      message:
+        "No review link set — review requests can't be sent until there's somewhere to send people.",
+    };
+  }
+  const url = normaliseReviewLink(trimmed);
+  if (!url) {
+    return {
+      ok: false,
+      url: null,
+      known: false,
+      message:
+        "That isn't a web address we can send a customer to. Paste the link your review platform gives you — for Google it usually starts g.page/r/ or maps.app.goo.gl.",
+    };
+  }
+  if (isKnownReviewHost(url.hostname)) {
+    return {
+      ok: true,
+      url,
+      known: true,
+      message: null,
+    };
+  }
+  return {
+    ok: true,
+    url,
+    known: false,
+    message: `${url.hostname} isn't one of the review sites we recognise, so customers will see a "you're being sent to ${url.hostname}" confirmation before they get there. It still works — but if you meant Google, Trustpilot, Facebook or Checkatrade, check the link.`,
+  };
+}
