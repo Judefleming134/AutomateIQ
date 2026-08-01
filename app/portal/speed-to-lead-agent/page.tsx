@@ -9,6 +9,7 @@ import {
   DEFAULT_STL_TEMPLATE,
 } from "@/lib/speed-to-lead/template";
 import { updateSpeedToLeadSettings } from "./actions";
+import { ReplyEditor } from "./reply-editor";
 
 export default async function SpeedToLeadAgentPage() {
   const { profile } = await requireSession();
@@ -17,8 +18,13 @@ export default async function SpeedToLeadAgentPage() {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
 
   // RLS-scoped; reads empty until manual_update_0007.sql is run.
-  const [{ count: total }, { count: thisWeek }, { data: replies }, { data: settings }] =
-    await Promise.all([
+  const [
+    { count: total },
+    { count: thisWeek },
+    { data: replies },
+    { data: settings },
+    { data: business },
+  ] = await Promise.all([
       supabase.from("stl_replies").select("id", { count: "exact", head: true }),
       supabase
         .from("stl_replies")
@@ -33,6 +39,13 @@ export default async function SpeedToLeadAgentPage() {
         .from("stl_settings")
         .select("enabled, subject, reply_template")
         .eq("business_id", profile.business_id!)
+        .maybeSingle(),
+      // Real name for the preview — a placeholder business name would make the
+      // preview a different email from the one that actually goes out.
+      supabase
+        .from("businesses")
+        .select("name")
+        .eq("id", profile.business_id!)
         .maybeSingle(),
     ]);
 
@@ -178,29 +191,11 @@ export default async function SpeedToLeadAgentPage() {
             Send instant replies automatically
           </label>
         </div>
-        <div className="field">
-          <label htmlFor="subject">Subject line</label>
-          <input
-            id="subject"
-            type="text"
-            name="subject"
-            defaultValue={settings?.subject ?? DEFAULT_STL_SUBJECT}
-            required
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="replyTemplate">Message</label>
-          <textarea
-            id="replyTemplate"
-            name="replyTemplate"
-            rows={10}
-            defaultValue={settings?.reply_template ?? DEFAULT_STL_TEMPLATE}
-            required
-          />
-        </div>
-        <div className="form-actions">
-          <SubmitButton pendingText="Saving…">Save reply</SubmitButton>
-        </div>
+        <ReplyEditor
+          defaultSubject={settings?.subject ?? DEFAULT_STL_SUBJECT}
+          defaultTemplate={settings?.reply_template ?? DEFAULT_STL_TEMPLATE}
+          businessName={business?.name ?? "your business"}
+        />
       </ActionForm>
     </>
   );
