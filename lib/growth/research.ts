@@ -1,4 +1,5 @@
 import "server-only";
+import { safeFetch, isPublicWebHost } from "@/lib/net/safe-fetch";
 import { aiComplete } from "@/lib/ai/complete";
 import { activeEngineLabel, CLAUDE_MODEL, GEMINI_MODEL } from "@/lib/ai/config";
 import {
@@ -180,8 +181,11 @@ async function fetchOnce(
   target: string,
   timeoutMs: number
 ): Promise<{ text: string; found: FoundContacts } | null> {
-  const res = await fetch(target, {
-    redirect: "follow",
+  // safeFetch, not fetch: it follows the redirect chain BY HAND and re-checks
+  // every hop against isPublicWebHost. With `redirect: "follow"` the guard ran
+  // once on the URL the user typed and a 302 to 169.254.169.254 sailed
+  // straight through it.
+  const attempt = await safeFetch(target, {
     signal: AbortSignal.timeout(timeoutMs),
     headers: {
       "user-agent":
@@ -193,6 +197,8 @@ async function fetchOnce(
       "upgrade-insecure-requests": "1",
     },
   });
+  if (!attempt.ok) return null;
+  const res = attempt.response;
   if (!res.ok) return null;
   const type = res.headers.get("content-type") ?? "";
   if (type && !type.includes("html") && !type.includes("text")) return null;
@@ -218,50 +224,14 @@ async function fetchOnce(
 }
 
 /**
- * SSRF guard: website URLs arrive from bulk-imported CSVs (scraper output),
- * so the server must refuse to fetch anything that isn't a public website —
- * loopback/link-local/private addresses, cloud metadata endpoints, bare
- * hostnames and non-standard ports could otherwise probe infrastructure
- * from inside the deployment ~100×/night.
+ * The SSRF guard now lives in lib/net/safe-fetch.ts, beside the fetch that
+ * honours it — the two were separated, and that is exactly how the redirect
+ * hole opened: the guard ran once and `redirect: "follow"` did the rest
+ * unsupervised.
+ *
+ * Re-exported so every existing import keeps working unchanged.
  */
-export function isPublicWebHost(u: URL): boolean {
-  const host = u.hostname.toLowerCase();
-  // Only default web ports.
-  if (u.port && !["80", "443"].includes(u.port)) return false;
-  // Named hosts must be real public FQDNs: no localhost, no single-label
-  // intranet names, no .local/.internal style suffixes.
-  if (
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    host.endsWith(".lan")
-  ) {
-    return false;
-  }
-  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (ipv4) {
-    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-    // Loopback, RFC1918 private, link-local/metadata (169.254.x — includes
-    // 169.254.169.254), carrier-NAT, 0.x and multicast/reserved.
-    if (
-      a === 127 || a === 10 || a === 0 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254) ||
-      (a === 100 && b >= 64 && b <= 127) ||
-      a >= 224
-    ) {
-      return false;
-    }
-    return true; // other literal IPs: unusual for an SME site but harmless
-  }
-  // IPv6 literals ([::1] etc.) — no legitimate SME website is imported this
-  // way; refuse them all rather than parse scopes.
-  if (host.includes(":")) return false;
-  // Must look like a domain with a real TLD.
-  return /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host);
-}
+export { isPublicWebHost };
 
 export async function fetchWebsiteText(
   rawUrl: string
