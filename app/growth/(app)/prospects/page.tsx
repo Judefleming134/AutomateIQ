@@ -6,8 +6,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
 import {
-  CLOSED_STATUSES,
-  CONTACTED_ACTIVE_STATUSES,
   PROSPECT_SORTS,
   PROSPECT_SORT_LABELS,
   PROSPECT_STATUSES,
@@ -26,6 +24,7 @@ import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
 import { activeFilterChips } from "@/lib/growth/prospect-filters";
+import { applyDueBucket, resolveDueBucket } from "@/lib/growth/prospect-query";
 
 // Quick research runs a full AI research pass inside this route's actions.
 export const maxDuration = 60;
@@ -76,18 +75,10 @@ export default async function ProspectsPage({
   // Today in Irish time, and the closed/archived set — both needed by the
   // bucket filters below and reused for the overdue badges further down.
   const today = dublinDate();
-  const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
-  const DUE_BUCKETS = ["today", "overdue", "live", "cold", "unscheduled"] as const;
-  const due = (DUE_BUCKETS as readonly string[]).includes(params.due ?? "")
-    ? (params.due as (typeof DUE_BUCKETS)[number])
-    : null;
-  const DUE_LABELS: Record<string, string> = {
-    today: "follow-up due today",
-    overdue: "follow-up overdue (within 7 days)",
-    live: "follow-up due or overdue",
-    cold: "gone cold (7+ days overdue)",
-    unscheduled: "contacted, but with no next step booked",
-  };
+  // The bucket definitions live in lib/growth/prospect-query so the CSV export
+  // narrows to exactly the same set. Two copies is how `unscheduled` ended up
+  // on the page and not in the export.
+  const due = resolveDueBucket(params.due);
 
   // Default to A→Z by company so a lead is easy to find by name — except the
   // dial view: with "Has phone" ticked the whole point is best-first calling
@@ -123,24 +114,9 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", escapeLike(industry));
   if (campaign) query = query.eq("campaign_id", campaign);
   if (phoneOnly) query = query.not("phone", "is", null);
-  // The same date arithmetic the dashboard and the autopilot use, so a bucket
-  // here always contains exactly what those surfaces counted.
-  if (due === "today") query = query.eq("next_follow_up_at", today);
-  if (due === "overdue")
-    query = query.lt("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
-  if (due === "live")
-    query = query.lte("next_follow_up_at", today).gte("next_follow_up_at", dublinDate(-7));
-  if (due === "cold") query = query.lt("next_follow_up_at", dublinDate(-7));
-  // The leak bucket: already spoken to, nothing scheduled, so invisible to
-  // every other chase surface. Uses the shared status list rather than its own
-  // copy, so this list always holds exactly what the dashboard counted.
-  if (due === "unscheduled") {
-    query = query.in("status", CONTACTED_ACTIVE_STATUSES).is("next_follow_up_at", null);
-  }
-  // Closed/archived leads are never part of a chase list — matches every
-  // count that links here. (The unscheduled bucket already restricts status,
-  // and none of those are closed, so this is a no-op for it.)
-  if (due) query = query.not("status", "in", activeFilter);
+  // The same date arithmetic the dashboard, the autopilot and the CSV export
+  // use, so a bucket here always contains exactly what those surfaces counted.
+  query = applyDueBucket(query, due, today);
 
   const [
     { data: prospects, count: totalMatching },
