@@ -144,6 +144,49 @@ describe("the homepage links to the product pages", () => {
     );
     expect(missing.map((p) => p.slug)).toEqual([]);
   });
+
+  it("gives every product it NAMES somewhere to go", () => {
+    // THE BUG THIS CAUGHT. The homepage's flow diagram introduced
+    // "ReputationIQ" as step 04 and described what it does — while
+    // /products/reputationiq did not exist and no card linked anywhere. The
+    // site advertised a product and then dead-ended the visitor who wanted it.
+    //
+    // Any *IQ name printed in a heading is a promise; this checks the page
+    // behind it exists. Names that are deliberately not standalone products
+    // (the shared core modules, sold inside a product) are listed out.
+    const NOT_STANDALONE = new Set([
+      "AutomateIQ", // the company
+      "ReceptionIQ", "SiteIQ", "AssistIQ", "ContentIQ",
+      "QuoteIQ", "ClientIQ", "LeadIQ", "CustomIQ",
+    ]);
+    const named = new Set(
+      [...HTML.matchAll(/<h[1-4][^>]*>([A-Z][A-Za-z]*IQ)<\/h[1-4]>/g)].map((m) => m[1])
+    );
+    const sellable = [...named].filter((n) => !NOT_STANDALONE.has(n));
+    const orphaned = sellable.filter(
+      (name) => !MARKETING_PRODUCTS.some((p) => p.name === name)
+    );
+    expect(orphaned).toEqual([]);
+  });
+
+  it("does not state a product count that contradicts the list", () => {
+    // "Three products you can switch on now" sat above four cards, and the
+    // footer said "All three, compared" while linking four. A number written
+    // out in prose is the one thing adding a product silently invalidates.
+    const WORDS = ["one", "two", "three", "four", "five", "six"];
+    const correct = WORDS[MARKETING_PRODUCTS.length - 1];
+    const wrong = WORDS.filter((w) => w !== correct);
+    // Only phrasings that are genuinely counting PRODUCTS. A looser pattern
+    // (`just|only \w+`) flagged "Just one connected core", which counts the
+    // core, not the range — a test that cries wolf gets muted.
+    const claims = [
+      ...HTML.matchAll(/\ball (one|two|three|four|five|six)\b/gi),
+      ...HTML.matchAll(/\b(one|two|three|four|five|six) products\b/gi),
+    ]
+      .map((m) => m[1].toLowerCase())
+      .filter((w) => wrong.includes(w));
+    expect(claims).toEqual([]);
+  });
 });
 
 describe("the sitemap lists the product pages", () => {
@@ -156,5 +199,33 @@ describe("the sitemap lists the product pages", () => {
   it("builds the per-product entries from the same list", () => {
     // Hard-coding them would let a fourth product ship invisible to Google.
     expect(SITEMAP).toContain("MARKETING_PRODUCTS.map");
+  });
+});
+
+describe("the products index describes what is actually on it", () => {
+  const INDEX = readFileSync(
+    path.join(ROOT, "app", "products", "page.tsx"),
+    "utf8"
+  );
+
+  it("derives its title and description rather than typing the names out", () => {
+    // The <title> read "Products — TradeIQ, FinanceIQ, PermitIQ" while the
+    // page rendered four cards. Same trap the sitemap test names: a
+    // hard-coded list ships a product invisible to search.
+    expect(INDEX).toContain("MARKETING_PRODUCTS.map((p) => p.name)");
+    expect(INDEX).not.toMatch(/title:\s*["'`]Products — TradeIQ, FinanceIQ, PermitIQ/);
+  });
+
+  it("names no product in its metadata that the list does not contain", () => {
+    const meta = INDEX.slice(0, INDEX.indexOf("export default"));
+    const names = [...meta.matchAll(/\b([A-Z][A-Za-z]*IQ)\b/g)].map((m) => m[1]);
+    const unknown = names.filter(
+      (n) => n !== "AutomateIQ" && !MARKETING_PRODUCTS.some((p) => p.name === n)
+    );
+    expect(unknown).toEqual([]);
+  });
+
+  it("renders every product from the list, so a new one needs no page edit", () => {
+    expect(INDEX).toContain("MARKETING_PRODUCTS.map((p) => (");
   });
 });

@@ -96,6 +96,36 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     accent: "#34D399",
   },
   {
+    slug: "reputationiq",
+    name: "ReputationIQ",
+    kicker: "For any business that lives on its rating",
+    headline: "Turn finished jobs into the reviews people search for.",
+    sub: "Ask every customer for a review the day the job ends, chase the ones who forget, and see which asks actually landed — without anyone remembering to do it.",
+    who: "Trades, salons, garages, restaurants, clinics — any business where the next customer reads the reviews before they ring.",
+    does: [
+      {
+        title: "Ask while the job is still fresh",
+        body: "Send the request the day you finish, when goodwill is at its highest. One customer, one link, one tap — no app for them to install and no account to make.",
+      },
+      {
+        title: "One reminder, sent automatically",
+        body: "Most people mean to and forget. A single follow-up goes out on its own if they haven't left one — exactly one, never a duplicate, and never after they've already reviewed you.",
+      },
+      {
+        title: "Straight to the platform you actually use",
+        body: "Google, Trustpilot, Facebook, Checkatrade, TrustATrader, RatedPeople, Houzz, TripAdvisor, Yelp and more. Paste your review link once and every request points at it.",
+      },
+      {
+        title: "See what's working",
+        body: "Requests sent, reminders, and how many were actually clicked — so 'we ask for reviews' becomes a number instead of a hope.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-reputationiq",
+    live: true,
+    accent: "#7C3AED",
+  },
+  {
     slug: "permitiq",
     name: "PermitIQ",
     kicker: "For architects, engineers & developers",
