@@ -204,6 +204,122 @@ describe("the dashboard shares the rule rather than repeating it", () => {
   });
 });
 
+describe("the query is bounded, and the bound changes no answer", () => {
+  /**
+   * FERRARI. The loader fetched EVERY sent message to all ~400 replied
+   * prospects, purely to work out the newest one for each — so its cost grew
+   * with how long Jude had been emailing people rather than with the thing
+   * being measured.
+   *
+   * It doesn't need them. A send older than the OLDEST latest-reply in the set
+   * is older than every prospect's latest reply, so it cannot make anyone
+   * "answered": the test is `latestInbound > latestSent`, and a send below that
+   * floor loses the comparison for every id at once.
+   *
+   * That is a correctness claim, not a hunch, so it is checked as a PROPERTY
+   * over randomised histories rather than on a couple of hand-picked rows —
+   * a wrong bound here silently breaks the panel built to stop replies being
+   * missed. 400 randomised worlds, zero differing answers.
+   */
+  type Send = { prospect_id: string; sent_at: string | null; created_at: string };
+
+  let seed = 12345;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const pick = (n: number) => Math.floor(rnd() * n);
+  const day = (d: number) => new Date(Date.parse("2026-08-03T09:00:00Z") - d * DAY).toISOString();
+
+  function world(nProspects: number, historyDays: number) {
+    const latestInbound = new Map<string, string>();
+    const sends: Send[] = [];
+    for (let i = 0; i < nProspects; i++) {
+      const id = `p${i}`;
+      latestInbound.set(id, day(pick(60)));
+      for (let k = 0, n = 1 + pick(8); k < n; k++) {
+        const d = pick(historyDays);
+        // A few legacy rows carry no sent_at; the rest were created BEFORE
+        // they were sent, which is what makes a created_at-only bound wrong.
+        const legacy = rnd() < 0.08;
+        sends.push({
+          prospect_id: id,
+          sent_at: legacy ? null : day(d),
+          created_at: day(d + (legacy ? 0 : pick(9))),
+        });
+      }
+    }
+    return { latestInbound, sends };
+  }
+
+  const countWith = (latestInbound: Map<string, string>, rows: Send[]) => {
+    const latestSent = latestSentByProspect(rows);
+    let n = 0;
+    for (const [id, inb] of latestInbound) if (isAwaiting(inb, latestSent.get(id))) n += 1;
+    return n;
+  };
+
+  /** Exactly what the `.or(...)` filter selects, in memory. */
+  const applyFloor = (latestInbound: Map<string, string>, rows: Send[]) => {
+    const floor = [...latestInbound.values()].reduce((a, b) => (a < b ? a : b));
+    return rows.filter((m) => (m.sent_at != null ? m.sent_at >= floor : m.created_at >= floor));
+  };
+
+  it("gives an identical answer across 400 randomised histories", () => {
+    seed = 12345;
+    const differing: string[] = [];
+    for (let i = 0; i < 400; i++) {
+      const { latestInbound, sends } = world(20 + pick(60), 30 + pick(700));
+      const full = countWith(latestInbound, sends);
+      const bounded = countWith(latestInbound, applyFloor(latestInbound, sends));
+      if (full !== bounded) differing.push(`world ${i}: ${full} vs ${bounded}`);
+    }
+    expect(differing).toEqual([]);
+  });
+
+  it("actually drops rows — it is not a no-op dressed as an optimisation", () => {
+    seed = 999;
+    const { latestInbound, sends } = world(400, 730);
+    const kept = applyFloor(latestInbound, sends);
+    expect(kept.length).toBeLessThan(sends.length / 2);
+  });
+
+  it("saves MORE the longer the send history — the cost stops compounding", () => {
+    const share = (days: number) => {
+      seed = 999;
+      const { latestInbound, sends } = world(400, days);
+      return applyFloor(latestInbound, sends).length / sends.length;
+    };
+    // Bounded by the reply window, not by how long Jude has been sending.
+    expect(share(730)).toBeLessThan(share(365));
+    expect(share(365)).toBeLessThan(share(180));
+  });
+
+  it("bounds on the INSTANT, never on created_at alone", () => {
+    // A draft written last week and sent this morning is the common case here
+    // — the 07:00 cron sends what the nightly run drafted. A created_at bound
+    // would drop it and wrongly report the prospect as still waiting.
+    const SRC = readFileSync(path.join(ROOT, "lib", "growth", "awaiting.ts"), "utf8");
+    expect(SRC).toContain("sent_at.gte.${floor}");
+    expect(SRC).toContain("and(sent_at.is.null,created_at.gte.${floor})");
+    expect(SRC).toContain("const floor =");
+    // …and the QUERY actually applies it. Break-verifying caught this: with
+    // only the assertions above, deleting the `.or(...)` line left the
+    // constant and both template strings sitting there unused and every test
+    // still passed. Declaring a bound is not the same as using one.
+    expect(SRC).toContain(".or(instantAtOrAfterFloor)");
+    const query = SRC.slice(SRC.indexOf("selectAllRowsByIds<Msg>"));
+    expect(query.slice(0, query.indexOf(");"))).toContain(".or(instantAtOrAfterFloor)");
+  });
+
+  it("a prospect with no qualifying send still reads as awaiting", () => {
+    // The floor removes their only sends; that is correct, because those
+    // sends predate their reply.
+    const latestInbound = new Map([["a", day(1)]]);
+    const sends: Send[] = [{ prospect_id: "a", sent_at: day(40), created_at: day(41) }];
+    expect(applyFloor(latestInbound, sends)).toEqual([]);
+    expect(countWith(latestInbound, applyFloor(latestInbound, sends))).toBe(1);
+    expect(countWith(latestInbound, sends)).toBe(1);
+  });
+});
+
 describe("the shared loader is safe at scale", () => {
   it("chunks the id list, like every other caller", () => {
     const SRC = readFileSync(path.join(ROOT, "lib", "growth", "awaiting.ts"), "utf8");
