@@ -135,6 +135,96 @@ describe("the proxy actually routes capitalised URLs to canonicalPath", () => {
   });
 });
 
+/**
+ * The SECOND join, and the one that was broken for a paying customer.
+ *
+ * Being routed to the proxy is only half of it — updateSession() then asks
+ * needsSession() whether to build a Supabase client at all, and short-circuits
+ * if not. A surface has to pass BOTH to get its auth cookie refreshed.
+ *
+ * /tradeiq and /finance passed NEITHER. They are app surfaces behind
+ * requireTradesAccount(), and lib/supabase/server.ts swallows its cookie
+ * writes in a try/catch with the comment "Server Components can't set
+ * cookies… session refresh is instead handled by middleware" — which, for
+ * these two, it was not. So the access token expired (~1h), the rotated
+ * refresh token could not be persisted, the next request presented a spent
+ * one, and a TradeIQ customer was bounced to the login screen mid-job.
+ *
+ * Exactly the shape of the canonicalPath bug above: a mechanism that is
+ * correct in itself and never reached.
+ */
+describe("every app surface actually gets its session refreshed", () => {
+  const MIDDLEWARE = readFileSync(
+    path.join(ROOT, "lib", "supabase", "middleware.ts"),
+    "utf8"
+  );
+
+  /** needsSession(), read off the source so the two cannot drift. */
+  const needsSession = (p: string): boolean => {
+    const body = MIDDLEWARE.slice(
+      MIDDLEWARE.indexOf("function needsSession"),
+      MIDDLEWARE.indexOf("export async function updateSession")
+    );
+    if (/startsWith\("\/tradeiq\/doc"\)\) return false/.test(body) && p.startsWith("/tradeiq/doc")) {
+      return false;
+    }
+    const prefixes = [...body.matchAll(/path\.startsWith\("([^"]+)"\)/g)]
+      .map((m) => m[1])
+      .filter((x) => x !== "/tradeiq/doc");
+    const exact = [...body.matchAll(/path === "([^"]+)"/g)].map((m) => m[1]);
+    return prefixes.some((x) => p.startsWith(x)) || exact.includes(p);
+  };
+
+  /** Both joins, which is what actually decides whether a cookie is written. */
+  const refreshed = (p: string) => proxyRuns(p) && needsSession(p);
+
+  it("refreshes every signed-in surface", () => {
+    for (const p of [
+      "/portal",
+      "/portal/billing",
+      "/admin",
+      "/growth/prospects",
+      "/tradeiq",
+      "/tradeiq/new",
+      "/tradeiq/finance",
+      "/tradeiq/customers",
+      "/finance",
+      "/finance/receivables",
+    ]) {
+      expect(refreshed(p), `${p} never gets its auth cookie refreshed`).toBe(true);
+    }
+  });
+
+  it("leaves the PUBLIC customer quote page alone", () => {
+    // It is under /tradeiq but is read with the service-role client off a
+    // signed token. Charging it an auth round trip would tax every quote a
+    // tradesperson sends.
+    expect(proxyRuns("/tradeiq/doc/abc123")).toBe(true); // matcher does route it
+    expect(needsSession("/tradeiq/doc/abc123")).toBe(false); // …and it stops there
+    expect(refreshed("/tradeiq/doc/abc123")).toBe(false);
+  });
+
+  it("still costs the marketing site nothing", () => {
+    for (const p of ["/", "/products", "/products/tradeiq", "/book", "/freetools"]) {
+      expect(refreshed(p), p).toBe(false);
+    }
+  });
+
+  it("the exclusion is ordered BEFORE the prefix test", () => {
+    // `/tradeiq/doc` starts with `/tradeiq`, so a later check would never fire.
+    const body = MIDDLEWARE.slice(MIDDLEWARE.indexOf("function needsSession"));
+    expect(body.indexOf('"/tradeiq/doc"')).toBeLessThan(body.indexOf('"/tradeiq"'));
+  });
+
+  it("does not add a proxy-level redirect for these surfaces", () => {
+    // requireTradesAccount() already redirects, and it knows which of the two
+    // login screens to use (/tradeiq/login vs /finance/login). A redirect here
+    // could not tell them apart and would send Finance users to the wrong one.
+    expect(MIDDLEWARE).not.toContain('"/tradeiq/login"');
+    expect(MIDDLEWARE).not.toContain('"/finance/login"');
+  });
+});
+
 describe("every segment canonicalPath redirects to actually resolves", () => {
   const redirectSources = [
     ...NEXT_CONFIG.matchAll(/source:\s*"(\/[^"]*)"/g),
