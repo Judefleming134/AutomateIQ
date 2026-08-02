@@ -319,7 +319,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       const current = lastSentTo.get(m.prospect_id);
       if (!current || at > current) lastSentTo.set(m.prospect_id, at);
     }
-    const awaitingLines = inboundPids
+    const stillWaiting = inboundPids
       .filter((id) => {
         const inbound = latestInbound.get(id)!;
         const sent = lastSentTo.get(id);
@@ -331,7 +331,12 @@ export async function sendJarvisMorningBrief(): Promise<{
         return inbound.created_at < since24h;
       })
       // Longest-waiting first: most at risk of going cold.
-      .sort((a, b) => (latestInbound.get(a)!.created_at < latestInbound.get(b)!.created_at ? -1 : 1))
+      .sort((a, b) => (latestInbound.get(a)!.created_at < latestInbound.get(b)!.created_at ? -1 : 1));
+    // The REAL number waiting, counted before the display cap. Reporting the
+    // capped length said "10" whether ten people were waiting or forty — in
+    // the section this file itself calls the one that exists to be trusted.
+    const awaitingTotal = stillWaiting.length;
+    const awaitingLines = stillWaiting
       .slice(0, 10)
       .map((id) => {
         const r = latestInbound.get(id)!;
@@ -343,15 +348,39 @@ export async function sendJarvisMorningBrief(): Promise<{
       });
 
     // What the 8am autopilot just sent (this dispatch runs sends first).
-    const { data: sentToday } = await admin
-      .from("ge_messages")
-      .select("subject, sent_at, ge_prospects(company)")
-      .eq("channel", "email")
-      .eq("direction", "outbound")
-      .eq("status", "sent")
-      .gte("sent_at", `${today}T00:00:00`)
-      .order("sent_at", { ascending: false })
-      .limit(35);
+    //
+    // TWO reads, and the reason matters: the LIST is capped at 35 because
+    // nobody reads more than that over breakfast, but the COUNT must be the
+    // real one. `sentToday.length` was being reported as "sent this morning"
+    // in five places — and the send ramp climbs from 20/day to 200/day in
+    // about six days (RAMP_STEP in lib/growth/autopilot.ts). The morning the
+    // ramp passes 35, the brief starts saying 35 whatever actually went, and
+    // keeps saying 35 forever. That is the one number Jude uses to decide
+    // whether his engine ran, quietly frozen at the size of a display limit.
+    const SENT_LIST_CAP = 35;
+    const [{ data: sentToday }, { count: sentTodayTotalRaw }] = await Promise.all([
+      admin
+        .from("ge_messages")
+        .select("subject, sent_at, ge_prospects(company)")
+        .eq("channel", "email")
+        .eq("direction", "outbound")
+        .eq("status", "sent")
+        .gte("sent_at", `${today}T00:00:00`)
+        .order("sent_at", { ascending: false })
+        .limit(SENT_LIST_CAP),
+      // head:true fetches the count and no rows, so this is cheap at any
+      // volume — and it is the number every sentence below now uses.
+      admin
+        .from("ge_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("channel", "email")
+        .eq("direction", "outbound")
+        .eq("status", "sent")
+        .gte("sent_at", `${today}T00:00:00`),
+    ]);
+    // Never report FEWER than we can actually list: if the count read failed
+    // (null), the rows we hold are still a floor, not zero.
+    const sentTodayTotal = Math.max(sentTodayTotalRaw ?? 0, (sentToday ?? []).length);
 
     // Send age matters: fresh outreach with no replies is pending, not
     // failing — give the narrative the data to judge that correctly.
@@ -374,14 +403,26 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     // Delivery trouble reported by the email provider's webhooks (bounces,
     // spam complaints, delays) — ground truth on whether sends arrived.
-    const { data: deliveryActs } = await admin
-      .from("ge_activities")
-      .select("content, ge_prospects(company)")
-      .ilike("content", "Email delivery:%")
-      .not("content", "ilike", "%delivered to%")
-      .gte("created_at", since24h)
-      .order("created_at", { ascending: false })
-      .limit(15);
+    // Counted as well as listed. Bounces and complaints are the signal that
+    // the sending domain is in trouble — the one number that must never read
+    // lower than it is, and it was reporting the 15-row display cap.
+    const [{ data: deliveryActs }, { count: deliveryTotalRaw }] = await Promise.all([
+      admin
+        .from("ge_activities")
+        .select("content, ge_prospects(company)")
+        .ilike("content", "Email delivery:%")
+        .not("content", "ilike", "%delivered to%")
+        .gte("created_at", since24h)
+        .order("created_at", { ascending: false })
+        .limit(15),
+      admin
+        .from("ge_activities")
+        .select("id", { count: "exact", head: true })
+        .ilike("content", "Email delivery:%")
+        .not("content", "ilike", "%delivered to%")
+        .gte("created_at", since24h),
+    ]);
+    const deliveryTotal = Math.max(deliveryTotalRaw ?? 0, (deliveryActs ?? []).length);
     const deliveryLines = (deliveryActs ?? []).map((a) => {
       const company =
         (a.ge_prospects as { company?: string } | null)?.company ?? "unknown";
@@ -596,9 +637,9 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Date: ${today}`,
             `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
-            `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${(sentToday ?? []).length}.`,
+            `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${sentTodayTotal}.`,
             `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}${autoReplyNote}`,
-            `Replied EARLIER and still unanswered (${awaitingLines.length}) — these outrank everything else today:\n${awaitingLines.join("\n") || "none"}`,
+            `Replied EARLIER and still unanswered (${awaitingTotal}${awaitingTotal > awaitingLines.length ? `, longest-waiting ${awaitingLines.length} listed` : ""}) — these outrank everything else today:\n${awaitingLines.join("\n") || "none"}`,
             `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
             `Meetings today (${meetingLines.length}):\n${meetingLines.join("\n") || "none"}`,
@@ -625,16 +666,24 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     // Blocks shared by both shapes: the overnight catches + fixes.
     const deliveryBlock = deliveryLines.length
-      ? `📬 DELIVERY ISSUES (${deliveryLines.length})\n${deliveryLines.join("\n")}`
+      ? `📬 DELIVERY ISSUES (${deliveryTotal})\n${deliveryLines.join("\n")}` +
+        (deliveryTotal > deliveryLines.length
+          ? `\n  …and ${deliveryTotal - deliveryLines.length} more.`
+          : "")
       : "";
-    const sentBlock = (sentToday ?? []).length
-      ? `📤 SENT THIS MORNING (${(sentToday ?? []).length})\n${(sentToday ?? [])
+    const sentBlock = sentTodayTotal
+      ? `📤 SENT THIS MORNING (${sentTodayTotal})\n${(sentToday ?? [])
           .map((m) => {
             const company =
               (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
             return `• ${company} — "${m.subject ?? ""}"`;
           })
-          .join("\n")}`
+          .join("\n")}` +
+        // Say so when the list is shorter than the count, rather than letting
+        // the header and the lines underneath disagree in silence.
+        (sentTodayTotal > (sentToday ?? []).length
+          ? `\n  …and ${sentTodayTotal - (sentToday ?? []).length} more — full list in the Inbox.`
+          : "")
       : "";
     const nightlyMore =
       (nightlyTotal ?? 0) > nightlyLines.length
@@ -666,13 +715,13 @@ export async function sendJarvisMorningBrief(): Promise<{
     // "the engine ran itself"; say so honestly so a quiet night doesn't read as
     // a working one (and the real "quota spent" signal isn't buried).
     const engineWorkedOvernight =
-      (researchedOvernight ?? 0) + (chaseDraftsOvernight ?? 0) + (sentToday ?? []).length > 0;
+      (researchedOvernight ?? 0) + (chaseDraftsOvernight ?? 0) + sentTodayTotal > 0;
     const overnightHeadline = engineWorkedOvernight
       ? [
           "🌙 WHILE YOU SLEPT — the engine ran itself:",
           `• ${researchedOvernight ?? 0} lead${(researchedOvernight ?? 0) === 1 ? "" : "s"} researched — report, score + drafts ready`,
           `• ${chaseDraftsOvernight ?? 0} follow-up${(chaseDraftsOvernight ?? 0) === 1 ? "" : "s"} written for the 3-touch sequence`,
-          `• ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning — booking link included, so they can self-book`,
+          `• ${sentTodayTotal} email${sentTodayTotal === 1 ? "" : "s"} sent this morning — booking link included, so they can self-book`,
           "Just work the lists below: dial the due list, copy-paste the DMs.",
         ].join("\n")
       : [
@@ -690,7 +739,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       const changedLine =
         `📈 WHAT CHANGED\n• ${leadsAdded24h ?? 0} new lead${(leadsAdded24h ?? 0) === 1 ? "" : "s"} added` +
         `${(researchedOvernight ?? 0) ? ` · ${researchedOvernight} researched overnight` : ""}` +
-        `${(sentToday ?? []).length ? ` · ${(sentToday ?? []).length} email${(sentToday ?? []).length === 1 ? "" : "s"} sent this morning` : ""}` +
+        `${sentTodayTotal ? ` · ${sentTodayTotal} email${sentTodayTotal === 1 ? "" : "s"} sent this morning` : ""}` +
         `${replyLines.length ? ` · ${replyLines.length} new repl${replyLines.length === 1 ? "y" : "ies"}` : ""}`;
       bodyText = [
         `🌤️ Weekend brief — ${today}. Lighter one: just what changed and what Jarvis caught & fixed overnight. Enjoy the weekend.`,
@@ -707,7 +756,8 @@ export async function sendJarvisMorningBrief(): Promise<{
         // Worth carrying into the weekend brief too — a reply left on Friday
         // is precisely the one that gets lost.
         awaitingLines.length
-          ? `🔴 STILL WAITING ON YOU (${awaitingLines.length})\n${awaitingLines.join("\n")}`
+          ? `🔴 STILL WAITING ON YOU (${awaitingTotal})\n${awaitingLines.join("\n")}` +
+            (awaitingTotal > awaitingLines.length ? `\n  …and ${awaitingTotal - awaitingLines.length} more waiting.` : "")
           : "",
         meetingLines.length
           ? section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "")
@@ -735,7 +785,9 @@ export async function sendJarvisMorningBrief(): Promise<{
         // Above meetings and due chases on purpose: someone who wrote back and
         // hasn't heard anything outranks both.
         awaitingLines.length
-          ? `🔴 STILL WAITING ON YOU (${awaitingLines.length})\n${awaitingLines.join("\n")}\nAnswer these first — they replied and got silence.`
+          ? `🔴 STILL WAITING ON YOU (${awaitingTotal})\n${awaitingLines.join("\n")}` +
+            (awaitingTotal > awaitingLines.length ? `\n  …and ${awaitingTotal - awaitingLines.length} more waiting.` : "") +
+            "\nAnswer these first — they replied and got silence."
           : "",
         section(`MEETINGS TODAY (${meetingLines.length})`, meetingLines, "None booked today."),
         section(`FOLLOW-UPS DUE (${dueTotal})`, dueLines, "Nothing due — pipeline is current.") +
@@ -758,7 +810,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       // Lead the subject with what's waiting — it's the line he reads on a
       // phone notification without opening anything.
       subject = `Jarvis morning brief — ${today}: ${
-        awaitingLines.length ? `${awaitingLines.length} waiting on you, ` : ""
+        awaitingTotal ? `${awaitingTotal} waiting on you, ` : ""
       }${replyLines.length} replies, ${dueTotal} due, ${readyTotal} ready to send`;
     }
 
