@@ -15,6 +15,7 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { selectAllRowsByIds } from "@/lib/growth/db";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
+import { splitMeetings } from "@/lib/growth/meeting-order";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -192,9 +193,21 @@ export default async function GrowthDashboardPage() {
       .from("ge_meetings")
       .select("id, scheduled_at, status, prospect_id, strategy_booking_id, ge_prospects(company)")
       .eq("status", "booked")
-      .gte("scheduled_at", new Date().toISOString())
+      // Deliberately a WIDE, over-fetched window rather than the exact one.
+      //
+      // scheduled_at holds two different things: a booking-page slot stores
+      // Irish wall-clock AS UTC (a 14:00 session is stored 14:00Z), while a
+      // manually recorded meeting stores a true instant. Comparing both
+      // against real UTC now is an hour wrong for bookings in summer — a
+      // session already underway kept sitting in "Upcoming", and a booking
+      // could outrank a manual meeting that was genuinely sooner.
+      //
+      // So: fetch generously either side, then filter and order in memory
+      // with the shared helper that knows about both frames. 12 hours covers
+      // the 1-hour skew many times over.
+      .gte("scheduled_at", new Date(Date.now() - 12 * 3600 * 1000).toISOString())
       .order("scheduled_at", { ascending: true })
-      .limit(6),
+      .limit(24),
     // Prospects whose first-touch email is already queued for the 8am run —
     // they're handled, so they shouldn't also appear as "ready to send".
     admin
@@ -271,6 +284,25 @@ export default async function GrowthDashboardPage() {
 
   // Issued above alongside the main batch so both waves run concurrently.
   const [{ data: goneCold }, { count: goneColdCount }] = await goneColdQuery;
+
+  // The genuinely upcoming ones, resolved from the over-fetched window.
+  //
+  // splitMeetings compares a booking-page slot against IRISH wall-clock now
+  // and a manually recorded meeting against real now, then orders both by
+  // their real instant — so a session already underway drops off, and a
+  // booking can no longer outrank a manual meeting that is actually sooner.
+  // Same helper the meetings page uses, so the dashboard panel and the "All →"
+  // page it links to can never disagree about what is next.
+  const nextMeetings = splitMeetings(
+    (upcomingMeetings ?? []) as unknown as {
+      id: string;
+      scheduled_at: string;
+      strategy_booking_id: string | null;
+      status: string;
+      prospect_id: string;
+      ge_prospects: unknown;
+    }[]
+  ).upcoming.slice(0, 6);
 
   // WHO IS WAITING ON A REPLY. The dashboard tracked chases due, overdue, gone
   // cold, hot leads and meetings — but nowhere did it show a prospect who
@@ -859,13 +891,22 @@ export default async function GrowthDashboardPage() {
             <CalendarCheck size={15} style={{ verticalAlign: "-2px" }} /> Upcoming meetings{" "}
             <Link href="/growth/meetings">All →</Link>
           </h2>
-          {(upcomingMeetings ?? []).length === 0 ? (
-            <p className="empty-state">No meetings booked yet.</p>
+          {nextMeetings.length === 0 ? (
+            /* A booked session is the ENTIRE point of the engine, and this
+               was a full stop on the page Jude opens first. The meetings page
+               two clicks away already says what fills it; this one said
+               nothing. Same route, stated here. */
+            <p className="empty-state" style={{ margin: 0 }}>
+              Nothing booked yet. Sessions land here when a prospect books
+              through your link, or when you record one.{" "}
+              <Link href="/growth/call-list">Work the call list</Link> and send
+              anyone warm the booking link.
+            </p>
           ) : (
             <div className="table-wrap">
               <table>
                 <tbody>
-                  {(upcomingMeetings ?? []).map((m) => (
+                  {nextMeetings.map((m) => (
                     <tr key={m.id}>
                       <td>
                         <Link href={`/growth/prospects/${m.prospect_id}`}>
