@@ -4,26 +4,18 @@ import { useState } from "react";
 import Link from "next/link";
 import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import { AlertTriangle, ArrowRight, Check, Loader2, MapPin, Star, TriangleAlert, X } from "lucide-react";
+import {
+  SELF_QUESTIONS,
+  SELF_LOOKUP_HINT,
+  PROFILE_QUESTIONS,
+  isComplete,
+  scoreSelfCheck,
+  type SelfAnswers,
+  type SelfField,
+} from "@/lib/tools/gbp-self";
+import type { GbpResult } from "@/lib/tools/gbp-report";
 
-type Finding = {
-  id: string;
-  label: string;
-  status: "pass" | "warn" | "fail";
-  impact: "high" | "medium" | "low";
-  found: string;
-  why: string;
-  fix: string;
-};
-type Result = {
-  name: string;
-  address: string;
-  rating: number | null;
-  reviewCount: number;
-  mapsUri: string | null;
-  score: number;
-  verdict: string;
-  findings: Finding[];
-};
+type Result = GbpResult;
 
 const ICON = {
   pass: { icon: Check, colour: "var(--green, #34d399)" },
@@ -39,6 +31,19 @@ export function GbpChecker({ configured }: { configured: boolean }) {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  // The free path. Nothing here touches the network, so there is no loading
+  // state and no way for it to fail — the report is computed on the click.
+  const [answers, setAnswers] = useState<SelfAnswers>({});
+
+  const pick = (id: SelfField, value: string) =>
+    setAnswers((a) => ({ ...a, [id]: value }));
+
+  function runSelfCheck(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isComplete(answers)) return;
+    setError(null);
+    setResult(scoreSelfCheck(answers));
+  }
 
   async function run(e: React.FormEvent) {
     e.preventDefault();
@@ -62,60 +67,117 @@ export function GbpChecker({ configured }: { configured: boolean }) {
     }
   }
 
-  if (!configured) {
-    return (
-      <div className="aseo-hero is-warn">
-        <h3>Not switched on yet</h3>
-        <div className="aseo-now">
-          This checker needs a Google API key, which isn&apos;t configured on this site yet.
-        </div>
-        <div className="aseo-block">
-          <p className="aseo-block-label">In the meantime</p>
-          <p>
-            The website checker covers the signals Google uses to match your site to your
-            Business Profile — your name, address and phone, and your business schema.
-            That&apos;s the half you control directly, and it&apos;s free right now.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-          <Link href="/freetools/autoseo" className="btn btn-primary btn-sm">
-            Check my website instead <ArrowRight size={13} />
-          </Link>
-          <Link href="/freetools" className="btn btn-secondary btn-sm">
-            All free tools
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   const problems = result?.findings.filter((f) => f.status !== "pass") ?? [];
   const top = problems[0];
+  // Once a profile is said not to exist, the seven follow-ups are about a
+  // thing that isn't there — asking them would be daft, and the report for
+  // that case is written separately.
+  const asking = answers.hasProfile === "yes" ? SELF_QUESTIONS : SELF_QUESTIONS.slice(0, 1);
+  const ready = isComplete(answers);
 
   return (
     <div>
-      <form onSubmit={run} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Murphy Plumbing, Blanchardstown"
-          aria-label="Your business name and town"
-          disabled={running}
-          maxLength={160}
-          style={{ flex: "1 1 300px", minWidth: 0 }}
-        />
-        <button type="submit" className="btn btn-primary" disabled={running}>
-          {running ? (
-            <>
-              <Loader2 size={15} className="book-spin" /> Looking you up…
-            </>
-          ) : (
-            <>
-              <MapPin size={15} /> Check my profile
-            </>
+      {configured ? (
+        <form onSubmit={run} style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Murphy Plumbing, Blanchardstown"
+            aria-label="Your business name and town"
+            disabled={running}
+            maxLength={160}
+            style={{ flex: "1 1 300px", minWidth: 0 }}
+          />
+          <button type="submit" className="btn btn-primary" disabled={running}>
+            {running ? (
+              <>
+                <Loader2 size={15} className="book-spin" /> Looking you up…
+              </>
+            ) : (
+              <>
+                <MapPin size={15} /> Check my profile
+              </>
+            )}
+          </button>
+        </form>
+      ) : (
+        /* The free path (J1). This used to be a dead end reading "Not switched
+           on yet" — a front door with a locked door behind it, waiting on a
+           card being put on a Google Cloud account.
+
+           The Places API was only ever doing data entry: it read seven facts
+           off a public profile that the owner can see on their phone in a
+           minute. The analysis — what each one costs you, what to do, in what
+           order — was ours all along and is now shared with the paid path, so
+           this produces the identical report. See lib/tools/gbp-self.ts. */
+        <form onSubmit={runSelfCheck} style={{ marginBottom: 16 }}>
+          <div className="panel panel-block" style={{ marginBottom: 14 }}>
+            <strong>
+              <MapPin size={14} style={{ verticalAlign: "-2px" }} /> Have your profile open
+              while you answer
+            </strong>
+            <p style={{ fontSize: 13.5, color: "var(--faint)", margin: "6px 0 0" }}>
+              {SELF_LOOKUP_HINT}
+            </p>
+          </div>
+
+          <label style={{ display: "block", marginBottom: 16 }}>
+            <span style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
+              What&apos;s the business called?
+            </span>
+            <input
+              value={answers.name ?? ""}
+              onChange={(e) => setAnswers((a) => ({ ...a, name: e.target.value }))}
+              placeholder="Murphy Plumbing"
+              aria-label="Your business name"
+              maxLength={120}
+              style={{ width: "100%", maxWidth: 420 }}
+            />
+          </label>
+
+          {asking.map((q) => (
+            <fieldset
+              key={q.id}
+              style={{ border: 0, padding: 0, margin: "0 0 18px" }}
+            >
+              <legend style={{ fontWeight: 600, marginBottom: 4, padding: 0 }}>
+                {q.question}
+              </legend>
+              {q.hint && (
+                <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "0 0 8px" }}>
+                  {q.hint}
+                </p>
+              )}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {q.options.map((o) => {
+                  const on = answers[q.id] === o.value;
+                  return (
+                    <button
+                      type="button"
+                      key={o.value}
+                      onClick={() => pick(q.id, o.value)}
+                      className={`btn btn-sm ${on ? "btn-primary" : "btn-secondary"}`}
+                      aria-pressed={on}
+                    >
+                      {on && <Check size={13} />} {o.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+
+          <button type="submit" className="btn btn-primary" disabled={!ready}>
+            <MapPin size={15} /> Score my profile
+          </button>
+          {!ready && (
+            <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "8px 0 0" }}>
+              Answer the questions above and your score appears here — no email needed,
+              nothing sent anywhere.
+            </p>
           )}
-        </button>
-      </form>
+        </form>
+      )}
 
       {error && !running && (
         <div className="panel panel-block" style={{ borderLeft: "3px solid var(--orange, #fb923c)" }}>
@@ -157,8 +219,14 @@ export function GbpChecker({ configured }: { configured: boolean }) {
               <h2>{result.verdict}</h2>
               <p>
                 <Star size={12} style={{ verticalAlign: "-1px", fill: "var(--orange,#fb923c)", color: "var(--orange,#fb923c)" }} />{" "}
-                {result.rating ? result.rating.toFixed(1) : "no rating"} · {result.reviewCount} review
-                {result.reviewCount === 1 ? "" : "s"}
+                {/* Never the representative number behind a band. Somebody who
+                    answered "8–24" must not be shown "8 reviews" — it reads as
+                    a lookup, and being wrong about a fact they gave us is the
+                    fastest way to lose the whole report. */}
+                {result.ratingLabel ?? (result.rating ? result.rating.toFixed(1) : "no rating")}
+                {" · "}
+                {result.reviewCountLabel ??
+                  `${result.reviewCount} review${result.reviewCount === 1 ? "" : "s"}`}
               </p>
             </div>
           </div>
@@ -201,6 +269,24 @@ export function GbpChecker({ configured }: { configured: boolean }) {
           ) : (
             <p className="aseo-step-label" style={{ color: "var(--green, #34d399)" }}>
               <Check size={14} /> Every check passed — this profile is properly set up
+            </p>
+          )}
+
+          {result.source === "self" && (
+            /* Said plainly, under the score, not buried. The report is built
+               from the visitor's own answers — presenting it as a lookup would
+               be a lie about where the number came from, and the difference
+               matters if they act on it. */
+            <p style={{ fontSize: 12.5, color: "var(--faint)", margin: "10px 0 0" }}>
+              Scored from your own answers, not a lookup — so it&apos;s only as right as
+              they were. The advice under each point is the same either way.{" "}
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setResult(null)}
+              >
+                Change an answer
+              </button>
             </p>
           )}
 

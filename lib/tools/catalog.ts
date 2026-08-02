@@ -80,11 +80,15 @@ const TOOLS: FreeTool[] = [
       "Category, hours and phone checked",
       "The single fix to do first",
     ],
-    time: "10 seconds",
+    time: "1 minute",
     accent: "#F59E0B",
-    unavailableNote:
-      "Waiting on a Google Places API key. The website check below covers the half of local ranking you control directly, and it works right now.",
-    isAvailable: gbpConfigured,
+    // Live either way now. It ran the Places API or nothing, so it sat dark
+    // waiting on a Google Cloud billing account (J1) — while the analysis, the
+    // only part with any value in it, needed no key at all. It now asks the
+    // seven questions the API was answering and scores the replies with the
+    // identical engine. A key upgrades the experience; it no longer gates it.
+    unavailableNote: null,
+    isAvailable: () => true,
   },
   {
     slug: "response-time",

@@ -110,16 +110,20 @@ describe("search engines are not sent to a dead tool", () => {
     return (await mod.default()).map((e) => e.url);
   }
 
-  it("drops the Google checker from the sitemap while it is switched off", async () => {
+  it("keeps the Google checker in the sitemap with NO key — it works without one", async () => {
+    // Inverted deliberately (J1). The old assertion protected searchers from a
+    // page that said "not switched on yet"; that page now runs a full check
+    // from the visitor's own answers, so hiding it would be hiding a working
+    // tool. The rule it was serving — never rank a dead tool — is unchanged
+    // and is still enforced on the review writer two tests down.
     process.env.ANTHROPIC_API_KEY = "k";
     const urls = await sitemapUrls();
-    expect(urls).not.toContain("https://automateiq.ie/freetools/google-profile");
-    // The working ones are still there.
+    expect(urls).toContain("https://automateiq.ie/freetools/google-profile");
     expect(urls).toContain("https://automateiq.ie/freetools/autoseo");
     expect(urls).toContain("https://automateiq.ie/freetools/reviews");
   });
 
-  it("lists it again the moment the key exists — nothing to remember", async () => {
+  it("is listed with a key as well", async () => {
     process.env.GOOGLE_PLACES_API_KEY = "k";
     process.env.ANTHROPIC_API_KEY = "k";
     const urls = await sitemapUrls();
@@ -136,11 +140,23 @@ describe("search engines are not sent to a dead tool", () => {
     expect(urls).toContain("https://automateiq.ie/freetools");
   });
 
-  it("noindexes the Google page itself while it is off", () => {
+  it("no longer noindexes the Google page — there is no off state to hide", () => {
     const src = pageSrc("google-profile");
-    expect(src).toContain("generateMetadata");
-    expect(src).toMatch(/robots:\s*\{\s*index:\s*false/);
+    expect(src).not.toMatch(/robots:\s*\{\s*index:\s*false/);
+    // It still READS the key: with one it looks you up, without one it asks.
+    // Losing this line would mean the paid path can never light up again.
     expect(src).toContain("gbpConfigured()");
+  });
+
+  it("renders the free self-check, so a keyless visit is never a dead end", () => {
+    const src = readFileSync(
+      path.join(ROOT, "app", "freetools", "google-profile", "checker.tsx"),
+      "utf8"
+    );
+    expect(src).toContain("scoreSelfCheck");
+    expect(src).toContain("runSelfCheck");
+    // The words that used to be the whole experience without a key.
+    expect(src).not.toContain("Not switched on yet");
   });
 });
 

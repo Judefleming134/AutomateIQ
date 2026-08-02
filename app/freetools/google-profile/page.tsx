@@ -5,20 +5,17 @@ import { gbpConfigured } from "@/lib/tools/gbp";
 import { GbpChecker } from "./checker";
 
 /**
- * `noindex` while the checker is off.
+ * Indexable again — the page has something to say now.
  *
- * This page was in the sitemap the whole time it was returning "not switched
- * on yet", so Google was being told to send people searching for exactly this
- * problem to a dead end. Being ranked for a page that can't help is worse than
- * not being found at all. Both this and the sitemap entry come back on their
- * own the moment GOOGLE_PLACES_API_KEY is set — nothing to remember.
+ * It used to be `noindex` whenever GOOGLE_PLACES_API_KEY was missing, because
+ * it rendered "not switched on yet" and being ranked for a page that can't
+ * help is worse than not being found at all. That guard was right for what the
+ * page was. The self-check (J1) means there is no off state left to hide: with
+ * a key it looks you up, without one it asks you seven questions, and both
+ * produce the same scored report. Nothing here is gated any more.
  */
-export async function generateMetadata(): Promise<Metadata> {
-  if (gbpConfigured()) return metadata;
-  return { ...metadata, robots: { index: false, follow: true } };
-}
 
-const metadata: Metadata = {
+export const metadata: Metadata = {
   title: "Free Google Business Profile check | AutomateIQ",
   description:
     "See why your business isn't showing in the Google map pack. Free check of your reviews, rating, hours, category and phone — with the one fix that matters most.",
@@ -44,7 +41,7 @@ export default function GoogleProfilePage() {
         <p className="book-hero-sub">
           For a local trade, your Google Business Profile decides more of your phone calls
           than your website does. This checks the handful of things that actually move it
-          — and tells you which one to fix first.
+          — and tells you which one to fix first. No sign-up, no email needed.
         </p>
       </section>
 

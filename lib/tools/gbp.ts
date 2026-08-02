@@ -1,5 +1,10 @@
 import "server-only";
 
+import { buildGbpReport, type GbpResult } from "@/lib/tools/gbp-report";
+
+// Re-exported so existing importers of this module keep working unchanged.
+export type { GbpFinding, GbpResult, GbpProfile } from "@/lib/tools/gbp-report";
+
 /**
  * Google Business Profile checker.
  *
@@ -8,35 +13,15 @@ import "server-only";
  * public profile through the Places API and reports the handful of things that
  * decide whether a business appears in "plumber near me".
  *
- * Requires GOOGLE_PLACES_API_KEY. Places has a standing monthly free credit
- * that comfortably covers this tool's volume, but it does need a billing
- * account attached, so the tool reports itself as unconfigured rather than
- * silently returning nothing.
+ * This is the RICH path and it costs money: Places needs a billing account
+ * attached, which is why the tool sat switched off (J1). The scoring, the
+ * findings and the verdict are no longer in here — they moved to
+ * `lib/tools/gbp-report.ts` so the free self-check in `gbp-self.ts` produces a
+ * byte-identical report from facts the visitor supplies instead. This path
+ * stays exactly as it was and lights up on its own the day a key is set.
  */
 
 const PLACES_SEARCH = "https://places.googleapis.com/v1/places:searchText";
-
-export type GbpFinding = {
-  id: string;
-  label: string;
-  status: "pass" | "warn" | "fail";
-  impact: "high" | "medium" | "low";
-  found: string;
-  why: string;
-  fix: string;
-};
-
-export type GbpResult = {
-  name: string;
-  address: string;
-  rating: number | null;
-  reviewCount: number;
-  primaryType: string | null;
-  mapsUri: string | null;
-  score: number;
-  verdict: string;
-  findings: GbpFinding[];
-};
 
 export type GbpFailure = { error: "not_configured" | "not_found" | "upstream"; message: string };
 
@@ -111,129 +96,19 @@ export async function checkGbp(query: string): Promise<GbpResult | GbpFailure> {
     };
   }
 
-  const reviewCount = raw.userRatingCount ?? 0;
-  const rating = raw.rating ?? null;
-  const hours = raw.regularOpeningHours?.weekdayDescriptions ?? [];
-  const findings: GbpFinding[] = [];
-
-  findings.push({
-    id: "reviews",
-    label: "Number of reviews",
-    impact: "high",
-    status: reviewCount >= 25 ? "pass" : reviewCount >= 8 ? "warn" : "fail",
-    found: `${reviewCount} review${reviewCount === 1 ? "" : "s"}${rating ? `, averaging ${rating.toFixed(1)}` : ""}`,
-    why: "Review count is one of the strongest signals deciding who appears in the map pack, and it's the first thing a customer compares. Below about ten, you look new — whether you've been going twenty years or not.",
-    fix:
-      reviewCount >= 25
-        ? "Good base. Keep them coming — recency counts as well as volume."
-        : "Ask every happy customer, the day the job finishes, with a direct link. That single habit moves this faster than anything else on this page.",
-  });
-
-  findings.push({
-    id: "rating",
-    label: "Star rating",
-    impact: "high",
-    status: rating === null ? "fail" : rating >= 4.5 ? "pass" : rating >= 4.0 ? "warn" : "fail",
-    found: rating === null ? "No rating yet" : `${rating.toFixed(1)} out of 5`,
-    why: "Under 4.0 and people scroll past you without reading a word. Between 4.0 and 4.5 you're in the pack but not winning it. The gap between 4.3 and 4.7 is worth more calls than most advertising.",
-    fix:
-      rating !== null && rating >= 4.5
-        ? "Strong. Protect it by replying to every review, good and bad."
-        : "You can't delete bad reviews, but you can outweigh them. A steady flow of new ones moves the average faster than arguing with old ones ever will.",
-  });
-
-  findings.push({
-    id: "hours",
-    label: "Opening hours",
-    impact: "medium",
-    status: hours.length > 0 ? "pass" : "fail",
-    found: hours.length > 0 ? `Listed for ${hours.length} days` : "Not listed",
-    why: "Google actively pushes profiles with no hours down in local results, and 'Open now' is one of the filters people actually use. Missing hours also means nobody knows whether to ring you at 7pm.",
-    fix: hours.length > 0 ? "Listed. Keep bank holidays updated." : "Add your hours — it takes two minutes and it's one of the cheapest wins available.",
-  });
-
-  findings.push({
-    id: "phone",
-    label: "Phone number",
-    impact: "high",
-    status: raw.nationalPhoneNumber ? "pass" : "fail",
-    found: raw.nationalPhoneNumber ?? "No phone number on the profile",
-    why: "The call button on your profile is the single most-used thing on it. Without a number, someone ready to book has nothing to press.",
-    fix: raw.nationalPhoneNumber ? "Present." : "Add it, and make sure it matches the number on your website exactly.",
-  });
-
-  findings.push({
-    id: "website",
-    label: "Website link",
-    impact: "medium",
-    status: raw.websiteUri ? "pass" : "warn",
-    found: raw.websiteUri ?? "No website linked",
-    why: "The link sends profile traffic to your site, and it's part of how Google connects the two so they reinforce each other rather than competing.",
-    fix: raw.websiteUri ? "Linked." : "Link your site — and if you haven't got one, the profile is doing all the work alone.",
-  });
-
-  findings.push({
-    id: "category",
-    label: "Business category",
-    impact: "high",
-    status: raw.primaryTypeDisplayName?.text ? "pass" : "fail",
-    found: raw.primaryTypeDisplayName?.text ?? "No primary category set",
-    why: "Your category is what Google matches against the search itself. Wrong or missing category means you simply don't enter the running, no matter how good the rest is.",
-    fix: raw.primaryTypeDisplayName?.text
-      ? "Set. Check it's the most specific one that fits — 'Plumber' beats 'Contractor'."
-      : "Set your primary category to the most specific match for what you actually do.",
-  });
-
-  findings.push({
-    id: "description",
-    label: "Business description",
-    impact: "low",
-    status: raw.editorialSummary?.text ? "pass" : "warn",
-    found: raw.editorialSummary?.text ? "Written" : "Not written",
-    why: "750 characters to say what you do, where you cover, and why someone should pick you. It won't rank you on its own, but it's read by people already deciding.",
-    fix: raw.editorialSummary?.text ? "Present." : "Write it — services, areas covered, what makes you different. Plain words.",
-  });
-
-  if (raw.businessStatus && raw.businessStatus !== "OPERATIONAL") {
-    findings.unshift({
-      id: "status",
-      label: "Profile status",
-      impact: "high",
-      status: "fail",
-      found: `Google lists this business as ${raw.businessStatus.toLowerCase().replace(/_/g, " ")}`,
-      why: "Google is telling everyone who finds you that you're closed. Nothing else on this list matters while that's true.",
-      fix: "Sign into your Business Profile and set the status back to open. If you've lost access to the profile, claim it — that's the whole job today.",
-    });
-  }
-
-  const WEIGHT = { high: 10, medium: 5, low: 2 };
-  const CREDIT = { pass: 1, warn: 0.5, fail: 0 };
-  const earned = findings.reduce((n, f) => n + WEIGHT[f.impact] * CREDIT[f.status], 0);
-  const total = findings.reduce((n, f) => n + WEIGHT[f.impact], 0);
-  const score = total ? Math.round((earned / total) * 100) : 0;
-
-  const worst = findings.find((f) => f.status === "fail") ?? findings.find((f) => f.status === "warn");
-  const verdict = !worst
-    ? "This profile is in good shape — the basics are all covered."
-    : worst.id === "status"
-      ? "Google is currently telling people you're closed."
-      : worst.id === "reviews" || worst.id === "rating"
-        ? "Your profile is set up, but your reviews are what's holding you out of the map pack."
-        : `The biggest gap is your ${worst.label.toLowerCase()}.`;
-
-  return {
+  return buildGbpReport({
     name: raw.displayName?.text ?? "Unknown",
     address: raw.formattedAddress ?? "",
-    rating,
-    reviewCount,
+    rating: raw.rating ?? null,
+    reviewCount: raw.userRatingCount ?? 0,
     primaryType: raw.primaryTypeDisplayName?.text ?? null,
     mapsUri: raw.googleMapsUri ?? null,
-    score,
-    verdict,
-    findings: findings.sort((a, b) => {
-      const s = { fail: 0, warn: 1, pass: 2 };
-      const i = { high: 0, medium: 1, low: 2 };
-      return s[a.status] - s[b.status] || i[a.impact] - i[b.impact];
-    }),
-  };
+    phone: raw.nationalPhoneNumber ?? null,
+    website: raw.websiteUri ?? null,
+    hoursListed: (raw.regularOpeningHours?.weekdayDescriptions ?? []).length > 0,
+    hoursDays: raw.regularOpeningHours?.weekdayDescriptions?.length ?? null,
+    descriptionWritten: !!raw.editorialSummary?.text,
+    businessStatus: raw.businessStatus ?? null,
+    source: "google",
+  });
 }

@@ -18,7 +18,22 @@ export const BOOKING_CONFIG = {
   slotMinutes: 30,
   daysAhead: 21,
   // Minimum lead time before a slot can be booked (no same-hour bookings).
-  minLeadHours: 24,
+  //
+  // 12, not 24 — J3, decided rather than left open any longer.
+  //
+  // The phone script offers "would tomorrow morning suit?" and at 24 hours the
+  // booking page refused it. A call at 11am Monday made everything before 11am
+  // Tuesday unbookable, so the whole of the next morning was gone; a 2pm call
+  // took the morning AND the early afternoon. The lead was told one thing and
+  // shown another, on the page they were sent to while still on the phone.
+  //
+  // 12 is the value that fixes exactly that and nothing else:
+  //   · tomorrow 09:00 stays bookable for any call placed up to 21:00 today,
+  //     so the script's offer is always honourable;
+  //   · same-day is still impossible — a 9am call reaches 9pm, and the last
+  //     slot starts 16:30, so nothing today can be grabbed at short notice.
+  // Lowering it only ADDS slots; no existing booking or held slot is affected.
+  minLeadHours: 12,
   timezoneLabel: "Irish time (IST)",
   // 15, matching every other surface. This is a LABEL ONLY — it is shown on
   // the booking page, in the FAQ and in the confirmation email, and it does
