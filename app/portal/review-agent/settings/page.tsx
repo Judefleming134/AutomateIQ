@@ -137,6 +137,53 @@ export default async function ReviewAgentSettingsPage() {
               reviewed you. Switching this on does not reach back over older
               invoices.
             </span>
+            {/* The automation needs BOTH the tick AND a usable review link —
+                there is nowhere to send anyone without one. Ticking the box
+                with the field empty saved happily and then did nothing, every
+                morning, for ever, with the checkbox still showing "on". A
+                setting that reads as on and can never fire is worse than one
+                that is off. Judged by the same parser the runner now uses, so
+                this box and the morning run can never disagree. */}
+            {!link.ok && (
+              <span
+                style={{
+                  display: "flex",
+                  gap: 7,
+                  alignItems: "flex-start",
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                  color: "var(--orange, #fb923c)",
+                }}
+              >
+                <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  <strong>This can&apos;t run yet.</strong> Add a working review
+                  link above and it starts on the next morning run — the tick is
+                  saved either way, so you can set it now and fill the link in
+                  after.
+                </span>
+              </span>
+            )}
+            {link.ok && !link.known && (
+              <span
+                style={{
+                  display: "flex",
+                  gap: 7,
+                  alignItems: "flex-start",
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                  color: "var(--orange, #fb923c)",
+                }}
+              >
+                <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  Requests will go out pointing at {link.url.hostname}. That
+                  works, but it isn&apos;t a review site we recognise — worth a
+                  look before leaving this switched on, because these emails go
+                  to your own customers.
+                </span>
+              </span>
+            )}
           </div>
           <div className="form-actions">
             <SubmitButton pendingText="Saving…">Save changes</SubmitButton>
