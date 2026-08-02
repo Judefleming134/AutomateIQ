@@ -57,6 +57,7 @@ import {
   deleteProposal,
 } from "../proposal-actions";
 import { logInboundMessage } from "../../inbox/actions";
+import { messageInstant } from "@/lib/growth/inbox-order";
 
 // Research and proposal generation are single long AI calls.
 export const maxDuration = 60;
@@ -1031,7 +1032,17 @@ export default async function ProspectWorkspacePage({
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {[
-                  ...(messages ?? []).map((m) => ({ kind: "message" as const, at: m.created_at, m })),
+                  // messageInstant, NOT created_at. created_at is when a draft
+                  // was WRITTEN; the 07:00 cron sends what the nightly run
+                  // drafted, so an outreach email is routinely created hours
+                  // before it goes. Activities are stamped when they actually
+                  // happen, so mixing the two frames in one list put the email
+                  // BELOW a call logged after it was drafted — while the
+                  // stamp on the email itself already read "Sent 07:00",
+                  // because stampLabel had it right all along. The page
+                  // contradicted its own timestamps. Same rule as the inbox
+                  // and the Jarvis brief: lib/growth/inbox-order.ts.
+                  ...(messages ?? []).map((m) => ({ kind: "message" as const, at: messageInstant(m), m })),
                   ...(activities ?? []).map((a) => ({ kind: "activity" as const, at: a.created_at, a })),
                 ]
                   .sort((x, y) => (x.at < y.at ? 1 : -1))
