@@ -106,3 +106,57 @@ export function applyDueBucket<Q extends FilterableQuery<Q>>(
   // this is a no-op there — applied anyway so the rule has one home.)
   return q.not("status", "in", closedStatusFilter());
 }
+
+/* ------------------------------------------------------------------ */
+/* Stage buckets — a group of statuses, not one                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * "Still to research" is TWO statuses, not one.
+ *
+ * The campaigns page shows a per-campaign to-do column: N ready, N approved,
+ * N to research, N failed research. Three of those are links to a
+ * single-status filter. "N to research" was plain text — the only tally on
+ * that column you cannot click, and the most actionable one, because it is
+ * what feeds the research queue that makes every other number possible.
+ *
+ * It was left unlinked on purpose. The page's own comment says the tallies
+ * are tracked separately "because each is a click-through to a single-status
+ * filter — the number shown must equal the rows the click lands on, or the
+ * page looks broken". `to research` spans `new` AND `researching`, and no
+ * single-status filter could match it. So rather than link it to something
+ * that would show a different number, it was left as text.
+ *
+ * This gives it a filter that matches it exactly. Same shape as the due
+ * buckets above: defined once, applied by both the page and the CSV export,
+ * so the count, the list and the download can never disagree.
+ */
+export const STAGE_BUCKETS = ["to_research"] as const;
+export type StageBucket = (typeof STAGE_BUCKETS)[number];
+
+/** The statuses each bucket covers. The single source for "which statuses". */
+export const STAGE_BUCKET_STATUSES: Record<StageBucket, readonly string[]> = {
+  to_research: ["new", "researching"],
+};
+
+export const STAGE_BUCKET_LABELS: Record<StageBucket, string> = {
+  to_research: "still to research",
+};
+
+export function resolveStageBucket(raw: string | null | undefined): StageBucket | null {
+  return (STAGE_BUCKETS as readonly string[]).includes(raw ?? "")
+    ? (raw as StageBucket)
+    : null;
+}
+
+/**
+ * Narrows a prospects query to one stage bucket. Returns it unchanged when
+ * there is no bucket, so a caller can apply it unconditionally.
+ */
+export function applyStageBucket<Q extends FilterableQuery<Q>>(
+  query: Q,
+  stage: StageBucket | null
+): Q {
+  if (!stage) return query;
+  return query.in("status", STAGE_BUCKET_STATUSES[stage]);
+}

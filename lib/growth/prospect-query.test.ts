@@ -7,7 +7,13 @@ import {
   closedStatusFilter,
   DUE_BUCKETS,
   DUE_BUCKET_LABELS,
+  applyStageBucket,
+  resolveStageBucket,
+  STAGE_BUCKETS,
+  STAGE_BUCKET_STATUSES,
+  STAGE_BUCKET_LABELS,
   type DueBucket,
+  type StageBucket,
 } from "@/lib/growth/prospect-query";
 import { CONTACTED_ACTIVE_STATUSES } from "@/lib/growth/constants";
 
@@ -179,5 +185,102 @@ describe("the page and the export narrow identically", () => {
     );
     expect(DASH).toContain("/growth/prospects?due=unscheduled");
     expect(resolveDueBucket("unscheduled")).toBe("unscheduled");
+  });
+});
+
+/**
+ * "Still to research" is TWO statuses, not one.
+ *
+ * The campaigns page shows a per-campaign to-do column: N ready, N approved,
+ * N to research, N failed research. Three of those linked to a single-status
+ * filter. "N to research" was plain TEXT — the only tally on that column you
+ * could not click, and the most actionable one, because it is what feeds the
+ * research queue that makes every other number possible.
+ *
+ * It was left unlinked on purpose: the page's own comment says each tally must
+ * equal the rows its click lands on, and no single-status filter could match
+ * a two-status group. So it was a dead end rather than a wrong number — the
+ * right call, and now it needs to be neither.
+ */
+
+const stageFiltersFor = (stage: StageBucket | null): Call[] => {
+  const { q, calls } = recorder();
+  applyStageBucket(q, stage);
+  return calls;
+};
+
+describe("the two-status bucket the campaigns page needed", () => {
+  it("matches exactly the statuses the campaigns tally counts", () => {
+    expect(STAGE_BUCKET_STATUSES.to_research).toEqual(["new", "researching"]);
+    expect(stageFiltersFor("to_research")).toEqual([
+      ["in", "status", ["new", "researching"]],
+    ]);
+  });
+
+  it("leaves the query alone when there is no bucket", () => {
+    expect(stageFiltersFor(null)).toEqual([]);
+  });
+
+  it("reads only the buckets it knows", () => {
+    for (const b of STAGE_BUCKETS) expect(resolveStageBucket(b)).toBe(b);
+    for (const bad of ["", "  ", "nonsense", "TO_RESEARCH", null, undefined]) {
+      expect(resolveStageBucket(bad)).toBeNull();
+    }
+  });
+
+  it("every bucket has a label and applies a real filter", () => {
+    for (const b of STAGE_BUCKETS) {
+      expect(STAGE_BUCKET_LABELS[b], b).toBeTruthy();
+      expect(stageFiltersFor(b).length, b).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("the count and the click-through cannot drift", () => {
+  const CAMPAIGNS = readFileSync(
+    path.join(ROOT, "app", "growth", "(app)", "campaigns", "page.tsx"),
+    "utf8"
+  );
+  const PAGE = readFileSync(
+    path.join(ROOT, "app", "growth", "(app)", "prospects", "page.tsx"),
+    "utf8"
+  );
+  const EXPORT = readFileSync(
+    path.join(ROOT, "app", "growth", "(app)", "reports", "export", "route.ts"),
+    "utf8"
+  );
+
+  it("the campaigns tally counts the SAME statuses the filter applies", () => {
+    // Not a second hand-written list — the shared constant itself.
+    expect(CAMPAIGNS).toContain("new Set(STAGE_BUCKET_STATUSES.to_research)");
+    expect(CAMPAIGNS).not.toContain('new Set(["new", "researching"])');
+  });
+
+  it("the tally is a link now, not a dead end", () => {
+    expect(CAMPAIGNS).toContain("stage=to_research");
+    expect(CAMPAIGNS).not.toMatch(/<span key="t"[\s\S]{0,120}to research/);
+  });
+
+  it("the prospects page applies it", () => {
+    expect(PAGE).toContain("applyStageBucket(query, stage)");
+    expect(PAGE).toContain("resolveStageBucket(params.stage)");
+  });
+
+  it("the CSV export applies it too — same definition", () => {
+    // The bug fixed in #526 was a bucket the page knew about and the export
+    // did not. A new bucket must not repeat it.
+    expect(EXPORT).toContain("applyStageBucket(query, resolveStageBucket(stageParam))");
+    expect(EXPORT).toContain('url.searchParams.get("stage")');
+  });
+
+  it("the export href and every page link carry it", () => {
+    expect(PAGE).toContain('exportSp.set("stage", stage)');
+    expect(PAGE).toContain('sp.set("stage", stage)');
+    expect(PAGE).toContain('name="stage"');
+  });
+
+  it("it counts as a filter, so the page offers a way back out", () => {
+    expect(PAGE).toContain("|| due || stage ?");
+    expect(EXPORT).toContain("|| dueParam || stageParam");
   });
 });
