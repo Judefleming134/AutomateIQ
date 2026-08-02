@@ -1131,24 +1131,69 @@ export async function bulkProspectAction(_prev: Result, formData: FormData): Pro
 
   const admin = createAdminClient();
 
+  // A mis-ticked LIVE deal (replied, qualified, booked, in proposal, won) must
+  // not disappear with the dead weight. Declared once, because BOTH bulk paths
+  // need it — the archive path has always had this guard and the delete path,
+  // the one that cannot be undone, had none at all.
+  const LIVE_DEAL_STATUSES = [
+    "replied", "qualified", "meeting_booked",
+    "proposal_in_progress", "proposal_sent", "negotiation", "won",
+  ];
+  const liveDealFilter = `(${LIVE_DEAL_STATUSES.map((s) => `"${s}"`).join(",")})`;
+
   if (intent === "delete") {
     if (member.role !== "owner") return { error: "Only owners can delete prospects." };
-    const { error } = await admin.from("ge_prospects").delete().in("id", ids);
-    if (error) return { error: error.message };
+
+    // The SAME guard archive has, on the action that removes the row, its
+    // research, its whole message history and every activity on it, for ever.
+    // Ticking a page that happens to include a won customer and pressing
+    // Delete was one generic confirm dialog away from destroying the record of
+    // a paying customer — and the dialog said only "N prospects".
+    //
+    // Named exactly in CLAUDE.md: "destructive overwrite with no undo".
+    //
+    // Deliberately NOT a block on deleting a live deal at all — that would
+    // remove something Jude can do today. The single-prospect Delete on the
+    // prospect's own page is untouched, so it stays possible, just deliberate.
+    // Looked up FIRST so the message can name what was kept and why, rather
+    // than inferring it from a row count that also moves when an id is stale.
+    const { data: liveRows } = await admin
+      .from("ge_prospects")
+      .select("id, company, status")
+      .in("id", ids)
+      .in("status", LIVE_DEAL_STATUSES);
+    const live = liveRows ?? [];
+    const liveIds = new Set(live.map((r) => r.id as string));
+    const deletable = ids.filter((id) => !liveIds.has(id));
+
+    if (deletable.length > 0) {
+      const { error } = await admin.from("ge_prospects").delete().in("id", deletable);
+      if (error) return { error: error.message };
+    }
+
+    if (live.length > 0) {
+      revalidatePath("/growth/prospects");
+      revalidatePath("/growth");
+      const named = live
+        .slice(0, 3)
+        .map((r) => `${r.company} (${r.status})`)
+        .join(", ");
+      return {
+        error:
+          `Deleted ${deletable.length} — kept ${live.length} live deal${live.length === 1 ? "" : "s"}: ` +
+          `${named}${live.length > 3 ? "…" : ""}. Those are still in your pipeline. ` +
+          `If you really mean it, delete them one at a time from their own page.`,
+      };
+    }
   } else if (intent === "archive") {
     // Bulk archive is for clearing dead weight — a mis-ticked LIVE deal
-    // (replied, qualified, booked, in proposal, won) must not silently
-    // vanish from the pipeline with it. Those are skipped here and can
-    // still be archived deliberately from their own page.
-    const LIVE_DEAL_STATUSES = [
-      "replied", "qualified", "meeting_booked",
-      "proposal_in_progress", "proposal_sent", "negotiation", "won",
-    ];
+    // must not silently vanish from the pipeline with it. Those are skipped
+    // here and can still be archived deliberately from their own page.
     const { data: archived, error } = await admin
       .from("ge_prospects")
       .update({ status: "archived", next_follow_up_at: null })
       .in("id", ids)
-      .not("status", "in", `(${LIVE_DEAL_STATUSES.map((s) => `"${s}"`).join(",")})`)
+      .not("status", "in", liveDealFilter)
       .select("id");
     if (error) return { error: error.message };
     const skipped = ids.length - (archived ?? []).length;
