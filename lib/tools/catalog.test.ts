@@ -57,16 +57,31 @@ describe("tool availability tracks the environment", () => {
     expect(toolCards().every((t) => t.status === "live")).toBe(true);
   });
 
-  it("marks the Google check unavailable without a Places key", async () => {
+  it("keeps the Google check LIVE without a Places key — it no longer needs one", async () => {
+    // This used to assert the opposite, and it was right to: the tool ran the
+    // Places API or nothing, so with no key it was a dead card and the hub had
+    // to say so. J1 removed the gate — without a key it asks the seven
+    // questions the API was answering and scores them with the same engine, so
+    // there is no off state left to advertise. The mechanism is untouched and
+    // still governs the review writer below; this tool simply opted out of it.
     process.env.ANTHROPIC_API_KEY = "k";
     const { toolCards, liveToolCount } = await load();
     const gbp = toolCards().find((t) => t.slug === "google-profile")!;
-    expect(gbp.status).toBe("unavailable");
-    expect(gbp.unavailableNote).toBeTruthy();
-    expect(liveToolCount()).toBe(5);
+    expect(gbp.status).toBe("live");
+    expect(gbp.unavailableNote).toBeNull();
+    expect(liveToolCount()).toBe(6);
+  });
+
+  it("stays live with a key too — a key upgrades it, it does not switch it on", async () => {
+    process.env.GOOGLE_PLACES_API_KEY = "k";
+    process.env.ANTHROPIC_API_KEY = "k";
+    const { toolCards } = await load();
+    expect(toolCards().find((t) => t.slug === "google-profile")!.status).toBe("live");
   });
 
   it("marks the review writer unavailable with no AI provider", async () => {
+    // The gating mechanism itself still works — proven here, on the tool that
+    // genuinely still depends on a paid key.
     process.env.GOOGLE_PLACES_API_KEY = "k";
     const { toolCards } = await load();
     expect(toolCards().find((t) => t.slug === "reviews")!.status).toBe("unavailable");
