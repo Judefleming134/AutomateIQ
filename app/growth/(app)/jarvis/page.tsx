@@ -19,6 +19,7 @@ import { SendBriefButton } from "@/components/growth/send-brief-button";
 import { listAutopilotCandidates } from "@/lib/growth/autopilot";
 import { CLOSED_STATUSES } from "@/lib/growth/constants";
 import { dublinDate, morningSendLabel } from "@/lib/growth/dates";
+import { countAwaitingReplies } from "@/lib/growth/awaiting";
 
 // Jarvis answers run a live AI call inside this route's actions.
 export const maxDuration = 60;
@@ -35,6 +36,7 @@ export default async function JarvisPage() {
     { count: readyCount },
     candidates,
     { data: queuedEmails },
+    awaitingCount,
   ] = await Promise.all([
     // All-time + last-7-days from a single table load, not two full scans.
     loadGrowthMetricsMulti(admin, [null, 7]),
@@ -61,6 +63,10 @@ export default async function JarvisPage() {
       .eq("direction", "outbound")
       .eq("status", "queued")
       .limit(500),
+    // Replies still WAITING on an answer — not replies received this week.
+    // See lib/growth/awaiting.ts: this panel used week.replies, which counts a
+    // reply Jude answered on Monday the same as one nobody has touched.
+    countAwaitingReplies(admin),
   ]);
   const queuedRows = (queuedEmails ?? []) as { prospect_id: string }[];
   const queuedCount = queuedRows.length;
@@ -93,9 +99,15 @@ export default async function JarvisPage() {
       label: `${readyAdjusted} researched prospect${readyAdjusted === 1 ? "" : "s"} with drafts ready and no first touch yet — send the top scores`,
       href: "/growth/prospects?sort=score",
     });
-  if (week.replies > 0)
+  // Replies STILL WAITING, not replies received. The old count was
+  // `week.replies` — every inbound of the last 7 days, answered or not — so on
+  // a morning when Jude had answered all of them this panel still told him to
+  // go and answer them, and the click landed on an inbox with nothing due.
+  // Same rule and therefore the same number as the dashboard's
+  // "N replies are waiting on you" panel and the inbox's "Reply due" group.
+  if (awaitingCount > 0)
     priorities.push({
-      label: `${week.replies} repl${week.replies === 1 ? "y" : "ies"} this week — every one gets an answer today`,
+      label: `${awaitingCount} repl${awaitingCount === 1 ? "y is" : "ies are"} waiting on you — answer these first, they raised their hand`,
       href: "/growth/inbox",
     });
 
