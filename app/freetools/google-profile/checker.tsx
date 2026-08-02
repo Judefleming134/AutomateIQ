@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ToolLeadForm } from "@/components/tools/tool-lead-form";
 import { AlertTriangle, ArrowRight, Check, Loader2, MapPin, Star, TriangleAlert, X } from "lucide-react";
 
 type Finding = {
@@ -223,6 +224,28 @@ export function GbpChecker({ configured }: { configured: boolean }) {
               })}
             </div>
           </details>
+
+          {/* The ONE tool that produced a full report and let the visitor
+              walk away. Every other free tool captures here; this one was
+              missed, and because it is gated behind GOOGLE_PLACES_API_KEY it
+              would have gone live silently the moment the key was set.
+
+              Same placement as the others: under a finished result, never in
+              front of one. The report stays on screen either way. */}
+          <ToolLeadForm
+            tool="google-profile"
+            subject={result.address ? `${result.name} · ${result.address}` : result.name}
+            headline={`${result.score}/100 — ${result.verdict}`}
+            topFinding={
+              top ? `${top.label}: ${top.found}` : "Every check passed"
+            }
+            title="Want this sent to you?"
+            blurb={
+              problems.length > 0
+                ? `Leave your email and we'll send the full ${result.findings.length}-point check over, plus the ${problems.length} thing${problems.length === 1 ? "" : "s"} to fix first and how long each takes.`
+                : "Leave your email and we'll send the full check over — plus what to do next to hold the position you've got."
+            }
+          />
 
           <div className="panel panel-block" style={{ marginTop: 20, borderLeft: "3px solid var(--ac1, #8b5cf6)" }}>
             <strong>Reviews are the one that compounds</strong>
