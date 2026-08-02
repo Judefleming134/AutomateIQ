@@ -27,6 +27,13 @@ import { isAuthorizedCron } from "@/lib/cron/auth";
 // default function budget.
 export const maxDuration = 60;
 
+/**
+ * How long the brief will wait for the invoice chaser to finish writing
+ * qa_invoices before going out regardless. See the call site for why the wait
+ * exists and why it is bounded.
+ */
+const CHASER_SETTLE_MS = 10_000;
+
 /** One task blowing up must never take the others down with it. */
 async function isolated<T>(name: string, task: () => Promise<T>): Promise<T | { error: string }> {
   try {
@@ -64,7 +71,10 @@ export async function GET(request: NextRequest) {
   // businesses only — disjoint from the ge_* and strategy_bookings tables every
   // sequential task below uses — so there is nothing to race and no reason for
   // its outbound emails to sit on the critical path of a 60-second budget that
-  // also has to fit an AI call. Awaited at the end so a failure is reported.
+  // also has to fit an AI call.
+  //
+  // It is NOT disjoint from the BRIEF, which reads qa_invoices. See the
+  // bounded settle before the brief runs, further down.
   const invoiceChasePromise = isolated("invoiceChaser", runInvoiceChaser);
 
   // ─────────────────────────────────────────────────────────────────────
@@ -101,6 +111,42 @@ export async function GET(request: NextRequest) {
   // before the send, so the whole chase cycle runs itself (capped, gated).
   const autoFollowups = await isolated("autoFollowups", autoQueueDueFollowups);
   const emailAutopilot = await isolated("emailAutopilot", runQueuedEmailAutopilot);
+
+  // The chaser is NOT as disjoint from the brief as it is from the ge_ chain.
+  //
+  // It WRITES qa_invoices.chase_count; the brief's money block READS
+  // qa_invoices.chase_count and turns `>= 3` into the "📞 past automatic
+  // chasing — needs a call" line. That line is the handoff from the engine to
+  // Jude: the moment the sequence gives up and a human has to ring someone
+  // about money. Whether it appeared was a race between two things started
+  // minutes apart, so on the morning the third and final reminder went out,
+  // the one line telling him to pick up the phone could silently be a day
+  // late — and the brief's own comment claims it reports the reminders it
+  // sends every morning.
+  //
+  // So settle the chaser BEFORE the brief reads. In practice this costs
+  // nothing: it has had the whole sequential block above to finish.
+  //
+  // Bounded, because the brief matters more than the precision. The chaser
+  // makes outbound HTTP calls with no timeout of their own, and a hung one
+  // must never stop the 07:00 brief going out — that is the one thing
+  // CLAUDE.md says can never be left broken. On timeout the brief sends
+  // anyway, exactly as it does today, and the real result is still awaited
+  // below so nothing is abandoned or unreported.
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  const chaserSettled = await Promise.race([
+    invoiceChasePromise.then(() => true),
+    new Promise<false>((resolve) => {
+      settleTimer = setTimeout(() => resolve(false), CHASER_SETTLE_MS);
+    }),
+  ]);
+  clearTimeout(settleTimer);
+  if (!chaserSettled) {
+    console.warn(
+      `invoice chaser still running after ${CHASER_SETTLE_MS}ms — the brief's chase figures may not include this morning's run`
+    );
+  }
+
   const jarvisBrief = await isolated("jarvisBrief", sendJarvisMorningBrief);
 
   // Settle the disjoint task before responding, so its outcome is reported
@@ -116,6 +162,10 @@ export async function GET(request: NextRequest) {
       reviewReminders,
       reviewAutopilot,
       invoiceChaser,
+      // False only when the chaser outran the settle window above — in which
+      // case the brief's chase figures may lag by a morning, and this is how
+      // that becomes visible rather than invisible.
+      invoiceChaserSettledBeforeBrief: chaserSettled,
       bookingSync,
       autoQueue,
       autoFollowups,
