@@ -919,11 +919,22 @@ export default async function GrowthDashboardPage() {
             <StatCard label="Meetings" value={metrics.meetingsBooked} icon={<CalendarCheck />} accent="var(--ac2)" />
             <StatCard label="Conversion" value={`${metrics.conversionRate}%`} icon={<TrendingUp />} />
             <StatCard label="Proposals sent" value={metrics.proposalsSent} icon={<FileText />} accent="var(--orange, #fb923c)" />
+            {/* ALL TIME, under a heading that says "Last 30 days".
+                pipelineValue is a snapshot of every open and won deal — it is
+                not a 30-day flow, and unlike the six windowed tiles beside it
+                it does not change when the window does. Sitting unmarked in
+                this block it read as "we built €X of pipeline this month",
+                on the one number that is about money.
+
+                The Analytics page already carries exactly this hint on
+                exactly this card (and its own comment explains why); the
+                dashboard, which is read far more often, carried none. */}
             <StatCard
               label="Pipeline value"
               value={`€${Math.round(metrics.pipelineValue).toLocaleString("en-IE")}`}
               icon={<Euro />}
               accent="var(--green, #34d399)"
+              hint="all time · open + won"
             />
           </div>
         </section>
