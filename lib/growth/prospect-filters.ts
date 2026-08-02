@@ -28,6 +28,7 @@ export type ProspectFilterParams = {
   campaign?: string;
   phone?: string;
   due?: string;
+  stage?: string;
   sort?: string;
 };
 
@@ -47,6 +48,11 @@ export const DUE_CHIP_LABELS: Record<string, string> = {
   live: "follow-up due or overdue",
   cold: "gone cold (7+ days)",
   unscheduled: "no next step booked",
+};
+
+/** Human labels for the stage buckets — a GROUP of statuses, not one. */
+export const STAGE_CHIP_LABELS: Record<string, string> = {
+  to_research: "still to research",
 };
 
 /**
@@ -96,6 +102,7 @@ export function activeFilterChips(
   const industry = (params.industry ?? "").trim();
   const campaign = (params.campaign ?? "").trim();
   const due = (params.due ?? "").trim();
+  const stage = (params.stage ?? "").trim();
 
   if (q) chips.push({ key: "q", label: `“${q}”`, clearHref: filterHref(params, "q") });
   if (status) {
@@ -119,6 +126,13 @@ export function activeFilterChips(
       key: "due",
       label: DUE_CHIP_LABELS[due] ?? due,
       clearHref: filterHref(params, "due"),
+    });
+  }
+  if (stage) {
+    chips.push({
+      key: "stage",
+      label: STAGE_CHIP_LABELS[stage] ?? stage,
+      clearHref: filterHref(params, "stage"),
     });
   }
   return chips;

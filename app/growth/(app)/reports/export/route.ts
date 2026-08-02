@@ -2,7 +2,12 @@ import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
-import { applyDueBucket, resolveDueBucket } from "@/lib/growth/prospect-query";
+import {
+  applyDueBucket,
+  resolveDueBucket,
+  applyStageBucket,
+  resolveStageBucket,
+} from "@/lib/growth/prospect-query";
 import { PROSPECT_SORTS } from "@/lib/growth/constants";
 import { dublinDate } from "@/lib/growth/dates";
 import { toCsv } from "@/lib/growth/csv";
@@ -44,7 +49,8 @@ export async function GET(request: Request) {
     // from a "Gone cold" view would quietly hand back the whole database — the
     // exact promise #419 fixed for ordering, broken again by a new filter.
     const dueParam = url.searchParams.get("due") ?? "";
-    const filtered = Boolean(q || status || industry || campaign || phoneOnly || dueParam);
+    const stageParam = url.searchParams.get("stage") ?? "";
+    const filtered = Boolean(q || status || industry || campaign || phoneOnly || dueParam || stageParam);
 
     // Page past the 1,000-row cap so the export is the WHOLE result set, not a
     // truncated first slice — an incomplete export is a silent data-loss trap.
@@ -91,6 +97,7 @@ export async function GET(request: Request) {
         // to. It fell through every case, so exporting from that view handed
         // back the whole database in a file named "…-filtered".
         query = applyDueBucket(query, resolveDueBucket(dueParam), dublinDate());
+        query = applyStageBucket(query, resolveStageBucket(stageParam));
         return query;
       }
     );

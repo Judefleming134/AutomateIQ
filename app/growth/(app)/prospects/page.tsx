@@ -24,7 +24,12 @@ import { BulkActions, SelectAll } from "@/components/growth/bulk-actions";
 import { addProspect, importProspects, quickResearch } from "./actions";
 import { escapeLike, selectAllRows } from "@/lib/growth/db";
 import { activeFilterChips } from "@/lib/growth/prospect-filters";
-import { applyDueBucket, resolveDueBucket } from "@/lib/growth/prospect-query";
+import {
+  applyDueBucket,
+  resolveDueBucket,
+  applyStageBucket,
+  resolveStageBucket,
+} from "@/lib/growth/prospect-query";
 import { loadProspectQueues } from "@/lib/growth/prospect-queue";
 
 // Quick research runs a full AI research pass inside this route's actions.
@@ -45,7 +50,7 @@ const SORT_LABELS = PROSPECT_SORT_LABELS;
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; due?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; due?: string; stage?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
@@ -80,6 +85,9 @@ export default async function ProspectsPage({
   // narrows to exactly the same set. Two copies is how `unscheduled` ended up
   // on the page and not in the export.
   const due = resolveDueBucket(params.due);
+  // "Still to research" spans two statuses, so it needs a bucket rather than
+  // the single-status filter. The campaigns page links straight to it.
+  const stage = resolveStageBucket(params.stage);
 
   // Default to A→Z by company so a lead is easy to find by name — except the
   // dial view: with "Has phone" ticked the whole point is best-first calling
@@ -118,6 +126,7 @@ export default async function ProspectsPage({
   // The same date arithmetic the dashboard, the autopilot and the CSV export
   // use, so a bucket here always contains exactly what those surfaces counted.
   query = applyDueBucket(query, due, today);
+  query = applyStageBucket(query, stage);
 
   const [
     { data: prospects, count: totalMatching },
@@ -214,6 +223,7 @@ export default async function ProspectsPage({
     if (params.sort) sp.set("sort", params.sort);
     if (phoneOnly) sp.set("phone", "1");
     if (due) sp.set("due", due);
+    if (stage) sp.set("stage", stage);
     if (p > 1) sp.set("page", String(p));
     const qs = sp.toString();
     return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
@@ -233,6 +243,7 @@ export default async function ProspectsPage({
   if (campaign) exportSp.set("campaign", campaign);
   if (phoneOnly) exportSp.set("phone", "1");
   if (due) exportSp.set("due", due);
+  if (stage) exportSp.set("stage", stage);
   // The RESOLVED sort, not params.sort — so an export taken without touching
   // the dropdown still comes out in the order actually on screen (Has phone
   // defaults to best-score-first, everything else to A-Z).
@@ -243,7 +254,7 @@ export default async function ProspectsPage({
   // resolved to names — an id on a chip tells a human nothing.
   const campaignNameById = new Map((campaigns ?? []).map((c) => [c.id, c.name]));
   const filterChips = activeFilterChips(
-    { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, due: due ?? undefined, sort: params.sort },
+    { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, due: due ?? undefined, stage: stage ?? undefined, sort: params.sort },
     (id) => campaignNameById.get(id)
   );
 
@@ -266,7 +277,7 @@ export default async function ProspectsPage({
           <p>
             {total.toLocaleString("en-IE")} prospect
             {total === 1 ? "" : "s"}
-            {q || status || industry || campaign || phoneOnly || due ? " matching your filters" : ""} —
+            {q || status || industry || campaign || phoneOnly || due || stage ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
           {/* EVERY active filter, each clearable on its own.
@@ -326,6 +337,7 @@ export default async function ProspectsPage({
           {params.sort && <input type="hidden" name="sort" value={params.sort} />}
           {phoneOnly && <input type="hidden" name="phone" value="1" />}
           {due && <input type="hidden" name="due" value={due} />}
+          {stage && <input type="hidden" name="stage" value={stage} />}
           <input
             type="search"
             name="q"
@@ -623,7 +635,7 @@ export default async function ProspectsPage({
 
       {rows.length === 0 ? (
         <div className="panel panel-block">
-          {q || status || industry || campaign || phoneOnly || due ? (
+          {q || status || industry || campaign || phoneOnly || due || stage ? (
             <p className="empty-state">
               No prospects match your search or filters.{" "}
               <Link href="/growth/prospects">Clear them</Link> to see your whole

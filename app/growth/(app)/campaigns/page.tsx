@@ -13,6 +13,7 @@ import {
   type CampaignStatus,
 } from "@/lib/growth/constants";
 import { createCampaign } from "./actions";
+import { STAGE_BUCKET_STATUSES } from "@/lib/growth/prospect-query";
 
 export default async function CampaignsPage() {
   await requireGrowth();
@@ -38,7 +39,9 @@ export default async function CampaignsPage() {
   // ready/approved are tracked SEPARATELY because each is a click-through to
   // a single-status filter — the number shown must equal the rows the click
   // lands on, or the page looks broken ("12 ready" → 9 rows).
-  const TO_RESEARCH = new Set(["new", "researching"]);
+  // The SAME statuses the stage=to_research filter applies, so the number
+  // here and the rows the click lands on cannot drift apart.
+  const TO_RESEARCH = new Set(STAGE_BUCKET_STATUSES.to_research);
   const todo = new Map<
     string,
     { ready: number; approved: number; toResearch: number; failed: number }
@@ -183,10 +186,20 @@ export default async function CampaignsPage() {
                           );
                         }
                         if (t.toResearch > 0) {
+                          // Now a link like the three beside it. It used to be
+                          // plain text because "to research" spans TWO statuses
+                          // (new + researching) and the single-status filter
+                          // could not match it — so rather than send Jude to a
+                          // list showing a different number, it sent him
+                          // nowhere. The shared stage bucket matches it exactly.
                           parts.push(
-                            <span key="t" style={{ color: "var(--faint)" }}>
+                            <Link
+                              key="t"
+                              href={`/growth/prospects?campaign=${c.id}&stage=to_research`}
+                              style={{ color: "var(--faint)" }}
+                            >
                               {t.toResearch} to research
-                            </span>
+                            </Link>
                           );
                         }
                         if (t.failed > 0) {
