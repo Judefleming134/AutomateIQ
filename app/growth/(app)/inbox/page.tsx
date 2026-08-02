@@ -122,14 +122,50 @@ export default async function InboxPage({
   // filtered out of the capped global window. Once sent-mail history passes
   // the 1,000-row window, older queued/failed drafts fell out of it and
   // silently vanished from this view — while the 8am cron would still send
-  // them. Direct fetch means what's shown is exactly what's pending.
-  const { data: queueRows } = await admin
+  // them.
+  //
+  // TWO QUERIES, deliberately. A single `in(status, [draft, queued, failed])`
+  // capped at 500 by created_at meant the cap was applied BY DATE and the
+  // failed → queued → draft ranking below could only reorder whatever those
+  // newest 500 happened to hold. The engine writes ~5 drafts per researched
+  // prospect, so drafts are both the overwhelming majority AND the newest rows
+  // after every research batch: they filled the window and pushed the older
+  // FAILED and QUEUED rows straight out of it.
+  //
+  // Those two are the entire point of the view. A FAILED send never reached a
+  // prospect and needs a retry; a QUEUED one is going out at 07:00 whether or
+  // not this page shows it. Replayed: after one research run of 600 drafts,
+  // ALL 3 failed and ALL 40 queued disappeared while the tab still read a
+  // confident "(500)".
+  //
+  // Same shape as the call-list bug and the DM-pool bug — a cap applied before
+  // the "still to work" filter. Fetched on their own terms now; they are few.
+  const { data: actionableRows } = await admin
     .from("ge_messages")
     .select(MSG_COLS)
     .eq("direction", "outbound")
-    .in("status", ["draft", "queued", "failed"])
+    .in("status", ["failed", "queued"])
     .order("created_at", { ascending: false })
     .limit(500);
+  const { data: draftRows } = await admin
+    .from("ge_messages")
+    .select(MSG_COLS)
+    .eq("direction", "outbound")
+    .eq("status", "draft")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  const queueRows = [...(actionableRows ?? []), ...(draftRows ?? [])];
+
+  // The TRUE size of the queue, so the tab can't claim a confident "(500)"
+  // when there are 8,000. Cheap head count, no rows returned.
+  const { count: queueTotalRaw } = await admin
+    .from("ge_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("direction", "outbound")
+    .in("status", ["draft", "queued", "failed"]);
+  // Floored at what's in hand: a failed count must never read as fewer than
+  // the rows already on screen.
+  const queueTotal = Math.max(queueTotalRaw ?? 0, queueRows.length);
 
   // Prospect lookup covers everything shown: conversation threads + the queue.
   const prospectIds = [
@@ -223,9 +259,12 @@ export default async function InboxPage({
   // already newest-first and Array.sort is stable, so date order is preserved
   // within each status group.
   const queueRank: Record<string, number> = { failed: 0, queued: 1, draft: 2 };
-  const queue = (queueRows ?? [])
+  const queue = queueRows
     .slice()
     .sort((a, b) => (queueRank[a.status] ?? 3) - (queueRank[b.status] ?? 3));
+  // How many drafts are NOT on the page, so a truncated list says so rather
+  // than looking complete.
+  const draftsBeyond = Math.max(0, queueTotal - queue.length);
 
   let templates: ComposerTemplate[] = [];
   let settingsBookingUrl = "";
@@ -265,7 +304,7 @@ export default async function InboxPage({
             href="/growth/inbox?view=queue"
             className={`btn btn-sm ${view === "queue" ? "btn-primary" : "btn-secondary"}`}
           >
-            Outreach queue ({queue.length})
+            Outreach queue ({queueTotal})
           </Link>
         </div>
       </div>
@@ -279,6 +318,17 @@ export default async function InboxPage({
           </div>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
+            {/* Say when the list is shorter than the queue, so a truncated
+                page never reads as the whole of it. Every FAILED and QUEUED
+                message is always here — only drafts get cut, and they're the
+                ones that can wait. */}
+            {draftsBeyond > 0 && (
+              <p style={{ fontSize: 13, color: "var(--faint)", margin: 0 }}>
+                Showing <strong>{queue.length}</strong> of{" "}
+                <strong>{queueTotal}</strong> — every failed and queued message
+                is on this page; the rest are drafts, newest first.
+              </p>
+            )}
             {queue.map((m) => {
               const p = prospects.get(m.prospect_id);
               const statusMeta = MESSAGE_STATUS_META[m.status as MessageStatus];
