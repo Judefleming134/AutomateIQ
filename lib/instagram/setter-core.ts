@@ -21,6 +21,17 @@ import { generateAvailability, BOOKING_CONFIG } from "@/lib/booking/slots";
 
 export type IgHistoryTurn = { direction: "inbound" | "outbound"; text: string };
 
+/**
+ * Most auto-replies the setter will send into ONE conversation in 24 hours.
+ *
+ * Set far above any real exchange — a lead asking about a job trades a handful
+ * of messages, not thirty — so it never touches normal use. It exists for the
+ * abnormal case: a spam run, a looping integration, or someone hammering the
+ * message box, any of which would otherwise run the customer's own Instagram
+ * account into an unbounded send loop at an AI call per turn.
+ */
+export const MAX_AUTO_REPLIES_PER_DAY = 30;
+
 type SetterContext = {
   businessName: string;
   knowledge: string | null;
@@ -137,6 +148,10 @@ export type InboundResult = {
   /** True when a reply was generated but `deliver` reported it did NOT go out.
    *  The reply is deliberately not recorded in that case — see below. */
   deliveryFailed?: boolean;
+  /** True when this conversation has already had its day's worth of automatic
+   *  replies. The lead's message is still recorded and the thread stays
+   *  un-engaged, so the portal shows it as needing a human. */
+  cappedOut?: boolean;
 };
 
 /**
@@ -222,6 +237,40 @@ export async function handleInboundMessage(params: {
     .maybeSingle();
   if (settings?.auto_reply === false) {
     return { conversationId, reply: null, autoReplied: false };
+  }
+
+  // How many times the setter has already answered THIS conversation today.
+  //
+  // The auto-responder had no ceiling of any kind. One inbound event, one AI
+  // call, one outbound DM, for ever — so a spam run, a looping integration or
+  // simply someone hammering the message box put the customer's own Instagram
+  // account into an unbounded send loop, and every turn of it costs an AI call
+  // as well. Instagram rate-limits and flags accounts that behave like that,
+  // and it is the customer's account on the line, not ours.
+  //
+  // The cap is deliberately far above any real conversation: a genuine lead
+  // asking about a job exchanges a handful of messages, not thirty. It never
+  // touches normal use, and it turns a runaway into a quiet stop instead of a
+  // flagged account.
+  //
+  // NOT a state machine and NOT a new column — a count of what is already in
+  // the table, so there is nothing to migrate and nothing to get out of sync.
+  const dayStart = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const { count: repliesToday } = await supabase
+    .from("ig_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversationId)
+    .eq("direction", "outbound")
+    .eq("sender", "ai")
+    .gte("created_at", dayStart);
+  if ((repliesToday ?? 0) >= MAX_AUTO_REPLIES_PER_DAY) {
+    // The lead's message IS recorded above, and the conversation is left
+    // un-"engaged", so it keeps showing in the portal as needing attention —
+    // which is exactly right: a thread this long wants a human.
+    console.warn(
+      `IG setter: conversation ${conversationId} hit the ${MAX_AUTO_REPLIES_PER_DAY}-reply daily cap — handing over to a human.`
+    );
+    return { conversationId, reply: null, autoReplied: false, cappedOut: true };
   }
 
   // Build history (chronological) for context.

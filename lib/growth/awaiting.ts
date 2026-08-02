@@ -94,6 +94,27 @@ export async function countAwaitingReplies(admin: Client): Promise<number> {
   const ids = [...latestInbound.keys()];
   if (ids.length === 0) return 0;
 
+  // The bound that stops this query growing for ever.
+  //
+  // Naively this fetches EVERY sent message to all ~400 replied prospects,
+  // purely to work out the newest one for each — so it grew with send history
+  // rather than with the thing being measured, and a prospect emailed for a
+  // year dragged a year of rows across to answer a yes/no question.
+  //
+  // It doesn't need them. A send older than the OLDEST latest-reply in the set
+  // is older than every prospect's latest reply, so it cannot make anyone
+  // "answered" — for each id the test is `latestInbound > latestSent`, and a
+  // send below the floor loses that comparison for every id at once. Dropping
+  // those rows cannot change a single answer, and a prospect left with no
+  // qualifying send correctly reads as awaiting.
+  //
+  // Expressed on the same instant the rule uses: `sent_at` when set (which
+  // recordOutreachSent always does), `created_at` only for legacy rows that
+  // predate it. Bounding on `created_at` alone would have been WRONG — a draft
+  // written last week and sent this morning would fall outside it.
+  const floor = [...latestInbound.values()].reduce((a, b) => (a < b ? a : b));
+  const instantAtOrAfterFloor = `sent_at.gte.${floor},and(sent_at.is.null,created_at.gte.${floor})`;
+
   // CHUNKED for the same reason the dashboard chunks: every id rides in the
   // request URL at ~40 chars per UUID, and 400 of them is a ~16KB URL that
   // simply fails — which would report ZERO sends and therefore mark every
@@ -104,6 +125,7 @@ export async function countAwaitingReplies(admin: Client): Promise<number> {
       .select("prospect_id, sent_at, created_at")
       .eq("direction", "outbound")
       .eq("status", "sent")
+      .or(instantAtOrAfterFloor)
       .in("prospect_id", chunk)
   );
   const latestSent = latestSentByProspect(sentRows ?? []);
