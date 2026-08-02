@@ -36,6 +36,14 @@ export const config = {
     "/portal/:path*",
     "/admin/:path*",
     "/growth/:path*",
+    // TradeIQ and Finance are app surfaces too — same account system, both
+    // behind requireTradesAccount(). Leaving them out meant updateSession()
+    // never ran for a paying TradeIQ customer, so nothing could write their
+    // refreshed auth cookie and they were signed out about an hour after
+    // signing in. needsSession() excludes /tradeiq/doc, the public
+    // token-based customer page, so a sent quote still costs no auth call.
+    "/tradeiq/:path*",
+    "/finance/:path*",
     "/login",
     "/:segment([^/]*[A-Z][^/]*)/:path*",
   ],

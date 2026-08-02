@@ -20,10 +20,29 @@ import { canonicalPath } from "@/lib/routing/case";
  * the marketing site must not pay for one.
  */
 function needsSession(path: string): boolean {
+  // The public customer document page — a signed token, read with the
+  // service-role client, no session involved. It sits under /tradeiq, so it
+  // has to be excluded BEFORE the prefix test below or every quote a
+  // tradesperson sends their customer would cost an auth round trip.
+  if (path.startsWith("/tradeiq/doc")) return false;
+
   return (
     path.startsWith("/portal") ||
     path.startsWith("/admin") ||
     path.startsWith("/growth") ||
+    // TradeIQ and AutomateIQ Finance — one account system, two surfaces, both
+    // behind requireTradesAccount(). They were MISSING here and from the proxy
+    // matcher, which meant the session refresh below never ran for a paying
+    // TradeIQ customer.
+    //
+    // That is not cosmetic. lib/supabase/server.ts swallows its cookie writes
+    // in a try/catch because "Server Components can't set cookies… session
+    // refresh is instead handled by middleware" — and for these two surfaces
+    // it was not. So when the access token expired (~1h) the rotated refresh
+    // token could not be persisted, the next request presented a spent one,
+    // and the customer was bounced to the login screen mid-job.
+    path.startsWith("/tradeiq") ||
+    path.startsWith("/finance") ||
     path === "/login"
   );
 }
