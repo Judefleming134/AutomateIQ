@@ -350,13 +350,30 @@ export default async function ProspectWorkspacePage({
       body: m.body,
     }));
 
+  // Which channel the Studio OPENS on. Resolved through cleanSocialUrl — the
+  // same test every other surface uses — not off the raw column.
+  //
+  // The raw column being non-empty is not the same as there being a profile to
+  // send to. `instagram.com/p/Cxyz/` is a POST link, `facebook.com/` with
+  // nothing after it is a template's unfilled icon, and a scrape can leave
+  // either in the field; cleanSocialUrl rejects all of them and the DM list
+  // and the "Send it here" row directly below already honour that.
+  //
+  // So a prospect with no email and a junk Instagram link opened the Studio on
+  // Instagram, had a DM drafted for them, and showed no Instagram link to send
+  // it to — while their phone number, the one channel that did work, sat two
+  // choices down. The page disagreed with itself, and it steered AWAY from the
+  // reachable channel, which is the expensive half.
+  const igLink = cleanSocialUrl(prospect.instagram_url ?? "");
+  const fbLink = cleanSocialUrl(prospect.facebook_url ?? "");
+  const liLink = cleanSocialUrl(prospect.linkedin_url ?? "");
   const defaultChannel: Channel = prospect.email
     ? "email"
-    : prospect.instagram_url
+    : igLink
       ? "instagram"
-      : prospect.facebook_url
+      : fbLink
         ? "facebook"
-        : prospect.linkedin_url
+        : liLink
           ? "linkedin"
           : prospect.phone
             ? "call"
@@ -914,9 +931,12 @@ export default async function ProspectWorkspacePage({
                 message on a 15-DM session. Junk links are hidden, not shown
                 dead (cleanSocialUrl). */}
             {(() => {
-              const ig = cleanSocialUrl(prospect.instagram_url);
-              const fb = cleanSocialUrl(prospect.facebook_url);
-              const li = cleanSocialUrl(prospect.linkedin_url);
+              // The SAME three values defaultChannel was resolved from, so the
+              // channel the Studio opens on and the links offered underneath
+              // it cannot drift apart again.
+              const ig = igLink;
+              const fb = fbLink;
+              const li = liLink;
               const targets = [
                 ig && { label: "Instagram", href: ig },
                 fb && { label: "Facebook", href: fb },
