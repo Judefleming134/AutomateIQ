@@ -16,6 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { selectAllRowsByIds } from "@/lib/growth/db";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { splitMeetings } from "@/lib/growth/meeting-order";
+import { isAwaiting } from "@/lib/growth/awaiting";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -373,9 +374,10 @@ export default async function GrowthDashboardPage() {
   const awaitingReply = repliedIds
     .filter((id) => {
       const inbound = latestInbound.get(id)!;
-      const sent = latestSent.get(id);
-      // Never answered at all, or their reply landed after our last real send.
-      return prospectById.has(id) && (!sent || inbound.created_at > sent);
+      // The RULE is shared with Jarvis's priorities panel now — the two
+      // surfaces answered "how many replies are waiting on me?" differently
+      // and Jarvis's answer was wrong. See lib/growth/awaiting.ts.
+      return prospectById.has(id) && isAwaiting(inbound.created_at, latestSent.get(id));
     })
     .map((id) => ({ prospect: prospectById.get(id)!, inbound: latestInbound.get(id)! }))
     // Longest-waiting first — the one most at risk of going cold.
