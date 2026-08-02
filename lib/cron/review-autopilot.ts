@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/db/errors";
 import { sendReviewRequestCore } from "@/lib/review-agent/send-core";
+import { reviewLinkStatus } from "@/lib/review-agent/review-hosts";
 import {
   decideAutoRequest,
   requestName,
@@ -91,11 +92,24 @@ export async function runReviewAutopilot(): Promise<ReviewAutopilotResult> {
     .from("businesses")
     .select("id, auto_review_requests, google_review_link")
     .in("id", businessIds);
+  // A link has to be a web address a customer can actually be sent to, not
+  // merely non-empty. `Boolean(google_review_link)` was true for "ask me for
+  // it" or a half-pasted fragment, so a business that ticked the box with
+  // something unusable in the field had review requests emailed to its own
+  // customers carrying a link that goes nowhere — worse than not asking, and
+  // unrecallable. Judged by the SAME parser the redirect and the settings page
+  // use, so all three agree about what counts as a usable link.
+  //
+  // Strictly a narrowing: this can only ever withhold a send that would have
+  // gone out broken. Nothing that worked before stops working.
+  const unusableLink: string[] = [];
   const optedIn = new Map(
-    (businesses ?? []).map((b) => [
-      b.id as string,
-      Boolean(b.auto_review_requests) && Boolean(b.google_review_link),
-    ])
+    (businesses ?? []).map((b) => {
+      const wants = Boolean(b.auto_review_requests);
+      const link = reviewLinkStatus(b.google_review_link as string | null);
+      if (wants && !link.ok) unusableLink.push(b.id as string);
+      return [b.id as string, wants && link.ok];
+    })
   );
 
   // Everyone these businesses have already asked, and whether they reviewed.
@@ -181,7 +195,12 @@ export async function runReviewAutopilot(): Promise<ReviewAutopilotResult> {
     sent += 1;
   }
 
-  const base = autoRequestSummary({ sent, skipped, failed: failures.length });
+  // An opt-in that can never fire is a setting the customer believes is on.
+  // Say it in the run detail rather than letting it be a silent nothing.
+  const linkNote = unusableLink.length
+    ? ` · ${unusableLink.length} business${unusableLink.length === 1 ? "" : "es"} opted in but the review link isn't a usable web address — nothing sent for them`
+    : "";
+  const base = autoRequestSummary({ sent, skipped, failed: failures.length }) + linkNote;
   return {
     sent,
     skipped,
