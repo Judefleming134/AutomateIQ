@@ -953,6 +953,9 @@ export async function logNoAnswer(_prev: Result, formData: FormData): Promise<Re
   // so a silent "ok" here is a lead the call list keeps offering and Jude
   // keeps redialling.
   if (bumpError) {
+    // The attempt IS on the timeline — refresh so it shows there, then say
+    // plainly that the reschedule half didn't happen.
+    revalidatePath(`/growth/prospects/${id}`);
     return { error: `Logged the attempt, but rescheduling failed: ${bumpError.message}` };
   }
 
@@ -985,16 +988,15 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   //
   // Read BEFORE the activity is written so the activity line can say what
   // happened to the chase date, the way a status change does.
-  const p =
+  const read =
     type === "call" || type === "meeting"
-      ? (
-          await admin
-            .from("ge_prospects")
-            .select("status, next_follow_up_at")
-            .eq("id", id)
-            .maybeSingle()
-        ).data
+      ? await admin
+          .from("ge_prospects")
+          .select("status, next_follow_up_at")
+          .eq("id", id)
+          .maybeSingle()
       : null;
+  const p = read?.data ?? null;
 
   // See resolveChaseDate: a call can put a chase in the diary, never move one
   // that is already there.
@@ -1013,30 +1015,63 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   });
   if (error) return { error: error.message };
 
+  // The activity is written by this point whatever happens below, so the
+  // timeline has to refresh on BOTH exits — an error return that skips this
+  // leaves the page showing a call that isn't on it.
+  const refresh = () => {
+    revalidatePath(`/growth/prospects/${id}`);
+    // "Log call" is the main button on the call list, so name that page
+    // explicitly rather than relying on the dashboard's revalidation to carry it.
+    if (type === "call") revalidatePath("/growth/call-list");
+    revalidatePath("/growth");
+  };
+
   if (type === "call" || type === "meeting") {
-    if (p) {
-      const bump: Record<string, unknown> = {
-        last_contact_at: new Date().toISOString(),
+    const noun = type === "call" ? "Call" : "Meeting";
+    // maybeSingle() hands back data:null when the READ FAILED just as much as
+    // when the row is genuinely missing, and `if (p)` turned both into a
+    // silent no-op that still reported success.
+    if (!p) {
+      refresh();
+      const why = read?.error?.message ? ` (${read.error.message})` : "";
+      return {
+        error: `${noun} logged, but the prospect couldn't be read${why} — no follow-up was scheduled. Set the next step by hand.`,
       };
-      // Only written when the chase is genuinely being (re)scheduled. A date
-      // still ahead of today is left exactly where it was put.
-      if (chase && !chase.kept) bump.next_follow_up_at = chase.date;
-      if (
-        ["new", "researching", "research_complete", "outreach_ready"].includes(
-          p.status
-        )
-      ) {
-        bump.status = "contacted";
-      }
-      await admin.from("ge_prospects").update(bump).eq("id", id);
+    }
+    const bump: Record<string, unknown> = {
+      last_contact_at: new Date().toISOString(),
+    };
+    // Only written when the chase is genuinely being (re)scheduled. A date
+    // still ahead of today is left exactly where it was put.
+    if (chase && !chase.kept) bump.next_follow_up_at = chase.date;
+    if (
+      ["new", "researching", "research_complete", "outreach_ready"].includes(
+        p.status
+      )
+    ) {
+      bump.status = "contacted";
+    }
+    const { error: bumpError } = await admin
+      .from("ge_prospects")
+      .update(bump)
+      .eq("id", id);
+    // Never report a call as filed when the half that schedules it failed.
+    // This update is what stamps last_contact_at (which is the ONLY thing that
+    // drops the lead off today's call list) and what puts the chase in the
+    // diary — the leak the read above exists to close, and exactly what the
+    // footnote under the button promises. Swallowing it meant a green "✓ Done"
+    // on a call that left no trace anywhere but the timeline: the same number
+    // back on tomorrow's list with no next step and no note of why.
+    // logNoAnswer, the button immediately beside it, already got this right.
+    if (bumpError) {
+      refresh();
+      return {
+        error: `${noun} logged, but scheduling the follow-up failed: ${bumpError.message}. Set the next step by hand.`,
+      };
     }
   }
 
-  revalidatePath(`/growth/prospects/${id}`);
-  // "Log call" is the main button on the call list, so name that page
-  // explicitly rather than relying on the dashboard's revalidation to carry it.
-  if (type === "call") revalidatePath("/growth/call-list");
-  revalidatePath("/growth");
+  refresh();
   return { ok: true };
 }
 
