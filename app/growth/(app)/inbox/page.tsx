@@ -395,7 +395,28 @@ export default async function InboxPage({
                         </ActionForm>
                       </>
                     )}
-                    <ActionForm action={deleteMessage}>
+                    {/* The only irreversible button on this page, and it sat a
+                        few millimetres from "Send email now" with no guard —
+                        while every other destructive action in the engine
+                        (prospects, proposals, templates, campaigns, team
+                        members) already asks first. On a queue of forty rows
+                        of small buttons that is a mis-tap waiting to happen,
+                        and the row it destroys is a draft the engine wrote.
+
+                        The wording is status-aware because the consequences
+                        genuinely differ: deleting a QUEUED message cancels a
+                        send that is otherwise going out at 07:00, which is the
+                        one worth stopping to read. */}
+                    <ActionForm
+                      action={deleteMessage}
+                      confirmText={
+                        m.status === "queued"
+                          ? `Delete this queued ${CHANNEL_META[m.channel as Channel]?.label ?? ""} message to ${p?.company ?? "this prospect"}? It is scheduled to send at 07:00 — deleting cancels that send, and the text is gone for good.`
+                          : m.status === "failed"
+                            ? `Delete this failed message to ${p?.company ?? "this prospect"}? You lose the text, so copy anything worth keeping first.`
+                            : `Delete this draft to ${p?.company ?? "this prospect"}? It is gone for good — regenerating in the Studio writes a new one, not this one.`
+                      }
+                    >
                       <input type="hidden" name="message_id" value={m.id} />
                       <SubmitButton className="btn btn-ghost btn-sm" pendingText="…">
                         Delete
