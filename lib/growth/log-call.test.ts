@@ -11,12 +11,29 @@ import path from "node:path";
  *   2. update `ge_prospects`: `last_contact_at`, the chase date, the stage
  *                                                 — the error was NOT checked
  *
- * Write 2 is the one that matters operationally. `last_contact_at` is the only
- * thing that drops the lead off today's call list, and the chase date is the
- * follow-up the footnote under the button promises ("Logging the call schedules
- * the follow-up automatically"). Losing it silently means the same number back
- * on tomorrow's list with no next step booked and nothing anywhere saying so —
- * the card showed a green "✓ Done" either way.
+ * Write 2 is the one that matters operationally: it books the chase date the
+ * footnote under the button promises ("Logging the call schedules the follow-up
+ * automatically"). Losing it silently means the same number back with no next
+ * step booked and nothing anywhere saying so — the card showed a green "✓ Done"
+ * either way.
+ *
+ * UPDATED 2026-08-03. This file used to say `last_contact_at` (part of write 2)
+ * was the only thing that dropped a lead off today's call list. That is no
+ * longer true, and the test at the bottom existed to force this reread when it
+ * changed. The column is stamped by recordOutreachSent on EVERY outreach touch,
+ * so the 07:00 email autopilot was hiding its own thirty best-scored prospects
+ * from the call list; the page now asks the timeline instead — a `call` or
+ * `meeting` activity today, which is WRITE 1.
+ *
+ * The consequence that reasoning is built on has therefore MOVED, not gone:
+ *
+ *   - Write 1 failing → nothing is recorded and the action returns early, so
+ *     the lead correctly stays on today's list. Unchanged.
+ *   - Write 2 failing → the lead now DOES drop off today (write 1 already
+ *     landed) but with no chase in the diary. It comes back tomorrow, because
+ *     the drop only covers today — so this is not a leak, but it is still
+ *     exactly the case the error return below must surface, and it is why that
+ *     error must never go back to being swallowed.
  *
  * Two ways it went wrong, both silent:
  *
@@ -174,9 +191,18 @@ describe("the call list still promises only what the action delivers", () => {
     expect(FORM).toContain("state?.error");
   });
 
-  it("last_contact_at is still what drops a lead off the list", () => {
-    // If this ever stops being the filter, the consequence described above
-    // changes and this file needs rereading.
-    expect(CARD).toContain("p.last_contact_at >= todayStart");
+  it("a logged call is still what drops a lead off the list", () => {
+    // The tripwire this replaces pinned `p.last_contact_at >= todayStart` and
+    // fired when the filter changed — which is what it was for. See the
+    // UPDATED note at the top of this file for what moved.
+    //
+    // The invariant it was really protecting is unchanged and is what is
+    // pinned now: tapping the button on this card is what takes the lead off
+    // today's list. It is just write 1 that does it rather than write 2.
+    expect(CARD).toContain("workedTodayIds.has(p.id)");
+    expect(CARD).toContain('.in("type", ["call", "meeting"])');
+    // And the write that does it is the one whose error is already checked.
+    expect(ADD_ACTIVITY).toContain('.from("ge_activities")');
+    expect(ADD_ACTIVITY).toMatch(/if \(error\) return \{ error: error\.message \};/);
   });
 });
