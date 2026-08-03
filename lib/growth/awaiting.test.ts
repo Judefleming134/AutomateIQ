@@ -1,7 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { isAwaiting, latestSentByProspect, INBOUND_SCAN } from "@/lib/growth/awaiting";
+import {
+  isAwaiting,
+  isHumanReply,
+  latestSentByProspect,
+  INBOUND_SCAN,
+} from "@/lib/growth/awaiting";
 
 /**
  * Jarvis told Jude to answer replies he had already answered — and missed the
@@ -183,7 +188,9 @@ describe("Jarvis is wired to it", () => {
 
 describe("the dashboard shares the rule rather than repeating it", () => {
   it("calls isAwaiting instead of inlining the comparison", () => {
-    expect(DASH).toContain('import { isAwaiting } from "@/lib/growth/awaiting"');
+    // The SYMBOL, not the exact import line — pinning the line meant adding a
+    // second import from the same module broke a test about behaviour.
+    expect(DASH).toMatch(/import \{[^}]*\bisAwaiting\b[^}]*\} from "@\/lib\/growth\/awaiting"/);
     expect(DASH).toContain("isAwaiting(inbound.created_at, latestSent.get(id))");
   });
 
@@ -201,6 +208,88 @@ describe("the dashboard shares the rule rather than repeating it", () => {
 
   it("still chunks its id lists", () => {
     expect(DASH).toContain("selectAllRowsByIds");
+  });
+});
+
+describe("a robot is not a person waiting on an answer", () => {
+  /**
+   * The morning brief has ALWAYS filtered auto-replies and opt-outs out of its
+   * "STILL WAITING ON YOU" section, using classifyInbound — the same
+   * classifier the inbound webhook uses to decide whether a message is even
+   * allowed to move a prospect.
+   *
+   * The dashboard panel and Jarvis's priority did not. So the same question
+   * got two different answers depending on which screen you looked at, and the
+   * two that were wrong are the two Jude works from during the day.
+   *
+   * The opt-out is the bad one: "answer these first" pointed at someone who
+   * had just asked not to be contacted.
+   */
+  const human = { subject: "Re: quick question", body: "Yes go on, what would it cost?" };
+  const ooo = {
+    subject: "Automatic reply: Out of Office",
+    body: "I am currently out of the office until 12 August with limited access to email.",
+  };
+  const optOut = {
+    subject: "Re: your email",
+    body: "Please remove me from your mailing list. Unsubscribe.",
+  };
+
+  it("counts a real reply", () => {
+    expect(isHumanReply(human)).toBe(true);
+  });
+
+  it("does not count an out-of-office", () => {
+    expect(isHumanReply(ooo)).toBe(false);
+  });
+
+  it("does not count an opt-out", () => {
+    expect(isHumanReply(optOut)).toBe(false);
+  });
+
+  it("treats a missing subject or body as a real reply, not a robot", () => {
+    // A DM or a hand-logged reply has no subject. Failing OPEN here is right:
+    // wrongly hiding a real person is far worse than one extra line.
+    expect(isHumanReply({ body: "sounds good, call me" })).toBe(true);
+    expect(isHumanReply({})).toBe(true);
+  });
+
+  it("is the same classifier the webhook gates the pipeline with", () => {
+    // If a message was not allowed to advance a prospect, it must not be able
+    // to turn round and demand a reply.
+    const SRC = readFileSync(path.join(ROOT, "lib", "growth", "awaiting.ts"), "utf8");
+    expect(SRC).toContain('classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind === "human"');
+  });
+
+  it("the shared loader applies it, and fetches what it needs to", () => {
+    const SRC = readFileSync(path.join(ROOT, "lib", "growth", "awaiting.ts"), "utf8");
+    expect(SRC).toContain("if (!isHumanReply(m)) continue");
+    // Filtering on a column you never selected silently passes everything.
+    expect(SRC).toContain('.select("prospect_id, created_at, subject, body")');
+  });
+
+  it("skips BEFORE picking the newest, not after", () => {
+    // Otherwise a prospect whose most recent message happens to be an
+    // out-of-office drops off entirely, instead of surfacing on their last
+    // real one — losing a genuine reply to fix a cosmetic one.
+    const SRC = readFileSync(path.join(ROOT, "lib", "growth", "awaiting.ts"), "utf8");
+    const loop = SRC.slice(SRC.indexOf("for (const m of inboundRows"));
+    expect(loop.indexOf("isHumanReply")).toBeLessThan(loop.indexOf("latestInbound.set"));
+  });
+
+  it("the dashboard applies it too, and selects subject", () => {
+    expect(DASH).toContain("if (!isHumanReply(m)) continue");
+    expect(DASH).toContain('.select("prospect_id, body, subject, channel, created_at")');
+  });
+
+  it("the morning brief still does what it always did", () => {
+    // This fix brings two surfaces UP to the brief. It must not have changed
+    // the one that was already right.
+    const BRIEF = readFileSync(
+      path.join(ROOT, "lib", "cron", "jarvis-morning-brief.ts"),
+      "utf8"
+    );
+    expect(BRIEF).toContain('classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind !== "human"');
   });
 });
 
