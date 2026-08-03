@@ -50,9 +50,18 @@ export const DUE_CHIP_LABELS: Record<string, string> = {
   unscheduled: "no next step booked",
 };
 
-/** Human labels for the stage buckets — a GROUP of statuses, not one. */
+/**
+ * Human labels for the stage buckets — a GROUP of statuses, not one.
+ *
+ * A SECOND copy of STAGE_BUCKET_LABELS from prospect-query.ts, kept separate so
+ * this module stays free of the query builder. Two copies is exactly the drift
+ * this codebase keeps getting bitten by, so prospect-query.test.ts asserts the
+ * two maps agree — a bucket added there without a label here would render a
+ * chip reading "ready_to_send".
+ */
 export const STAGE_CHIP_LABELS: Record<string, string> = {
   to_research: "still to research",
+  ready_to_send: "researched, drafts ready",
 };
 
 /**

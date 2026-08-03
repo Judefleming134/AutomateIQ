@@ -131,16 +131,31 @@ export function applyDueBucket<Q extends FilterableQuery<Q>>(
  * buckets above: defined once, applied by both the page and the CSV export,
  * so the count, the list and the download can never disagree.
  */
-export const STAGE_BUCKETS = ["to_research"] as const;
+export const STAGE_BUCKETS = ["to_research", "ready_to_send"] as const;
 export type StageBucket = (typeof STAGE_BUCKETS)[number];
 
-/** The statuses each bucket covers. The single source for "which statuses". */
+/**
+ * The statuses each bucket covers. The single source for "which statuses".
+ *
+ * `ready_to_send` was added for the same reason `to_research` was, and against
+ * the same defect. Jarvis's "What matters right now" panel counts researched
+ * prospects with drafts ready and no first touch — `research_complete` OR
+ * `outreach_ready` — and its click-through pointed at `?sort=score`, which is
+ * NO FILTER AT ALL. So a count of forty landed on the entire database, sorted.
+ *
+ * That is precisely what the note above this section says must never happen:
+ * "the number shown must equal the rows the click lands on, or the page looks
+ * broken". Two statuses, no single-status filter that matched, and the link
+ * quietly gave up and pointed at everything.
+ */
 export const STAGE_BUCKET_STATUSES: Record<StageBucket, readonly string[]> = {
   to_research: ["new", "researching"],
+  ready_to_send: ["research_complete", "outreach_ready"],
 };
 
 export const STAGE_BUCKET_LABELS: Record<StageBucket, string> = {
   to_research: "still to research",
+  ready_to_send: "researched, drafts ready",
 };
 
 export function resolveStageBucket(raw: string | null | undefined): StageBucket | null {
