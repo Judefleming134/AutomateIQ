@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { secretsMatch } from "@/lib/security/timing-safe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dublinDate } from "@/lib/growth/dates";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
@@ -62,7 +63,11 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-inbound-secret") ??
     new URL(request.url).searchParams.get("secret") ??
     "";
-  if (provided !== secret) {
+  // Constant-time, like the Resend and Instagram webhooks and lib/cron/auth.ts
+  // — this endpoint was the odd one out. A plain `!==` returns as soon as two
+  // bytes differ, so the 401-vs-200 timing leaks the secret prefix-by-prefix to
+  // anyone who can hit a guessable public URL.
+  if (!secretsMatch(provided, secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -132,8 +137,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, matched: false });
   }
 
-  // Idempotency: forwarders retry. Skip if this exact reply was already
-  // captured for this prospect in the last 15 minutes.
+  // WHAT kind of inbound this is. An out-of-office and a "remove me" are not
+  // replies, and treating them as one is what silently drained live leads out
+  // of the automation — see lib/growth/inbound-classify.ts. When unsure it
+  // says "human", which is exactly the behaviour that shipped before.
+  //
+  // Classified BEFORE the duplicate check because the check below needs to know
+  // what consequence this message SHOULD have had. classifyInbound is pure.
+  const kind = classifyInbound(subject, text, headers);
+
+  // Idempotency: forwarders retry. This finds the same reply captured for this
+  // prospect in the last 15 minutes.
   const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
   const { data: dupe } = await admin
     .from("ge_messages")
@@ -144,27 +158,40 @@ export async function POST(request: NextRequest) {
     .gte("created_at", since)
     .limit(1)
     .maybeSingle();
-  if (dupe) {
+  // A RETRY MUST STILL CONVERGE ON THE RIGHT STATE.
+  //
+  // This returned early on any duplicate. But the first attempt can have
+  // inserted the message and THEN failed to apply the consequence — the status
+  // change that holds the queued 07:00 cold touch. Short-circuiting the retry
+  // left that undone for ever, so the one mechanism that could have recovered
+  // an unhonoured opt-out was the mechanism that guaranteed it never would.
+  //
+  // A duplicate now short-circuits only when the consequence is already in
+  // place. Otherwise it falls through and re-applies it — without re-inserting
+  // the message (see `if (!dupe)` below), so the thread never doubles up.
+  const consequenceApplied =
+    kind.kind === "opt_out"
+      ? prospect.status === "do_not_contact" || prospect.status === "won"
+      : kind.kind === "human"
+        ? !PRE_REPLY_STATUSES.includes(prospect.status)
+        : true; // an auto-reply changes no status
+  if (dupe && consequenceApplied) {
     return NextResponse.json({ ok: true, matched: true, duplicate: true });
   }
 
-  // WHAT kind of inbound this is. An out-of-office and a "remove me" are not
-  // replies, and treating them as one is what silently drained live leads out
-  // of the automation — see lib/growth/inbound-classify.ts. When unsure it
-  // says "human", which is exactly the behaviour that shipped before.
-  const kind = classifyInbound(subject, text, headers);
-
-  const { error } = await admin.from("ge_messages").insert({
+  const { error } = dupe
+    ? { error: null }
+    : await admin.from("ge_messages").insert({
     prospect_id: prospect.id,
-    campaign_id: prospect.campaign_id,
-    channel: "email",
-    direction: "inbound",
-    status: "received",
-    subject: subject ? subject.slice(0, 300) : null,
-    body: text.slice(0, 10000),
-    sentiment: kind.kind === "opt_out" ? "negative" : "neutral",
-    created_by: null,
-  });
+        campaign_id: prospect.campaign_id,
+        channel: "email",
+        direction: "inbound",
+        status: "received",
+        subject: subject ? subject.slice(0, 300) : null,
+        body: text.slice(0, 10000),
+        sentiment: kind.kind === "opt_out" ? "negative" : "neutral",
+        created_by: null,
+      });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 502 });
   }
@@ -222,7 +249,17 @@ export async function POST(request: NextRequest) {
     // be destructive, so their follow-up is cleared and the request is logged
     // loudly instead.
     const closed = ["won", "do_not_contact"].includes(prospect.status);
-    await admin
+    // THE ERROR HERE USED TO BE DISCARDED, and this is the one place in the
+    // engine where that is not merely untidy.
+    //
+    // `do_not_contact` is precisely what makes the send-time gate hold a queued
+    // cold touch (see COLD_PURPOSES / PRE_REPLY_STATUSES in lib/growth/
+    // autopilot.ts). If this update failed, the status never changed, the
+    // timeline still said "marked Do not contact, follow-ups cleared", the
+    // webhook still answered ok — and the 07:00 run still emailed someone who
+    // had asked to be left alone. The comment above calls that an ePrivacy
+    // obligation, not a courtesy.
+    const { error: optOutError } = await admin
       .from("ge_prospects")
       .update(
         closed
@@ -234,11 +271,22 @@ export async function POST(request: NextRequest) {
     await admin.from("ge_activities").insert({
       prospect_id: prospect.id,
       type: "email",
-      content: closed
-        ? `${senderEmail} asked to be removed (${kind.reason}) — follow-ups cleared. Status left as '${prospect.status}'; review this one by hand.`
-        : `${senderEmail} asked to be removed (${kind.reason}) — marked Do not contact, follow-ups cleared, no reply drafted.`,
+      content: optOutError
+        ? `${senderEmail} asked to be removed (${kind.reason}) — BUT APPLYING IT FAILED (${optOutError.message}). They are NOT marked Do not contact and queued outreach may still send. Set this by hand now.`
+        : closed
+          ? `${senderEmail} asked to be removed (${kind.reason}) — follow-ups cleared. Status left as '${prospect.status}'; review this one by hand.`
+          : `${senderEmail} asked to be removed (${kind.reason}) — marked Do not contact, follow-ups cleared, no reply drafted.`,
       created_by: null,
     });
+
+    if (optOutError) {
+      // 5xx so the forwarder retries. The retry now converges rather than
+      // being swallowed by the duplicate check — see consequenceApplied above.
+      return NextResponse.json(
+        { error: `opt-out not applied: ${optOutError.message}`, matched: true, classified: "opt_out" },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
@@ -254,17 +302,26 @@ export async function POST(request: NextRequest) {
   // the old list missed research_failed, leaving a replier in a pre-reply
   // status — which is exactly the state where the send-time gate lets a
   // queued cold touch through. Flipping to 'replied' makes the gate hold.
+  //
+  // Its error was discarded too, with the same shape of consequence: a replier
+  // left in a PRE_REPLY status is exactly the state where the send-time gate
+  // lets a queued cold touch through, so a silent failure here fires a cold
+  // chase at someone who has just written back.
+  let statusError: string | null = null;
   if (PRE_REPLY_STATUSES.includes(prospect.status)) {
-    await admin
+    const { error: replyStatusError } = await admin
       .from("ge_prospects")
       .update({ status: "replied", next_follow_up_at: dublinDate(1) })
       .eq("id", prospect.id);
+    statusError = replyStatusError?.message ?? null;
   }
 
   await admin.from("ge_activities").insert({
     prospect_id: prospect.id,
     type: "email",
-    content: `Reply received from ${senderEmail} — auto-captured into the inbox`,
+    content: statusError
+      ? `Reply received from ${senderEmail} — captured, BUT the status could not be moved to Replied (${statusError}). Queued cold outreach may still send to them; move them by hand.`
+      : `Reply received from ${senderEmail} — auto-captured into the inbox`,
     created_by: null,
   });
 
@@ -272,5 +329,11 @@ export async function POST(request: NextRequest) {
   // written, not a blank box. Best-effort and never auto-sent — see autoDraftReply.
   const replyDrafted = await autoDraftReply(admin, prospect, text, null);
 
+  if (statusError) {
+    return NextResponse.json(
+      { error: `reply captured but status not updated: ${statusError}`, matched: true, classified: "human", replyDrafted },
+      { status: 502 }
+    );
+  }
   return NextResponse.json({ ok: true, matched: true, classified: "human", replyDrafted });
 }
