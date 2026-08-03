@@ -157,9 +157,21 @@ export default async function CampaignDetailPage({
           Prospects in this campaign ({(prospects ?? []).length}){" "}
           <Link href={`/growth/prospects?campaign=${campaign.id}`}>Filter view →</Link>
         </h2>
+        {/* This used to say "assign prospects to this campaign from the
+              Prospects screen", and you cannot. That screen has a campaign
+              FILTER and a campaign field on the NEW-prospect form; there is no
+              way to move an existing prospect into a campaign from it, and no
+              bulk action for it either. So the one instruction on an empty
+              campaign pointed at a screen where the thing it named isn't.
+
+              The two routes that do exist, fastest first. */}
         {(prospects ?? []).length === 0 ? (
           <p className="empty-state">
-            None yet — assign prospects to this campaign from the Prospects screen.
+            None yet. Two ways to fill it:{" "}
+            <Link href="/growth/prospects">import a CSV</Link> with this campaign
+            picked (fastest for a whole niche), or open any prospect and set{" "}
+            <strong>Campaign</strong> on its <strong>Details</strong> tab. New
+            prospects added by hand can be put straight into it as well.
           </p>
         ) : (
           <div className="table-wrap">

@@ -177,7 +177,18 @@ describe("nothing else on the inbox changed", () => {
     expect(PAGE).toContain("if (a.awaitingUs && b.awaitingUs)");
   });
 
-  it("the queue's empty state is untouched", () => {
-    expect(PAGE).toContain("The queue is empty — draft messages from any prospect");
+  it("the queue still HAS an empty state, and it explains what fills it", () => {
+    // This pinned the exact old sentence ("— draft messages from any
+    // prospect's page") as a "nothing else changed" guard for the queue-query
+    // fix. It fired on 2026-08-03 when that copy was deliberately rewritten to
+    // link to a prospect worth drafting for, rather than naming the page in
+    // words and leaving you to find it.
+    //
+    // What this guard is protecting is that the empty state EXISTS and points
+    // somewhere — not one wording — so it now pins that. The queue behaviour
+    // it was really guarding is covered by the assertions above.
+    expect(PAGE).toContain("The queue is empty.");
+    expect(PAGE).toContain("Message Studio");
+    expect(PAGE).toContain("/growth/prospects?stage=ready_to_send");
   });
 });

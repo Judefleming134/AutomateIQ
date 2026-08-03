@@ -313,7 +313,13 @@ export default async function InboxPage({
         queue.length === 0 ? (
           <div className="panel panel-block">
             <p className="empty-state">
-              The queue is empty — draft messages from any prospect&apos;s page.
+              The queue is empty. Drafts land here from a prospect&apos;s{" "}
+              <strong>Message Studio</strong>, and the overnight run writes them
+              for you —{" "}
+              <Link href="/growth/prospects?stage=ready_to_send&sort=score">
+                open a researched prospect
+              </Link>{" "}
+              to draft one now.
             </p>
           </div>
         ) : (

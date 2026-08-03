@@ -182,7 +182,13 @@ export default async function AnalyticsPage({
             Most recommended solutions
           </h2>
           {metrics.topSolutions.length === 0 ? (
-            <p className="empty-state">Run company research to populate this.</p>
+            <p className="empty-state">
+                Nothing here until research has run —{" "}
+                <Link href="/growth/prospects?stage=to_research">
+                  research your uncontacted leads
+                </Link>{" "}
+                and this fills itself.
+              </p>
           ) : (
             <div className="table-wrap">
               <table>
@@ -211,8 +217,11 @@ export default async function AnalyticsPage({
           </h2>
           {metrics.toneStats.length === 0 ? (
             <p className="empty-state">
-              Send outreach from the Message Studio to see which tone gets
-              replies.
+              Nothing sent yet in this window.{" "}
+              <Link href="/growth/prospects?stage=ready_to_send&sort=score">
+                Send a first touch
+              </Link>{" "}
+              and each tone&apos;s reply rate appears here.
             </p>
           ) : (
             <div className="table-wrap">
