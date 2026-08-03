@@ -344,7 +344,21 @@ export async function deleteMessage(_prev: Result, formData: FormData): Promise<
     return { error: "Sent and received messages are the conversation record — they can't be deleted." };
   }
 
-  await admin.from("ge_messages").delete().eq("id", id);
+  // The delete error was discarded, so a refused or failed delete returned
+  // `ok` and the row stayed. On a QUEUED message that is the worst version of
+  // it: the page says the send is cancelled, the message is still queued, and
+  // the 07:00 cron sends it anyway. "Reporting success for work that didn't
+  // happen", on the one action here that cannot be undone.
+  const { error } = await admin.from("ge_messages").delete().eq("id", id);
+  if (error) {
+    return {
+      error: `Couldn't delete this message: ${error.message}.${
+        message.status === "queued"
+          ? " It is still queued and will send at 07:00 — try again, or open the prospect and clear it there."
+          : ""
+      }`,
+    };
+  }
   revalidateProspect(message.prospect_id);
   return { ok: true };
 }
