@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyGrowthTeam } from "@/lib/growth/email";
-import { dublinLocalToUtcISO, dublinDate } from "@/lib/growth/dates";
+import { dublinLocalToUtcISO, dublinDate, resolveChaseDate } from "@/lib/growth/dates";
 import { syncStrategyBookingsCore, markMeetingBooked } from "@/lib/growth/booking-sync";
+import { revalidateProspectSurfaces } from "@/lib/growth/prospect-surfaces";
 
 type Result = { ok?: boolean; error?: string } | undefined;
 
@@ -92,26 +93,58 @@ export async function setMeetingStatus(_prev: Result, formData: FormData): Promi
     // cancellation left them with nothing scheduled and they'd quietly go
     // cold. No-show: try them tomorrow while it's live. Cancelled: give it a
     // few days. Status is never regressed — only the date is set.
-    const reFollowUp: Record<string, string | undefined> = {
-      no_show: dublinDate(1),
-      cancelled: dublinDate(3),
+    //
+    // THE TIMELINE LINE USED TO LIE. The update carried `.is("next_follow_up_at",
+    // null)` — right, and the same "never move a date already in the diary"
+    // rule as K7 — but the activity was written as "follow-up set for <date>"
+    // regardless. So a prospect who already had a chase booked got a timeline
+    // entry naming a date that was never written, on the record Jude reads
+    // before the next call. "Reporting success for work that didn't happen",
+    // on the one surface that exists to be trusted.
+    //
+    // Now it goes through resolveChaseDate, the shared rule addActivity,
+    // logNoAnswer and recordOutreachSent already use, and says which of the
+    // two actually happened.
+    const fallbackDays: Record<string, number | undefined> = {
+      no_show: 1,
+      cancelled: 3,
     };
-    const nextDue = reFollowUp[status];
-    if (nextDue) {
-      await admin
+    const days = fallbackDays[status];
+    let chaseNote = "";
+    if (days !== undefined && meeting.prospect_id) {
+      const { data: prospectRow } = await admin
         .from("ge_prospects")
-        .update({ next_follow_up_at: nextDue })
+        .select("next_follow_up_at")
         .eq("id", meeting.prospect_id)
-        .is("next_follow_up_at", null);
+        .maybeSingle();
+      const chase = resolveChaseDate(
+        prospectRow?.next_follow_up_at as string | null,
+        dublinDate(),
+        days
+      );
+      if (chase.kept) {
+        chaseNote = ` · chase kept for ${chase.date}`;
+      } else {
+        const { error: chaseError } = await admin
+          .from("ge_prospects")
+          .update({ next_follow_up_at: chase.date })
+          .eq("id", meeting.prospect_id);
+        // Say nothing rather than claim a date that failed to write — the
+        // whole point of this change.
+        chaseNote = chaseError
+          ? ` · follow-up could NOT be scheduled (${chaseError.message}) — set the next step by hand`
+          : ` · follow-up scheduled for ${chase.date}`;
+      }
     }
     await admin.from("ge_activities").insert({
       prospect_id: meeting.prospect_id,
       type: "meeting",
-      content: `${label[status] ?? status} — marked by ${member.name}${nextDue ? ` · follow-up set for ${nextDue}` : ""}`,
+      content: `${label[status] ?? status} — marked by ${member.name}${chaseNote}`,
       created_by: member.id,
     });
-    revalidatePath(`/growth/prospects/${meeting.prospect_id}`);
-    revalidatePath("/growth");
+    // The chase date just changed, so the call list and the DM list must not
+    // keep serving the old tier — see lib/growth/prospect-surfaces.ts.
+    revalidateProspectSurfaces(meeting.prospect_id);
   }
 
   revalidatePath("/growth/meetings");
