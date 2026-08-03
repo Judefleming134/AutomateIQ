@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/admin/submit-button";
 import { CHANNELS, CHANNEL_META, OBJECTIVE_META, type MessageObjective } from "@/lib/growth/constants";
 import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { formatPrice } from "@/lib/growth/pricing";
+import { MAX_SENDS_PER_RUN } from "@/lib/growth/autopilot";
 import {
   saveGrowthSettings,
   saveTemplate,
@@ -145,6 +146,17 @@ export default async function GrowthSettingsPage() {
               — and holds volume automatically if bounces or spam complaints appear.
               That protects the sending domain, which is far more expensive to repair
               than it is to grow slowly. Set 0 to stop auto-queueing entirely.
+            </p>
+            {/* The ceiling the ramp text never mentioned. One morning run sends
+                at most MAX_SENDS_PER_RUN, so on the default target of 50 the
+                brief said "at your target of 50/day" while 30 went out. Naming
+                the real number here is where it stops being a surprise. */}
+            <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
+              <strong>Above {MAX_SENDS_PER_RUN} has no effect yet.</strong> The morning
+              run sends up to {MAX_SENDS_PER_RUN} emails inside its time budget — that
+              budget also has to fit your brief — so {MAX_SENDS_PER_RUN}/day is the real
+              ceiling however high you set this. Raising it needs the send window
+              widening, not a bigger number here.
             </p>
             </div>
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "6px 0 0" }}>
