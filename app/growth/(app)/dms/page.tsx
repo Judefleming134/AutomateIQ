@@ -224,7 +224,7 @@ export default async function DmListPage() {
                 still waiting on a DM draft — open one and generate it in the
                 Studio, or run the overnight engine and they&apos;ll be written
                 for you.{" "}
-                <Link href="/growth/prospects?sort=score">See them →</Link>
+                <Link href="/growth/prospects?social=1&sort=score">See them →</Link>
               </>
             ) : emptyReason === "scan-limit" ? (
               /* The third case, and the one that used to give the WRONG
@@ -238,14 +238,14 @@ export default async function DmListPage() {
                 already been DM&apos;d — which is a good problem. There are more
                 prospects below that, so this isn&apos;t the end of the list:
                 archive the cold ones to bring the rest into range, or work{" "}
-                <Link href="/growth/prospects?sort=score">the list by score</Link>{" "}
+                <Link href="/growth/prospects?social=1&sort=score">the list by score</Link>{" "}
                 directly.
               </>
             ) : (
               <>
                 No DMs ready right now. This fills up as you research prospects
                 that have an Instagram, Facebook or LinkedIn link —{" "}
-                <Link href="/growth/prospects?sort=score">research some prospects</Link>{" "}
+                <Link href="/growth/prospects?social=1&sort=score">research some prospects</Link>{" "}
                 and their DM drafts will appear here.
               </>
             )}
@@ -278,7 +278,7 @@ export default async function DmListPage() {
                   {plus}
                 </strong>{" "}
                 with a profile link still need a DM written —{" "}
-                <Link href="/growth/prospects?sort=score">write them →</Link>
+                <Link href="/growth/prospects?social=1&sort=score">write them →</Link>
               </>
             )}
           </p>

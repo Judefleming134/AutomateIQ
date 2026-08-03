@@ -107,6 +107,30 @@ export function applyDueBucket<Q extends FilterableQuery<Q>>(
   return q.not("status", "in", closedStatusFilter());
 }
 
+/**
+ * "Has a profile link on at least one social platform" — the DM list's
+ * population, as a filter the prospects page and the CSV export can both
+ * apply.
+ *
+ * Defined here rather than inline for the same reason the due buckets are: the
+ * DM list's empty states quote a COUNT of these prospects and link to the list,
+ * and the export button on that list claims to export what you are looking at.
+ * Three places, one predicate.
+ *
+ * The exact OR the DM list itself uses, so "prospects with a profile link"
+ * means the same thing on both pages.
+ */
+export const SOCIAL_LINK_FILTER =
+  "instagram_url.not.is.null,facebook_url.not.is.null,linkedin_url.not.is.null";
+
+/** Narrows to prospects reachable on at least one social platform. */
+export function applySocialOnly<Q extends { or: (f: string) => Q }>(
+  query: Q,
+  socialOnly: boolean
+): Q {
+  return socialOnly ? query.or(SOCIAL_LINK_FILTER) : query;
+}
+
 /* ------------------------------------------------------------------ */
 /* Stage buckets — a group of statuses, not one                        */
 /* ------------------------------------------------------------------ */

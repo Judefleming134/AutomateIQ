@@ -28,6 +28,7 @@ import {
   applyDueBucket,
   resolveDueBucket,
   applyStageBucket,
+  applySocialOnly,
   resolveStageBucket,
 } from "@/lib/growth/prospect-query";
 import { loadProspectQueues } from "@/lib/growth/prospect-queue";
@@ -50,7 +51,7 @@ const SORT_LABELS = PROSPECT_SORT_LABELS;
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; due?: string; stage?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; social?: string; due?: string; stage?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
@@ -69,6 +70,9 @@ export default async function ProspectsPage({
   // "Has phone" — the dial-list filter: the daily plan says "Prospects ->
   // has phone -> sort by score", so the UI must actually offer it.
   const phoneOnly = params.phone === "1";
+  // Mirrors phoneOnly. The DM list counts prospects with a profile link and
+  // links here — without this the link landed on the whole database.
+  const socialOnly = params.social === "1";
   // Follow-up bucket, so a count on the dashboard or in Jarvis can link to the
   // EXACT set it counted. Every one of those counts used to point at the same
   // bare ?sort=follow_up list: "Today's follow-ups (12)", "Overdue (8)" and
@@ -123,6 +127,7 @@ export default async function ProspectsPage({
   if (industry) query = query.ilike("industry", escapeLike(industry));
   if (campaign) query = query.eq("campaign_id", campaign);
   if (phoneOnly) query = query.not("phone", "is", null);
+  query = applySocialOnly(query, socialOnly);
   // The same date arithmetic the dashboard, the autopilot and the CSV export
   // use, so a bucket here always contains exactly what those surfaces counted.
   query = applyDueBucket(query, due, today);
@@ -222,6 +227,7 @@ export default async function ProspectsPage({
     if (campaign) sp.set("campaign", campaign);
     if (params.sort) sp.set("sort", params.sort);
     if (phoneOnly) sp.set("phone", "1");
+    if (socialOnly) sp.set("social", "1");
     if (due) sp.set("due", due);
     if (stage) sp.set("stage", stage);
     if (p > 1) sp.set("page", String(p));
@@ -242,6 +248,7 @@ export default async function ProspectsPage({
   if (industry) exportSp.set("industry", industry);
   if (campaign) exportSp.set("campaign", campaign);
   if (phoneOnly) exportSp.set("phone", "1");
+  if (socialOnly) exportSp.set("social", "1");
   if (due) exportSp.set("due", due);
   if (stage) exportSp.set("stage", stage);
   // The RESOLVED sort, not params.sort — so an export taken without touching
@@ -254,7 +261,7 @@ export default async function ProspectsPage({
   // resolved to names — an id on a chip tells a human nothing.
   const campaignNameById = new Map((campaigns ?? []).map((c) => [c.id, c.name]));
   const filterChips = activeFilterChips(
-    { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, due: due ?? undefined, stage: stage ?? undefined, sort: params.sort },
+    { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, social: socialOnly ? "1" : undefined, due: due ?? undefined, stage: stage ?? undefined, sort: params.sort },
     (id) => campaignNameById.get(id)
   );
 
@@ -277,7 +284,7 @@ export default async function ProspectsPage({
           <p>
             {total.toLocaleString("en-IE")} prospect
             {total === 1 ? "" : "s"}
-            {q || status || industry || campaign || phoneOnly || due || stage ? " matching your filters" : ""} —
+            {q || status || industry || campaign || phoneOnly || socialOnly || due || stage ? " matching your filters" : ""} —
             search, filter, add manually or import in bulk.
           </p>
           {/* EVERY active filter, each clearable on its own.
@@ -336,6 +343,7 @@ export default async function ProspectsPage({
           {campaign && <input type="hidden" name="campaign" value={campaign} />}
           {params.sort && <input type="hidden" name="sort" value={params.sort} />}
           {phoneOnly && <input type="hidden" name="phone" value="1" />}
+          {socialOnly && <input type="hidden" name="social" value="1" />}
           {due && <input type="hidden" name="due" value={due} />}
           {stage && <input type="hidden" name="stage" value={stage} />}
           <input
@@ -513,6 +521,29 @@ export default async function ProspectsPage({
             Has phone ☎
           </label>
         </div>
+        {/* The DM equivalent of Has-phone. Added because the DM list's empty
+            states quote a COUNT of prospects with a profile link and linked to
+            `?sort=score` — no filter at all — so the click landed on the whole
+            database. With the filter in the URL the count and the list finally
+            describe the same people, and the checkbox makes it reachable
+            without arriving from that page. */}
+        <div style={{ flex: "0 1 auto", display: "flex", alignItems: "center", gap: 6, paddingBottom: 8 }}>
+          <input
+            id="pf-social"
+            type="checkbox"
+            name="social"
+            value="1"
+            defaultChecked={socialOnly}
+            style={{ margin: 0 }}
+          />
+          <label
+            htmlFor="pf-social"
+            style={{ fontSize: 13, margin: 0, cursor: "pointer" }}
+            title="Reachable by DM — has an Instagram, Facebook or LinkedIn link"
+          >
+            Has a profile link ✉
+          </label>
+        </div>
         <div style={{ flex: "1 1 130px" }}>
           <label htmlFor="pf-sort" style={{ fontSize: 12, color: "var(--faint)" }}>
             Sort by
@@ -635,7 +666,7 @@ export default async function ProspectsPage({
 
       {rows.length === 0 ? (
         <div className="panel panel-block">
-          {q || status || industry || campaign || phoneOnly || due || stage ? (
+          {q || status || industry || campaign || phoneOnly || socialOnly || due || stage ? (
             <p className="empty-state">
               No prospects match your search or filters.{" "}
               <Link href="/growth/prospects">Clear them</Link> to see your whole
