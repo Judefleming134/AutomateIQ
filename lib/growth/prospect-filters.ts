@@ -27,6 +27,7 @@ export type ProspectFilterParams = {
   industry?: string;
   campaign?: string;
   phone?: string;
+  social?: string;
   due?: string;
   stage?: string;
   sort?: string;
@@ -86,6 +87,7 @@ export function filterHref(
   put("industry", params.industry);
   put("campaign", params.campaign);
   put("phone", params.phone === "1" ? "1" : undefined);
+  put("social", params.social === "1" ? "1" : undefined);
   put("due", params.due);
   // `stage` was missing here while activeFilterChips below happily rendered a
   // stage chip — so the module broke the promise in its own doc comment, that
@@ -144,6 +146,9 @@ export function activeFilterChips(
   }
   if (params.phone === "1") {
     chips.push({ key: "phone", label: "has phone", clearHref: filterHref(params, "phone") });
+  }
+  if (params.social === "1") {
+    chips.push({ key: "social", label: "has a profile link", clearHref: filterHref(params, "social") });
   }
   if (due) {
     chips.push({

@@ -6,6 +6,7 @@ import {
   applyDueBucket,
   resolveDueBucket,
   applyStageBucket,
+  applySocialOnly,
   resolveStageBucket,
 } from "@/lib/growth/prospect-query";
 import { PROSPECT_SORTS } from "@/lib/growth/constants";
@@ -44,13 +45,14 @@ export async function GET(request: Request) {
     const industry = (url.searchParams.get("industry") ?? "").trim();
     const campaign = (url.searchParams.get("campaign") ?? "").trim();
     const phoneOnly = url.searchParams.get("phone") === "1";
+    const socialOnly = url.searchParams.get("social") === "1";
     const sortParam = url.searchParams.get("sort") ?? undefined;
     // Same follow-up buckets the Prospects page offers. Without this, exporting
     // from a "Gone cold" view would quietly hand back the whole database — the
     // exact promise #419 fixed for ordering, broken again by a new filter.
     const dueParam = url.searchParams.get("due") ?? "";
     const stageParam = url.searchParams.get("stage") ?? "";
-    const filtered = Boolean(q || status || industry || campaign || phoneOnly || dueParam || stageParam);
+    const filtered = Boolean(q || status || industry || campaign || phoneOnly || socialOnly || dueParam || stageParam);
 
     // Page past the 1,000-row cap so the export is the WHOLE result set, not a
     // truncated first slice — an incomplete export is a silent data-loss trap.
@@ -91,6 +93,7 @@ export async function GET(request: Request) {
         if (industry) query = query.ilike("industry", escapeLike(industry));
         if (campaign) query = query.eq("campaign_id", campaign);
         if (phoneOnly) query = query.not("phone", "is", null);
+        query = applySocialOnly(query, socialOnly);
         // The SAME definition the Prospects page narrows with. This branch
         // used to list the buckets by hand and had never been taught about
         // `unscheduled` — the fifth one, which the dashboard links straight
