@@ -190,3 +190,98 @@ describe("the page is wired to it", () => {
     expect(CODE).toContain("matching your filters");
   });
 });
+
+/**
+ * `stage` — the filter the chips forgot to carry.
+ *
+ * `activeFilterChips` has always rendered a chip for `stage`, and `filterHref`
+ * has never written `stage` back into the URL. So every OTHER chip's clear link
+ * dropped it, and the module broke the promise in its own doc comment: each
+ * chip "clears only ITSELF, keeping the others".
+ *
+ * It is reachable in one click. The campaigns page links its "still to
+ * research" count at `?campaign=<id>&stage=to_research`. Land there, click the
+ * campaign chip to widen from one campaign to all of them, and stage went with
+ * it — the whole database instead of everything still to research, which is
+ * the click-through no longer matching the count from the other side.
+ *
+ * None of the 23 tests above mentioned `stage`, which is why it survived.
+ */
+describe("clearing one chip keeps `stage`", () => {
+  // Arrived from the campaigns page, then ticked "Has phone" to dial.
+  const params = { campaign: "abc123", stage: "to_research", phone: "1" } as const;
+
+  it.each([
+    ["campaign", "campaign=abc123"],
+    ["phone", "phone=1"],
+  ])("dropping %s keeps the stage filter", (omit, dropped) => {
+    const href = filterHref(params, omit as "campaign" | "phone");
+    expect(href).toContain("stage=to_research");
+    expect(href).not.toContain(dropped);
+  });
+
+  it("the stage chip's own clear still drops it, and keeps the rest", () => {
+    const href = filterHref(params, "stage");
+    expect(href).not.toContain("stage=");
+    expect(href).toContain("campaign=abc123");
+    expect(href).toContain("phone=1");
+  });
+
+  it("carries stage alongside every other filter", () => {
+    const all = filterHref({
+      q: "walsh",
+      status: "contacted",
+      industry: "trades",
+      campaign: "abc123",
+      phone: "1",
+      due: "today",
+      stage: "to_research",
+      sort: "score",
+    });
+    for (const part of [
+      "q=walsh",
+      "status=contacted",
+      "industry=trades",
+      "campaign=abc123",
+      "phone=1",
+      "due=today",
+      "stage=to_research",
+      "sort=score",
+    ]) {
+      expect(all).toContain(part);
+    }
+  });
+
+  it("a stage chip that cannot be cleared without collateral is worse than none", () => {
+    // The chip was always rendered; only its href was wrong. Pin both halves
+    // so a future edit can't quietly drop the chip instead of fixing the link.
+    const chips = activeFilterChips(params);
+    const stage = chips.find((c) => c.key === "stage");
+    expect(stage).toBeTruthy();
+    expect(stage!.label).toBe("still to research");
+    expect(stage!.clearHref).not.toContain("stage=");
+  });
+
+  it("hasActiveFilters still counts a stage-only view as filtered", () => {
+    // Otherwise the header would drop "matching your filters" on a list that
+    // very much is.
+    expect(hasActiveFilters({ stage: "to_research" })).toBe(true);
+    expect(hasActiveFilters({})).toBe(false);
+  });
+
+  it("an unknown stage value still round-trips rather than vanishing", () => {
+    // filterHref must not become a whitelist — a value it doesn't recognise
+    // being silently dropped is the same bug in a new shape.
+    expect(filterHref({ stage: "some_future_bucket" })).toContain(
+      "stage=some_future_bucket"
+    );
+  });
+
+  it("the campaigns page link this protects still exists", () => {
+    const CAMPAIGNS = readFileSync(
+      path.join(ROOT, "app", "growth", "(app)", "campaigns", "page.tsx"),
+      "utf8"
+    );
+    expect(CAMPAIGNS).toContain("stage=to_research");
+  });
+});

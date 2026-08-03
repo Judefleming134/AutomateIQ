@@ -78,6 +78,21 @@ export function filterHref(
   put("campaign", params.campaign);
   put("phone", params.phone === "1" ? "1" : undefined);
   put("due", params.due);
+  // `stage` was missing here while activeFilterChips below happily rendered a
+  // stage chip — so the module broke the promise in its own doc comment, that
+  // each chip "clears only ITSELF, keeping the others".
+  //
+  // It has a real entry point: the campaigns page links its "still to research"
+  // count at `?campaign=<id>&stage=to_research`. Land there, then click the
+  // campaign chip to widen from one campaign to all of them, and stage was
+  // dropped along with it — every prospect in the database instead of every
+  // prospect still to research. A list with nothing to do with the number that
+  // was clicked, which is the "count that doesn't match its click-through"
+  // shape from the other side.
+  //
+  // Only the stage chip's OWN clear worked, and only because dropping it was
+  // already the behaviour.
+  put("stage", params.stage);
   put("sort", params.sort);
   const qs = sp.toString();
   return qs ? `/growth/prospects?${qs}` : "/growth/prospects";
