@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectAllRowsByIds } from "./db";
+import { classifyInbound } from "./inbound-classify";
 
 type Client = SupabaseClient;
 
@@ -45,8 +46,31 @@ export function isAwaiting(
   return latestInboundAt > latestSentAt;
 }
 
+/**
+ * Is this inbound message a PERSON waiting on an answer?
+ *
+ * An out-of-office bounce is not waiting on anything, and an opt-out is
+ * someone who asked not to be contacted — telling Jude to "answer these
+ * first" on either is worse than noise on the second one.
+ *
+ * The morning brief has always filtered these out of its "STILL WAITING ON
+ * YOU" section. The dashboard panel and Jarvis's priority did not, so the same
+ * question got two answers depending on which screen you were looking at, and
+ * the two that were wrong are the two he works from during the day.
+ *
+ * Same classifier the inbound webhook uses to decide whether a message moves
+ * the pipeline at all, so a message that was not allowed to advance a prospect
+ * cannot turn round and demand a reply.
+ */
+export function isHumanReply(m: { subject?: string | null; body?: string | null }): boolean {
+  return classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind === "human";
+}
+
 /** The shape both callers already have to hand. */
 type Msg = { prospect_id: string; sent_at?: string | null; created_at: string };
+
+/** An inbound row, as both callers fetch it. */
+type Inbound = { prospect_id: string; created_at: string; subject?: string | null; body?: string | null };
 
 /**
  * The real timestamp of an outbound message: `sent_at` when it went, falling
@@ -78,17 +102,23 @@ export const INBOUND_SCAN = 400;
  * NUMBER — the dashboard already renders the list and does not need this.
  */
 export async function countAwaitingReplies(admin: Client): Promise<number> {
-  const { data: inboundRows } = await admin
+  const { data: inboundRows } = (await admin
     .from("ge_messages")
-    .select("prospect_id, created_at")
+    // subject + body so the auto-replies can be told apart from real people.
+    .select("prospect_id, created_at, subject, body")
     .eq("direction", "inbound")
     .order("created_at", { ascending: false })
-    .limit(INBOUND_SCAN);
+    .limit(INBOUND_SCAN)) as { data: Inbound[] | null };
 
   // Rows arrive newest-first, so the first sighting of a prospect is their
   // most recent reply.
   const latestInbound = new Map<string, string>();
   for (const m of inboundRows ?? []) {
+    // An out-of-office or an opt-out is not a person waiting on an answer.
+    // Skipping them here (rather than after picking the newest) means a
+    // prospect whose LAST message was an auto-reply still surfaces on their
+    // last real one — the same thing the morning brief does.
+    if (!isHumanReply(m)) continue;
     if (!latestInbound.has(m.prospect_id)) latestInbound.set(m.prospect_id, m.created_at);
   }
   const ids = [...latestInbound.keys()];

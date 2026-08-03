@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { selectAllRowsByIds } from "@/lib/growth/db";
 import { loadGrowthMetrics } from "@/lib/growth/metrics";
 import { splitMeetings } from "@/lib/growth/meeting-order";
-import { isAwaiting } from "@/lib/growth/awaiting";
+import { isAwaiting, isHumanReply } from "@/lib/growth/awaiting";
 import { StatCard } from "@/components/portal/stat-card";
 import { ActionForm } from "@/components/admin/action-form";
 import { SubmitButton } from "@/components/admin/submit-button";
@@ -244,7 +244,8 @@ export default async function GrowthDashboardPage() {
     // of sends produce dozens of replies), so this stays cheap.
     admin
       .from("ge_messages")
-      .select("prospect_id, body, channel, created_at")
+      // subject too, so an out-of-office can be told from a real person.
+      .select("prospect_id, body, subject, channel, created_at")
       .eq("direction", "inbound")
       .order("created_at", { ascending: false })
       .limit(400),
@@ -320,6 +321,13 @@ export default async function GrowthDashboardPage() {
   // conversation at once.
   const latestInbound = new Map<string, { body: string; channel: string; created_at: string }>();
   for (const m of inboundRows ?? []) {
+    // An out-of-office is not waiting on an answer, and an opt-out is someone
+    // who asked NOT to be contacted — this panel told him to reply to both.
+    // The morning brief has always filtered them; this is the same rule, now
+    // shared, so the brief and the dashboard stop disagreeing about who is
+    // waiting. Skipped before picking the newest, so a prospect whose last
+    // message was an auto-reply still surfaces on their last real one.
+    if (!isHumanReply(m)) continue;
     // Rows arrive newest-first, so the first sighting of a prospect is their
     // most recent reply.
     if (!latestInbound.has(m.prospect_id)) {
