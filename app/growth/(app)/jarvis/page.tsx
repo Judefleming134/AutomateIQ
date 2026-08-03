@@ -75,6 +75,7 @@ export default async function JarvisPage() {
   // already queued for the 8am run is handled — counting it again here made
   // Jarvis and the dashboard show different numbers for the same list.
   let readyAdjusted = readyCount ?? 0;
+  let readyAlreadyQueued = 0;
   if (readyAdjusted > 0 && queuedRows.length > 0) {
     const queuedIds = [...new Set(queuedRows.map((r) => r.prospect_id))];
     const { count: queuedReady } = await admin
@@ -82,7 +83,8 @@ export default async function JarvisPage() {
       .select("id", { count: "exact", head: true })
       .in("status", ["research_complete", "outreach_ready"])
       .in("id", queuedIds);
-    readyAdjusted = Math.max(0, readyAdjusted - (queuedReady ?? 0));
+    readyAlreadyQueued = queuedReady ?? 0;
+    readyAdjusted = Math.max(0, readyAdjusted - readyAlreadyQueued);
   }
 
   const priorities: { label: string; href: string }[] = [];
@@ -96,8 +98,25 @@ export default async function JarvisPage() {
     });
   if (readyAdjusted > 0)
     priorities.push({
-      label: `${readyAdjusted} researched prospect${readyAdjusted === 1 ? "" : "s"} with drafts ready and no first touch yet — send the top scores`,
-      href: "/growth/prospects?sort=score",
+      // THE LINK WENT NOWHERE USEFUL. `?sort=score` is no filter at all, so a
+      // count of forty landed on the entire database sorted by score — the
+      // exact defect prospect-query.ts was written to prevent, in its own
+      // words: "the number shown must equal the rows the click lands on, or
+      // the page looks broken". The other two priorities here were filtered
+      // correctly; this one quietly gave up because no single-status filter
+      // spanned research_complete AND outreach_ready. There is a stage bucket
+      // for it now.
+      //
+      // The two numbers still differ by design: this count EXCLUDES prospects
+      // whose email is already queued for the morning run (they're handled),
+      // and the filtered list can't express that. So say so rather than let
+      // him land on a longer list and wonder which number is wrong.
+      label:
+        `${readyAdjusted} researched prospect${readyAdjusted === 1 ? "" : "s"} with drafts ready and no first touch yet — send the top scores` +
+        (readyAlreadyQueued > 0
+          ? ` (the list also shows ${readyAlreadyQueued} already queued for the morning run)`
+          : ""),
+      href: "/growth/prospects?stage=ready_to_send&sort=score",
     });
   // Replies STILL WAITING, not replies received. The old count was
   // `week.replies` — every inbound of the last 7 days, answered or not — so on
