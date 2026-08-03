@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectAllRowsByIds } from "@/lib/growth/db";
 import { dublinDate, dublinLocalToUtcISO } from "@/lib/growth/dates";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { buildQuote, formatEuro } from "@/lib/growth/pricing";
@@ -81,7 +82,7 @@ export default async function CallListPage() {
     { data: dueRaw },
     { data: topRaw },
     { count: workableTotal },
-    { count: calledTodayCount },
+    { data: workedTodayRows },
   ] = await Promise.all([
     admin
       .from("ge_prospects")
@@ -106,17 +107,38 @@ export default async function CallListPage() {
       .select("id", { count: "exact", head: true })
       .not("phone", "is", null)
       .in("status", WORKABLE),
-    // How many of that pool are already done today. Without this the "N more
-    // still to call" line counted the people Jude had just rung, so it never
-    // went down as he worked — it read "12 more still to call" on a finished
-    // list. Cheap head count, no rows returned.
+    // WHO HAS ACTUALLY BEEN RUNG TODAY — asked of the timeline, not of
+    // last_contact_at.
+    //
+    // This page used to decide it from `last_contact_at >= todayStart`, and
+    // that column is stamped by recordOutreachSent on EVERY outreach touch:
+    // the 07:00 email autopilot, "Mark sent" on the DM list, the composer, the
+    // inbox Send button. So the thirty prospects the engine emailed at 07:00
+    // vanished from the call list before Jude opened it — and they are the
+    // TOP-SCORED thirty, because that is exactly who the autopilot picks. The
+    // page then congratulated him: "30 done today", in green, before he had
+    // dialled a single number.
+    //
+    // An email that went out this morning is a REASON to ring someone, not a
+    // reason to hide them. `type` in ("call", "meeting") is the unambiguous
+    // signal that a human worked this lead today: addActivity writes "call" for
+    // Log call and "meeting" for a logged meeting, and logNoAnswer writes
+    // "call" too — so a no-answer still drops off today, exactly as before.
     admin
-      .from("ge_prospects")
-      .select("id", { count: "exact", head: true })
-      .not("phone", "is", null)
-      .in("status", WORKABLE)
-      .gte("last_contact_at", todayStart),
+      .from("ge_activities")
+      .select("prospect_id")
+      .in("type", ["call", "meeting"])
+      .gte("created_at", todayStart)
+      // A day's calls is tens of rows. The cap is only here so a pathological
+      // day can't page; it is far below PostgREST's 1,000.
+      .limit(500),
   ]);
+
+  // Distinct people worked today. Every one of them, whatever happened to the
+  // lead afterwards — this is the "you've done N today" number.
+  const workedTodayIds = new Set(
+    (workedTodayRows ?? []).map((a) => a.prospect_id as string)
+  );
 
   const isDue = (p: { next_follow_up_at: string | null }) =>
     !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) <= today;
@@ -125,12 +147,15 @@ export default async function CallListPage() {
   const bookedAhead = (p: { next_follow_up_at: string | null }) =>
     !!p.next_follow_up_at && p.next_follow_up_at.slice(0, 10) > today;
 
-  // Drop anyone already called today so the list is always "who's LEFT" and
-  // shrinks as you work down it (the DM list does the same for sent DMs). A
-  // logged call sets last_contact_at, so they fall off on the next load — no
-  // re-dialling the person you just spoke to. They stay in Prospects if needed.
-  const calledToday = (p: { last_contact_at: string | null }) =>
-    !!p.last_contact_at && p.last_contact_at >= todayStart;
+  // Drop anyone already rung today so the list is always "who's LEFT" and
+  // shrinks as you work down it (the DM list does the same for sent DMs).
+  // Logging a call or a no-answer writes the activity below, so they fall off
+  // on the next load — no re-dialling the person you just spoke to. They stay
+  // in Prospects, and on tomorrow's list, either way.
+  //
+  // Deliberately NOT last_contact_at: see the query above. An email or a DM
+  // stamps that column too, and being emailed is not being called.
+  const calledToday = (p: { id: string }) => workedTodayIds.has(p.id);
 
   // Merge, de-duplicate — a lead can legitimately appear in both queries —
   // then drop anyone already called today.
@@ -154,12 +179,6 @@ export default async function CallListPage() {
     isDue(p) ? 0 : bookedAhead(p) ? 2 : 1;
   const prospects = [...workable].sort((a, b) => tier(a) - tier(b)).slice(0, MAX_ITEMS);
   const dueCount = workable.filter(isDue).length;
-  // Exclude today's completed calls from "still to call" — they're done, and
-  // counting them meant the number never fell as he worked down the list.
-  const remaining = Math.max(
-    0,
-    (workableTotal ?? workable.length) - (calledTodayCount ?? 0) - prospects.length
-  );
 
   // Batch-load research for the pitch + script — one query, mapped in memory.
   const ids = prospects.map((p) => p.id);
@@ -172,11 +191,48 @@ export default async function CallListPage() {
     } | null;
     solutions: { key?: string; name?: string }[] | null;
   };
-  const { data: researchRows } = ids.length
-    ? await admin.from("ge_research").select("prospect_id, report, solutions").in("prospect_id", ids)
-    : { data: [] as ResearchRow[] };
+  const [{ data: researchRows }, workedInPoolRows] = await Promise.all([
+    ids.length
+      ? admin.from("ge_research").select("prospect_id, report, solutions").in("prospect_id", ids)
+      : Promise.resolve({ data: [] as ResearchRow[] }),
+    // How many of the people worked today came out of THIS pool — the exact
+    // number to subtract below, so "N more still to call" can't drift.
+    //
+    // Counted against the same phone + WORKABLE filter as the pool total, and
+    // CHUNKED: every id rides in the request URL at ~40 chars, so a heavy day
+    // of dialling would otherwise build a URL that simply fails — and a failed
+    // count here reads as "nobody worked today", inflating the number it exists
+    // to keep honest.
+    workedTodayIds.size
+      ? selectAllRowsByIds<{ id: string }>([...workedTodayIds], (chunk) =>
+          admin
+            .from("ge_prospects")
+            .select("id")
+            .not("phone", "is", null)
+            .in("status", WORKABLE)
+            .in("id", chunk)
+        )
+      : Promise.resolve([] as { id: string }[]),
+  ]);
   const researchById = new Map(
     (researchRows ?? []).map((r) => [r.prospect_id, r as ResearchRow])
+  );
+
+  // Two different questions, two different numbers.
+  //   callsToday   — people Jude worked today, for the "you've done N" line.
+  //                  Counts everyone, including a lead a call moved out of the
+  //                  callable pool. Crediting his effort must not depend on
+  //                  where the lead ended up.
+  //   workedInPool — how many of those are still countable inside
+  //                  `workableTotal`, which is the only figure it is valid to
+  //                  subtract from it.
+  const callsToday = workedTodayIds.size;
+  const workedInPool = (workedInPoolRows ?? []).length;
+  // Exclude today's completed calls from "still to call" — they're done, and
+  // counting them meant the number never fell as he worked down the list.
+  const remaining = Math.max(
+    0,
+    (workableTotal ?? workable.length) - workedInPool - prospects.length
   );
 
   return (
@@ -198,8 +254,8 @@ export default async function CallListPage() {
       {prospects.length === 0 ? (
         <div className="panel panel-block">
           <p className="empty-state" style={{ margin: 0 }}>
-            {(calledTodayCount ?? 0) > 0
-              ? `Nothing left to call — that's ${calledTodayCount} logged today. Nice one. Tomorrow's chases will be waiting here in the morning.`
+            {callsToday > 0
+              ? `Nothing left to call — that's ${callsToday} logged today. Nice one. Tomorrow's chases will be waiting here in the morning.`
               : "Nothing left to call right now — there are no phone prospects in a workable stage yet. Uncalled ones appear here warmest first; import or research more to top it up."}
           </p>
         </div>
@@ -225,11 +281,11 @@ export default async function CallListPage() {
                 <Link href="/growth/prospects?phone=1">see the whole list</Link>
               </>
             )}
-            {(calledTodayCount ?? 0) > 0 && (
+            {callsToday > 0 && (
               <>
                 {" "}·{" "}
                 <strong style={{ color: "var(--green, #34d399)" }}>
-                  {calledTodayCount} done today
+                  {callsToday} done today
                 </strong>
               </>
             )}
