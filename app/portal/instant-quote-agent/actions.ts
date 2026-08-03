@@ -183,7 +183,19 @@ export async function sendQuote(
     };
   }
 
-  await supabase
+  // THE EMAIL HAS GONE BY THIS POINT. Sending first is right — nothing may
+  // claim "sent" before it went — but it makes this update's error the one that
+  // must not be discarded, and it was.
+  //
+  // Three things ride on it, and the third is the sharpest:
+  //   status   stays "draft", so the quote reads as never sent and the obvious
+  //            reaction is to send it again
+  //   sent_at  never set, so chasing and analytics are blind to it
+  //   customer_email  the CORRECTED address is not persisted — and the
+  //            idempotency key a few lines above exists specifically so that
+  //            "re-sending to a CORRECTED email actually goes out". Losing the
+  //            correction sends the next one back to the wrong address.
+  const { error: recordError } = await supabase
     .from("qa_quotes")
     .update({
       status: quote.status === "draft" ? "sent" : quote.status,
@@ -193,5 +205,19 @@ export async function sendQuote(
     .eq("id", quote.id);
 
   revalidatePath("/portal/instant-quote-agent");
+
+  if (recordError) {
+    // Deliberately leads with the fact the quote DID go, so nobody reads this
+    // as a failed send and fires a second one at the customer.
+    return {
+      ok: false,
+      error:
+        `The quote WAS emailed to ${to} — but saving that to the record failed ` +
+        `(${recordError.message}). It still shows as ${quote.status}. Don't send it ` +
+        `again or they'll get it twice; refresh, and if it still looks unsent, ` +
+        `set the address and status by hand.`,
+    };
+  }
+
   return { ok: true };
 }
