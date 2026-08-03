@@ -301,6 +301,35 @@ const RAMP_STEP_CLEAN = 2.0;
 const MAX_BOUNCE_RATE = 0.05;
 const RAMP_WINDOW_DAYS = 14;
 
+/**
+ * The hard ceiling on ONE morning run — and, since there is one run a day, on
+ * a day.
+ *
+ * This exists because the 07:00 dispatch has a 60-second budget it shares with
+ * the booking sync, both queue steps, the invoice-chaser settle and the brief's
+ * AI call. Thirty paced sends is what fits with the brief still going out, and
+ * the brief is the thing CLAUDE.md says can never be left broken.
+ *
+ * IT WAS A BARE `30` INSIDE runQueuedEmailAutopilot AND NOTHING ELSE KNEW.
+ * resolveSendRamp derives its ceiling from `recentPeak`, which is measured from
+ * sends — so the cap fed back into the ramp and the whole thing converged on 30
+ * while the reason line, the morning brief and the settings help text all
+ * described a climb to whatever number was in the box.
+ *
+ * On the DEFAULT target of 50 that reads, from the third morning onward:
+ *
+ *     "at your target of 50/day (peak 30)"
+ *
+ * every morning, for ever, while thirty emails go out. Not "ramping" — it
+ * claims to have ARRIVED. Twenty emails a day, six hundred a month, that the
+ * engine says it sent and did not.
+ *
+ * Exported so the queue side and the send side read the same number. Raising it
+ * is a real piece of work (the 350ms pacing alone is 10.5s of the budget) and
+ * is logged in docs/OUTSTANDING.md rather than done here.
+ */
+export const MAX_SENDS_PER_RUN = 30;
+
 export type RampDecision = {
   /** What the engine will actually queue today. */
   target: number;
@@ -313,7 +342,40 @@ export type RampDecision = {
   bounceRate: number;
   /** Plain-English why, for the brief and the queue detail line. */
   reason: string;
+  /** True when the requested target is above what one morning run can send,
+   *  so `target` is MAX_SENDS_PER_RUN rather than the number in the box.
+   *  Additive — existing callers read target/reason and are unaffected. */
+  cappedByRun: boolean;
 };
+
+/**
+ * The last word on every ramp decision: nothing may be queued above what the
+ * morning run can actually send, and if that bites, the reason has to say so.
+ *
+ * Applied on ALL paths — including the two hold paths, where `recentPeak` can
+ * legitimately sit above 30 because it counts Jude's manual sends from the
+ * inbox as well as the autopilot's.
+ *
+ * Throughput is unchanged by the clamp: the send loop was already stopping at
+ * 30. What changes is that the surplus stops being queued — and a queued cold
+ * draft is not free. `listAutopilotCandidates` drops any prospect with a queued
+ * email from the "ready to send" list, so twenty prospects were parked in a
+ * limbo where they neither went out nor showed up as available, and their
+ * drafts aged past the 5-day staleness line while they waited.
+ */
+function capToRun(d: Omit<RampDecision, "cappedByRun">): RampDecision {
+  if (d.target <= MAX_SENDS_PER_RUN) return { ...d, cappedByRun: false };
+  return {
+    ...d,
+    target: MAX_SENDS_PER_RUN,
+    cappedByRun: true,
+    reason:
+      `${d.reason} — capped at ${MAX_SENDS_PER_RUN}/day, because one morning run ` +
+      `sends at most ${MAX_SENDS_PER_RUN} emails inside its time budget (which also ` +
+      `has to fit your brief). Your target of ${d.requested} can't be reached by ` +
+      `raising that number alone.`,
+  };
+}
 
 /**
  * Decides how many first-touch emails it is SAFE to queue today.
@@ -376,20 +438,20 @@ export async function resolveSendRamp(
     // send MORE than was asked for. Max-first would raise a deliberately low
     // target up to the floor at the exact moment volume should be falling.
     const target = Math.min(requested, Math.max(RAMP_FLOOR, recentPeak));
-    return {
+    return capToRun({
       target, requested, recentPeak, sent, bounced, complaints, bounceRate,
-      reason: `HOLDING at ${target}/day — ${complaints} spam complaint${complaints === 1 ? "" : "s"} in the last ${RAMP_WINDOW_DAYS} days. Volume will not grow until that's clean. Check who's being emailed and how they got on the list.`,
-    };
+      reason: `HOLDING at ${Math.min(target, MAX_SENDS_PER_RUN)}/day — ${complaints} spam complaint${complaints === 1 ? "" : "s"} in the last ${RAMP_WINDOW_DAYS} days. Volume will not grow until that's clean. Check who's being emailed and how they got on the list.`,
+    });
   }
   if (total >= 20 && bounceRate > MAX_BOUNCE_RATE) {
     // Order matters: clamp to the requested number LAST, so a hold can never
     // send MORE than was asked for. Max-first would raise a deliberately low
     // target up to the floor at the exact moment volume should be falling.
     const target = Math.min(requested, Math.max(RAMP_FLOOR, recentPeak));
-    return {
+    return capToRun({
       target, requested, recentPeak, sent, bounced, complaints, bounceRate,
-      reason: `HOLDING at ${target}/day — ${(bounceRate * 100).toFixed(1)}% of the last ${total} emails bounced (limit ${(MAX_BOUNCE_RATE * 100).toFixed(0)}%). Clean the list before sending more; bounces damage the domain faster than volume builds it.`,
-    };
+      reason: `HOLDING at ${Math.min(target, MAX_SENDS_PER_RUN)}/day — ${(bounceRate * 100).toFixed(1)}% of the last ${total} emails bounced (limit ${(MAX_BOUNCE_RATE * 100).toFixed(0)}%). Clean the list before sending more; bounces damage the domain faster than volume builds it.`,
+    });
   }
 
   // A list that is demonstrably clean earns a faster climb. Under 1% bounces
@@ -400,11 +462,30 @@ export async function resolveSendRamp(
   const step = proven ? RAMP_STEP_CLEAN : RAMP_STEP;
   const ceiling = Math.max(RAMP_FLOOR, Math.ceil(recentPeak * step));
   const target = Math.min(requested, ceiling);
+  // The climb is toward whichever comes first: the number in the box, or what a
+  // morning run can carry. Estimating days to a destination the run can never
+  // reach is how "Reaches your target in about 1 more days" got printed every
+  // morning for ever.
+  const destination = Math.min(requested, MAX_SENDS_PER_RUN);
+  const effective = Math.min(target, MAX_SENDS_PER_RUN);
+  // Days to whichever comes first, and by the step actually in use. The old
+  // estimate divided by `requested` with RAMP_STEP regardless, so on a target
+  // above the ceiling it printed "reaches your target in about 1 more days"
+  // every morning for ever — a promise that could not come true.
+  const days = Math.max(
+    1,
+    Math.ceil(Math.log(destination / Math.max(effective, 1)) / Math.log(step))
+  );
+  const stats = `peak ${recentPeak}, ${(bounceRate * 100).toFixed(1)}% bounces`;
   const reason =
-    target >= requested
-      ? `at your target of ${requested}/day (peak ${recentPeak}, ${(bounceRate * 100).toFixed(1)}% bounces)`
-      : `ramping to ${target}/day on the way to ${requested} — ${proven ? "doubling" : "up to +50%"} on the recent peak of ${recentPeak}/day, ${(bounceRate * 100).toFixed(1)}% bounces${proven ? " (clean list, so it's climbing faster)" : ""}. Reaches your target in about ${Math.max(1, Math.ceil(Math.log(requested / Math.max(target, 1)) / Math.log(RAMP_STEP)))} more days.`;
-  return { target, requested, recentPeak, sent, bounced, complaints, bounceRate, reason };
+    effective >= destination
+      ? // Unchanged wording whenever the target is genuinely reached — the
+        // line Jude already reads on a working morning.
+        target >= requested
+        ? `at your target of ${requested}/day (${stats})`
+        : `at ${effective}/day (${stats})`
+      : `ramping to ${effective}/day on the way to ${destination} — ${proven ? "doubling" : "up to +50%"} on the recent peak of ${recentPeak}/day, ${(bounceRate * 100).toFixed(1)}% bounces${proven ? " (clean list, so it's climbing faster)" : ""}. Reaches it in about ${days} more days.`;
+  return capToRun({ target, requested, recentPeak, sent, bounced, complaints, bounceRate, reason });
 }
 
 /**
@@ -876,7 +957,20 @@ export async function runQueuedEmailAutopilot(): Promise<{
     .eq("direction", "outbound")
     .eq("status", "queued")
     .order("created_at")
-    .limit(50);
+    // Wide enough that the PRIORITY SORT below sees the whole queue.
+    //
+    // This was `.limit(50)` — a cap on `created_at` order, applied before the
+    // scheduled_at filter and before the chase-first/best-score sort that
+    // decides who actually goes. With a queue past 50 the sort could only
+    // reorder the OLDEST 50 rows, so a chase drafted last night — newest
+    // created_at, and the one with a 7-day clock on it — was never in the pool
+    // to be prioritised. The exact "score-ordered cap applied before the
+    // still-to-work filter" shape CLAUDE.md lists.
+    //
+    // Costs nothing: these are tiny rows, one query, and the send count is
+    // capped separately below. Today's queue does not reach 50, so this changes
+    // no behaviour now — it stops the sort silently narrowing if it ever does.
+    .limit(Math.max(200, MAX_SENDS_PER_RUN * 4));
   const now = new Date().toISOString();
   // Cap the morning batch: keeps the whole dispatch (reminders + sends +
   // brief) safely inside the 60s function budget and inside sensible daily
@@ -896,7 +990,7 @@ export async function runQueuedEmailAutopilot(): Promise<{
         Number((b.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0) -
           Number((a.ge_prospects as { lead_score?: number } | null)?.lead_score ?? 0)
     )
-    .slice(0, 30);
+    .slice(0, MAX_SENDS_PER_RUN);
 
   // Cross-contamination check: an email whose body names ANOTHER company in
   // this batch but not its own prospect is a mis-merged draft — held.
