@@ -412,24 +412,76 @@ export async function sendJarvisMorningBrief(): Promise<{
     // (null), the rows we hold are still a floor, not zero.
     const sentTodayTotal = Math.max(sentTodayTotalRaw ?? 0, (sentToday ?? []).length);
 
-    // Send age matters: fresh outreach with no replies is pending, not
-    // failing — give the narrative the data to judge that correctly.
-    const { count: sent24h } = await admin
-      .from("ge_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("direction", "outbound")
-      .eq("status", "sent")
-      .gte("sent_at", since24h);
-
-    // Suggested reply drafts the engine wrote for incoming replies — so the
-    // brief can tell Jude the responses are already waiting, just review + send.
-    const { count: replyDrafts24h } = await admin
-      .from("ge_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("direction", "outbound")
-      .eq("purpose", "reply")
-      .eq("status", "draft")
-      .gte("created_at", since24h);
+    // SIX INDEPENDENT HEAD-COUNTS, IN ONE ROUND TRIP INSTEAD OF SIX.
+    //
+    // These were six separate `await`s scattered down the function — four here
+    // and two more two hundred lines below — each a full round trip to
+    // Postgres, each waiting for the one before it, and none of them using any
+    // other's result.
+    //
+    // They sit inside the 07:00 dispatch, which has a 60-second budget it
+    // shares with the booking sync, both queue steps, the invoice-chaser settle
+    // and this brief's own AI call. The brief runs LAST, so every serial round
+    // trip here is spent out of the margin that decides whether Jude gets a
+    // brief at all. head:true means no rows come back, so the only cost each
+    // one has ever had is the latency — which is exactly the cost that
+    // parallelising removes.
+    //
+    // Declared together at the point the FIRST one was needed. The two that
+    // used to live further down are consumed well after this, so nothing reads
+    // them any earlier than it did.
+    const [
+      { count: sent24h },
+      { count: replyDrafts24h },
+      { count: leadsAdded24h },
+      { count: researchedOvernight },
+      { count: chaseDraftsOvernight },
+      { count: goneColdCount },
+    ] = await Promise.all([
+      // Send age matters: fresh outreach with no replies is pending, not
+      // failing — give the narrative the data to judge that correctly.
+      admin
+        .from("ge_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("direction", "outbound")
+        .eq("status", "sent")
+        .gte("sent_at", since24h),
+      // Suggested reply drafts the engine wrote for incoming replies — so the
+      // brief can tell Jude the responses are already waiting, just review + send.
+      admin
+        .from("ge_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("direction", "outbound")
+        .eq("purpose", "reply")
+        .eq("status", "draft")
+        .gte("created_at", since24h),
+      // What changed over the weekend/overnight — the core of the weekend brief.
+      admin
+        .from("ge_prospects")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", since24h),
+      // How many leads the self-research worker got through overnight — the
+      // headline proof that "it worked itself" while Jude slept.
+      admin
+        .from("ge_research")
+        .select("prospect_id", { count: "exact", head: true })
+        .gte("updated_at", since24h),
+      // Chase drafts (touch 2/3) the worker wrote overnight, ready to send.
+      admin
+        .from("ge_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("direction", "outbound")
+        .in("purpose", ["follow_up", "second_follow_up"])
+        .eq("status", "draft")
+        .gte("created_at", since24h),
+      // Gone-cold tally (7+ days overdue, no longer auto-chased) — one line so
+      // the pile stays visible without flooding the due list.
+      admin
+        .from("ge_prospects")
+        .select("id", { count: "exact", head: true })
+        .lt("next_follow_up_at", dublinDate(-7))
+        .not("status", "in", activeFilter),
+    ]);
 
     // Delivery trouble reported by the email provider's webhooks (bounces,
     // spam complaints, delays) — ground truth on whether sends arrived.
@@ -553,35 +605,6 @@ export async function sendJarvisMorningBrief(): Promise<{
         `${nmVerdict}\n` +
         `Yesterday: ${nmSentY ?? 0} sent · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
     }
-
-    // What changed over the weekend/overnight — the core of the weekend brief.
-    const { count: leadsAdded24h } = await admin
-      .from("ge_prospects")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", since24h);
-
-    // How many leads the self-research worker got through overnight — the
-    // headline proof that "it worked itself" while Jude slept.
-    const { count: researchedOvernight } = await admin
-      .from("ge_research")
-      .select("prospect_id", { count: "exact", head: true })
-      .gte("updated_at", since24h);
-    // Chase drafts (touch 2/3) the worker wrote overnight, ready to send.
-    const { count: chaseDraftsOvernight } = await admin
-      .from("ge_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("direction", "outbound")
-      .in("purpose", ["follow_up", "second_follow_up"])
-      .eq("status", "draft")
-      .gte("created_at", since24h);
-
-    // Gone-cold tally (7+ days overdue, no longer auto-chased) — one line so
-    // the pile stays visible without flooding the due list.
-    const { count: goneColdCount } = await admin
-      .from("ge_prospects")
-      .select("id", { count: "exact", head: true })
-      .lt("next_follow_up_at", dublinDate(-7))
-      .not("status", "in", activeFilter);
 
     const statusLabel = (s: string) =>
       PROSPECT_STATUS_META[s as ProspectStatus]?.label ?? s;
