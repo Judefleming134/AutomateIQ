@@ -106,8 +106,17 @@ describe("the delete path is wired to the guard", () => {
   });
 
   it("deletes only the ids that are not live deals", () => {
+    // This pinned the exact one-line form `.delete().in("id", deletable)`. It
+    // fired on 2026-08-03 when the delete gained a second, SQL-side guard
+    // (`.not("status","in",liveDealFilter)`) and wrapped across lines — see
+    // lib/growth/bulk-delete-guard.test.ts for why: the JS filter alone failed
+    // OPEN if the live-deal lookup errored.
+    //
+    // The invariant is unchanged and now holds twice over, so it is pinned as
+    // an invariant rather than as one line of formatting.
     expect(del).toContain("const deletable = ids.filter((id) => !liveIds.has(id))");
-    expect(del).toContain('.delete().in("id", deletable)');
+    expect(del).toMatch(/\.delete\(\)[\s\S]{0,80}\.in\("id", deletable\)/);
+    expect(del).toContain('.not("status", "in", liveDealFilter)');
   });
 
   it("looks the live ones up FIRST, so it can name them", () => {
