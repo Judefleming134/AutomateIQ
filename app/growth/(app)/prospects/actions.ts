@@ -1188,17 +1188,48 @@ export async function bulkProspectAction(_prev: Result, formData: FormData): Pro
     // prospect's own page is untouched, so it stays possible, just deliberate.
     // Looked up FIRST so the message can name what was kept and why, rather
     // than inferring it from a row count that also moves when an id is stale.
-    const { data: liveRows } = await admin
+    // THE GUARD USED TO FAIL OPEN, which is the opposite of what a guard on an
+    // irreversible action must do.
+    //
+    // The error from this lookup was discarded: `data: liveRows` only, then
+    // `liveRows ?? []`. So ANY failure here — a network blip, a statement
+    // timeout, an over-long request URL from a big selection — produced an
+    // EMPTY live list, `deletable` became every ticked id including the won
+    // customers, and the delete went ahead and returned ok. The one comment
+    // above it says it exists to stop "destroying the record of a paying
+    // customer".
+    //
+    // The archive branch immediately below already did this properly: it
+    // filters in SQL and checks its error. The safer of the two operations was
+    // the better guarded one.
+    const { data: liveRows, error: liveError } = await admin
       .from("ge_prospects")
       .select("id, company, status")
       .in("id", ids)
       .in("status", LIVE_DEAL_STATUSES);
+    if (liveError) {
+      return {
+        error:
+          `Couldn't check which of these are live deals (${liveError.message}), ` +
+          `so nothing was deleted. Try again — deleting without that check could ` +
+          `remove a won customer and their whole history.`,
+      };
+    }
     const live = liveRows ?? [];
     const liveIds = new Set(live.map((r) => r.id as string));
     const deletable = ids.filter((id) => !liveIds.has(id));
 
     if (deletable.length > 0) {
-      const { error } = await admin.from("ge_prospects").delete().in("id", deletable);
+      const { error } = await admin
+        .from("ge_prospects")
+        .delete()
+        .in("id", deletable)
+        // Belt and braces, and the same clause archive uses. The JS filter
+        // above is what names the kept deals in the message; THIS is what
+        // makes it impossible for the database to remove one — a status that
+        // changed between the lookup and the delete is caught here rather than
+        // slipping through the window between two queries.
+        .not("status", "in", liveDealFilter);
       if (error) return { error: error.message };
     }
 

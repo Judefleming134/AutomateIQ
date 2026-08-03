@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Send, ExternalLink } from "lucide-react";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { selectAllRows } from "@/lib/growth/db";
+import { selectAllRows, selectAllRowsByIds } from "@/lib/growth/db";
 import { cleanSocialUrl } from "@/lib/growth/research";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { CHANNEL_META, type Channel } from "@/lib/growth/constants";
@@ -120,18 +120,25 @@ export default async function DmListPage() {
   const ids = candidates.map((p) => p.id);
 
   type MessageRow = { id: string; prospect_id: string; channel: string; body: string };
-  const messages: MessageRow[] = ids.length
-    ? await selectAllRows<MessageRow>(() =>
-        admin
-          .from("ge_messages")
-          .select("id, prospect_id, channel, body")
-          .in("prospect_id", ids)
-          .eq("direction", "outbound")
-          .in("channel", SOCIAL_CHANNELS)
-          .eq("status", "draft")
-          .order("id", { ascending: true })
-      )
-    : [];
+  // CHUNKED. `ids` reaches DRAFT_LOOKUP (150) on every load, and every id is
+  // serialised into the request URL at ~40 characters per UUID: measured, that
+  // is a 6,070-byte URL, ~6.6KB with headers, against the usual 8KB proxy
+  // ceiling. It fits today with roughly 43 ids of headroom — but selectAllRows
+  // THROWS rather than truncating, so the moment it doesn't fit this page 500s
+  // outright, and DRAFT_LOOKUP is a tuning constant on a list whose window has
+  // already been widened twice to stop it starving.
+  //
+  // selectAllRowsByIds returns exactly the same rows at any size.
+  const messages: MessageRow[] = await selectAllRowsByIds<MessageRow>(ids, (chunk) =>
+    admin
+      .from("ge_messages")
+      .select("id, prospect_id, channel, body")
+      .in("prospect_id", chunk)
+      .eq("direction", "outbound")
+      .in("channel", SOCIAL_CHANNELS)
+      .eq("status", "draft")
+      .order("id", { ascending: true })
+  );
 
   const draftByKey = new Map<string, { id: string; body: string }>();
   for (const m of messages ?? []) {
