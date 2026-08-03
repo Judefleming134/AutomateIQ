@@ -7,6 +7,7 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseCsv } from "@/lib/growth/csv";
 import { escapeLike } from "@/lib/growth/db";
+import { revalidateProspectSurfaces } from "@/lib/growth/prospect-surfaces";
 import { dublinDate, resolveChaseDate } from "@/lib/growth/dates";
 import { cleanSocialUrl, fetchWebsiteText, runCompanyResearch } from "@/lib/growth/research";
 import {
@@ -143,6 +144,10 @@ export async function addProspect(_prev: Result, formData: FormData): Promise<Re
     content: `Prospect added by ${member.name}`,
     created_by: member.id,
   });
+
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces();
 
   revalidatePath("/growth/prospects");
   return { ok: true };
@@ -408,6 +413,8 @@ export async function importProspects(_prev: Result, formData: FormData): Promis
   // Refresh every surface that counts prospects so an import shows up
   // everywhere at once — the list, the dashboard tiles, Jarvis's pipeline
   // numbers + research queue, and analytics.
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+  revalidateProspectSurfaces();
   revalidatePath("/growth/prospects");
   revalidatePath("/growth/campaigns");
   revalidatePath("/growth");
@@ -501,6 +508,10 @@ export async function updateProspect(_prev: Result, formData: FormData): Promise
     .eq("id", id);
   if (error) return { error: error.message };
 
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces(id);
+
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
   return { ok: true };
@@ -568,6 +579,10 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
       (filledFollowUp ? ` · follow-up scheduled for ${filledFollowUp}` : ""),
     created_by: member.id,
   });
+
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces(id);
 
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
@@ -646,6 +661,10 @@ export async function researchProspect(_prev: Result, formData: FormData): Promi
       }) — ${result.solutions.length} solutions recommended, lead score ${score}/100, outreach drafts prepared`
   );
   if (!persisted.ok) return { error: persisted.error };
+
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces(id);
 
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
@@ -832,6 +851,10 @@ export async function quickResearch(_prev: Result, formData: FormData): Promise<
   researchForm.set("id", created.id);
   const research = await researchProspect(undefined, researchForm);
 
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces();
+
   revalidatePath("/growth/prospects");
   redirect(
     research?.error
@@ -878,6 +901,10 @@ export async function qualifyProspect(_prev: Result, formData: FormData): Promis
     content: `Qualification updated by ${member.name} — score ${score}/100 (${status.replace("_", " ")})`,
     created_by: member.id,
   });
+
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces(id);
 
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth/prospects");
@@ -959,6 +986,8 @@ export async function logNoAnswer(_prev: Result, formData: FormData): Promise<Re
     return { error: `Logged the attempt, but rescheduling failed: ${bumpError.message}` };
   }
 
+  // The DM list reads prospects by status too — see prospect-surfaces.ts.
+  revalidateProspectSurfaces(id);
   revalidatePath("/growth/call-list");
   revalidatePath(`/growth/prospects/${id}`);
   revalidatePath("/growth");
@@ -1019,6 +1048,8 @@ export async function addActivity(_prev: Result, formData: FormData): Promise<Re
   // timeline has to refresh on BOTH exits — an error return that skips this
   // leaves the page showing a call that isn't on it.
   const refresh = () => {
+    // The DM list reads prospects by status too — see prospect-surfaces.ts.
+    revalidateProspectSurfaces(id);
     revalidatePath(`/growth/prospects/${id}`);
     // "Log call" is the main button on the call list, so name that page
     // explicitly rather than relying on the dashboard's revalidation to carry it.
@@ -1172,6 +1203,8 @@ export async function bulkProspectAction(_prev: Result, formData: FormData): Pro
     }
 
     if (live.length > 0) {
+      // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+      revalidateProspectSurfaces();
       revalidatePath("/growth/prospects");
       revalidatePath("/growth");
       const named = live
@@ -1224,6 +1257,10 @@ export async function deleteProspect(_prev: Result, formData: FormData): Promise
   const admin = createAdminClient();
   const { error } = await admin.from("ge_prospects").delete().eq("id", id);
   if (error) return { error: error.message };
+
+  // Also the call list and the DM list — see lib/growth/prospect-surfaces.ts.
+
+  revalidateProspectSurfaces();
 
   revalidatePath("/growth/prospects");
   return { ok: true };
