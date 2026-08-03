@@ -40,9 +40,24 @@ describe("the inbound scan is not capped", () => {
     expect(SRC.slice(i, i + 900)).toMatch(/order\("created_at", \{ ascending: false \}\)/);
   });
 
-  it("keeps the 24-hour overnight query separate and capped", () => {
-    // That one is a genuine 24h window with its own display cap — untouched.
-    expect(SRC).toMatch(/gte\("created_at", since24h\)[\s\S]{0,200}limit\(10\)/);
+  it("keeps the 24-hour overnight query separate and bounded", () => {
+    // That one is a genuine 24h window with its own bound — it must never
+    // become a second full page of every reply ever received.
+    //
+    // The bound WAS `limit(10)`, and this assertion pinned that literal. It
+    // fired on 2026-08-03 when the limit became REPLY_SCAN (60), and the
+    // change was right: the auto-reply filter runs after this fetch, so a
+    // batch of out-of-office replies could fill a 10-row window and push every
+    // real reply out of the brief. See lib/cron/brief-replies.test.ts.
+    //
+    // What this test is actually protecting — a separate, bounded 24h query,
+    // not a paged one — is unchanged, so it now pins that rather than the
+    // number, which was never the point.
+    expect(SRC).toMatch(/gte\("created_at", since24h\)[\s\S]{0,200}limit\(REPLY_SCAN\)/);
+    expect(SRC).toMatch(/const REPLY_SCAN = \d+/);
+    // Bounded, not paged: selectAllRows belongs to the other query only.
+    const q = SRC.slice(SRC.indexOf('gte("created_at", since24h)'));
+    expect(q.slice(0, 200)).not.toContain("selectAllRows");
   });
 });
 

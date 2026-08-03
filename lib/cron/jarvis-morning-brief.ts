@@ -180,12 +180,21 @@ export async function sendJarvisMorningBrief(): Promise<{
     const admin = createAdminClient();
     const activeFilter = `(${CLOSED_STATUSES.map((s) => `"${s}"`).join(",")})`;
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    /**
+     * How much of the last 24 hours of inbound to look at, and how much of it
+     * to print. Two numbers because they answer two questions: the auto-reply
+     * filter needs a pool it can't be starved out of, and Jude needs a list he
+     * can read over breakfast. Sixty rows is a rounding error on one query and
+     * far more inbound than a day produces; ten lines is what used to show.
+     */
+    const REPLY_SCAN = 60;
+    const REPLY_LIST_CAP = 10;
 
     const [
       [metrics, week],
       { data: due, count: dueCount },
       { data: ready, count: readyCount },
-      { data: overnightReplies },
+      { data: overnightReplies, count: inbound24hTotal },
       { data: meetingsToday },
       allInbound,
     ] = await Promise.all([
@@ -217,13 +226,34 @@ export async function sendJarvisMorningBrief(): Promise<{
         // score-less leads at the top of this "hit these first" list.
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(10),
+      // OVERNIGHT REPLIES — scanned wide, displayed short.
+      //
+      // This was `.limit(10)`, and the auto-reply filter runs AFTERWARDS. So
+      // the cap was applied to the raw inbound stream before anything knew
+      // which rows were people: a night where eleven holiday auto-responders
+      // landed after a real reply filled the window with bounces and the reply
+      // was never fetched at all. One email run to thirty companies in August
+      // is exactly how that happens.
+      //
+      // And it fell into no other section. STILL WAITING ON YOU deliberately
+      // starts at 24h old — its comment claims "there's no gap between them" —
+      // so a <24h reply dropped by this cap appeared in NEITHER. Invisible in
+      // the brief entirely, which this file itself calls the most expensive
+      // miss in the engine: they raised their hand and got silence.
+      //
+      // Same shape as the SENT_LIST_CAP fix below: fetch enough to count
+      // honestly, display a readable slice. `count` is the true 24h inbound
+      // total, so a scan that fills up can say the number is a floor instead
+      // of quietly rounding down.
       admin
         .from("ge_messages")
-        .select("channel, subject, body, sentiment, created_at, ge_prospects(company)")
+        .select("channel, subject, body, sentiment, created_at, ge_prospects(company)", {
+          count: "exact",
+        })
         .eq("direction", "inbound")
         .gte("created_at", since24h)
         .order("created_at", { ascending: false })
-        .limit(10),
+        .limit(REPLY_SCAN),
       admin
         .from("ge_meetings")
         .select("scheduled_at, strategy_booking_id, ge_prospects(company)")
@@ -597,13 +627,34 @@ export async function sendJarvisMorningBrief(): Promise<{
       (m) => classifyInbound(String(m.subject ?? ""), String(m.body ?? "")).kind === "human"
     );
     const nonHumanCount = (overnightReplies ?? []).length - humanReplies.length;
-    const replyLines = humanReplies.map(
-      (m) =>
-        `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
-    );
-    const autoReplyNote = nonHumanCount
-      ? `\n(+${nonHumanCount} auto-reply/opt-out ${nonHumanCount === 1 ? "message" : "messages"} — logged, not counted as replies.)`
-      : "";
+    // The REAL number of people who wrote back, counted before the display cap
+    // — the same distinction the SENT THIS MORNING block already makes. This
+    // number goes in the section header and the subject line; the lines below
+    // are just what fits.
+    const replyTotal = humanReplies.length;
+    const replyLines = humanReplies
+      .slice(0, REPLY_LIST_CAP)
+      .map(
+        (m) =>
+          `• ${companyOf(m)} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 140)}"`
+      );
+    const replyMore =
+      replyTotal > replyLines.length
+        ? `\n  …and ${replyTotal - replyLines.length} more — full list in the Inbox.`
+        : "";
+    // Did the scan itself fill up? Then `replyTotal` is a floor, not a total,
+    // and saying so is the difference between an approximate number and a
+    // wrong one. Needs a day with more than REPLY_SCAN inbound messages, so it
+    // should never fire — which is exactly why it must not fail silently.
+    const replyScanCapped = (inbound24hTotal ?? 0) > REPLY_SCAN;
+    const replyCountLabel = `${replyTotal}${replyScanCapped ? "+" : ""}`;
+    const autoReplyNote =
+      (nonHumanCount
+        ? `\n(+${nonHumanCount} auto-reply/opt-out ${nonHumanCount === 1 ? "message" : "messages"} — logged, not counted as replies.)`
+        : "") +
+      (replyScanCapped
+        ? `\n(${inbound24hTotal} inbound messages in 24h — more than this brief scans, so the reply count is a floor. Check the Inbox.)`
+        : "");
     const meetingLines = (meetingsToday ?? []).map(
       // Manually recorded meetings are stored as real UTC instants, so render
       // them in Dublin. Public-booking slots are labelled by their UTC
@@ -638,7 +689,7 @@ export async function sendJarvisMorningBrief(): Promise<{
             `Pipeline: €${metrics.pipelineValue} across ${metrics.prospectsTotal} prospects; reply rate ${metrics.replyRate}%; meetings ${metrics.meetingsBooked}; won ${metrics.won}.`,
             `Last 7 days: ${week.outreachSent} sent, ${week.replies} replies, ${week.meetingsBooked} meetings — of which ${sent24h ?? 0} sends are under 24h old (too fresh to expect replies).`,
             `Overnight the engine ran itself: ${researchedOvernight ?? 0} leads researched, ${chaseDraftsOvernight ?? 0} follow-ups drafted. Emails the autopilot just sent this morning: ${sentTodayTotal}.`,
-            `Overnight replies (${replyLines.length}):\n${replyLines.join("\n") || "none"}${autoReplyNote}`,
+            `Overnight replies (${replyCountLabel}):\n${replyLines.join("\n") || "none"}${replyMore}${autoReplyNote}`,
             `Replied EARLIER and still unanswered (${awaitingTotal}${awaitingTotal > awaitingLines.length ? `, longest-waiting ${awaitingLines.length} listed` : ""}) — these outrank everything else today:\n${awaitingLines.join("\n") || "none"}`,
             `Follow-ups due (${dueTotal}, top ${dueLines.length} listed):\n${dueLines.join("\n") || "none"}`,
             `Ready to send (${readyTotal}, top ${readyLines.length} listed):\n${readyLines.join("\n") || "none"}`,
@@ -740,7 +791,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         `📈 WHAT CHANGED\n• ${leadsAdded24h ?? 0} new lead${(leadsAdded24h ?? 0) === 1 ? "" : "s"} added` +
         `${(researchedOvernight ?? 0) ? ` · ${researchedOvernight} researched overnight` : ""}` +
         `${sentTodayTotal ? ` · ${sentTodayTotal} email${sentTodayTotal === 1 ? "" : "s"} sent this morning` : ""}` +
-        `${replyLines.length ? ` · ${replyLines.length} new repl${replyLines.length === 1 ? "y" : "ies"}` : ""}`;
+        `${replyTotal ? ` · ${replyCountLabel} new repl${replyTotal === 1 ? "y" : "ies"}` : ""}`;
       bodyText = [
         `🌤️ Weekend brief — ${today}. Lighter one: just what changed and what Jarvis caught & fixed overnight. Enjoy the weekend.`,
         reminders.length
@@ -751,7 +802,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         moneyBlock,
         deliveryBlock,
         replyLines.length
-          ? section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "") + autoReplyNote + replyDraftNote
+          ? section(`OVERNIGHT REPLIES (${replyCountLabel})`, replyLines, "") + replyMore + autoReplyNote + replyDraftNote
           : "",
         // Worth carrying into the weekend brief too — a reply left on Friday
         // is precisely the one that gets lost.
@@ -767,7 +818,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       ]
         .filter(Boolean)
         .join("\n\n");
-      subject = `Jarvis weekend brief — ${today}: ${leadsAdded24h ?? 0} added, ${nightlyLines.length} overnight fixes, ${replyLines.length} replies`;
+      subject = `Jarvis weekend brief — ${today}: ${leadsAdded24h ?? 0} added, ${nightlyLines.length} overnight fixes, ${replyCountLabel} replies`;
     } else {
       // Weekday: the full attack plan.
       bodyText = [
@@ -781,7 +832,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         sentBlock,
         nightlyBlock,
         moneyBlock,
-        section(`OVERNIGHT REPLIES (${replyLines.length})`, replyLines, "No new replies — keep the volume up.") + autoReplyNote + replyDraftNote,
+        section(`OVERNIGHT REPLIES (${replyCountLabel})`, replyLines, "No new replies — keep the volume up.") + replyMore + autoReplyNote + replyDraftNote,
         // Above meetings and due chases on purpose: someone who wrote back and
         // hasn't heard anything outranks both.
         awaitingLines.length
@@ -811,14 +862,14 @@ export async function sendJarvisMorningBrief(): Promise<{
       // phone notification without opening anything.
       subject = `Jarvis morning brief — ${today}: ${
         awaitingTotal ? `${awaitingTotal} waiting on you, ` : ""
-      }${replyLines.length} replies, ${dueTotal} due, ${readyTotal} ready to send`;
+      }${replyCountLabel} replies, ${dueTotal} due, ${readyTotal} ready to send`;
     }
 
     const { sent, detail } = await deliverBrief(subject, bodyText);
     if (!sent) return { sent, detail };
     return {
       sent: true,
-      detail: `${isWeekend ? "weekend " : ""}${detail} (${replyLines.length} replies, ${nightlyLines.length} overnight fixes)`,
+      detail: `${isWeekend ? "weekend " : ""}${detail} (${replyCountLabel} replies, ${nightlyLines.length} overnight fixes)`,
     };
   } catch (err) {
     // GUARANTEE: the data layer blew up, but Jude still gets a brief. Send a
