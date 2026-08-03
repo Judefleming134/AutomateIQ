@@ -26,35 +26,40 @@ export function DmSendButton({
   link: string;
   platform: string;
 }) {
-  const [state, setState] = useState<"idle" | "done" | "failed">("idle");
+  const [state, setState] = useState<"idle" | "done" | "failed" | "blocked">("idle");
 
   async function go() {
     // Open FIRST, synchronously, while the click is still the active user
     // gesture — awaiting the clipboard before this gets the tab blocked as a
     // popup in Safari and Firefox.
     const win = window.open(link, "_blank", "noopener,noreferrer");
+    let copied = true;
     try {
       await navigator.clipboard.writeText(text);
-      setState("done");
     } catch {
       // Clipboard denied (insecure context, permissions, older browser).
       // Say so — the message below is now the only correct source.
-      setState("failed");
+      copied = false;
     }
-    if (!win) {
-      // Popup blocked: the copy still worked, but nothing opened.
-      setState((s) => (s === "failed" ? "failed" : "done"));
-    }
+    // A blocked popup used to be folded into "done", so the button read
+    // "Copied — reopen Instagram" and NOTHING had opened. On a 15-DM session
+    // behind a popup blocker that is every single tap: the copy works, the
+    // profile never appears, and the button insists it did its job. The case
+    // was known — there was a comment about it — it just wasn't told to Jude.
+    //
+    // Clipboard failure still wins: pasting the previous prospect's message is
+    // worse than a tab not opening.
+    setState(!copied ? "failed" : win ? "done" : "blocked");
   }
 
   return (
     <>
       <button
         type="button"
-        className={`btn btn-sm ${state === "done" ? "btn-secondary" : "btn-primary"}`}
+        className={`btn btn-sm ${state === "done" || state === "blocked" ? "btn-secondary" : "btn-primary"}`}
         onClick={go}
       >
-        {state === "done" ? (
+        {state === "done" || state === "blocked" ? (
           <>
             <Check size={13} style={{ color: "var(--green)" }} /> Copied — reopen {platform}
           </>
@@ -64,6 +69,22 @@ export function DmSendButton({
           </>
         )}
       </button>
+      {state === "blocked" && (
+        /* A plain link, not another window.open — this one is a direct click,
+           so no blocker can stop it. The message IS copied, so the only thing
+           missing is the tab. */
+        <span
+          style={{ fontSize: 12, color: "var(--orange, #fb923c)", flexBasis: "100%" }}
+          role="alert"
+        >
+          <AlertTriangle size={12} style={{ verticalAlign: "-2px" }} /> Copied — but your
+          browser blocked the new tab.{" "}
+          <a href={link} target="_blank" rel="noreferrer">
+            Open {platform} here
+          </a>{" "}
+          instead, or allow pop-ups for this site and the one-tap flow works again.
+        </span>
+      )}
       {state === "failed" && (
         <span
           style={{ fontSize: 12, color: "var(--red, #f87171)", flexBasis: "100%" }}
