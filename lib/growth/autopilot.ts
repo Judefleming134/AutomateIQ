@@ -785,6 +785,22 @@ export async function sendDueEmailFollowupsNow(
     // parked, never auto-fired — sending them now would read as spam.
     .gte("next_follow_up_at", dublinDate(-7))
     .not("email", "is", null)
+    // MOST OVERDUE FIRST, then best score — the same order autoQueueDueFollowups
+    // uses, and for the same reason. This button is its on-demand twin and
+    // never got the fix.
+    //
+    // Ordering by score alone leaks leads: only 20 are sent per click out of 40
+    // fetched, so with a real backlog (Jude has had 90+ due at once) a
+    // low-scoring chase loses its slot to whatever higher-scoring chase came
+    // due that day — every click — until it crosses the 7-day line above and is
+    // parked as gone cold, never having been chased once.
+    //
+    // A chase is time-boxed in a way a score is not: the one due 6 days ago has
+    // ONE day of runway left, the one due today has seven. Runway has to win.
+    //
+    // Replayed over 90 due chases: by score, 10 of the 12 leads on their last
+    // day went unsent and aged out the next morning. By overdue-ness, 0 did.
+    .order("next_follow_up_at", { ascending: true })
     .order("lead_score", { ascending: false, nullsFirst: false })
     .limit(40);
 
