@@ -1070,9 +1070,20 @@ table.data-table {
    phone showed the entire selected thread AND the composer before the list of
    who had replied — you scrolled past a full conversation to find out there
    were others waiting. Hoist the list to the top on narrow screens; the
-   two-column desktop layout above is untouched. */
+   two-column desktop layout above is untouched.
+
+   .workspace-side is the same defect on the prospect workspace's Conversation
+   tab: the side column holds the tap-to-call button, the per-business call
+   sheet (opener, their pain points, the pitch, the price answer, the
+   voicemail), "Log their reply" and the task list — the things used DURING a
+   call — while the main column is the full history, up to 100 messages and 100
+   activities with every body rendered in full. The call list's
+   "Open workspace →" deep-links to ?tab=conversation specifically to put that
+   sheet one tap from the dial, so on a phone the shortcut landed at the top of
+   the longest scroll on the page. Same rule, same reason, desktop untouched. */
 @media (max-width: 1023px) {
-  .grid-main-side > .inbox-side {
+  .grid-main-side > .inbox-side,
+  .grid-main-side > .workspace-side {
     order: -1;
   }
 }
