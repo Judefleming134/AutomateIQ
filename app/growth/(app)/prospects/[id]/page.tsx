@@ -1108,7 +1108,15 @@ export default async function ProspectWorkspacePage({
             )}
           </section>
 
-          <div>
+          {/* Hoisted above the history on phones (see .workspace-side in
+              globals.css), exactly as .inbox-side already is. Stacked in DOM
+              order this column came AFTER the entire conversation — every
+              message body and every activity — so on a phone the call sheet
+              you read WHILE the phone rings sat below a wall of history.
+              The call list's "Open workspace →" links straight to
+              ?tab=conversation precisely to put that sheet one tap away, so
+              the deep link landed on the one screen where it was furthest. */}
+          <div className="workspace-side">
             {/* Call panel: dial + the script, right where Jude logs the call. */}
             {(() => {
               const callDraft = (messages ?? []).find(
