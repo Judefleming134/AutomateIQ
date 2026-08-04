@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { revalidateProspectSurfaces } from "@/lib/growth/prospect-surfaces";
 import { requireGrowth } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateProposalMarkdown } from "@/lib/growth/proposal";
@@ -166,7 +167,26 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
   // nothing should put a chase date back on a finished deal.
   const CLOSED = ["won", "lost", "do_not_contact", "archived"];
   const LATER_THAN_SENT = ["proposal_sent", "negotiation"];
-  if (prospect && !CLOSED.includes(prospect.status)) {
+
+  // THE ACTIVITY LINE USED TO PROMISE A CHASE IN THREE CASES WHERE NONE WAS SET.
+  //
+  // It read "follow-up scheduled in 7 days" unconditionally, while the update
+  // that schedules it is skipped for a CLOSED lead, skipped when the prospect
+  // row can't be read, and — because its error was discarded — silently absent
+  // whenever the write failed. A proposal is the deal-closing document; a
+  // proposal with no chase date is one nobody ever follows up, and the one
+  // place that would have shown it said the opposite.
+  //
+  // Same defect and the same fix as setMeetingStatus: say which of the outcomes
+  // actually happened.
+  let chaseNote: string;
+  if (!prospect) {
+    chaseNote = " — but the prospect couldn't be read, so NO follow-up was scheduled. Set the next step by hand.";
+  } else if (CLOSED.includes(prospect.status)) {
+    // Correct behaviour, previously misreported: nothing should put a chase
+    // date back on a finished deal.
+    chaseNote = ` — no follow-up scheduled, this lead is '${prospect.status}'.`;
+  } else {
     const update: Record<string, unknown> = {
       // Sending a proposal IS contacting them — stamp last_contact_at like
       // every other outreach action (recordOutreachSent) so "Recently
@@ -179,16 +199,25 @@ export async function markProposalSent(_prev: Result, formData: FormData): Promi
     if (!LATER_THAN_SENT.includes(prospect.status)) {
       update.status = "proposal_sent";
     }
-    await admin.from("ge_prospects").update(update).eq("id", proposal.prospect_id);
+    const { error: bumpError } = await admin
+      .from("ge_prospects")
+      .update(update)
+      .eq("id", proposal.prospect_id);
+    chaseNote = bumpError
+      ? ` — BUT scheduling the follow-up failed (${bumpError.message}). There is NO chase date on this proposal; set one by hand.`
+      : ` — follow-up scheduled for ${dublinDate(7)}`;
   }
 
   await admin.from("ge_activities").insert({
     prospect_id: proposal.prospect_id,
     type: "status_change",
-    content: `Proposal marked as sent by ${member.name} — follow-up scheduled in 7 days`,
+    content: `Proposal marked as sent by ${member.name}${chaseNote}`,
     created_by: member.id,
   });
 
+  // next_follow_up_at just changed, and that is what the call list tiers on —
+  // see lib/growth/prospect-surfaces.ts. This file was missed by that sweep.
+  revalidateProspectSurfaces(proposal.prospect_id);
   revalidatePath(`/growth/prospects/${proposal.prospect_id}`);
   revalidatePath("/growth");
   return { ok: true };
