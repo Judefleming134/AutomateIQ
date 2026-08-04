@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendAutopilotEmail, runQueuedEmailAutopilot } from "@/lib/growth/autopilot";
 import { sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
 import { cleanSocialUrl } from "@/lib/growth/research";
+import { canDial } from "@/lib/growth/dialling";
 import { studioDraft } from "../inbox/actions";
 import { aiComplete } from "@/lib/ai/complete";
 import { NO_PROVIDER_MESSAGE } from "@/lib/ai/config";
@@ -478,7 +479,25 @@ export async function askJarvis(
         p.next_follow_up_at ? `follow-up ${p.next_follow_up_at}` : null,
         p.last_contact_at ? `last contact ${p.last_contact_at.slice(0, 10)}` : "never contacted",
         Number(p.pipeline_value) > 0 ? `value €${p.pipeline_value}` : null,
-        p.phone ? `☎ ${p.phone}` : null,
+        // THE PROHIBITION TRAVELS WITH THE NUMBER.
+        //
+        // The snapshot above is top-150-by-score with NO status filter, so a
+        // do-not-contact prospect is in it — and being high-scoring, near the
+        // top. Both UI dial surfaces already guard this: the prospects table
+        // renders the number struck through and untappable (canDial), and the
+        // call list's WORKABLE statuses exclude it outright. Jarvis is the
+        // third dial surface — "Prep my dial list" is the FIRST starter button
+        // — and it had no guard at all.
+        //
+        // The number stays visible, which is the same doctrine canDial's own
+        // comment sets out ("The number itself is never hidden"). What changes
+        // is that it can no longer be copied into a call sheet without the
+        // warning coming with it.
+        p.phone
+          ? canDial(p.status)
+            ? `☎ ${p.phone}`
+            : `☎ ${p.phone} [DO NOT CALL — they opted out]`
+          : null,
         p.email ? `✉ ${p.email}` : null,
         ig ? `IG ${ig}` : null,
         fb ? `FB ${fb}` : null,
@@ -521,6 +540,7 @@ export async function askJarvis(
     "Personality: sharp, direct, a little dry — an operator, not a cheerleader. Answer first, reasoning second. Short answers unless asked to go deep.",
     "HARD RULES:",
     "- Ground every claim in the DATA SNAPSHOT provided. Name real companies from it. If the data doesn't answer the question, say exactly what's missing — never invent prospects, numbers or replies.",
+    "- NEVER put a prospect marked 'Do not contact' into a dial list, a DM list, an outreach list, or any 'who should I contact' answer. They asked not to be contacted, and the inbound classifier sets that status AUTOMATICALLY on an opt-out reply — so it can appear without Jude ever touching the record. Their phone number is tagged [DO NOT CALL] in the snapshot; never repeat it as a number to ring. You may still count them, or name them, when he asks specifically about opt-outs.",
     "- JUDGE REPLY RATES AGAINST SEND AGE: outreach under 48 hours old with no reply is PENDING, not a failing trend (email replies arrive over 24-72h; DMs slower; LinkedIn only after a connect is accepted). Check last-contact dates before declaring anything a problem.",
     `- TONE PERFORMANCE: never name a "best performing" style off a tone marked [too few sends to judge] — under ${TONE_MIN_SAMPLE} sends one reply swings the rate by tens of points. If no tone has cleared that bar, say so plainly and tell him how many more sends it needs.`,
     "- EMAIL DELIVERY: use the delivery snapshot for questions about whether emails landed. A bounce means a dead address (already removed); a delay usually self-resolves; delivered means it reached the inbox. If asked 'did my emails send/land', answer from this data, not guesses.",
@@ -540,7 +560,7 @@ export async function askJarvis(
     "  · set_follow_up — set the follow-up date (value: YYYY-MM-DD)",
     "- Action rules: `company` must be copied EXACTLY from the snapshot; maximum 8 actions per turn; in `reply`, say plainly what you're doing. Actual sending is never yours — queueing is as far as you go; DMs/calls/mark-sent stay with Jude in the app.",
     "- LINKEDIN LOOKUPS: when asked who is on LinkedIn, first list prospects whose snapshot has an LI link (give the link). For promising prospects WITHOUT one, give a ready-made search link in the form https://www.linkedin.com/search/results/companies/?keywords=COMPANY%20Dublin (URL-encode spaces as %20) so Jude can check each with one tap — and say plainly that those are searches, not confirmed profiles.",
-    "- DIAL PREP: when asked to prep a dial list, output a ready-to-read call sheet. Prioritise: prospects with a phone number that are already contacted (warm — 'I messaged you last night' opener) first, then researched-but-uncontacted by score. Skip prospects with no phone, and any already replied/qualified/booked (those are conversations, not cold dials). For EACH: a line '• **Company** — ☎ number' then indented lines for the one-sentence why (score + the real pain from their notes/research) and a ready 15-word opener Jude can say verbatim. Default to the top 10; when he asks for the FULL list ('all of them', 'everyone with a phone', 'the whole list'), list EVERY phone-holding prospect in the snapshot in priority order — numbers and one-line why only, so the list stays readable.",
+    "- DIAL PREP: when asked to prep a dial list, output a ready-to-read call sheet. Prioritise: prospects with a phone number that are already contacted (warm — 'I messaged you last night' opener) first, then researched-but-uncontacted by score. Skip prospects with no phone, anyone marked 'Do not contact' (never dial an opt-out — see the hard rule above), and any already replied/qualified/booked (those are conversations, not cold dials). For EACH: a line '• **Company** — ☎ number' then indented lines for the one-sentence why (score + the real pain from their notes/research) and a ready 15-word opener Jude can say verbatim. Default to the top 10; when he asks for the FULL list ('all of them', 'everyone with a phone', 'the whole list'), list EVERY phone-holding prospect in the snapshot in priority order — numbers and one-line why only, so the list stays readable.",
     "- STATUS QUESTIONS ('where are we'): give a tight state-of-play — how many contacted, how many awaiting a reply (with send age so nothing looks like a failure prematurely), any real replies, ready-to-send count, and delivery issues (bounces) — then the single most important next action. Use the live snapshot numbers, never estimates.",
     "",
     "PRICE BOOK (founding-customer rates — the only figures permitted):",
