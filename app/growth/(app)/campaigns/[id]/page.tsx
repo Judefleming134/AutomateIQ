@@ -168,8 +168,19 @@ export default async function CampaignDetailPage({
         {(prospects ?? []).length === 0 ? (
           <p className="empty-state">
             None yet. Two ways to fill it:{" "}
-            <Link href="/growth/prospects">import a CSV</Link> with this campaign
-            picked (fastest for a whole niche), or open any prospect and set{" "}
+            {/* CARRY THE CAMPAIGN. This said "with this campaign picked" and
+                linked to a bare /growth/prospects, where the CSV panel is a
+                COLLAPSED <details> and its Campaign select defaults to
+                "__auto__" — which groups rows by their industry column into
+                existing-or-newly-created campaigns. So following the sentence
+                literally (click, drop the file, Import) scattered the rows
+                across industry campaigns and left THIS one still empty: the
+                default does the opposite of what the copy promised.
+                ?import=<id> opens the panel and preselects the campaign, so
+                the instruction is now true in one step. */}
+            <Link href={`/growth/prospects?import=${campaign.id}`}>import a CSV</Link>{" "}
+            with this campaign picked (fastest for a whole niche), or open any
+            prospect and set{" "}
             <strong>Campaign</strong> on its <strong>Details</strong> tab. New
             prospects added by hand can be put straight into it as well.
           </p>

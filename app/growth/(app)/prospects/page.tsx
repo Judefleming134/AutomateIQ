@@ -51,7 +51,7 @@ const SORT_LABELS = PROSPECT_SORT_LABELS;
 export default async function ProspectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; social?: string; due?: string; stage?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; industry?: string; campaign?: string; sort?: string; page?: string; phone?: string; social?: string; due?: string; stage?: string; import?: string }>;
 }) {
   const { member } = await requireGrowth();
   const params = await searchParams;
@@ -260,6 +260,15 @@ export default async function ProspectsPage({
   // Every active filter, as a chip that clears only itself. Campaign ids are
   // resolved to names — an id on a chip tells a human nothing.
   const campaignNameById = new Map((campaigns ?? []).map((c) => [c.id, c.name]));
+
+  // "Import a CSV with this campaign picked" — the campaign page links here
+  // with ?import=<id>. VALIDATED against the campaigns actually loaded: an
+  // unknown id must fall back to the normal default rather than preselecting a
+  // <option> that doesn't exist, which would silently leave the select showing
+  // the FIRST option ("Auto — group by industry") while the URL implied
+  // otherwise. That is the same wrong-import this link exists to prevent.
+  const importCampaignId =
+    params.import && campaignNameById.has(params.import) ? params.import : null;
   const filterChips = activeFilterChips(
     { q, status, industry, campaign, phone: phoneOnly ? "1" : undefined, social: socialOnly ? "1" : undefined, due: due ?? undefined, stage: stage ?? undefined, sort: params.sort },
     (id) => campaignNameById.get(id)
@@ -650,7 +659,9 @@ export default async function ProspectsPage({
         </ActionForm>
       </details>
 
-      <details className="panel panel-block" style={{ marginBottom: 16 }}>
+      {/* Already open when arriving from a campaign, so the panel the link
+          promised is the panel you land on. */}
+      <details className="panel panel-block" style={{ marginBottom: 16 }} open={Boolean(importCampaignId)}>
         <summary style={{ cursor: "pointer", fontWeight: 600 }}>⇪ Import from CSV</summary>
         <ActionForm action={importProspects} className="form-card" style={{ border: 0, background: "none", padding: "12px 0 0" }}>
           <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
@@ -662,7 +673,11 @@ export default async function ProspectsPage({
           </p>
           <CsvFileField />
           <label htmlFor="imp-campaign">Campaign</label>
-          <select id="imp-campaign" name="campaign_id" defaultValue="__auto__">
+          <select
+            id="imp-campaign"
+            name="campaign_id"
+            defaultValue={importCampaignId ?? "__auto__"}
+          >
             <option value="__auto__">
               Auto — group by the industry column (creates campaigns as needed)
             </option>
