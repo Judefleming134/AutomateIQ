@@ -12,6 +12,7 @@ import { recordOutreachSent } from "@/lib/growth/outreach";
 import { dublinDate } from "@/lib/growth/dates";
 import { loadGrowthSettings } from "@/lib/growth/auth";
 import { DELIVERY_COMPLAINT_PATTERN } from "@/lib/growth/constants";
+import { isAutoQueueable } from "@/lib/growth/queueable";
 
 /**
  * Email autopilot: the one channel with a real sending API, made hands-off.
@@ -65,19 +66,15 @@ export type AutopilotCandidate = {
 /**
  * Whether a candidate can be auto-queued for the 07:00 send.
  *
- * Broken drafts (leftover placeholder, invented sender name) and drafts whose
- * RESEARCH changed underneath them are skipped. An AGE-stale draft is fine: a
- * cold first-touch intro doesn't rot, and excluding it starved the run
- * whenever a batch of drafts crossed the 5-day mark together.
+ * MOVED, NOT CHANGED — the rule now lives in lib/growth/queueable.ts, which is
+ * deliberately not `server-only` so the Email autopilot panel (a client
+ * component) can import the same function instead of hand-copying it. This
+ * file's `import "server-only"` was the reason it had been copied at all.
  *
- * Pure and exported so the widening below can be tested without a database —
- * and so the rule lives in one place rather than inline in the caller.
+ * Re-exported here so every existing import keeps working unchanged.
  */
-export function isAutoQueueable(
-  c: Pick<AutopilotCandidate, "queued" | "broken" | "staleKind">
-): boolean {
-  return !c.queued && !c.broken && c.staleKind !== "research";
-}
+export { isAutoQueueable } from "@/lib/growth/queueable";
+
 
 /**
  * How far down the score-ranked list to look, in widening steps.

@@ -9,6 +9,12 @@ import {
   sendQueuedNow,
 } from "@/app/growth/(app)/jarvis/actions";
 import type { AutopilotCandidate } from "@/lib/growth/autopilot";
+// The SAME function the 07:00 auto-queue filters with (lib/growth/queueable.ts
+// is deliberately not server-only for exactly this). This panel used to
+// hand-copy the rule twice — once for the count on the buttons, once for each
+// row's defaultChecked — so the review Jude does here and the send the cron
+// makes were two transcriptions of one decision that nothing kept in step.
+import { isAutoQueueable } from "@/lib/growth/queueable";
 
 type ActionResult = { ok?: boolean; error?: string } | undefined;
 
@@ -62,9 +68,7 @@ export function EmailAutopilot({
   // not-already-queued, and not research-stale. An age-stale draft (just old,
   // but a valid cold intro) is pre-ticked too; only a broken or research-
   // changed draft needs a look/regenerate first.
-  const defaultTicked = candidates.filter(
-    (c) => !c.queued && !c.broken && c.staleKind !== "research"
-  ).length;
+  const defaultTicked = candidates.filter(isAutoQueueable).length;
   // Live count of ticked boxes so the buttons say exactly what they'll do
   // ("Queue 20 for the 8am run"). After a refresh, recount from the REAL
   // form DOM: React preserves checkbox state for rows whose key survives a
@@ -231,7 +235,7 @@ export function EmailAutopilot({
                     type="checkbox"
                     name="message_id"
                     value={c.messageId}
-                    defaultChecked={!c.queued && !c.broken && c.staleKind !== "research"}
+                    defaultChecked={isAutoQueueable(c)}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
                       // Recount from the form itself — no arithmetic to
