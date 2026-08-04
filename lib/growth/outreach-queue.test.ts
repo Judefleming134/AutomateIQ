@@ -116,7 +116,11 @@ describe("the page is wired to the fixed shape", () => {
 
   it("fetches drafts as a SEPARATE query", () => {
     expect(PAGE).toContain('.eq("status", "draft")');
-    expect(PAGE).toContain("const { data: draftRows }");
+    // Matches whether the query is its own `const … = await admin` or a member
+    // of a Promise.all — what matters is that drafts have their OWN query with
+    // their OWN cap, not the syntax that issues it. (The page now batches the
+    // independent reads into one wave; the separation is unchanged.)
+    expect(PAGE).toMatch(/\{ data: draftRows \}/);
     // And the two results are combined, so nothing is dropped on the floor.
     expect(PAGE).toContain(
       "const queueRows = [...(actionableRows ?? []), ...(draftRows ?? [])]"
@@ -162,8 +166,11 @@ describe("the tab count tells the truth", () => {
 
   it("the count and the list cannot disagree about what is pending", () => {
     // Both derive from the same three statuses.
-    const head = PAGE.slice(PAGE.indexOf("const { count: queueTotalRaw }"));
-    expect(head.slice(0, 400)).toContain('["draft", "queued", "failed"]');
+    // Anchored on the head-count query itself rather than on where the result
+    // is destructured, so it holds whether or not the read is batched.
+    expect(PAGE).toMatch(/\{ count: queueTotalRaw \}/);
+    const headQuery = PAGE.slice(PAGE.indexOf('count: "exact", head: true'));
+    expect(headQuery.slice(0, 300)).toContain('["draft", "queued", "failed"]');
   });
 });
 

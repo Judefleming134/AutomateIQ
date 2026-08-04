@@ -80,11 +80,72 @@ export default async function InboxPage({
 
   const MSG_COLS =
     "id, prospect_id, channel, direction, status, subject, body, sentiment, scheduled_at, sent_at, created_at";
-  const { data: allMessages } = await admin
-    .from("ge_messages")
-    .select(MSG_COLS)
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  // ── ONE WAVE, NOT FIVE ─────────────────────────────────────────────────
+  // These five reads share nothing: none consumes another's result. They ran
+  // one after another, so opening the inbox cost five sequential round trips
+  // to Postgres before the first row could be laid out — on the page Jude
+  // works replies in, which is the one that has to feel instant.
+  //
+  // Only `threadRows` genuinely depends on anything (it needs inboundPids), so
+  // it stays behind them; and `prospectsRaw` needs the union of all of them, so
+  // it stays last. Seven serial round trips become three waves.
+  //
+  // Every query below is unchanged — same columns, same filters, same limits,
+  // same ordering. Only when they are issued moved.
+  const [
+    { data: allMessages },
+    { data: inboundRows },
+    { data: actionableRows },
+    { data: draftRows },
+    { count: queueTotalRaw },
+  ] = await Promise.all([
+    admin
+      .from("ge_messages")
+      .select(MSG_COLS)
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    // A blind "newest 1000 messages" is a trap for the Conversations view: the
+    // engine writes ~5 drafts per researched prospect, so a fresh research or
+    // autopilot batch can fill that window with new DRAFTS and push a real
+    // inbound reply out of it — silently hiding the whole conversation from the
+    // inbox. Inbound messages are far fewer than outbound, so fetch them
+    // directly and load the FULL threads for those prospects. That guarantees
+    // every reply shows up and every open thread is complete, regardless of how
+    // much outreach volume has built up.
+    admin
+      .from("ge_messages")
+      .select("prospect_id")
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    // TWO QUERIES, deliberately. A single in(status,[draft,queued,failed])
+    // capped at 500 by created_at meant the cap was applied BY DATE and the
+    // failed → queued → draft ranking below could only reorder whatever those
+    // newest 500 happened to hold. A FAILED send never reached a prospect and
+    // needs a retry; a QUEUED one is going out at 07:00 whether or not this
+    // page shows it. Fetched on their own terms; they are few.
+    admin
+      .from("ge_messages")
+      .select(MSG_COLS)
+      .eq("direction", "outbound")
+      .in("status", ["failed", "queued"])
+      .order("created_at", { ascending: false })
+      .limit(500),
+    admin
+      .from("ge_messages")
+      .select(MSG_COLS)
+      .eq("direction", "outbound")
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(500),
+    // The TRUE size of the queue, so the tab can't claim a confident "(500)"
+    // when there are 8,000. Cheap head count, no rows returned.
+    admin
+      .from("ge_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("direction", "outbound")
+      .in("status", ["draft", "queued", "failed"]),
+  ]);
 
   const messages = allMessages ?? [];
 
@@ -96,12 +157,7 @@ export default async function InboxPage({
   // directly and load the FULL threads for those prospects. That guarantees
   // every reply shows up and every open thread is complete, regardless of how
   // much outreach volume has built up.
-  const { data: inboundRows } = await admin
-    .from("ge_messages")
-    .select("prospect_id")
-    .eq("direction", "inbound")
-    .order("created_at", { ascending: false })
-    .limit(1000);
+
   const inboundPids = [...new Set((inboundRows ?? []).map((r) => r.prospect_id))];
   // CHUNKED: inboundPids can hold up to 1,000 ids, and each rides in the
   // request URL at ~40 chars per UUID — a ~39KB URL that simply fails. The
@@ -140,29 +196,13 @@ export default async function InboxPage({
   //
   // Same shape as the call-list bug and the DM-pool bug — a cap applied before
   // the "still to work" filter. Fetched on their own terms now; they are few.
-  const { data: actionableRows } = await admin
-    .from("ge_messages")
-    .select(MSG_COLS)
-    .eq("direction", "outbound")
-    .in("status", ["failed", "queued"])
-    .order("created_at", { ascending: false })
-    .limit(500);
-  const { data: draftRows } = await admin
-    .from("ge_messages")
-    .select(MSG_COLS)
-    .eq("direction", "outbound")
-    .eq("status", "draft")
-    .order("created_at", { ascending: false })
-    .limit(500);
+
+
   const queueRows = [...(actionableRows ?? []), ...(draftRows ?? [])];
 
   // The TRUE size of the queue, so the tab can't claim a confident "(500)"
   // when there are 8,000. Cheap head count, no rows returned.
-  const { count: queueTotalRaw } = await admin
-    .from("ge_messages")
-    .select("id", { count: "exact", head: true })
-    .eq("direction", "outbound")
-    .in("status", ["draft", "queued", "failed"]);
+
   // Floored at what's in hand: a failed count must never read as fewer than
   // the rows already on screen.
   const queueTotal = Math.max(queueTotalRaw ?? 0, queueRows.length);
