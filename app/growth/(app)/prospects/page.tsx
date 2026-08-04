@@ -452,6 +452,21 @@ export default async function ProspectsPage({
         style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "end", marginBottom: 16 }}
         aria-label="Filter prospects"
       >
+        {/* CARRY THE BUCKET THROUGH. A GET form submits only its own fields, so
+            without these two, pressing Apply dropped `due` / `stage` silently.
+            Every other affordance on this page keeps them — the header search
+            form has these exact two hidden inputs, the page links rebuild them
+            in pageHref, and the CSV export sets them in exportSp. This panel
+            was the only one that didn't.
+            The journey it broke: click "Overdue (8)" on the dashboard, land on
+            the 8, then narrow by industry to focus — and get the WHOLE database
+            filtered by industry instead. The chip reading "Due: overdue"
+            vanishes in the same submit, so the page also stops saying it was
+            ever filtered, and 8 leads look like they became 400. Same for
+            `stage`, which is how the campaigns page links to "still to
+            research". */}
+        {due && <input type="hidden" name="due" value={due} />}
+        {stage && <input type="hidden" name="stage" value={stage} />}
         <div style={{ flex: "2 1 220px", minWidth: 180 }}>
           <label htmlFor="pf-q" style={{ fontSize: 12, color: "var(--faint)" }}>
             Search
