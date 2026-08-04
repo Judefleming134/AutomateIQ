@@ -293,3 +293,41 @@ export function resolveProspectSort(
  * after the slowest action in the app has run. Shared so the two can't drift.
  */
 export const MAX_IMPORT_ROWS = 3000;
+
+/**
+ * DELIVERY-EVENT MARKERS — written by the Resend webhook, read by the send
+ * ramp and the morning brief. Shared so the two can't drift, because they did.
+ *
+ * The webhook logged a spam complaint as
+ *
+ *     "Email delivery: SPAM COMPLAINT — never email this address again — …"
+ *
+ * while `resolveSendRamp` counted complaints with
+ *
+ *     .ilike("content", "Email delivery:%COMPLAINED%")
+ *
+ * "SPAM COMPLAINT" does not contain "COMPLAINED", so that query matched nothing
+ * that has ever been written. `complaints` was always 0, `if (complaints > 0)`
+ * was unreachable, and the ramp climbed +50%/day — or DOUBLED, on a list its
+ * own bounce test called clean — straight through every spam complaint the
+ * domain received. The one signal that should stop the send dead was the one
+ * signal that could not.
+ *
+ * A spam complaint is not a soft warning: the tolerable rate is about 0.1%,
+ * and the ramp's own comment says "once outreach lands in spam the channel
+ * that earns the money is gone until it's rebuilt".
+ *
+ * Every marker below is a literal SUBSTRING of the message the webhook writes.
+ * Change the wording there and the matcher follows automatically; the test in
+ * lib/growth/complaint-hold.test.ts asserts the real strings against these.
+ */
+export const DELIVERY_LOG_PREFIX = "Email delivery:";
+/** The complaint marker, exactly as the webhook writes it. */
+export const DELIVERY_COMPLAINT_MARKER = "SPAM COMPLAINT";
+/** The bounce marker, exactly as the webhook writes it. */
+export const DELIVERY_BOUNCE_MARKER = "BOUNCED";
+
+/** PostgREST `ilike` pattern matching any logged delivery event. */
+export const DELIVERY_LOG_PATTERN = `${DELIVERY_LOG_PREFIX}%`;
+/** PostgREST `ilike` pattern matching ONLY spam complaints. */
+export const DELIVERY_COMPLAINT_PATTERN = `${DELIVERY_LOG_PREFIX}%${DELIVERY_COMPLAINT_MARKER}%`;

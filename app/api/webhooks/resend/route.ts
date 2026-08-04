@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  DELIVERY_LOG_PREFIX,
+  DELIVERY_BOUNCE_MARKER,
+  DELIVERY_COMPLAINT_MARKER,
+} from "@/lib/growth/constants";
 
 /**
  * Resend delivery webhooks → the Growth Engine's ground truth.
@@ -104,10 +109,16 @@ export async function POST(request: NextRequest) {
     });
 
   if (type === "email.bounced" || type === "email.complained") {
+    // Composed from the shared markers, NOT retyped. The send ramp counts
+    // complaints with an ilike on DELIVERY_COMPLAINT_PATTERN; when this string
+    // was written by hand as "SPAM COMPLAINT" and the ramp searched for
+    // "COMPLAINED", the two never met and the complaint hold could not fire.
+    // Same words on screen — the wording below is unchanged — but now there is
+    // one source for the token both sides key on.
     const why =
       type === "email.bounced"
-        ? `BOUNCED (${event.data?.bounce?.message?.slice(0, 120) ?? "invalid address"})`
-        : "SPAM COMPLAINT — never email this address again";
+        ? `${DELIVERY_BOUNCE_MARKER} (${event.data?.bounce?.message?.slice(0, 120) ?? "invalid address"})`
+        : `${DELIVERY_COMPLAINT_MARKER} — never email this address again`;
     // The latest sent email to this prospect is the one that failed.
     const { data: msg } = await admin
       .from("ge_messages")
@@ -154,14 +165,14 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", prospect.id);
     await log(
-      `Email delivery: ${why} — address ${to} removed from the record${rolledBack ? `; status rolled back to ${rolledBack} (not actually reached)` : ""}`
+      `${DELIVERY_LOG_PREFIX} ${why} — address ${to} removed from the record${rolledBack ? `; status rolled back to ${rolledBack} (not actually reached)` : ""}`
     );
   } else if (type === "email.delivery_delayed") {
     await log(
-      `Email delivery: delayed to ${to} — their mail server is slow, usually resolves on its own`
+      `${DELIVERY_LOG_PREFIX} delayed to ${to} — their mail server is slow, usually resolves on its own`
     );
   } else if (type === "email.delivered") {
-    await log(`Email delivery: delivered to ${to}`);
+    await log(`${DELIVERY_LOG_PREFIX} delivered to ${to}`);
   }
 
   return NextResponse.json({ ok: true });
