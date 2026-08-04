@@ -10,6 +10,7 @@ import { classifyInbound } from "@/lib/growth/inbound-classify";
 import { loadMoneySummary, formatMoneyBlock } from "@/lib/cron/money-block";
 import {
   CLOSED_STATUSES,
+  DELIVERY_LOG_PATTERN,
   PROSPECT_STATUS_META,
   type ProspectStatus,
 } from "@/lib/growth/constants";
@@ -492,7 +493,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       admin
         .from("ge_activities")
         .select("content, ge_prospects(company)")
-        .ilike("content", "Email delivery:%")
+        .ilike("content", DELIVERY_LOG_PATTERN)
         .not("content", "ilike", "%delivered to%")
         .gte("created_at", since24h)
         .order("created_at", { ascending: false })
@@ -500,7 +501,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       admin
         .from("ge_activities")
         .select("id", { count: "exact", head: true })
-        .ilike("content", "Email delivery:%")
+        .ilike("content", DELIVERY_LOG_PATTERN)
         .not("content", "ilike", "%delivered to%")
         .gte("created_at", since24h),
     ]);

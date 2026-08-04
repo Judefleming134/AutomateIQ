@@ -11,6 +11,7 @@ import {
 import { recordOutreachSent } from "@/lib/growth/outreach";
 import { dublinDate } from "@/lib/growth/dates";
 import { loadGrowthSettings } from "@/lib/growth/auth";
+import { DELIVERY_COMPLAINT_PATTERN } from "@/lib/growth/constants";
 
 /**
  * Email autopilot: the one channel with a real sending API, made hands-off.
@@ -426,10 +427,17 @@ export async function resolveSendRamp(
   // Spam complaints are logged by the Resend webhook as delivery activities.
   // Any complaint at all is a stop signal — the acceptable rate is ~0.1%, far
   // below what a small sender can measure, so treat one as one too many.
+  //
+  // THIS PATTERN USED TO MATCH NOTHING. It was the hand-written literal
+  // "Email delivery:%COMPLAINED%", while the webhook writes "SPAM COMPLAINT".
+  // "SPAM COMPLAINT" does not contain "COMPLAINED", so the count was always 0
+  // and the hold below was unreachable — the ramp climbed through every spam
+  // complaint the domain ever got. Now built from the same constants the
+  // webhook composes its message from, so the two cannot drift again.
   const { count: complaintCount } = await admin
     .from("ge_activities")
     .select("id", { count: "exact", head: true })
-    .ilike("content", "Email delivery:%COMPLAINED%")
+    .ilike("content", DELIVERY_COMPLAINT_PATTERN)
     .gte("created_at", since);
   const complaints = complaintCount ?? 0;
 

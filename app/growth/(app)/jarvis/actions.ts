@@ -16,6 +16,7 @@ import { SOLUTION_CATALOG } from "@/lib/growth/solutions";
 import { dublinDate, morningSendLabel } from "@/lib/growth/dates";
 import {
   CLOSED_STATUSES,
+  DELIVERY_LOG_PATTERN,
   PROSPECT_STATUS_META,
   PURPOSES,
   type MessagePurpose,
@@ -422,7 +423,7 @@ export async function askJarvis(
       admin
         .from("ge_activities")
         .select("content, created_at, ge_prospects(company)")
-        .ilike("content", "Email delivery:%")
+        .ilike("content", DELIVERY_LOG_PATTERN)
         .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString())
         .order("created_at", { ascending: false })
         .limit(20),
