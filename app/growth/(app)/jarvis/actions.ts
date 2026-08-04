@@ -197,6 +197,9 @@ export async function regenerateFlaggedDrafts(
 
   const admin = createAdminClient();
   let fixed = 0;
+  // Asked for but not rewritable any more — counted, not dropped. See the
+  // return below for why a silent skip was the expensive part of this.
+  let skipped = 0;
   const failures: string[] = [];
   for (const id of ids) {
     const { data: msg } = await admin
@@ -210,6 +213,10 @@ export async function regenerateFlaggedDrafts(
       msg.channel !== "email" ||
       !["draft", "queued", "failed"].includes(msg.status)
     ) {
+      // Usually the 07:00 run sent it between this page rendering and the
+      // button being pressed. Nothing was rewritten, so it must not land in
+      // `fixed`, and it must not vanish either.
+      skipped += 1;
       continue;
     }
     const company =
@@ -235,7 +242,13 @@ export async function regenerateFlaggedDrafts(
       failures.push(`${company}: rewrite still ${stillBroken} — do this one in the Studio`);
       continue;
     }
-    await admin
+    // Check the write actually landed before counting it. The single-draft
+    // twin (runJarvisAction's regenerate_email) already does this, with the
+    // reason spelled out on it: "a silent DB failure must never be reported
+    // back to Jude as '✓ done' (he'd trust it and move on)." That is exactly
+    // what this bulk path did — the error was discarded and `fixed += 1` ran
+    // regardless, on the button that rewrites up to 12 at once.
+    const { error: saveErr } = await admin
       .from("ge_messages")
       .update({
         subject: res.subject,
@@ -245,17 +258,38 @@ export async function regenerateFlaggedDrafts(
         ...(msg.status === "failed" ? { status: "draft" } : {}),
       })
       .eq("id", id);
+    if (saveErr) {
+      failures.push(`${company}: the rewrite didn't save (${saveErr.message})`);
+      continue;
+    }
     fixed += 1;
   }
 
   revalidatePath("/growth/jarvis");
   revalidatePath("/growth/inbox");
-  if (failures.length > 0) {
-    return {
-      error: `Rewrote ${fixed}/${ids.length}. Still needs you: ${failures.join("; ").slice(0, 350)}`,
-    };
+
+  // `ok` renders as "✓ All rewritten under the new rules — review and queue",
+  // so it may only be returned when all of them actually were. It used to be
+  // returned whenever no draft came back still-broken — which was also true
+  // when every save silently failed, and when every id was skipped by the
+  // guard above. A FLAGGED draft is one carrying a placeholder, an invented
+  // name or the wrong company; it is held at send time by the review gates
+  // rather than sent. So the failure mode was: press Fix, be told it's fixed,
+  // and have the same drafts held again at 07:00 with no idea why the
+  // outreach didn't go. Every path out of the loop is now counted.
+  if (fixed === ids.length) return { ok: true };
+
+  const parts = [`Rewrote ${fixed}/${ids.length}.`];
+  if (skipped > 0) {
+    parts.push(
+      `${skipped} ${skipped === 1 ? "is" : "are"} no longer a rewritable draft ` +
+        `(already sent, or changed since this page loaded) — refresh to see where they stand.`
+    );
   }
-  return { ok: true };
+  if (failures.length > 0) {
+    parts.push(`Still needs you: ${failures.join("; ").slice(0, 350)}`);
+  }
+  return { error: parts.join(" ") };
 }
 
 /**
