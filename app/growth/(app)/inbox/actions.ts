@@ -204,15 +204,35 @@ export async function composeMessage(input: {
     // Same hard broken-draft guard the autopilot and queue Send button run:
     // a leftover [placeholder], invented sender name or made-up job title must
     // never reach a real prospect. The row stays a draft, ready to fix.
-    const broken = draftLooksBroken(sanitizeOutreachBody(body));
+    //
+    // SEND THE TEXT THE GATE CHECKED. This was the third and last send path
+    // still checking one string and sending another: draftLooksBroken ran on
+    // sanitizeOutreachBody(body), and then the RAW body went to Resend.
+    //
+    // The sanitizer is what turns "[Your Name]" into "Jude", so anything it
+    // quietly fixed passed the check and was then delivered still broken —
+    // measured on realistic drafts, 4 of 5 got through. The other two paths
+    // (sendAutopilotEmail, sendQueuedEmail) each carry this same note because
+    // each had the same bug; this one is used by the inbox "Respond" composer
+    // and the Message Studio, i.e. the reply Jude sends BY HAND to a prospect
+    // who has just written back — the warmest lead in the pipeline.
+    //
+    // Sanitize the STORED text (row.body, already truncated) rather than the
+    // input, so the sent body, the checked body and the recorded body are all
+    // one string. Persisted too, so the timeline shows what actually went out.
+    const cleanBody = sanitizeOutreachBody(row.body);
+    const broken = draftLooksBroken(cleanBody);
     if (broken) {
       revalidateProspect(prospect.id);
       return { ok: false, error: `Not sent — ${broken}. Regenerate the draft first.` };
     }
+    if (cleanBody !== row.body) {
+      await admin.from("ge_messages").update({ body: cleanBody }).eq("id", message.id);
+    }
     const sent = await sendOutreachEmail({
       to: prospect.email!,
       subject: subject!,
-      body,
+      body: cleanBody,
     });
     if (!sent.ok) {
       await admin.from("ge_messages").update({ status: "failed" }).eq("id", message.id);
