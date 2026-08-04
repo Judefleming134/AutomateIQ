@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { secretsMatch } from "@/lib/security/timing-safe";
 
 /**
  * One-time bootstrap: creates the very first admin account. There's no UI
@@ -33,7 +34,12 @@ export async function POST(request: NextRequest) {
   if (typeof email !== "string" || !email.includes("@")) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
-  if (secret !== setupSecret) {
+  // Constant-time: this endpoint mints the FIRST admin, so the secret
+  // guarding it is the most valuable one on the platform. The second gate
+  // (no admin may already exist) makes it unreachable in production today,
+  // but a gate that is currently redundant is not a reason to compare a
+  // secret byte-by-byte.
+  if (typeof secret !== "string" || !secretsMatch(secret, setupSecret)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 
