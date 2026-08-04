@@ -62,8 +62,23 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
         body: "Turn a job description into a priced, itemised quote and send it before you leave the driveway. The customer can accept it online.",
       },
       {
-        title: "Invoice and get paid",
-        body: "Quotes become invoices in one step, with online card payment on the link. Chasing is automatic rather than a job for a Sunday evening.",
+        title: "Invoice and chase it for you",
+        // ONLY WHAT /i/[token] AND lib/cron/invoice-chaser.ts ACTUALLY DO.
+        //
+        // This used to promise "online card payment on the link". Nothing in
+        // the codebase takes a card: the public invoice page states the amount
+        // owed and says to pay "using the details {business} gave you, quoting
+        // {number}", and app/tradeiq/actions.ts answers any attempt with
+        // "Online payment isn't switched on yet". A prospect who buys on that
+        // sentence discovers it is false the first time they send an invoice —
+        // and while there is one customer, that customer is also the only
+        // reference, so it is the one lie there is no recovering from.
+        //
+        // Everything kept here is real and verifiable: quote → invoice in one
+        // step, a per-invoice link (which shows a part payment, so nobody pays
+        // twice), and the escalating automatic reminders the 07:00 chaser
+        // sends. See lib/products/unbacked-claims.test.ts.
+        body: "Quotes become invoices in one step, each with its own link showing exactly what's owed — part payments included, so nobody pays twice. Overdue reminders go out on their own rather than being a job for a Sunday evening.",
       },
       {
         title: "Every customer and job in one record",
