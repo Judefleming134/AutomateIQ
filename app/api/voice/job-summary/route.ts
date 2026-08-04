@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import crypto from "node:crypto";
 import { getResendClient, getFromAddress } from "@/lib/email/resend";
+import { secretsMatch } from "@/lib/security/timing-safe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/db/errors";
 
@@ -197,7 +198,11 @@ export async function POST(request: NextRequest) {
     new URL(request.url).searchParams.get("secret") ??
     ""
   ).trim();
-  const sharedOk = Boolean(sharedSecret) && provided === sharedSecret;
+  // Constant-time, like the HMAC branch three lines below already is. A plain
+  // === returns as soon as two bytes differ, so the time to answer 401 tracks
+  // how much of the secret the caller guessed — and this URL is public and
+  // guessable, which is the exact case secretsMatch was extracted for.
+  const sharedOk = Boolean(sharedSecret && secretsMatch(provided, sharedSecret));
   const hmacOk =
     Boolean(signingSecret) &&
     verifyElevenLabsSignature(
@@ -439,8 +444,8 @@ export async function GET(request: NextRequest) {
   ).trim();
   // For a browser preflight, either configured secret is acceptable.
   if (
-    !(sharedSecret && provided === sharedSecret) &&
-    !(signingSecret && provided === signingSecret)
+    !(sharedSecret && secretsMatch(provided, sharedSecret)) &&
+    !(signingSecret && secretsMatch(provided, signingSecret))
   ) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
