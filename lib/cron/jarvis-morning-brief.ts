@@ -8,6 +8,8 @@ import { aiComplete } from "@/lib/ai/complete";
 import { dublinDate, dublinWeekday } from "@/lib/growth/dates";
 import { classifyInbound } from "@/lib/growth/inbound-classify";
 import { loadMoneySummary, formatMoneyBlock } from "@/lib/cron/money-block";
+import { loadGrowthSettings } from "@/lib/growth/auth";
+import { resolveSendRamp } from "@/lib/growth/autopilot";
 import {
   CLOSED_STATUSES,
   DELIVERY_LOG_PATTERN,
@@ -739,6 +741,63 @@ export async function sendJarvisMorningBrief(): Promise<{
 
     const reminders = DATED_REMINDERS[today] ?? [];
 
+    // WHY TODAY'S SEND WAS THE SIZE IT WAS — when it wasn't what was asked for.
+    //
+    // resolveSendRamp decides how much outreach may go out, and it can hold
+    // volume down for three reasons: a spam complaint in the window, a bounce
+    // rate over the limit, or the 30/day ceiling one morning run can carry.
+    // Its `reason` string explains each in plain English.
+    //
+    // NONE OF IT REACHED JUDE. The reason rides on the first auto-queue
+    // activity — autoQueueTopDrafts says so on the line that writes it, "so
+    // the pacing shows up in the nightly section of the morning brief rather
+    // than only in the cron response" — but the nightly query below filters
+    // `Jarvis nightly: auto-queued%` out wholesale, and has done since that
+    // section was de-noised. The de-noising was right (250 queue lines buried
+    // the real fixes); it just took the one line carrying the decision with it,
+    // and replaced it with a bare count that says nothing about volume.
+    //
+    // Worse, the case that matters most has no carrier at all: when a hold
+    // suppresses queueing entirely, `queued` never reaches 1, the activity is
+    // never written, and there is nothing to un-filter. A held send is
+    // invisible on every surface Jude looks at — he just sees fewer emails.
+    //
+    // That got sharper today: the spam-complaint hold was unreachable until the
+    // marker mismatch was fixed, so bounces were the only hold that could fire.
+    // Both can now, and a complaint holds volume for the full 14-day window —
+    // a fortnight of throttled outreach with no explanation anywhere.
+    //
+    // So compute it here instead of depending on an activity existing.
+    // resolveSendRamp is READ-ONLY (two selects, no writes), and the whole
+    // thing is wrapped so a failure degrades to no block rather than costing
+    // Jude the brief — which CLAUDE.md says must never be left broken.
+    let volumeBlock = "";
+    try {
+      const settings = await loadGrowthSettings();
+      const rawTarget = process.env.GROWTH_AUTOQUEUE_TARGET;
+      const requested =
+        rawTarget === undefined ? settings.dailySendTarget : Number(rawTarget);
+      if (Number.isFinite(requested) && requested > 0) {
+        const ramp = await resolveSendRamp(admin, requested);
+        // Only speak up when the engine sent LESS than it was asked for. On an
+        // ordinary morning that is already at target this adds nothing, so the
+        // brief gains no noise — only the mornings that need explaining.
+        const holding = ramp.reason.startsWith("HOLDING");
+        if (holding) {
+          volumeBlock =
+            `🛑 SEND VOLUME HELD — ${ramp.reason}\n` +
+            `  Nothing is broken; the engine is protecting the sending domain. ` +
+            `It lifts on its own once the window is clean.`;
+        } else if (ramp.cappedByRun) {
+          volumeBlock = `📊 SEND VOLUME — ${ramp.reason}`;
+        } else if (ramp.target < requested) {
+          volumeBlock = `📊 SEND VOLUME — ${ramp.reason}`;
+        }
+      }
+    } catch (err) {
+      console.error("morning brief: send-volume block skipped —", err);
+    }
+
     // Blocks shared by both shapes: the overnight catches + fixes.
     const deliveryBlock = deliveryLines.length
       ? `📬 DELIVERY ISSUES (${deliveryTotal})\n${deliveryLines.join("\n")}` +
@@ -825,6 +884,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         nightlyBlock,
         moneyBlock,
         deliveryBlock,
+        volumeBlock,
         replyLines.length
           ? section(`OVERNIGHT REPLIES (${replyCountLabel})`, replyLines, "") + replyMore + autoReplyNote + replyDraftNote
           : "",
@@ -853,6 +913,8 @@ export async function sendJarvisMorningBrief(): Promise<{
           ? `⏰ REMINDERS FOR TODAY\n${reminders.map((r) => `• ${r}`).join("\n")}`
           : "",
         deliveryBlock,
+        // Directly above SENT THIS MORNING, because it explains that number.
+        volumeBlock,
         sentBlock,
         nightlyBlock,
         moneyBlock,
