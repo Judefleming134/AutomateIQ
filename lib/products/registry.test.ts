@@ -21,6 +21,10 @@ import {
 /** The keys entitlements depend on. Changing this list is a data migration. */
 const FROZEN_KEYS = [
   "ai-assistant",
+  // AssetIQ, added 2026-08-05 by supabase/migrations/0045_assetiq.sql. Named
+  // brand-first like permitiq — the "…-agent" convention above is historical
+  // and equally frozen, because these are entitlement keys, not labels.
+  "assetiq",
   "content-agent",
   "crm-agent",
   "custom-solutions",

@@ -6004,7 +6004,10 @@ table.data-table {
   gap: 18px;
 }
 .prod-index--industry { grid-template-columns: repeat(2, 1fr); }
-.prod-index--core { grid-template-columns: repeat(3, 1fr); }
+/* Was 3 while the core was three products. AssetIQ made it four, and four in
+   three columns strands the fourth on its own row — the orphan this whole
+   section exists to avoid. 2x2, same as the industry grid. */
+.prod-index--core { grid-template-columns: repeat(2, 1fr); }
 /* The single-purpose modules: four cards, so 2x2 for the same reason the
    industry row is 2x2 — three columns would strand the fourth on its own. */
 .prod-index--module { grid-template-columns: repeat(2, 1fr); }
@@ -6179,8 +6182,10 @@ table.data-table {
 }
 
 @media (max-width: 1000px) {
-  /* The core three go two-up before they go single — three narrow columns
-     squeeze the copy long before the viewport is actually phone-sized. */
+  /* Kept, and now a no-op: the core grid is 2 columns at every width since it
+     became four products. Left in place rather than deleted because it is the
+     rule that catches the core going back to three — "three narrow columns
+     squeeze the copy long before the viewport is actually phone-sized". */
   .prod-index--core { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 900px) {

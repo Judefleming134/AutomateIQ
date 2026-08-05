@@ -17,6 +17,8 @@ import {
   LifeBuoy,
   Instagram,
   Truck,
+  Wrench,
+  FileCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -39,6 +41,10 @@ const PRODUCT_ICONS: Record<string, LucideIcon> = {
   "life-buoy": LifeBuoy,
   instagram: Instagram,
   truck: Truck,
+  wrench: Wrench,
+  // PlanIQ has asked for "file-check" since it shipped and it was never in
+  // this map, so its tile silently fell back to the generic Box.
+  "file-check": FileCheck,
 };
 
 export function ProductIcon({ name, size = 18 }: { name: string; size?: number }) {

@@ -50,6 +50,7 @@ export const PRODUCT_PROBES: ProductProbe[] = [
   { key: "crm-agent", name: "ClientIQ", table: "crm_contacts", migration: "supabase/manual_update_0008.sql" },
   { key: "speed-to-lead-agent", name: "LeadIQ", table: "stl_settings", migration: "supabase/manual_update_0007.sql" },
   { key: "permitiq", name: "PlanIQ", table: "pq_applications", migration: "supabase/migrations/0033_permitiq.sql" },
+  { key: "assetiq", name: "AssetIQ", table: "ast_assets", migration: "supabase/migrations/0045_assetiq.sql" },
   { key: "voice-agent", name: "ReceptionIQ", table: "va_config", migration: "supabase/manual_update_0006.sql" },
   { key: "logistics-control-centre", name: "Logistics control centre", table: "log_routes", migration: "supabase/manual_update_0015.sql" },
   { key: "instagram-dm-setter", name: "Instagram DM setter", table: "ig_settings", migration: "supabase/manual_update_0011.sql" },

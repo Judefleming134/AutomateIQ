@@ -170,6 +170,19 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     family: "permitiq",
   },
   {
+    key: "assetiq",
+    name: "AssetIQ",
+    description:
+      "Every van, tool and machine you own — what it cost, who has it, and what's due on it before it goes past.",
+    href: "/portal/assetiq",
+    iconName: "wrench",
+    accent: "#F97316",
+    status: "active",
+    // Core, not TradeIQ: a salon with three chairs and two dryers has the same
+    // problem as a plumber with four vans. Nothing about it is trade-specific.
+    family: "core",
+  },
+  {
     key: "custom-solutions",
     name: "CustomIQ",
     description: "Bespoke AI modules built specifically for your business.",
