@@ -186,9 +186,19 @@ describe("the inbox uses it everywhere the old field was used", () => {
 
   it("sorts the conversation list by it, in both directions", () => {
     // Reply-due is oldest-first (longest wait about to go cold); answered is
-    // newest-first. Both must read the same clock.
-    expect(PAGE).toContain("messageInstant(a.latestReal) < messageInstant(b.latestReal) ? -1 : 1");
+    // newest-first. Both must read the same clock — which is the subject of
+    // this test, and is unchanged.
+    //
+    // The reply-due half now measures from `waitingSince` (the newest inbound
+    // from a PERSON) rather than `latestReal` (the newest thing that happened
+    // at all). Same clock, different message: an out-of-office landing today
+    // used to reset a five-day-old question to "now" and sink it to the bottom
+    // of the group it should have been leading. See inbox-human-reply.test.ts.
+    expect(PAGE).toContain("messageInstant(a.waitingSince) < messageInstant(b.waitingSince) ? -1 : 1");
     expect(PAGE).toContain("messageInstant(a.latestReal) < messageInstant(b.latestReal) ? 1 : -1");
+    // Whichever field it reads, it must never read a raw date — that is the
+    // property this file exists for.
+    expect(PAGE).not.toMatch(/a\.(latestReal|waitingSince)\.created_at/);
   });
 
   it("shows the relative time from it", () => {
