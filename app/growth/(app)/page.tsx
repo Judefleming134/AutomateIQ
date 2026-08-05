@@ -447,16 +447,25 @@ export default async function GrowthDashboardPage() {
   let readyTotal = readyList.length;
   if ((readyStatusCount ?? 0) > (readyToSend ?? []).length) {
     const queuedIds = [...queuedProspectIds];
-    const { count: queuedReadyCount } = queuedIds.length
-      ? await admin
+    // CHUNKED — same fix, same reason as the twin of this block on the Jarvis
+    // page. `.in("id", ids)` puts every id in the URL at ~40 chars per UUID,
+    // and the send ramp tops the queue up to 200, so this request failed on a
+    // full queue. The count came back null, nothing was subtracted, and
+    // "ready to send" read HIGH by however many were already handled — on the
+    // two surfaces written to agree with each other.
+    const queuedReadyRows = await selectAllRowsByIds<{ id: string }>(
+      queuedIds,
+      (chunk) =>
+        admin
           .from("ge_prospects")
-          .select("id", { count: "exact", head: true })
+          .select("id")
           .in("status", ["research_complete", "outreach_ready"])
-          .in("id", queuedIds)
-      : { count: 0 };
+          .in("id", chunk)
+    );
+    const queuedReadyCount = new Set(queuedReadyRows.map((r) => r.id)).size;
     readyTotal = Math.max(
       readyList.length,
-      (readyStatusCount ?? 0) - (queuedReadyCount ?? 0)
+      (readyStatusCount ?? 0) - queuedReadyCount
     );
   }
 

@@ -17,6 +17,7 @@ import { JarvisChat } from "@/components/growth/jarvis-chat";
 import { EmailAutopilot } from "@/components/growth/email-autopilot";
 import { SendBriefButton } from "@/components/growth/send-brief-button";
 import { listAutopilotCandidates } from "@/lib/growth/autopilot";
+import { selectAllRowsByIds } from "@/lib/growth/db";
 import { CLOSED_STATUSES } from "@/lib/growth/constants";
 import { dublinDate, morningSendLabel } from "@/lib/growth/dates";
 import { countAwaitingReplies } from "@/lib/growth/awaiting";
@@ -35,7 +36,7 @@ export default async function JarvisPage() {
     { count: dueCount },
     { count: readyCount },
     candidates,
-    { data: queuedEmails },
+    { data: queuedEmails, count: queuedTotalRaw },
     awaitingCount,
   ] = await Promise.all([
     // All-time + last-7-days from a single table load, not two full scans.
@@ -56,9 +57,14 @@ export default async function JarvisPage() {
     listAutopilotCandidates(25),
     // Rows, not just a count: the prospect ids are needed below to keep the
     // "ready" priority number consistent with the dashboard's.
+    //
+    // `count: "exact"` rides along on the SAME request (PostgREST returns it
+    // in the Content-Range header), so the banner and the "send the N queued
+    // emails right now?" confirmation can report the true total rather than
+    // the length of a 500-row window. Free — no second round trip.
     admin
       .from("ge_messages")
-      .select("prospect_id")
+      .select("prospect_id", { count: "exact" })
       .eq("channel", "email")
       .eq("direction", "outbound")
       .eq("status", "queued")
@@ -69,7 +75,10 @@ export default async function JarvisPage() {
     countAwaitingReplies(admin),
   ]);
   const queuedRows = (queuedEmails ?? []) as { prospect_id: string }[];
-  const queuedCount = queuedRows.length;
+  // Never report FEWER than we can actually see: if the count read failed the
+  // rows in hand are still a floor, not zero. Same rule as the morning brief's
+  // sentTodayTotal and deliveryTotal.
+  const queuedCount = Math.max(queuedTotalRaw ?? 0, queuedRows.length);
 
   // Same adjustment the dashboard makes: a ready prospect whose email is
   // already queued for the 8am run is handled — counting it again here made
@@ -78,12 +87,36 @@ export default async function JarvisPage() {
   let readyAlreadyQueued = 0;
   if (readyAdjusted > 0 && queuedRows.length > 0) {
     const queuedIds = [...new Set(queuedRows.map((r) => r.prospect_id))];
-    const { count: queuedReady } = await admin
-      .from("ge_prospects")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["research_complete", "outreach_ready"])
-      .in("id", queuedIds);
-    readyAlreadyQueued = queuedReady ?? 0;
+    // CHUNKED. `.in("id", ids)` serialises every id into the request URL at
+    // roughly 40 characters per UUID, so ~200 of them blow the ~8KB limit and
+    // the request simply fails — the trap CLAUDE.md names by name.
+    //
+    // 200 is not a hypothetical here, it is the DESIGNED size of this list:
+    // the send ramp climbs to 200/day and autoQueueTopDrafts tops the queue up
+    // to exactly that target, so a healthy engine parks ~200 queued emails.
+    // In other words this broke on the mornings the queue was full, which are
+    // the mornings the number matters.
+    //
+    // And it broke SILENTLY, in the direction that inflates: the count came
+    // back null, `readyAlreadyQueued` went to 0, and "ready to send" was
+    // reported WITHOUT subtracting the prospects already handled — the exact
+    // disagreement between Jarvis and the dashboard this block exists to
+    // prevent, plus the "(also shows N already queued)" note vanishing from
+    // the label.
+    //
+    // Rows rather than head:true because a count cannot be chunked: ids are
+    // unique per prospect, so counting the distinct ids returned across chunks
+    // is the same number, exactly.
+    const queuedReadyRows = await selectAllRowsByIds<{ id: string }>(
+      queuedIds,
+      (chunk) =>
+        admin
+          .from("ge_prospects")
+          .select("id")
+          .in("status", ["research_complete", "outreach_ready"])
+          .in("id", chunk)
+    );
+    readyAlreadyQueued = new Set(queuedReadyRows.map((r) => r.id)).size;
     readyAdjusted = Math.max(0, readyAdjusted - readyAlreadyQueued);
   }
 
