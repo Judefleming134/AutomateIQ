@@ -70,6 +70,31 @@ export default function ProductsIndexPage() {
         </p>
       </section>
 
+      {/* THE WHOLE RANGE, ON ONE SCREEN.
+          Eleven cards is roughly four thousand pixels of scroll on a phone,
+          with no way to tell what is further down or how much further down it
+          is — someone who came here for QuoteIQ had to swipe past ten other
+          products to find out whether it was even on the page.
+          These chips are the contents page: all eleven visible at once in four
+          rows (159px measured at 390px wide), each a direct tap to its own
+          page. Carrying the accent makes the list read as a range, not a wall.
+          Deliberately not sticky — .book-topbar already is, and it wraps to two
+          rows at 620px, so a second pinned bar would take a third of the
+          screen and no fixed `top` offset would be right at both widths. */}
+      <nav className="prod-jump" aria-label="Jump to a product">
+        {MARKETING_PRODUCTS.map((p) => (
+          <Link
+            key={p.slug}
+            href={`/products/${p.slug}`}
+            className="prod-jump-chip"
+            style={{ ["--prod-accent" as string]: p.accent }}
+          >
+            <span className="prod-jump-dot" aria-hidden="true" />
+            {p.name}
+          </Link>
+        ))}
+      </nav>
+
       {/* GROUPED, not one flat list of seven.
           The hero above already promises "start with the core and switch on
           what your industry needs" — rendering all seven undifferentiated
@@ -79,8 +104,14 @@ export default function ProductsIndexPage() {
           Four industry products lay out 2x2, the core three in one row. */}
       {marketingGroups().map(({ group, products }) => (
         <section className="book-section" key={group.key}>
+          {/* The count answers "is it worth scrolling this section?" — on a
+              phone the heading is off screen after the first card and there is
+              otherwise nothing saying whether two more follow or six. */}
           <div className="prod-group-head">
-            <h2>{group.label}</h2>
+            <h2>
+              {group.label}{" "}
+              <span className="prod-group-count">{products.length}</span>
+            </h2>
             <p>{group.blurb}</p>
           </div>
           <div className={`prod-index prod-index--${group.key}`}>
