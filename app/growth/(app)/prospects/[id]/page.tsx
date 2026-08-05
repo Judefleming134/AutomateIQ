@@ -58,6 +58,7 @@ import {
 } from "../proposal-actions";
 import { logInboundMessage } from "../../inbox/actions";
 import { messageInstant } from "@/lib/growth/inbox-order";
+import { hasPassed, meetingInstant } from "@/lib/growth/meeting-order";
 
 // Research and proposal generation are single long AI calls.
 export const maxDuration = 60;
@@ -838,15 +839,56 @@ export default async function ProspectWorkspacePage({
                   <h2 className="panel-title" id="prep-title">
                     Strategy Session prep
                   </h2>
-                  {(meetings ?? [])
-                    .filter((m) => m.status === "booked")
-                    .slice(0, 2)
-                    .map((m) => (
-                      <p key={m.id} style={{ fontSize: 13, margin: "0 0 8px" }}>
-                        <strong>{fmt(m.scheduled_at, Boolean(m.strategy_booking_id))}</strong>{" "}
-                        (Irish time)
+                  {(() => {
+                    // WHICH SESSION IS THIS PREP FOR?
+                    //
+                    // This listed every booked meeting in the query's DESCENDING
+                    // order and took the first two, so with two sessions ahead
+                    // it put the LATER one first — and with none ahead it showed
+                    // a session that had ALREADY HAPPENED under a heading that
+                    // says "prep", as though it were still to come.
+                    //
+                    // A booked meeting that has passed and was never closed out
+                    // is not rare: it is the exact population the meetings page
+                    // gives its own "Awaiting outcome" section to.
+                    //
+                    // lib/growth/meeting-order.ts is the shared rule for both
+                    // halves. hasPassed knows a booking stores Irish wall-clock
+                    // AS UTC while a manual meeting stores a true instant, so
+                    // comparing the raw column mixes the two by an hour in
+                    // summer; meetingInstant is what makes "soonest" mean the
+                    // same thing for both. The dashboard and the meetings page
+                    // both use it — this panel was the one that didn't.
+                    const booked = (meetings ?? []).filter((m) => m.status === "booked");
+                    const upcoming = booked
+                      .filter((m) => !hasPassed(m))
+                      .sort((a, b) => (meetingInstant(a) < meetingInstant(b) ? -1 : 1));
+                    if (upcoming.length > 0) {
+                      // Soonest first — the next session is the one being
+                      // prepped for.
+                      return upcoming.slice(0, 2).map((m) => (
+                        <p key={m.id} style={{ fontSize: 13, margin: "0 0 8px" }}>
+                          <strong>{fmt(m.scheduled_at, Boolean(m.strategy_booking_id))}</strong>{" "}
+                          (Irish time)
+                        </p>
+                      ));
+                    }
+                    const lapsed = booked
+                      .filter((m) => hasPassed(m))
+                      .sort((a, b) => (meetingInstant(a) < meetingInstant(b) ? 1 : -1));
+                    if (lapsed.length === 0) return null;
+                    const last = lapsed[0];
+                    return (
+                      <p style={{ fontSize: 13, margin: "0 0 8px", color: "var(--orange, #fb923c)" }}>
+                        This session was{" "}
+                        <strong>{fmt(last.scheduled_at, Boolean(last.strategy_booking_id))}</strong>{" "}
+                        (Irish time) and hasn&apos;t been closed out —{" "}
+                        <Link href="/growth/meetings">record how it went</Link> so
+                        the pipeline stays honest. The prep below is still here if
+                        you need it again.
                       </p>
-                    ))}
+                    );
+                  })()}
                   {solutions.length > 0 && (
                     <p style={{ fontSize: 13, margin: "0 0 4px" }}>
                       <strong>Pitch:</strong>{" "}
