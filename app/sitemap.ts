@@ -12,7 +12,7 @@ const SITE = "https://automateiq.ie";
  *
  * /agents.html was removed 2026-07-31: it was a 50KB static page nothing linked
  * to, describing the product range from before the vertical structure existed
- * (so it could never mention PermitIQ). /systems covers the same ground, lives
+ * (so it could never mention PlanIQ). /systems covers the same ground, lives
  * in the app, and updates with the product. The old URL 308s to it.
  */
 /**

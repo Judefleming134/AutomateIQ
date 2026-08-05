@@ -248,6 +248,8 @@ describe("the brand names people actually type", () => {
   it.each([
     ["/TradeIQ", "/tradeiq"],
     ["/PermitIQ", "/permitiq"],
+    ["/PlanIQ", "/planiq"],
+    ["/QuoteIQ", "/quoteiq"],
     ["/FinanceIQ", "/financeiq"],
     ["/Products", "/products"],
   ])("%s corrects to %s and the proxy sees it", (input, expected) => {
@@ -261,7 +263,11 @@ describe("the brand names people actually type", () => {
     // button — not on the app behind a password box.
     const pairs = [...NEXT_CONFIG.matchAll(/source:\s*"([^"]+)",\s*destination:\s*"([^"]+)"/g)];
     const dest = (s: string) => pairs.find((p) => p[1] === s)?.[2];
-    expect(dest("/permitiq")).toBe("/products/permitiq");
+    // /permitiq now lands on /products/planiq: the product was renamed and
+    // the old brand name has to keep working, because it is on cards and in
+    // already-sent emails.
+    expect(dest("/permitiq")).toBe("/products/planiq");
+    expect(dest("/planiq")).toBe("/products/planiq");
     expect(dest("/financeiq")).toBe("/products/financeiq");
   });
 });

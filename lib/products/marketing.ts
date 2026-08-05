@@ -35,7 +35,7 @@ export type MarketingProduct = {
   /**
    * Which half of the range this belongs to.
    *
-   * "industry" — solves one trade's problem (TradeIQ, FinanceIQ, PermitIQ,
+   * "industry" — solves one trade's problem (TradeIQ, FinanceIQ, PlanIQ,
    *   ReputationIQ). The question a visitor asks is "is this for me?".
    * "core" — works whatever you run (AssistIQ, SiteIQ, ContentIQ). The
    *   question is "what else do I get?".
@@ -256,20 +256,34 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     group: "industry",
   },
   {
-    slug: "permitiq",
-    name: "PermitIQ",
-    kicker: "For architects, engineers & developers",
+    // Renamed from PermitIQ on 2026-08-05. "Permit" is the American word and
+    // "planning permission" is the Irish one, and the product does both — so
+    // the name now leads with the part that is the same on either side of the
+    // Atlantic: you are getting a plan in front of an authority.
+    //
+    // `leadSource` deliberately stays "product-permitiq". It is the value
+    // already stored against every lead this page has ever produced, and the
+    // leads list filters and counts on that raw string — changing it would
+    // split one product's pipeline across two labels. The slug, the name and
+    // the URL are what customers see; this one is internal.
+    slug: "planiq",
+    name: "PlanIQ",
+    kicker: "For architects, engineers, developers & contractors",
     headline: "Know what's missing before the council does.",
-    sub: "Upload the drawings and reports for a planning application, and get a checklist, a plain-English summary and the gaps — before you submit.",
-    who: "Architects, engineers, planning consultants, developers and contractors putting applications in front of an Irish planning authority.",
+    sub: "Planning permission in Ireland and building permits in the US. Upload the drawings and reports, and get a checklist, a plain-English summary and the gaps — before you submit.",
+    who: "Architects, engineers, planning consultants, developers and contractors — putting an application in front of an Irish planning authority, or pulling a building permit with a US building department.",
     does: [
+      {
+        title: "Both sides of the Atlantic, one system",
+        body: "Ireland ships with the national planning-permission and retention lists. The US ships with the requirements a residential building permit asks for almost everywhere — and because permitting there is set city by city, naming your building department layers their own rules on top.",
+      },
       {
         title: "Every document read",
         body: "Upload a drawing or report and it is read, described in plain English, and matched to the requirement it satisfies. Problems an assessor would flag — no scale bar, an undated notice — are called out.",
       },
       {
         title: "A checklist against the real requirements",
-        body: "The national baseline plus anything your specific planning authority asks for on top, resolved into one list with nothing duplicated.",
+        body: "The baseline for your jurisdiction plus anything your specific authority asks for on top, resolved into one list with nothing duplicated.",
       },
       {
         title: "An honest 'ready to submit'",
@@ -417,7 +431,7 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
       },
       {
         title: "Most of the range started here",
-        body: "TradeIQ, FinanceIQ and PermitIQ were each one company's problem first. If yours turns out to be common, it becomes a product.",
+        body: "TradeIQ, FinanceIQ and PlanIQ were each one company's problem first. If yours turns out to be common, it becomes a product.",
       },
     ],
     loginHref: "/login",

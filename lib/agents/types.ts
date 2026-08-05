@@ -74,7 +74,7 @@ export type AgentPermission =
 
 /**
  * Where an agent looks things up beyond the tenant's own tables — a seeded
- * catalog, a rule set, a document collection. PermitIQ's Planning Rules
+ * catalog, a rule set, a document collection. PlanIQ's Planning Rules
  * Assistant is the first real consumer (the Irish requirements catalog); it's
  * defined here rather than there so every agent describes itself the same way.
  */

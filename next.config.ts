@@ -65,8 +65,20 @@ const nextConfig: NextConfig = {
       // that's the right landing for someone who typed a brand name: the page
       // explains what it is AND carries the Log in button for a customer who
       // already has an account.
-      { source: "/permitiq", destination: "/products/permitiq", permanent: true },
+      { source: "/permitiq", destination: "/products/planiq", permanent: true },
       { source: "/financeiq", destination: "/products/financeiq", permanent: true },
+
+      // PermitIQ became PlanIQ on 2026-08-05 — "permit" is the American word,
+      // "planning permission" the Irish one, and the product does both.
+      //
+      // The rename is display-only below the surface (the entitlement key,
+      // the family key and the /portal/permitiq route folder are all frozen —
+      // see lib/products/registry.ts), but the PUBLIC url did move, so every
+      // old form has to keep landing. /permitiq above, /products/permitiq
+      // here, and /portal/planiq for anyone who types the new name at the app.
+      { source: "/planiq", destination: "/products/planiq", permanent: true },
+      { source: "/products/permitiq", destination: "/products/planiq", permanent: true },
+      { source: "/portal/planiq", destination: "/portal/permitiq", permanent: true },
 
       // …and then the same hole was still open for everything else.
       //
@@ -99,17 +111,27 @@ const nextConfig: NextConfig = {
       //
       // Nobody writes "quoteiq" — the name is QuoteIQ, and that is what goes on
       // a card, in an email signature and into an address bar. Next matches a
-      // redirect `source` CASE-SENSITIVELY and there is no middleware here, so
-      // /quoteIQ was a 404 while /quoteiq worked. The line above about "the
-      // proxy's case correction" was assuming something this codebase does not
-      // do; these entries make it true rather than hoped for.
+      // redirect `source` CASE-SENSITIVELY, so /quoteIQ and /quoteiq are two
+      // different requests and each needs an answer.
       //
-      // One extra line per product, matching the one casing a human types. It
-      // is deliberately not a middleware: a middleware would run on requests
-      // across the whole site to fix eleven URLs.
+      // CORRECTION TO WHAT THIS COMMENT USED TO SAY. It claimed there was no
+      // middleware in this app and that "the proxy's case correction" a few
+      // lines above was wishful thinking. Both were wrong: proxy.ts is real
+      // (Next 16 renamed the middleware convention to `proxy`) and it calls
+      // canonicalPath() on any path whose first segment carries a capital.
+      // What was actually broken is that KNOWN_SEGMENTS in lib/routing/case.ts
+      // listed only tradeiq/financeiq/permitiq, so the eight names added in
+      // #585 fell through it — /quoteIQ worked (this table) while /QuoteIQ and
+      // /QUOTEIQ did not (that list). The list is now complete, which covers
+      // every casing.
+      //
+      // These rows stay: they turn the common casing into ONE hop instead of
+      // two (proxy 308 to lowercase, then this table's 308 to the product
+      // page), and lib/routing/wiring.test.ts pins the pair together.
       { source: "/tradeIQ", destination: "/tradeiq", permanent: true },
       { source: "/financeIQ", destination: "/products/financeiq", permanent: true },
-      { source: "/permitIQ", destination: "/products/permitiq", permanent: true },
+      { source: "/permitIQ", destination: "/products/planiq", permanent: true },
+      { source: "/planIQ", destination: "/products/planiq", permanent: true },
       { source: "/quoteIQ", destination: "/products/quoteiq", permanent: true },
       { source: "/clientIQ", destination: "/products/clientiq", permanent: true },
       { source: "/leadIQ", destination: "/products/leadiq", permanent: true },

@@ -105,6 +105,13 @@ the shell, or the navigation"* — and the code delivers it.
 
 So: **extend, don't rebuild.** Four additive fields and one new table close this.
 
+> **Naming note (2026-08-05).** The product shipped as PermitIQ and was
+> renamed **PlanIQ** once the US side was stocked — "permit" is the
+> American word, "planning permission" the Irish one, and it does both.
+> This document is the design record from before the build and keeps the
+> original name throughout; the entitlement key and the `/portal/permitiq`
+> route are also still `permitiq`, deliberately.
+
 ### 2.2 The AI layer already does what PermitIQ's hardest feature needs
 
 `lib/ai/complete.ts` + `lib/ai/config.ts` give one `aiComplete()` entry point with:

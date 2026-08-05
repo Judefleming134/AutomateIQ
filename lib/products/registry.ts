@@ -57,9 +57,10 @@ export const PRODUCT_FAMILIES: FamilyDefinition[] = [
     tagline: "Document processing, onboarding and reporting for finance teams.",
   },
   {
+    // Family key frozen alongside the product key above — display only.
     key: "permitiq",
-    label: "PermitIQ",
-    tagline: "Planning permission and building permit workflows.",
+    label: "PlanIQ",
+    tagline: "Planning permission in Ireland, building permits in the US.",
   },
 ];
 
@@ -151,10 +152,17 @@ export const PRODUCT_REGISTRY: ProductDefinition[] = [
     family: "tradeiq",
   },
   {
+    // KEY FROZEN. `permitiq` is the entitlement foreign key in
+    // business_products and the argument to guardProduct("permitiq") across
+    // the codebase; the 2026-08-05 rename to PlanIQ is a DISPLAY change only,
+    // exactly as the header of this file describes. Renaming the key would
+    // silently strip the product from every customer who has it. The route
+    // folder stays /portal/permitiq for the same reason — /portal/planiq is
+    // added as a redirect in next.config.ts instead.
     key: "permitiq",
-    name: "PermitIQ",
+    name: "PlanIQ",
     description:
-      "Planning permission and building permits — upload the documents, get a checklist, a summary and the gaps before you submit.",
+      "Planning permission in Ireland and building permits in the US — upload the documents, get a checklist, a summary and the gaps before you submit.",
     href: "/portal/permitiq",
     iconName: "file-check",
     accent: "#0EA5E9",

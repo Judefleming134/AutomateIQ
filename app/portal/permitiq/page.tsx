@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ApplicationForm } from "./application-form";
 import { isMissingTableError } from "@/lib/db/errors";
 
-export const metadata = { title: "PermitIQ — AutomateIQ" };
+export const metadata = { title: "PlanIQ — AutomateIQ" };
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Draft",
@@ -55,16 +55,17 @@ export default async function PermitIqHome({
   return (
     <div>
       <h1 className="page-title">
-        <FileCheck size={20} /> PermitIQ
+        <FileCheck size={20} /> PlanIQ
       </h1>
       <p className="page-sub">
-        Upload the drawings and reports for a planning application and get a
-        checklist, a plain-English summary and the gaps — before you submit.
+        Planning permission in Ireland, building permits in the US. Upload the
+        drawings and reports and get a checklist, a plain-English summary and
+        the gaps — before you submit.
       </p>
 
       {migrationMissing && (
         <div className="panel panel-block" style={{ borderLeft: "3px solid var(--amber, #f59e0b)" }}>
-          <strong>Almost ready.</strong> The PermitIQ tables aren&apos;t in the
+          <strong>Almost ready.</strong> The PlanIQ tables aren&apos;t in the
           database yet — run <code>supabase/migrations/0033_permitiq.sql</code> in
           the Supabase SQL editor and this page comes to life.
         </div>
@@ -85,14 +86,21 @@ export default async function PermitIqHome({
         </Link>
       </div>
 
+      {/* This panel used to say "US permits are set up but not yet stocked",
+          which was true and is no longer: migration 0044 seeds the baseline a
+          residential building permit asks for almost everywhere. What is still
+          true, and stays said out loud, is that US permitting is set city by
+          city — so the baseline is a starting point and a named building
+          department overrides it item by item. */}
       {jurisdiction === "us" && (
         <div className="panel panel-block" style={{ marginBottom: 14 }}>
           <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6 }}>
-            <strong>US permits are set up but not yet stocked.</strong> You can
-            create an application and upload documents, and everything works —
-            but we haven&apos;t loaded a municipality&apos;s requirement list yet,
-            so there&apos;s no checklist to measure against. Tell us which
-            municipality you need and it&apos;s a data load, not a rebuild.
+            <strong>US permits run off a typical baseline.</strong> Building
+            permits are set by each city or county, not nationally, so the
+            checklist starts from what a residential building permit asks for
+            almost everywhere. Name your building department on the application
+            and anything specific they require is layered on top — tell us which
+            one you need and it&apos;s a data load, not a rebuild.
           </p>
         </div>
       )}

@@ -25,16 +25,10 @@ export const KNOWN_SEGMENTS = new Set([
   "demo",
   "embed",
   "finance",
-  // financeiq / permitiq are not route folders — they are redirect sources in
-  // next.config.ts pointing at the public product pages. They belong here so
-  // /FinanceIQ and /PermitIQ, the forms actually printed on a card, get
-  // lowercased first and then land on the redirect.
-  "financeiq",
   "freetools",
   "growth",
   "leaving",
   "login",
-  "permitiq",
   "portal",
   "products",
   "q",
@@ -42,6 +36,36 @@ export const KNOWN_SEGMENTS = new Set([
   "setup",
   "systems",
   "tradeiq",
+
+  // THE BRAND NAMES THAT ARE NOT ROUTE FOLDERS.
+  //
+  // These are redirect sources in next.config.ts pointing at the public
+  // product pages. They belong here so /FinanceIQ, /PlanIQ, /QuoteIQ — the
+  // forms actually printed on a card — get lowercased first and then land on
+  // the redirect.
+  //
+  // This list was the reason #585 only half worked. That change gave every
+  // product a vanity URL and added one explicit brand-cased redirect each
+  // (/quoteIQ, /siteIQ, …), on the stated belief that "there is no middleware
+  // in this app". There is: proxy.ts (Next 16's rename of the middleware
+  // convention) calls canonicalPath() on any path whose first segment carries
+  // a capital. So the general mechanism existed, and the eight new names were
+  // simply missing from ITS list — which is why /quoteIQ worked afterwards but
+  // /QuoteIQ and /QUOTEIQ still 404'd. Adding them here covers every casing;
+  // the explicit redirects stay as a one-hop fast path.
+  "assistiq",
+  "clientiq",
+  "contentiq",
+  "customiq",
+  "financeiq",
+  "leadiq",
+  // permitiq is kept alongside planiq: PermitIQ was the public name until
+  // 2026-08-05 and is on cards, in signatures and in sent emails.
+  "permitiq",
+  "planiq",
+  "quoteiq",
+  "reputationiq",
+  "siteiq",
 ]);
 
 /**

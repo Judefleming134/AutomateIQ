@@ -21,7 +21,7 @@ These are in `sitemap.xml`, so Google is told about them.
 | `/` | Marketing home — **`public/index.html`, 137KB static** | ✅ |
 | `/book` | AI Strategy Session booking | ✅ |
 | `/products` | Product range index — all three, both doors | ✅ new |
-| `/products/tradeiq` · `/financeiq` · `/permitiq` | Public product pages, each with **Log in** and **Request access** | ✅ new |
+| `/products/<brand>` — eleven of them | Public product pages, each with **Log in** and **Request access**. Every brand also answers at `automateiq.ie/<brand>` in any casing. | ✅ new |
 | `/systems` | Systems overview | ✅ |
 | `/savings` | Savings calculator | ✅ |
 | `/freetools` | Free tools hub | ✅ |
@@ -79,7 +79,7 @@ emails. Branding lives above the URL.
 | `/portal/voice-agent` | **VoiceIQ** | ✅ |
 | `/portal/instagram-dm-setter` | **SocialIQ** | ✅ |
 | `/portal/logistics` *(+ 4 sub-pages)* | **FleetIQ** | ✅ |
-| `/portal/permitiq` *(+ [id])* | **PermitIQ** | ✅ new |
+| `/portal/permitiq` *(+ [id])* | **PlanIQ** — renamed from PermitIQ 2026-08-05. The route folder and the entitlement key stay `permitiq`; `/portal/planiq` 308s here. | ✅ new |
 | `/portal/custom-solutions` *(+ [slug])* | Custom Solutions | ✅ |
 | `/portal/products` · `solutions` · `analytics` · `projects` · `documents` · `documentation` · `team` · `billing` · `settings` | Shell pages | ✅ |
 
@@ -109,7 +109,9 @@ carry signed document tokens sitting in strangers' inboxes.
 /tradeos/:path* → /tradeiq/:path*      (308 permanent)
 /demo.html      → /demo                (308 permanent)
 /agents.html    → /systems             (308 permanent)
-/permitiq       → /products/permitiq   (308 permanent)
+/permitiq       → /products/planiq     (308 permanent — renamed 2026-08-05)
+/planiq         → /products/planiq     (308 permanent)
+/products/permitiq → /products/planiq  (308 permanent)
 /financeiq      → /products/financeiq  (308 permanent)
 ```
 
@@ -272,7 +274,7 @@ this one. Verified against a running `next start`:
 ```
 BEFORE                              AFTER
 /TradeIQ    404                     /TradeIQ    308 -> /tradeiq
-/PermitIQ   404                     /PermitIQ   308 -> /products/permitiq
+/PermitIQ   404                     /PermitIQ   308 -> /products/planiq
 /FinanceIQ  404                     /FinanceIQ  308 -> /products/financeiq
 /Products   404                     /Products   308 -> /products
 /Book       404                     /Book       308 -> /book

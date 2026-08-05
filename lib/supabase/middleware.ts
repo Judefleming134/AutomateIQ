@@ -51,7 +51,7 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // FIRST, before any Supabase work. Brand URLs are written with capitals —
-  // TradeIQ, PermitIQ, FinanceIQ — so /TradeIQ is what a new customer
+  // TradeIQ, PlanIQ, FinanceIQ — so /TradeIQ is what a new customer
   // actually types off a card, and Next routes are case-sensitive. Only the
   // first segment is corrected; signed tokens further down the path are
   // case-sensitive and must never be touched. See lib/routing/case.ts.
