@@ -147,5 +147,29 @@ export function resolveChaseDate(
   // future date and silently suppress the chase entirely.
   const looksLikeDate = !!current && /^\d{4}-\d{2}-\d{2}$/.test(current);
   if (looksLikeDate && current! > today) return { date: current!, kept: true };
-  return { date: dublinDate(fallbackDays), kept: false };
+  // Count the cadence forward from the SAME `today` the comparison above used.
+  //
+  // This used to return dublinDate(fallbackDays) — Dublin's today plus N —
+  // regardless of what `today` was. With the default argument the two agree, so
+  // production was right; but the parameter exists precisely so a caller (or a
+  // test) can pin the day, and half-ignoring it made the function answer two
+  // different questions in one call. It shows up for real between 23:00 and
+  // midnight UTC each summer, when Dublin has already rolled over: the whole
+  // suite went red for that one hour a night, off by exactly one day.
+  return { date: addDays(today, fallbackDays), kept: false };
+}
+
+/**
+ * Adds whole days to a YYYY-MM-DD date, staying on the calendar.
+ *
+ * Deliberately UTC arithmetic on a bare date, NOT a local-time Date: adding
+ * days to a local midnight walks into DST and produces the previous day twice
+ * a year. A calendar date has no clock, so it must not be given one.
+ */
+export function addDays(date: string, days: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return dublinDate(days);
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return dublinDate(days);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
