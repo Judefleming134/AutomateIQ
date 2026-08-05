@@ -197,7 +197,12 @@ describe("nothing else about composeMessage changed", () => {
 
   it("still updates an existing draft in place rather than duplicating it", () => {
     expect(COMPOSE).toContain("Studio flow: the row already exists as a draft");
-    expect(COMPOSE).toContain("return { ok: true, messageId: message.id }");
+    // The property: the SAME row id comes back, so a second save (or a later
+    // send) edits that draft instead of creating a duplicate. Matched on the
+    // id rather than the whole literal — the success result also carries the
+    // send outcome now, and the shape must be free to grow.
+    expect(COMPOSE).toMatch(/return \{ ok: true, messageId: message\.id[,}]/);
+    expect(COMPOSE).toContain("message = { id: input.messageId };");
   });
 
   it("queue and draft modes are untouched — they are sanitized at send time", () => {

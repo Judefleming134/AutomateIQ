@@ -5,7 +5,11 @@ import { requireGrowth, loadGrowthSettings } from "@/lib/growth/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { draftOutreach, draftStudioMessage } from "@/lib/growth/ai";
 import { sendOutreachEmail, sanitizeOutreachBody, draftLooksBroken } from "@/lib/growth/email";
-import { recordOutreachSent, outreachHistoryLines } from "@/lib/growth/outreach";
+import {
+  recordOutreachSent,
+  outreachHistoryLines,
+  type OutreachOutcome,
+} from "@/lib/growth/outreach";
 import { COLD_PURPOSES, PRE_REPLY_STATUSES } from "@/lib/growth/autopilot";
 import { autoDraftReply } from "@/lib/growth/reply-draft";
 import { classifyInbound } from "@/lib/growth/inbound-classify";
@@ -129,7 +133,10 @@ export async function composeMessage(input: {
   tone?: Tone;
   /** Update this existing draft row instead of creating a new message. */
   messageId?: string;
-}): Promise<{ ok: true; messageId: string } | { ok: false; error: string }> {
+}): Promise<
+  | { ok: true; messageId: string; outcome?: OutreachOutcome }
+  | { ok: false; error: string }
+> {
   const { member } = await requireGrowth();
   if (!CHANNELS.includes(input.channel)) {
     return { ok: false, error: "Invalid channel." };
@@ -200,6 +207,9 @@ export async function composeMessage(input: {
     message = created;
   }
 
+  // What the send actually did to the CRM, so the composer can report it
+  // instead of asserting a fixed "moved to Contacted, follow-up in 3 days".
+  let outcome: OutreachOutcome | undefined;
   if (input.mode === "send_email") {
     // Same hard broken-draft guard the autopilot and queue Send button run:
     // a leftover [placeholder], invented sender name or made-up job title must
@@ -239,15 +249,15 @@ export async function composeMessage(input: {
       revalidateProspect(prospect.id);
       return { ok: false, error: `Email failed: ${sent.error}` };
     }
-    await recordOutreachSent(prospect, message.id, "email", member.name, member.id, input.purpose);
+    outcome = await recordOutreachSent(prospect, message.id, "email", member.name, member.id, input.purpose);
   } else if (input.mode === "mark_sent") {
-    await recordOutreachSent(prospect, message.id, input.channel, member.name, member.id, input.purpose);
+    outcome = await recordOutreachSent(prospect, message.id, input.channel, member.name, member.id, input.purpose);
   }
 
   revalidateProspect(prospect.id);
   // Return the row id so the composer can keep editing the SAME draft instead
   // of creating a duplicate on the next save.
-  return { ok: true, messageId: message.id };
+  return { ok: true, messageId: message.id, outcome };
 }
 
 /** Sends a queued/draft EMAIL message from the queue view. */
