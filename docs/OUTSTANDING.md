@@ -14,7 +14,16 @@ passes should look when asking "what should I pick up?".
 - Anything blocked on Jude (a key, a decision, a card) goes in **Needs Jude**,
   because no amount of engineering clears it.
 
-Last reviewed: 2026-08-03 daytime (added **K13** — the 07:00 run sends at most
+Last reviewed: 2026-08-05 daytime (**J7 added** — migrations 0043/0044/0045 are
+merged but not applied to production, so PlanIQ's design brief, the US
+building-permit checklist and AssetIQ's table do not exist there yet. Also
+shipped today: the morning brief's weekend subject line and cron summary stopped
+reporting a `.limit(20)` list length as the overnight-fix total — the push
+notification said "20 overnight fixes" while the body of that same email said
+"(63)" — and the needle-mover line stopped calling a runs-to-right-now window
+"Yesterday" when it contains the send that fired minutes earlier.)
+
+Previously reviewed: 2026-08-03 daytime (added **K13** — the 07:00 run sends at most
 30 emails a day, so the default target of 50 was never reachable and the brief
 reported "at your target of 50/day" anyway. The reporting half is shipped; the
 ceiling itself is logged, not moved. Also shipped today: the DM "Copy & open"
@@ -40,7 +49,26 @@ one paste-able file guarded against going stale.)
 
 ## Needs Jude — blocked, no code will fix these
 
-**Nothing. The list is empty for the first time.**
+**J7 — three merged migrations are not in production yet.** Everything below
+is written, tested and validated on scratch Postgres; none of it exists in the
+live database until Jude pastes it in. One paste covers all three:
+`supabase/bundles/full_schema.sql` in the Supabase SQL editor (safe to run in
+any state, safe to re-run).
+
+| Migration | What stays missing until it runs |
+|---|---|
+| `0043_permitiq_design_brief.sql` | PlanIQ stage 3b's design-brief table |
+| `0044_us_building_permit_baseline.sql` | The US checklist — a US application shows an empty one and says so |
+| `0045_assetiq.sql` | AssetIQ's whole table; the page tells him to run it |
+
+AssetIQ also needs its **entitlement granting** (`assetiq` in
+`business_products`) before the tile appears — the migration creates the
+product row, not the grant.
+
+The three portal surfaces all detect the missing table and say which file to
+run, so nothing here breaks; it just stays switched off.
+
+---
 
 Migrations 0035–0042 were applied to production by Jude on 2026-08-02
 ("Success. No rows returned"). J1 was removed by building the free Google

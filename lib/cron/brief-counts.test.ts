@@ -85,3 +85,108 @@ describe("the cap this outgrew is real", () => {
     expect(AUTOPILOT).toMatch(/reaches 200\/day/);
   });
 });
+
+/**
+ * The two readers the fix above never reached.
+ *
+ * `nightlyTotal` — the real count of what Jarvis caught and fixed overnight —
+ * was computed, and then used by the BLOCK HEADER only. The weekend subject
+ * line and the cron's own summary both went on reading `nightlyLines.length`:
+ * the length of a list `.limit(20)` had already truncated.
+ *
+ * So on a night with 63 catches, the email arrived titled
+ *
+ *   "Jarvis weekend brief — 2026-08-08: 12 added, 20 overnight fixes, 3 replies"
+ *
+ * and the body of that same email said "CATCHES & FIXES (63)". The push
+ * notification and the thing it opens disagreed about the one number the
+ * notification existed to carry — CLAUDE.md's "a count that doesn't match what
+ * its click-through shows", where the click-through is the email itself.
+ *
+ * Both now read one named total.
+ */
+describe("the overnight-fix count is the same number everywhere it appears", () => {
+  it("is named once, from the counted total", () => {
+    expect(BRIEF).toContain("const nightlyFixTotal = nightlyTotal ?? nightlyLines.length;");
+  });
+
+  it("the block header, the weekend subject and the cron summary all use it", () => {
+    expect(BRIEF).toContain("CATCHES & FIXES (${nightlyFixTotal})");
+    expect(BRIEF).toContain("${nightlyFixTotal} overnight fixes, ${replyCountLabel} replies");
+    expect(BRIEF).toContain("(${replyCountLabel} replies, ${nightlyFixTotal} overnight fixes)");
+  });
+
+  it("nothing reports the truncated list's length as a total any more", () => {
+    // The exact shape of the bug, in both places it lived.
+    expect(BRIEF).not.toContain("${nightlyLines.length} overnight fixes");
+    // `nightlyLines.length` survives ONLY where it is genuinely the count of
+    // printed lines: the fallback, the "…and N more" arithmetic (twice) and
+    // the "is there anything to print" guard. Comment lines are stripped first
+    // — the note explaining the bug quotes the old expression, and a test that
+    // fires on its own documentation is one that gets weakened to shut it up.
+    const code = BRIEF.split("\n").filter((l) => !/^\s*(\/\/|\*)/.test(l)).join("\n");
+    const uses = code.match(/nightlyLines\.length/g) ?? [];
+    expect(uses.length).toBe(4);
+  });
+
+  it("still falls back to the printed lines if the count read failed", () => {
+    // Same rule as sentTodayTotal and deliveryTotal: a null count must not
+    // report zero above a list of twenty.
+    expect(BRIEF).toContain("nightlyTotal ?? nightlyLines.length");
+  });
+});
+
+/**
+ * The needle-mover line said "Yesterday" about a window that runs to right now.
+ *
+ * Every count in that block is `.gte(..., since24h)` with NO upper bound, and
+ * the 07:00 dispatch runs the autopilot BEFORE it builds the brief
+ * (emailAutopilot → brief, in app/api/cron/dispatch/route.ts). So this
+ * morning's send is inside "yesterday".
+ *
+ * Which printed the same emails twice under two headings — "📤 SENT THIS
+ * MORNING (30)" and "Yesterday: 30 sent" — and read as sixty. "Sent" is the
+ * number Jude uses to decide whether the engine ran at all.
+ *
+ * The window is deliberately unchanged: the score compares it against a 7-day
+ * window built the same way, so moving the boundary would move the score. The
+ * label was the false part.
+ */
+describe("the needle-mover window is labelled as what it measures", () => {
+  const DISPATCH = readFileSync(
+    path.join(ROOT, "app", "api", "cron", "dispatch", "route.ts"),
+    "utf8"
+  );
+
+  it("no longer calls a to-this-instant window 'Yesterday'", () => {
+    expect(BRIEF).not.toContain("`Yesterday: ${nmSentY");
+  });
+
+  it("says what it is, and names the overlap beside the number it affects", () => {
+    expect(BRIEF).toContain("`Last 24h: ${nmSentY ?? 0} sent (includes this morning's autopilot run)");
+  });
+
+  it("the overlap it warns about is real — the send runs before the brief", () => {
+    // If this ever stopped being true the note would be the wrong caveat, so
+    // it is pinned to the dispatch order rather than to a memory of it.
+    const sendAt = DISPATCH.indexOf('isolated("emailAutopilot"');
+    const briefAt = DISPATCH.indexOf('isolated("jarvisBrief"');
+    expect(sendAt).toBeGreaterThan(-1);
+    expect(briefAt).toBeGreaterThan(-1);
+    expect(sendAt).toBeLessThan(briefAt);
+  });
+
+  it("the window itself is untouched — only the label moved", () => {
+    // The score's baseline is a 7-day window built the same way; changing one
+    // side and not the other would silently rescore every morning.
+    expect(BRIEF).toContain('.gte("sent_at", since24h)');
+    expect(BRIEF).toContain('.gte("sent_at", since7d)');
+    expect(BRIEF).toContain("nmDailyAvg");
+  });
+
+  it("SENT THIS MORNING is still its own, differently-bounded number", () => {
+    // It counts from today's Dublin midnight, not a rolling 24h — which is why
+    // the two can never be added together.
+    expect(BRIEF).toContain('.gte("sent_at", `${today}T00:00:00`)');
+  });
+});
