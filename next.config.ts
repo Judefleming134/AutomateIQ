@@ -98,6 +98,7 @@ const nextConfig: NextConfig = {
       // TradeIQ is deliberately absent — /tradeiq is a real route (the app
       // itself), and /tradeos/:path* above redirects INTO it. A redirect here
       // would break the app root and every emailed invoice link with it.
+      { source: "/assetiq", destination: "/products/assetiq", permanent: true },
       { source: "/quoteiq", destination: "/products/quoteiq", permanent: true },
       { source: "/clientiq", destination: "/products/clientiq", permanent: true },
       { source: "/leadiq", destination: "/products/leadiq", permanent: true },
@@ -132,6 +133,7 @@ const nextConfig: NextConfig = {
       { source: "/financeIQ", destination: "/products/financeiq", permanent: true },
       { source: "/permitIQ", destination: "/products/planiq", permanent: true },
       { source: "/planIQ", destination: "/products/planiq", permanent: true },
+      { source: "/assetIQ", destination: "/products/assetiq", permanent: true },
       { source: "/quoteIQ", destination: "/products/quoteiq", permanent: true },
       { source: "/clientIQ", destination: "/products/clientiq", permanent: true },
       { source: "/leadIQ", destination: "/products/leadiq", permanent: true },

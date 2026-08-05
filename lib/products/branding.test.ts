@@ -62,6 +62,10 @@ describe("product branding", () => {
     expect(PRODUCT_REGISTRY.map((p) => p.key).sort()).toEqual(
       [
         "ai-assistant",
+        // Added 2026-08-05 with AssetIQ. A NEW key is not a renamed key — this
+        // assertion is about the existing ones never drifting toward the
+        // branding, and adding one deliberately is how a product ships.
+        "assetiq",
         "content-agent",
         "crm-agent",
         "custom-solutions",

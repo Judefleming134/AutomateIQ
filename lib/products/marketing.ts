@@ -37,8 +37,8 @@ export type MarketingProduct = {
    *
    * "industry" — solves one trade's problem (TradeIQ, FinanceIQ, PlanIQ,
    *   ReputationIQ). The question a visitor asks is "is this for me?".
-   * "core" — works whatever you run (AssistIQ, SiteIQ, ContentIQ). The
-   *   question is "what else do I get?".
+   * "core" — works whatever you run (AssistIQ, SiteIQ, ContentIQ, AssetIQ).
+   *   The question is "what else do I get?".
    * "module" — one job done properly, switchable on its own (QuoteIQ,
    *   ClientIQ, LeadIQ, CustomIQ). Three of these are the pieces TradeIQ is
    *   assembled from and CustomIQ is the bespoke door; each is nonetheless a
@@ -317,6 +317,37 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
    * lib/products/unbacked-claims.test.ts for why that rule exists.
    */
   {
+    slug: "assetiq",
+    name: "AssetIQ",
+    kicker: "For everyone with kit worth money",
+    headline: "Nothing goes past its date again.",
+    sub: "Every van, tool and machine you own — what it cost, who has it, and the one thing due on it next, on a list that tells you before it bites rather than after.",
+    who: "Any business with vehicles, plant or equipment: trades, salons, gyms, garages, clinics, hire firms. If it has a reg, a serial or a certificate, it belongs here.",
+    does: [
+      {
+        title: "The overdue list is the product",
+        body: "A CVRT that lapsed, a PAT test nobody booked, a calibration cert that expired the week before it was needed on site. Everything with a date sits in one list, overdue first, so it stops living in a glovebox and somebody's memory.",
+      },
+      {
+        title: "One asset, one record",
+        body: "Name, category, reg or serial, who has it, where it lives, what it cost. Only the name is required — the rest goes in when you know it, so the register actually gets built instead of abandoned halfway.",
+      },
+      {
+        title: "Retired means retired",
+        body: "Mark something off the road and it stops counting against you. An overdue number that includes a van sitting in a scrapyard is a number people learn to ignore, and then the real ones get ignored too.",
+      },
+      {
+        title: "Honest about what it knows",
+        body: "The value tile says the purchase price of the assets that have one, and how many that is — not a valuation, and never a total that quietly counts four of nineteen.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-assetiq",
+    live: true,
+    accent: "#F97316",
+    group: "core",
+  },
+  {
     slug: "quoteiq",
     name: "QuoteIQ",
     kicker: "For anyone who quotes for a living",
@@ -451,7 +482,7 @@ export const MARKETING_GROUPS = [
   },
   {
     key: "core" as const,
-    label: "The core three, whatever you run",
+    label: "The core four, whatever you run",
     blurb: "Not industry-specific — these sit under everything else and any account can switch them on.",
   },
   {

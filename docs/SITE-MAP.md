@@ -80,6 +80,7 @@ emails. Branding lives above the URL.
 | `/portal/instagram-dm-setter` | **SocialIQ** | ✅ |
 | `/portal/logistics` *(+ 4 sub-pages)* | **FleetIQ** | ✅ |
 | `/portal/permitiq` *(+ [id])* | **PlanIQ** — renamed from PermitIQ 2026-08-05. The route folder and the entitlement key stay `permitiq`; `/portal/planiq` 308s here. | ✅ new |
+| `/portal/assetiq` | **AssetIQ** — assets, what they cost, and what is due on them. `ast_assets`, migration 0045. | ✅ new |
 | `/portal/custom-solutions` *(+ [slug])* | Custom Solutions | ✅ |
 | `/portal/products` · `solutions` · `analytics` · `projects` · `documents` · `documentation` · `team` · `billing` · `settings` | Shell pages | ✅ |
 

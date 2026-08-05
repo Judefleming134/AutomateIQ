@@ -53,6 +53,7 @@ export const KNOWN_SEGMENTS = new Set([
   // simply missing from ITS list — which is why /quoteIQ worked afterwards but
   // /QuoteIQ and /QUOTEIQ still 404'd. Adding them here covers every casing;
   // the explicit redirects stay as a one-hop fast path.
+  "assetiq",
   "assistiq",
   "clientiq",
   "contentiq",
