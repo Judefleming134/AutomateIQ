@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Archive, Trash2 } from "lucide-react";
 import { bulkProspectAction } from "@/app/growth/(app)/prospects/actions";
 
@@ -19,6 +19,45 @@ export function BulkActions({ isOwner }: { isOwner: boolean }) {
     ) => Promise<ActionResult>,
     undefined
   );
+
+  // HOW MANY ARE TICKED, live on the buttons.
+  //
+  // The header checkbox ticks the whole page — a hundred rows — and the
+  // buttons said only "Archive selected". You found out the number in the
+  // delete confirm, and for archive you never found out at all.
+  //
+  // Recounted from the REAL form, the same way the autopilot panel learned to
+  // do it: the row checkboxes live in the server-rendered table and attach
+  // here by `form="prospect-bulk"`, so arithmetic over a remembered number
+  // drifts the moment the browser restores checked state on a back-navigation.
+  //
+  // Listened for on `document`, not on the form: a checkbox associated by the
+  // `form` attribute is OUTSIDE the form in the DOM, so its change event
+  // bubbles up the table, never to the <form> element.
+  const [ticked, setTicked] = useState(0);
+  useEffect(() => {
+    const recount = () => {
+      const form = document.getElementById("prospect-bulk");
+      if (form instanceof HTMLFormElement) {
+        setTicked(new FormData(form).getAll("ids").length);
+      }
+    };
+    const onChange = (e: Event) => {
+      const t = e.target as Element | null;
+      if (
+        t?.matches?.('input[name="ids"][form="prospect-bulk"]') ||
+        t?.matches?.("input[data-select-all]")
+      ) {
+        recount();
+      }
+    };
+    document.addEventListener("change", onChange);
+    // Once on mount: a back-navigation can restore ticks before this runs.
+    recount();
+    return () => document.removeEventListener("change", onChange);
+  }, []);
+
+  const noun = (n: number) => `${n} prospect${n === 1 ? "" : "s"}`;
 
   return (
     <form
@@ -42,6 +81,28 @@ export function BulkActions({ isOwner }: { isOwner: boolean }) {
           )
         ) {
           e.preventDefault();
+          return;
+        }
+        // ARCHIVE ASKS TOO, AND SAYS THE PART THAT ISN'T OBVIOUS.
+        //
+        // It was the only bulk mutation on this page with no confirmation at
+        // all, while the inbox's own delete note points out that "every other
+        // destructive action in the engine already asks first". One header
+        // checkbox ticks a hundred rows, so a mis-click here moves a hundred
+        // prospects.
+        //
+        // And archive is not just a status flip: bulkProspectAction sets
+        // `next_follow_up_at: null` alongside it. Setting a status back later
+        // does NOT put the chase date back — that is gone. So the prompt says
+        // so, rather than letting it be discovered a week later when nobody
+        // got chased.
+        if (
+          intent === "archive" &&
+          !window.confirm(
+            `Archive ${selected} prospect${selected === 1 ? "" : "s"}? They drop out of every working list and their follow-up date is cleared — putting one back later restarts its chase from scratch. Live deals (replied, qualified, booked, in proposal, won) are skipped automatically.`
+          )
+        ) {
+          e.preventDefault();
         }
       }}
     >
@@ -51,9 +112,10 @@ export function BulkActions({ isOwner }: { isOwner: boolean }) {
         name="intent"
         value="archive"
         className="btn btn-secondary btn-sm"
-        disabled={pending}
+        disabled={pending || ticked === 0}
       >
-        <Archive size={13} /> Archive selected
+        <Archive size={13} />{" "}
+        {ticked > 0 ? `Archive ${noun(ticked)}` : "Archive selected"}
       </button>
       {isOwner && (
         <button
@@ -61,9 +123,10 @@ export function BulkActions({ isOwner }: { isOwner: boolean }) {
           name="intent"
           value="delete"
           className="btn btn-danger btn-sm"
-          disabled={pending}
+          disabled={pending || ticked === 0}
         >
-          <Trash2 size={13} /> Delete selected
+          <Trash2 size={13} />{" "}
+          {ticked > 0 ? `Delete ${noun(ticked)}` : "Delete selected"}
         </button>
       )}
       {pending && <span style={{ fontSize: 12, color: "var(--faint)" }}>Working…</span>}
@@ -90,6 +153,10 @@ export function SelectAll() {
       type="checkbox"
       aria-label="Select all prospects on this page"
       title="Selects every prospect on this page"
+      // Marks this box for the bulk bar's recount listener: ticking every row
+      // programmatically fires no change event on the rows themselves, so the
+      // count would sit at 0 after the one click that selects a hundred.
+      data-select-all="true"
       onChange={(e) => {
         const checked = e.currentTarget.checked;
         document
