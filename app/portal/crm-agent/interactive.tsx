@@ -18,10 +18,19 @@ export function ImportButton() {
     const res = await importContacts();
     if (res.ok) {
       setState("done");
+      // Say when rows didn't make it. The old import swallowed insert errors
+      // and still reported "Already up to date." — a clean-looking success
+      // over contacts that were never written.
+      const skipped =
+        res.failed > 0
+          ? ` ${res.failed} couldn't be imported — check for a missing name or a duplicate email.`
+          : "";
       setMsg(
-        res.imported > 0
+        (res.imported > 0
           ? `Imported ${res.imported} new contact${res.imported === 1 ? "" : "s"}.`
-          : "Already up to date."
+          : res.failed > 0
+            ? "No new contacts imported."
+            : "Already up to date.") + skipped
       );
       router.refresh();
       setTimeout(() => setState("idle"), 2500);
