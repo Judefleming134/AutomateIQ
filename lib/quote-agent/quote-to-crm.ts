@@ -72,12 +72,23 @@ const DECLINE_MAY_OVERWRITE = ["new", "contacted", "qualified", "lost"];
  */
 export function parseQuoteTotal(total: string | null | undefined): number | null {
   if (!total) return null;
+  // A range takes the FIRST number: committing to the lower end understates
+  // the pipeline, which is the safe direction.
+  //
+  // Split on the ORIGINAL text, not the cleaned one. The separator may be an
+  // en or em dash or the word "to", and it may carry spaces and a currency
+  // symbol — "€1,200 – €1,500". Stripping first glued the two numbers into
+  // "1,2001,500" with no separator left to split on, and the digit match then
+  // read ONE EURO out of the join. That figure is what ClientIQ stored as the
+  // deal value. (Same separator set as parseMoneyToCents in invoice.ts, which
+  // hit this from the other side.)
+  const text = String(total);
+  const firstChunk =
+    text.split(/(?<=\d)\s*(?:-|–|—|\bto\b)\s*(?=[^\d]{0,3}\d)/i)[0] ?? text;
   // Strip currency symbols, spaces and thousands separators; keep one decimal
-  // point. A range ("900-1200") takes the FIRST number: committing to the
-  // lower end understates the pipeline, which is the safe direction.
-  const cleaned = total.replace(/[^\d.,-]/g, "").trim();
-  const firstChunk = cleaned.split(/(?<=\d)\s*-\s*(?=\d)/)[0] ?? cleaned;
-  const noThousands = firstChunk.replace(/,(?=\d{3}\b)/g, "");
+  // point.
+  const cleaned = firstChunk.replace(/[^\d.,-]/g, "").trim();
+  const noThousands = cleaned.replace(/,(?=\d{3}\b)/g, "");
   const match = noThousands.match(/-?\d+(?:\.\d+)?/);
   if (!match) return null;
   const value = Number(match[0]);
