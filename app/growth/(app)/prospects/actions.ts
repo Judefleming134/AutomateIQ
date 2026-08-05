@@ -531,14 +531,46 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
   // has to be remembered manually.
   const update: Record<string, unknown> = { status };
   let filledFollowUp: string | null = null;
-  if (status === "contacted" || status === "follow_up_sent") {
-    update.last_contact_at = new Date().toISOString();
-    update.next_follow_up_at = followUpDate(status === "contacted" ? 3 : 4);
-  } else if (status === "replied") {
+  let keptChase: string | null = null;
+  // The DEFAULT-CADENCE statuses. Each has a sensible gap, and each used to
+  // write it UNCONDITIONALLY — which quietly overwrote a date Jude had set on
+  // purpose. The Details tab puts the "Next follow-up" field and the Status
+  // dropdown side by side, and the field's own copy invites a deliberate date:
+  // "Clear it or push it out to hold the auto-chase — e.g. if you're calling
+  // them yourself instead." Setting "ring me back in 3 weeks" and then marking
+  // them Replied pulled the chase to tomorrow, and the autopilot then chased
+  // someone who had asked for three weeks.
+  //
+  // resolveChaseDate is the shared rule the other four status-changing paths
+  // already use (recordOutreachSent, addActivity, logNoAnswer,
+  // setMeetingStatus): a FUTURE date set by hand is kept; a spent or missing
+  // one gets the cadence. This file already states the principle a few lines
+  // below, in CHASE_DAYS_IF_UNSET — "An existing date — including one set by
+  // hand for a reason — is never touched or pulled forward." These four
+  // branches were the ones that didn't honour it.
+  const CADENCE_DAYS: Record<string, number> = {
+    contacted: 3,
+    follow_up_sent: 4,
     // They're engaged — pull the follow-up in close.
-    update.next_follow_up_at = followUpDate(1);
-  } else if (status === "negotiation") {
-    update.next_follow_up_at = followUpDate(3);
+    replied: 1,
+    negotiation: 3,
+  };
+  if (CADENCE_DAYS[status] !== undefined) {
+    if (status === "contacted" || status === "follow_up_sent") {
+      update.last_contact_at = new Date().toISOString();
+    }
+    const { data: current } = await admin
+      .from("ge_prospects")
+      .select("next_follow_up_at")
+      .eq("id", id)
+      .maybeSingle();
+    const chase = resolveChaseDate(
+      current?.next_follow_up_at as string | null,
+      dublinDate(),
+      CADENCE_DAYS[status]
+    );
+    update.next_follow_up_at = chase.date;
+    if (chase.kept) keptChase = chase.date;
   } else if (status === "future_opportunity") {
     // Nurture list: resurface automatically in ~3 months.
     update.next_follow_up_at = followUpDate(90);
@@ -576,7 +608,11 @@ export async function setProspectStatus(_prev: Result, formData: FormData): Prom
     // an automatic date should never be something you only discover later.
     content:
       `Status changed to "${PROSPECT_STATUS_META[status as keyof typeof PROSPECT_STATUS_META].label}" by ${member.name}` +
-      (filledFollowUp ? ` · follow-up scheduled for ${filledFollowUp}` : ""),
+      (filledFollowUp ? ` · follow-up scheduled for ${filledFollowUp}` : "") +
+      // Say when a date was KEPT, not just when one was added. Otherwise the
+      // one case Jude needs to trust — "the 3-week date I set is still there"
+      // — is the only one the timeline says nothing about.
+      (keptChase ? ` · your follow-up date of ${keptChase} was kept` : ""),
     created_by: member.id,
   });
 
