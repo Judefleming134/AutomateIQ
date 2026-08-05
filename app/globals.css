@@ -6009,12 +6009,66 @@ table.data-table {
    industry row is 2x2 — three columns would strand the fourth on its own. */
 .prod-index--module { grid-template-columns: repeat(2, 1fr); }
 
+/* The contents strip under the hero. Every product, one tap away, before the
+   visitor commits to scrolling four thousand pixels of card. */
+.prod-jump {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 6px;
+}
+.prod-jump-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-glass);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--body);
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.prod-jump-chip:hover {
+  border-color: color-mix(in srgb, var(--prod-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--prod-accent) 10%, transparent);
+  color: var(--heading);
+}
+.prod-jump-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--prod-accent);
+  flex: none;
+}
+
 .prod-group-head {
   margin: 0 0 18px;
 }
 .prod-group-head h2 {
   margin: 0 0 6px;
   font-size: clamp(1.15rem, 2vw, 1.5rem);
+}
+/* How many are in this section — so "keep scrolling or not?" is answerable. */
+.prod-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--ac2-soft);
+  border: 1px solid var(--ac-line);
+  color: var(--ac2);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  vertical-align: middle;
 }
 .prod-group-head p {
   margin: 0;
@@ -6029,6 +6083,17 @@ table.data-table {
   padding: 24px;
   position: relative;
   overflow: hidden;
+  /* A wash of the product's own accent from the top-left corner. Eleven
+     identical grey cards in a column is the thing that makes this page read as
+     a list to get through rather than a range to choose from — and on a phone,
+     where only one card is on screen at a time, the accent is the only cue
+     that you have moved on to a different product at all. Layered over
+     .panel's background-colour, so the panel treatment is unchanged. */
+  background-image: radial-gradient(
+    120% 90% at 0% 0%,
+    color-mix(in srgb, var(--prod-accent) 9%, transparent),
+    transparent 62%
+  );
 }
 .prod-index-card::before {
   content: "";
@@ -6037,13 +6102,24 @@ table.data-table {
   height: 3px;
   background: linear-gradient(90deg, var(--prod-accent), transparent 70%);
 }
+/* "For trades & service businesses" — who the card is for. It was the faintest
+   text on the card while being the one line that answers "is this me?", which
+   is the only question a visitor scanning eleven products is actually asking.
+   Now a tinted pill in the product's accent: readable at a glance, and it
+   colour-codes the range. */
 .prod-index-kicker {
-  margin: 0 0 8px;
+  display: inline-flex;
+  align-self: flex-start;
+  margin: 0 0 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--prod-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--prod-accent) 12%, transparent);
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: color-mix(in srgb, var(--prod-accent) 70%, var(--heading));
 }
 .prod-index-card h2 {
   margin: 0 0 8px;
@@ -6112,7 +6188,53 @@ table.data-table {
   .prod-index--industry,
   .prod-index--core,
   .prod-index--module { grid-template-columns: 1fr; }
+
+  /* ONE COLUMN × ELEVEN PRODUCTS.
+     Everything below is about the same fact: on a phone this page is one very
+     long column, and it grew by four cards when QuoteIQ, ClientIQ, LeadIQ and
+     CustomIQ got their own pages. Desktop is untouched — none of these rules
+     exist above 900px. */
+
+  /* Deliberately NOT sticky, and worth writing down so it isn't "improved"
+     later: .book-topbar is already sticky and it WRAPS TO TWO ROWS at 620px,
+     so its height is ~70px on a small tablet and ~98px on a phone. Anything
+     pinned beneath it needs a `top` that is right at both, and a second
+     pinned bar would spend a third of a 667px screen on chrome before a word
+     of product copy. The chips below do the same job in the flow. */
+  .prod-group-head {
+    margin-bottom: 14px;
+  }
+  .prod-group-head p {
+    font-size: 13px;
+  }
+
+  /* Tighter everything: 24px of padding on a 375px screen spends an eighth of
+     the width on nothing, and 40px section gaps add a screen and a half of
+     dead scroll across four sections. */
+  .prod-index { gap: 14px; }
+  .prod-index-card { padding: 18px; }
+  .prod-page .book-section { padding: 28px 0; }
+  .prod-index-sub { margin-bottom: 12px; }
+  .prod-index-list { margin-bottom: 14px; }
+
+  /* The contents strip. It WRAPS rather than scrolling sideways on purpose:
+     a horizontal rail looks tidier and hides half the range behind a gesture
+     nobody is told about. Four rows of pill shows all eleven names at once,
+     which is the entire point of putting it there. */
+  .prod-jump {
+    justify-content: flex-start;
+    gap: 7px;
+    padding: 4px 0 2px;
+  }
+  .prod-jump-chip {
+    padding: 8px 13px; /* a comfortable thumb target */
+  }
 }
+/* Note for anyone tempted: the card's two buttons are DELIBERATELY left side
+   by side, unlike .prod-doors in the hero. Measured at 390px they are 87px and
+   124px inside 298px of content width — no crowding, no mis-tap risk. Stacking
+   them full-width costs ~38px per card, which across eleven cards is 420px of
+   extra scroll bought for nothing. */
 @media (max-width: 760px) {
   .prod-does { grid-template-columns: 1fr; }
   .prod-others { grid-template-columns: 1fr; }
