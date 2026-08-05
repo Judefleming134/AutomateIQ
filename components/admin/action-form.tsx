@@ -18,6 +18,7 @@ export function ActionForm({
   className,
   style,
   confirmText,
+  id,
 }: {
   action: (
     prevState: ActionResult,
@@ -30,11 +31,16 @@ export function ActionForm({
    *  for destructive one-click actions (deletes). Optional and additive:
    *  forms without it behave exactly as before. */
   confirmText?: string;
+  /** DOM id, so a sibling can find this form — see UnsavedGuard, which watches
+   *  a long form for edits and stops a navigation from throwing them away.
+   *  Optional and additive; forms without it are unchanged. */
+  id?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, undefined);
 
   return (
     <form
+      id={id}
       action={formAction}
       className={className}
       style={style}
