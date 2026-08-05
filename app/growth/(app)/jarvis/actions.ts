@@ -24,6 +24,8 @@ import {
   type ProspectStatus,
 } from "@/lib/growth/constants";
 import { escapeLike } from "@/lib/growth/db";
+import { isHumanReply } from "@/lib/growth/awaiting";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 
 export type JarvisTurn = { role: "user" | "jarvis"; text: string };
 
@@ -406,12 +408,29 @@ export async function askJarvis(
         .select(SNAPSHOT_COLS)
         .order("lead_score", { ascending: false, nullsFirst: false })
         .limit(150),
+      // RECENT REPLIES — scanned wide, classified, then listed short.
+      //
+      // This was a bare `.limit(12)` on raw inbound, and nothing downstream
+      // knew an out-of-office from a person. Two separate problems, both of
+      // which the morning brief already had to fix:
+      //
+      //   1. The cap ran BEFORE any classification. A day with a handful of
+      //      holiday auto-responders filled the twelve-row window with
+      //      bounces, and a genuine reply underneath them never reached
+      //      Jarvis at all — so "who replied?" was answered off a snapshot
+      //      that had silently dropped the answer.
+      //   2. What did arrive was unlabelled, so Jarvis said "Murphy Roofing
+      //      replied — answer them today" about an out-of-office.
+      //
+      // Sixty rows is a rounding error on one query and far more inbound than
+      // a day produces. Same numbers, same reasoning, as REPLY_SCAN in
+      // lib/cron/jarvis-morning-brief.ts.
       admin
         .from("ge_messages")
-        .select("prospect_id, channel, body, sentiment, created_at, ge_prospects(company)")
+        .select("prospect_id, channel, subject, body, sentiment, created_at, ge_prospects(company)")
         .eq("direction", "inbound")
         .order("created_at", { ascending: false })
-        .limit(12),
+        .limit(60),
       admin
         .from("ge_meetings")
         .select("scheduled_at, status, ge_prospects(company)")
@@ -511,11 +530,47 @@ export async function askJarvis(
     })
     .join("\n");
 
-  const replyLines = (inbound ?? [])
+  // PEOPLE, AND NOT-PEOPLE, KEPT APART.
+  //
+  // An out-of-office is not a reply and an opt-out is not an invitation to
+  // answer. Both used to sit in this list unlabelled, so Jarvis would name a
+  // company as having "replied" off an auto-responder — and, worse, list them
+  // among who to chase today.
+  //
+  // Nothing is dropped: the non-human ones are summarised on their own line
+  // below, so a question like "did anyone opt out?" is still answerable from
+  // the snapshot. Same classifier the webhook, the brief, the dashboard and
+  // the inbox use, so every surface answers "who replied?" identically.
+  const humanInbound = (inbound ?? []).filter((m) => isHumanReply(m));
+  const otherInbound = (inbound ?? []).filter((m) => !isHumanReply(m));
+
+  const REPLY_LIST_CAP = 12;
+  const replyLines = humanInbound
+    .slice(0, REPLY_LIST_CAP)
     .map((m) => {
       const company =
         (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
       return `- ${m.created_at.slice(0, 10)} · ${company} via ${m.channel}${m.sentiment ? ` (${m.sentiment})` : ""}: "${String(m.body ?? "").slice(0, 200)}"`;
+    })
+    .join("\n") +
+    (humanInbound.length > REPLY_LIST_CAP
+      ? `\n- (…and ${humanInbound.length - REPLY_LIST_CAP} more replies not listed here)`
+      : "");
+
+  /** Auto-replies and opt-outs, named for what they are. */
+  const autoInboundLines = otherInbound
+    .slice(0, 12)
+    .map((m) => {
+      const company =
+        (m.ge_prospects as { company?: string } | null)?.company ?? "unknown";
+      const c = classifyInbound(String(m.subject ?? ""), String(m.body ?? ""));
+      const label =
+        c.kind === "opt_out"
+          ? "OPTED OUT"
+          : c.returnsOn
+            ? `AUTO-REPLY, back ${c.returnsOn}`
+            : "AUTO-REPLY";
+      return `- ${m.created_at.slice(0, 10)} · ${company} via ${m.channel}: [${label}] "${String(m.body ?? "").slice(0, 120)}"`;
     })
     .join("\n");
 
@@ -541,6 +596,7 @@ export async function askJarvis(
     "HARD RULES:",
     "- Ground every claim in the DATA SNAPSHOT provided. Name real companies from it. If the data doesn't answer the question, say exactly what's missing — never invent prospects, numbers or replies.",
     "- NEVER put a prospect marked 'Do not contact' into a dial list, a DM list, an outreach list, or any 'who should I contact' answer. They asked not to be contacted, and the inbound classifier sets that status AUTOMATICALLY on an opt-out reply — so it can appear without Jude ever touching the record. Their phone number is tagged [DO NOT CALL] in the snapshot; never repeat it as a number to ring. You may still count them, or name them, when he asks specifically about opt-outs.",
+    "- AN AUTO-REPLY IS NOT A REPLY. An out-of-office, a holiday bounce or an opt-out is not somebody writing back, and must never be counted as a reply, named as one, or put on a list of people to answer. They are in their own snapshot block, labelled. If the only inbound from a company is an auto-reply, that company has NOT replied — say so plainly if asked. An out-of-office that names a return date is worth mentioning as a reason to chase THEN, not now.",
     "- JUDGE REPLY RATES AGAINST SEND AGE: outreach under 48 hours old with no reply is PENDING, not a failing trend (email replies arrive over 24-72h; DMs slower; LinkedIn only after a connect is accepted). Check last-contact dates before declaring anything a problem.",
     `- TONE PERFORMANCE: never name a "best performing" style off a tone marked [too few sends to judge] — under ${TONE_MIN_SAMPLE} sends one reply swings the rate by tens of points. If no tone has cleared that bar, say so plainly and tell him how many more sends it needs.`,
     "- EMAIL DELIVERY: use the delivery snapshot for questions about whether emails landed. A bounce means a dead address (already removed); a delay usually self-resolves; delivered means it reached the inbox. If asked 'did my emails send/land', answer from this data, not guesses.",
@@ -602,8 +658,12 @@ export async function askJarvis(
     `PROSPECTS — ${snapshotProspects.length} of ${prospectsTotal ?? snapshotProspects.length} in the database: every chase due or overdue first (${(dueProspects ?? []).length}), then the highest-scoring leads. Prospects outside this list exist but aren't shown; for counts across the WHOLE database use the funnel numbers above, not this list.`,
     prospectLines || "(none yet)",
     "",
-    "RECENT INBOUND REPLIES:",
+    // Labelled as PEOPLE, so the header itself can't be read as "all inbound".
+    "RECENT REPLIES FROM PEOPLE (auto-replies and opt-outs are listed separately below, and are NOT replies):",
     replyLines || "(none yet)",
+    "",
+    "AUTO-REPLIES & OPT-OUTS (not replies — never count these as someone writing back, and never put an opt-out in a contact list):",
+    autoInboundLines || "(none)",
     "",
     "UPCOMING MEETINGS:",
     meetingLines || "(none booked)",
