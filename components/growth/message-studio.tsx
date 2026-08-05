@@ -25,11 +25,13 @@ import {
 import {
   CHANNELS,
   CHANNEL_META,
+  PROSPECT_STATUS_META,
   PURPOSES,
   PURPOSE_META,
   TONES,
   type Channel,
   type MessagePurpose,
+  type ProspectStatus,
   type StudioTransform,
   type Tone,
 } from "@/lib/growth/constants";
@@ -204,14 +206,37 @@ export function MessageStudio({
         setActive({ messageId: result.messageId });
         setNotice({ kind: "ok", text: "Draft saved." });
       } else {
+        // SAY WHAT ACTUALLY HAPPENED. This asserted "prospect moved to
+        // Contacted, follow-up scheduled in 3 days" on every send, and
+        // neither half is fixed:
+        //   · a lead already at replied/qualified/negotiation is deliberately
+        //     NOT regressed, and a second touch goes to Follow-up sent
+        //   · a chase already booked for a later day is KEPT, not reset — the
+        //     "try us after the summer" case recordOutreachSent names in its
+        //     own comment as the reason it stopped writing an unconditional +3
+        // So the one prospect the engine handled most carefully was the one
+        // the toast lied about. recordOutreachSent now reports what it wrote;
+        // the timeline line was already honest, this brings the screen in line.
+        const did = result.outcome;
+        const didWhat = did
+          ? `${
+              did.statusChanged
+                ? `moved to ${PROSPECT_STATUS_META[did.status as ProspectStatus]?.label ?? did.status}`
+                : `still ${PROSPECT_STATUS_META[did.status as ProspectStatus]?.label ?? did.status}`
+            }, ${
+              did.chaseKept
+                ? `your follow-up date of ${did.chaseDate} kept`
+                : `follow-up ${did.chaseDate}`
+            }`
+          : "recorded";
         setNotice({
           kind: "ok",
           text:
-            mode === "send_email"
-              ? "Email sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days."
+            (mode === "send_email"
+              ? "Email sent ✓"
               : channel === "call"
-                ? "Call logged ✓ — prospect moved to Contacted, follow-up scheduled in 3 days."
-                : "Recorded as sent ✓ — prospect moved to Contacted, follow-up scheduled in 3 days.",
+                ? "Call logged ✓"
+                : "Recorded as sent ✓") + ` — ${didWhat}.`,
         });
         setDrafts((prev) => ({ ...prev, [key(channel, purpose)]: emptyDraft }));
         // The message is gone — offering to restore pre-generate text into the

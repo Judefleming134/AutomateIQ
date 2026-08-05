@@ -57,6 +57,33 @@ export async function outreachHistoryLines(
  * Shared by the composer, the queue view and the email autopilot so every
  * send updates the CRM identically.
  */
+/**
+ * WHAT THIS SEND ACTUALLY DID to the CRM.
+ *
+ * Returned so a caller can TELL the user rather than assert a fixed outcome.
+ * The Message Studio's success toast used to name Contacted and a three-day
+ * chase on every send — but neither half is fixed: a lead already at
+ * replied/qualified/negotiation is deliberately NOT regressed, a second touch
+ * goes to Follow-up sent, and a chase already booked for a later day is KEPT.
+ * The timeline line below was fixed to say which happened; the on-screen
+ * message was still guessing.
+ *
+ * (Deliberately paraphrased rather than quoted: chase.test.ts asserts this
+ * file never contains that claim, comments included, and it is right to.)
+ *
+ * Additive — every existing caller ignores the return and is unaffected.
+ */
+export type OutreachOutcome = {
+  /** The status now on the prospect: moved, or the one it already had. */
+  status: string;
+  /** Whether this send changed the status at all. */
+  statusChanged: boolean;
+  /** The chase date now in the diary. */
+  chaseDate: string;
+  /** True when a date already booked was left alone rather than reset. */
+  chaseKept: boolean;
+};
+
 export async function recordOutreachSent(
   prospect: { id: string; status: string },
   messageId: string,
@@ -64,7 +91,7 @@ export async function recordOutreachSent(
   memberName: string,
   memberId: string,
   purpose?: string | null
-) {
+): Promise<OutreachOutcome> {
   const admin = createAdminClient();
   await admin
     .from("ge_messages")
@@ -134,4 +161,12 @@ export async function recordOutreachSent(
         : ` — follow-up scheduled for ${chase.date}`),
     created_by: memberId,
   });
+
+  const nextStatus = (bump.status as string | undefined) ?? prospect.status;
+  return {
+    status: nextStatus,
+    statusChanged: nextStatus !== prospect.status,
+    chaseDate: chase.date,
+    chaseKept: chase.kept,
+  };
 }
