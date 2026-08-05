@@ -137,7 +137,12 @@ describe("every surface reports the real number", () => {
       "the weekend section header",
       '? section(`OVERNIGHT REPLIES (${replyCountLabel})`, replyLines, "") + replyMore',
     ],
-    ["the weekend subject line", "${nightlyLines.length} overnight fixes, ${replyCountLabel} replies`"],
+    // Anchored on its NEIGHBOUR because `${replyCountLabel} replies` alone
+    // appears in several places. The neighbour moved on 2026-08-05 —
+    // nightlyLines.length (a .limit(20) list length) became nightlyFixTotal
+    // (the counted total), so the subject stopped disagreeing with its own
+    // body. This test's subject is the reply count, which is unchanged.
+    ["the weekend subject line", "${nightlyFixTotal} overnight fixes, ${replyCountLabel} replies`"],
     ["the weekend what-changed line", "${replyCountLabel} new repl"],
     ["the AI narrative input", "`Overnight replies (${replyCountLabel})"],
     ["the dispatch response detail", "(${replyCountLabel} replies,"],

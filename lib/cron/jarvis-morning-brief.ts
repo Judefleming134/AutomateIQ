@@ -606,7 +606,23 @@ export async function sendJarvisMorningBrief(): Promise<{
       nmScoreBlock =
         `🎯 JARVIS NEEDLE-MOVER SCORE: ${nmScore}/100 — ${nmTier}\n` +
         `${nmVerdict}\n` +
-        `Yesterday: ${nmSentY ?? 0} sent · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
+        // "Yesterday" was wrong, and wrong in the direction that double-counts.
+        //
+        // Every one of these is a `since24h` window with NO upper bound, so it
+        // runs right up to this instant — and the 07:00 dispatch sends the
+        // autopilot BEFORE it builds the brief (see the order in
+        // app/api/cron/dispatch/route.ts: emailAutopilot → brief). So this
+        // morning's send is inside it.
+        //
+        // Which put the same emails on the page twice, under two different
+        // headings: "📤 SENT THIS MORNING (30)" a few blocks up, and
+        // "Yesterday: 30 sent" here. Read together that is sixty emails, and
+        // "sent" is the number Jude uses to decide whether the engine ran.
+        //
+        // The window is what it is — the score is scored against a 7-day
+        // window built the same way, so changing the number would change the
+        // score. The label is what was false, so the label is what changed.
+        `Last 24h: ${nmSentY ?? 0} sent (includes this morning's autopilot run) · ${nmCallsY ?? 0} calls · ${nmReplyY ?? 0} replies · ${nmMeetY ?? 0} meetings · ${nmResY ?? 0} researched · ${nmLeadY ?? 0} leads added`;
     }
 
     const statusLabel = (s: string) =>
@@ -819,9 +835,21 @@ export async function sendJarvisMorningBrief(): Promise<{
           ? `\n  …and ${sentTodayTotal - (sentToday ?? []).length} more — full list in the Inbox.`
           : "")
       : "";
+    // The true number of overnight catches, named once and used everywhere —
+    // the block header, the subject line and the cron's own summary.
+    //
+    // It was computed for the header and then NOT used by the other two, which
+    // both read `nightlyLines.length` — the length of a list `.limit(20)` had
+    // already truncated. On a night with 63 catches the weekend subject said
+    // "20 overnight fixes" while the body of that same email said "(63)", so
+    // the notification and the thing it opens disagreed about the one number
+    // it was reporting. Every other count in this file already had this fix
+    // (due, ready, replies, sent, delivery, awaiting, auto-queued); these two
+    // were the ones it never reached.
+    const nightlyFixTotal = nightlyTotal ?? nightlyLines.length;
     const nightlyMore =
-      (nightlyTotal ?? 0) > nightlyLines.length
-        ? `\n…and ${(nightlyTotal ?? 0) - nightlyLines.length} more`
+      nightlyFixTotal > nightlyLines.length
+        ? `\n…and ${nightlyFixTotal - nightlyLines.length} more`
         : "";
     // The morning run's queueing gets ONE line with the true number, so it
     // never crowds out the fixes it used to bury.
@@ -831,7 +859,7 @@ export async function sendJarvisMorningBrief(): Promise<{
         : "";
     const nightlyBlock =
       nightlyLines.length || (autoQueuedTotal ?? 0) > 0
-        ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyTotal ?? nightlyLines.length})\n${nightlyLines.join("\n")}${nightlyMore}${queueLine}`
+        ? `🔧 JARVIS'S OVERNIGHT ROUTINE — CATCHES & FIXES (${nightlyFixTotal})\n${nightlyLines.join("\n")}${nightlyMore}${queueLine}`
         : "";
 
     // MONEY. The brief has always covered leads, replies and overnight fixes
@@ -902,7 +930,7 @@ export async function sendJarvisMorningBrief(): Promise<{
       ]
         .filter(Boolean)
         .join("\n\n");
-      subject = `Jarvis weekend brief — ${today}: ${leadsAdded24h ?? 0} added, ${nightlyLines.length} overnight fixes, ${replyCountLabel} replies`;
+      subject = `Jarvis weekend brief — ${today}: ${leadsAdded24h ?? 0} added, ${nightlyFixTotal} overnight fixes, ${replyCountLabel} replies`;
     } else {
       // Weekday: the full attack plan.
       bodyText = [
@@ -955,7 +983,7 @@ export async function sendJarvisMorningBrief(): Promise<{
     if (!sent) return { sent, detail };
     return {
       sent: true,
-      detail: `${isWeekend ? "weekend " : ""}${detail} (${replyCountLabel} replies, ${nightlyLines.length} overnight fixes)`,
+      detail: `${isWeekend ? "weekend " : ""}${detail} (${replyCountLabel} replies, ${nightlyFixTotal} overnight fixes)`,
     };
   } catch (err) {
     // GUARANTEE: the data layer blew up, but Jude still gets a brief. Send a
