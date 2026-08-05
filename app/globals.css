@@ -6005,6 +6005,9 @@ table.data-table {
 }
 .prod-index--industry { grid-template-columns: repeat(2, 1fr); }
 .prod-index--core { grid-template-columns: repeat(3, 1fr); }
+/* The single-purpose modules: four cards, so 2x2 for the same reason the
+   industry row is 2x2 — three columns would strand the fourth on its own. */
+.prod-index--module { grid-template-columns: repeat(2, 1fr); }
 
 .prod-group-head {
   margin: 0 0 18px;
@@ -6107,7 +6110,8 @@ table.data-table {
 @media (max-width: 900px) {
   .prod-index,
   .prod-index--industry,
-  .prod-index--core { grid-template-columns: 1fr; }
+  .prod-index--core,
+  .prod-index--module { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
   .prod-does { grid-template-columns: 1fr; }
