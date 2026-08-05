@@ -8,15 +8,13 @@ import { QuoteGenerator } from "./generator";
 import { QuoteRow } from "./quote-row";
 import { CreateInvoiceButton, InvoiceCard, type InvoiceView } from "./invoice-panel";
 import { isMissingTableError } from "@/lib/db/errors";
+import { selectAllRows } from "@/lib/growth/db";
+import { parseQuoteTotal } from "@/lib/quote-agent/quote-to-crm";
 import { savePriceGuide } from "./actions";
 import type { QuoteLine } from "@/lib/quote-agent/create-core";
 
-// Best-effort numeric parse of a "€1,240" / "1240" style total for value sums.
-function parseMoney(total: string | null): number {
-  if (!total) return 0;
-  const n = parseFloat(total.replace(/[^0-9.]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
+/** Quotes shown in the pipeline list. The stat cards are NOT capped by it. */
+const LIST_CAP = 50;
 
 export default async function InstantQuoteAgentPage() {
   const { profile } = await requireSession();
@@ -34,7 +32,7 @@ export default async function InstantQuoteAgentPage() {
         "id, customer_name, customer_email, job_description, quote_lines, total, notes, status, sent_at, viewed_at, decided_at, created_at"
       )
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(LIST_CAP),
     // Invoices, keyed by the quote they came from. Tolerates 0037 not being
     // run yet: the panel simply doesn't appear rather than the page failing.
     supabase
@@ -58,20 +56,59 @@ export default async function InstantQuoteAgentPage() {
   const hasPriceGuide = Boolean(settings?.price_guide?.trim());
   const all = quotes ?? [];
 
+  // The four stat cards describe the WHOLE pipeline, so they read every
+  // quote's status and total — two slim columns — rather than the newest 50
+  // the list below renders. A business past 50 quotes was being shown "Won
+  // value" for a rolling window and told it was the total.
+  //
+  // selectAllRows throws rather than return a short list; a short list here
+  // would understate the pipeline silently, which is the failure this is
+  // fixing. On a read failure fall back to the 50 already on screen — the old
+  // behaviour — instead of failing the page.
+  type Slim = { status: string | null; total: string | null };
+  let forStats: Slim[] = all;
+  let statsAreWholePipeline = false;
+  try {
+    forStats = await selectAllRows<Slim>(() =>
+      supabase.from("qa_quotes").select("status, total")
+    );
+    statsAreWholePipeline = true;
+  } catch (err) {
+    console.error("[quoteiq] pipeline stats fell back to the visible page:", err);
+  }
+
   // Pipeline metrics — a real sales dashboard, not just a count.
-  const accepted = all.filter((q) => q.status === "accepted");
-  const live = all.filter((q) => ["sent", "viewed"].includes(q.status ?? ""));
-  const decided = all.filter((q) =>
+  const accepted = forStats.filter((q) => q.status === "accepted");
+  const live = forStats.filter((q) => ["sent", "viewed"].includes(q.status ?? ""));
+  const decided = forStats.filter((q) =>
     ["accepted", "declined"].includes(q.status ?? "")
   );
   const acceptanceRate =
     decided.length > 0
       ? `${Math.round((accepted.length / decided.length) * 100)}%`
       : "—";
-  const wonValue = accepted.reduce((s, q) => s + parseMoney(q.total), 0);
-  const openValue = live.reduce((s, q) => s + parseMoney(q.total), 0);
+
+  // parseQuoteTotal is the platform's parser for this exact column — ClientIQ
+  // already writes its output into crm_contacts.value for the same quotes.
+  //
+  // This page had its own three-line version, `parseFloat(total.replace(
+  // /[^0-9.]/g, ""))`, which CONCATENATES every number in a free-text total:
+  // "€1,200 – €1,500" became €12,001,500, "Deposit €500, balance €1,500"
+  // became €5,001,500. qa_quotes.total is TEXT on purpose ("a quote is a human
+  // sentence"), so multi-number totals are the norm, not the exception — nine
+  // realistic totals summed to €18.2m instead of €7,272.
+  const sum = (rows: Slim[]) =>
+    rows.reduce((s, q) => s + (parseQuoteTotal(q.total) ?? 0), 0);
+  const wonValue = sum(accepted);
+  const openValue = sum(live);
+  // A total nobody can read ("TBC", "price on application") contributes zero.
+  // Say how many, so a low "Won value" reads as "some aren't priced" rather
+  // than as lost jobs.
+  const unpricedWon = accepted.filter((q) => parseQuoteTotal(q.total) === null).length;
+  const unpricedOpen = live.filter((q) => parseQuoteTotal(q.total) === null).length;
   const euro = (n: number) =>
     n > 0 ? `€${n.toLocaleString("en-IE", { maximumFractionDigits: 0 })}` : "—";
+  const unpricedNote = (n: number) => (n > 0 ? `, ${n} unpriced` : "");
 
   return (
     <>
@@ -91,14 +128,14 @@ export default async function InstantQuoteAgentPage() {
           value={euro(wonValue)}
           icon={<BadgeEuro />}
           accent="#34D399"
-          hint={`${accepted.length} accepted`}
+          hint={`${accepted.length} accepted${unpricedNote(unpricedWon)}`}
         />
         <StatCard
           label="Open value"
           value={euro(openValue)}
           icon={<TrendingUp />}
           accent="#3B82F6"
-          hint={`${live.length} awaiting decision`}
+          hint={`${live.length} awaiting decision${unpricedNote(unpricedOpen)}`}
         />
         <StatCard
           label="Acceptance rate"
@@ -154,6 +191,12 @@ export default async function InstantQuoteAgentPage() {
         </div>
       ) : (
         <div className="content-library">
+          {statsAreWholePipeline && forStats.length > all.length && (
+            <p className="empty-state" style={{ padding: "0 0 10px", textAlign: "left" }}>
+              Showing your {all.length} most recent quotes. The figures above
+              cover all {forStats.length}.
+            </p>
+          )}
           {all.map((quote) => (
             <div key={quote.id}>
             <QuoteRow
