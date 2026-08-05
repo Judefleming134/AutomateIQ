@@ -7,6 +7,7 @@ import { CopyButton } from "@/components/portal/copy-button";
 import { MEETING_STATUS_META, type MeetingStatus } from "@/lib/growth/constants";
 import { selectAllRows } from "@/lib/growth/db";
 import { splitMeetings } from "@/lib/growth/meeting-order";
+import { canDial } from "@/lib/growth/dialling";
 import { recordMeeting, setMeetingStatus, syncStrategyBookings } from "./actions";
 
 function fmt(ts: string, fromBooking = false): string {
@@ -67,10 +68,14 @@ export default async function MeetingsPage() {
       company: string;
       contact_name: string;
       phone: string | null;
+      status: string;
     }>(() =>
       admin
         .from("ge_prospects")
-        .select("id, company, contact_name, phone")
+        // `status` so this page can honour canDial. Without it the card had no
+        // way of knowing the prospect had opted out — see the phone block in
+        // MeetingRow below.
+        .select("id, company, contact_name, phone, status")
         .order("company")
     ),
     loadGrowthSettings(),
@@ -102,14 +107,56 @@ export default async function MeetingsPage() {
           {m.strategy_booking_id && <span className="badge badge-blue">Booking page</span>}
         </div>
         <div style={{ marginTop: 6, fontSize: 14 }}>{fmt(m.scheduled_at, Boolean(m.strategy_booking_id))} (Irish time)</div>
-        {p?.phone && (
-          <a
-            href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
-            style={{ fontSize: 13, display: "inline-block", marginTop: 6, color: "var(--ac2, #3b82f6)" }}
-            title="Tap to call"
-          >
-            ☎ {p.phone}
-          </a>
+        {/* THE ONE-TAP DIAL, GUARDED — this was the last list in the engine
+            offering it unconditionally.
+
+            lib/growth/dialling.ts draws the line at "the list withholds it,
+            the workspace keeps it as a deliberate override". This is a list:
+            cards scanned at speed with the number under a thumb. And it was
+            WORSE than the prospects table ever was, because the only badge on
+            this card is the MEETING's status — booked, completed, no-show —
+            so a prospect who had opted out carried no signal here at all.
+
+            That combination is reachable without Jude doing anything: a lead
+            books a Strategy Session, then replies STOP to a later follow-up,
+            and the inbound classifier sets do_not_contact automatically. The
+            meeting stays booked, the card keeps its number, and one tap rings
+            somebody who asked him to stop.
+
+            The number stays visible and selectable, exactly as on the
+            prospects table. Only the tel: link is withheld. */}
+        {p?.phone &&
+          (canDial(p.status) ? (
+            <a
+              href={`tel:${p.phone.replace(/[^\d+]/g, "")}`}
+              style={{ fontSize: 13, display: "inline-block", marginTop: 6, color: "var(--ac2, #3b82f6)" }}
+              title="Tap to call"
+            >
+              ☎ {p.phone}
+            </a>
+          ) : (
+            <span
+              style={{
+                fontSize: 13,
+                display: "inline-block",
+                marginTop: 6,
+                opacity: 0.55,
+                textDecoration: "line-through",
+              }}
+              title="They asked not to be contacted — dialling is disabled here on purpose"
+            >
+              ☎ {p.phone}
+            </span>
+          ))}
+        {/* And say WHY, because this card shows the meeting's status, not the
+            prospect's — without this the number just looks broken. */}
+        {p && !canDial(p.status) && (
+          <div style={{ marginTop: 6 }}>
+            <span className="badge badge-red">Do not contact</span>{" "}
+            <span style={{ fontSize: 12, color: "var(--faint)" }}>
+              they opted out — dial from their page if you need to override
+            </span>
+          </div>
         )}
         {m.notes && (
           <p style={{ fontSize: 13, color: "var(--faint)", margin: "6px 0 0", whiteSpace: "pre-wrap" }}>
