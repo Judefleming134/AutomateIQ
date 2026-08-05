@@ -5565,6 +5565,74 @@ table.data-table {
 }
 
 /* ============================================================
+   The dial list on a phone: keep the name with the number.
+
+   The prospects table is min-width 900 inside a horizontally
+   scrolling wrapper. Measured at 390px: 356px visible, so 544px
+   of the table is off to the right. Status, Score, Assigned,
+   Last contact and Next follow-up ALL live out there — and the
+   moment you scroll to read any of them, the Prospect column
+   goes with it. Screenshotted: four rows of phone numbers,
+   badges and scores belonging to nobody.
+
+   So the checkbox and the name are pinned. Scroll as far right
+   as you like and the row still says whose it is.
+
+   The name/email lines are capped and ellipsised because an
+   uncapped pinned column is 250px+ of a 390px screen — it would
+   solve the identity problem by covering the very columns you
+   scrolled to see. 150px leaves ~168px for them.
+
+   Phone-only: above 900px the table doesn't scroll, so every
+   rule here is inert on desktop.
+   ============================================================ */
+@media (max-width: 900px) {
+  .prospect-table thead th:nth-child(1),
+  .prospect-table tbody td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    /* Opaque: .table-wrap's background is translucent, so without this the
+       scrolling cells show straight through the pinned ones. */
+    background: var(--panel);
+  }
+  .prospect-table thead th:nth-child(2),
+  .prospect-table tbody td:nth-child(2) {
+    position: sticky;
+    left: 34px; /* the checkbox column's own width */
+    z-index: 2;
+    background: var(--panel);
+    /* A hairline, so the pinned name reads as a held column rather than text
+       sitting on top of the cells sliding under it. */
+    box-shadow: 1px 0 0 var(--line);
+  }
+  /* The header sits above its own column when both are pinned. */
+  .prospect-table thead th:nth-child(1),
+  .prospect-table thead th:nth-child(2) {
+    z-index: 3;
+  }
+  /* Cap the CONTENT, not the cell: a max-width on a <td> is advisory in table
+     layout, and the inner blocks are what actually set the column's width. */
+  .prospect-table tbody td:nth-child(2) > a {
+    display: block;
+  }
+  .prospect-table tbody td:nth-child(2) > a > strong,
+  .prospect-table tbody td:nth-child(2) > div {
+    display: block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* The tap-to-call is NOT capped — it is the reason this page exists on a
+     phone, and a truncated phone number is worse than no phone number. */
+  .prospect-table tbody td:nth-child(2) > .phone-inline {
+    max-width: none;
+    overflow: visible;
+  }
+}
+
+/* ============================================================
    AutoSEO report (/autoseo)
    The result of a free check is read by a business owner, once,
    on a phone. So the page commits to ONE finding at full size and
