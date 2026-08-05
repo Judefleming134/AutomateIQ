@@ -58,6 +58,7 @@ import {
 } from "../proposal-actions";
 import { logInboundMessage } from "../../inbox/actions";
 import { messageInstant } from "@/lib/growth/inbox-order";
+import { UnsavedGuard } from "@/components/growth/unsaved-guard";
 import { hasPassed, meetingInstant } from "@/lib/growth/meeting-order";
 
 // Research and proposal generation are single long AI calls.
@@ -1554,7 +1555,16 @@ export default async function ProspectWorkspacePage({
         <div className="grid-2">
           <section className="panel panel-block">
             <h2 className="panel-title">Profile</h2>
-            <ActionForm action={updateProspect}>
+            {/* Sixteen fields behind one Save button, with the workspace tabs
+                one tap above them. Tapping a tab mid-edit is a client-side
+                navigation: the form unmounts and every uncommitted keystroke is
+                gone, silently. The guard asks first — and only once the form
+                has actually been touched. */}
+            <UnsavedGuard
+              formId="prospect-profile"
+              message="You've edited this prospect's details and haven't saved. Leave the tab and lose the changes?"
+            />
+            <ActionForm action={updateProspect} id="prospect-profile">
               <input type="hidden" name="id" value={prospect.id} />
               <label htmlFor="ep-company">Company *</label>
               <input id="ep-company" name="company" defaultValue={prospect.company} required maxLength={200} />
