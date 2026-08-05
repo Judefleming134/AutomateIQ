@@ -18,6 +18,31 @@
  *   create policy "P" on T    -> drop policy if exists "P" on T;  create ...
  *   create trigger G ... on T -> drop trigger if exists G on T;   create ...
  *
+ * …plus ONE cross-file pass, which is a different kind of thing and the reason
+ * this script exists at all:
+ *
+ *   the same constraint added N times -> only the LAST one is kept
+ *
+ * WHY THAT PASS IS NOT OPTIONAL. `alter table … add constraint` is validated
+ * against the rows already in the table, immediately. So replaying a
+ * constraint's HISTORY is only safe on an empty database:
+ *
+ *   0014  add ge_prospects_status_check  (11 statuses)
+ *   0018  widen it                       (17)
+ *   0022  widen it again                 (19)
+ *
+ * On a live database with a prospect at 'follow_up_sent' — legal since 0018 —
+ * the bundle failed on 0014's narrower version:
+ *
+ *   ERROR: 23514: check constraint "ge_prospects_status_check" of relation
+ *   "ge_prospects" is violated by some row
+ *
+ * and, being one transaction, rolled the whole paste back. This file's promise
+ * is a CONVERGED STATE, not a replay: what matters is the constraint the
+ * database ends up with, which is the last definition. The superseded ones are
+ * commented out in place, so the bundle still reads as the history it came
+ * from.
+ *
  * Everything else in the repo is already idempotent: `add column if not
  * exists`, `enable row level security` (a no-op when on), `create extension if
  * not exists`, `create or replace view/function`, and every `add constraint`
@@ -100,6 +125,8 @@ function codeOf(stmt) {
 
 const counts = {
   table: 0, index: 0, function: 0, policy: 0, trigger: 0,
+  /** Superseded constraint definitions commented out by the cross-file pass. */
+  superseded: 0,
   /** Already dropped by the migration itself — left exactly as written. */
   alreadySafe: 0,
   untouched: 0,
@@ -166,9 +193,75 @@ function transform(stmt, emitted) {
   return stmt;
 }
 
+/**
+ * Keep only the LAST definition of each constraint.
+ *
+ * Runs across the whole bundle, not per file, because a constraint is narrowed
+ * in one migration and widened in another — 0014/0018/0022 for
+ * ge_prospects_status_check. Every earlier `add constraint` for the same
+ * (table, constraint) is commented out, together with the `drop constraint`
+ * that pairs with it, so the net effect on an EMPTY database is identical and
+ * a POPULATED one is never asked to satisfy a rule it has already outgrown.
+ *
+ * Deliberately conservative: it only ever removes an add that a LATER add of
+ * the same name replaces. A constraint defined once is never touched, so this
+ * cannot silently drop a rule.
+ */
+const ADD_CONSTRAINT =
+  /^alter\s+table\s+(?:only\s+)?([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)?)\s+add\s+constraint\s+([A-Za-z_][\w$]*)/i;
+const DROP_CONSTRAINT =
+  /^alter\s+table\s+(?:only\s+)?([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)?)\s+drop\s+constraint\s+(?:if\s+exists\s+)?([A-Za-z_][\w$]*)/i;
+
+const commentOut = (stmt, why) =>
+  "\n" +
+  `-- [bundle] ${why}\n` +
+  stmt
+    .replace(/^\n+/, "")
+    .replace(/\n+$/, "")
+    .split("\n")
+    .map((l) => (l.length ? `-- ${l}` : "--"))
+    .join("\n") +
+  "\n";
+
+function supersedeConstraints(all) {
+  const byKey = new Map();
+  all.forEach((entry, i) => {
+    const m = ADD_CONSTRAINT.exec(codeOf(entry.stmt));
+    if (!m) return;
+    const key = `${m[1].toLowerCase()}.${m[2].toLowerCase()}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(i);
+  });
+
+  for (const [key, idxs] of byKey) {
+    if (idxs.length < 2) continue;
+    const last = idxs[idxs.length - 1];
+    const winner = all[last].file;
+    for (const i of idxs.slice(0, -1)) {
+      const why =
+        `superseded by ${winner} — an older, narrower definition of ${key}. ` +
+        `Replaying it would validate today's rows against a rule they have outgrown.`;
+      all[i].stmt = commentOut(all[i].stmt, why);
+      counts.superseded++;
+      // The `drop constraint if exists` immediately above it is the other half
+      // of the same pair; leaving it would drop the constraint and not put it
+      // back until the winner runs. Harmless inside one transaction, but it
+      // reads as a mistake, so it goes with its partner.
+      const prev = all[i - 1];
+      if (!prev) continue;
+      const d = DROP_CONSTRAINT.exec(codeOf(prev.stmt));
+      if (d && `${d[1].toLowerCase()}.${d[2].toLowerCase()}` === key) {
+        prev.stmt = commentOut(prev.stmt, `paired with the superseded add below`);
+      }
+    }
+  }
+}
+
 const files = readdirSync(SRC).filter((f) => f.endsWith(".sql")).sort();
 
-const parts = [];
+// Every statement of every migration, in order, tagged with the file it came
+// from — flat, because the constraint pass has to see ACROSS files.
+const all = [];
 for (const f of files) {
   const raw = readFileSync(path.join(SRC, f), "utf8");
   // Statements are transformed IN ORDER, each able to see what came before it
@@ -176,11 +269,15 @@ for (const f of files) {
   // spotted and a duplicate avoided.
   const emitted = [];
   for (const st of splitStatements(raw)) emitted.push(transform(st, emitted));
-  const rebuilt = emitted.join("");
-  parts.push(
-    `\n-- ${"=".repeat(70)}\n-- ${f}\n-- ${"=".repeat(70)}\n${rebuilt.trim()}\n`
-  );
+  for (const st of emitted) all.push({ file: f, stmt: st });
 }
+
+supersedeConstraints(all);
+
+const parts = files.map((f) => {
+  const rebuilt = all.filter((e) => e.file === f).map((e) => e.stmt).join("");
+  return `\n-- ${"=".repeat(70)}\n-- ${f}\n-- ${"=".repeat(70)}\n${rebuilt.trim()}\n`;
+});
 
 const header = `-- ${"=".repeat(70)}
 -- AutomateIQ — the WHOLE database schema, in one paste.
@@ -230,5 +327,6 @@ const total = Object.entries(counts)
 console.log(`wrote ${path.relative(ROOT, OUT)}`);
 console.log(`  ${files.length} migrations, ${counts.untouched + total} statements`);
 console.log(`  made idempotent: ${counts.table} tables, ${counts.index} indexes, ${counts.function} functions, ${counts.policy} policies, ${counts.trigger} triggers (${total} total)`);
+console.log(`  superseded constraint definitions commented out: ${counts.superseded}`);
 console.log(`  already dropped by the migration itself, left alone: ${counts.alreadySafe}`);
 console.log(`  already idempotent, untouched: ${counts.untouched}`);

@@ -816,23 +816,27 @@ on conflict (name) do nothing;
 -- ======================================================================
 -- 0014_growth_engine_v2.sql
 -- ======================================================================
--- =============================================================================
--- 0014 — Growth Engine V2: company research, proposals, workflow automation
+-- [bundle] paired with the superseded add below
+-- -- =============================================================================
+-- -- 0014 — Growth Engine V2: company research, proposals, workflow automation
+-- --
+-- -- Turns the Growth Engine from a CRM dashboard into the full workflow:
+-- -- research a company → AI report + solution recommendations + outreach
+-- -- drafts → mark sent (auto follow-up) → replied → qualified → meeting →
+-- -- proposal → won. Additive to 0013; run after it. Fully idempotent.
+-- -- =============================================================================
 --
--- Turns the Growth Engine from a CRM dashboard into the full workflow:
--- research a company → AI report + solution recommendations + outreach
--- drafts → mark sent (auto follow-up) → replied → qualified → meeting →
--- proposal → won. Additive to 0013; run after it. Fully idempotent.
--- =============================================================================
+-- -- Pipeline gains two stages: 'research_complete' (set automatically when the
+-- -- AI research finishes) and 'proposal_sent'. Postgres check constraints can't
+-- -- be altered in place, so drop + re-add with the expanded list.
+-- alter table ge_prospects drop constraint if exists ge_prospects_status_check;
 
--- Pipeline gains two stages: 'research_complete' (set automatically when the
--- AI research finishes) and 'proposal_sent'. Postgres check constraints can't
--- be altered in place, so drop + re-add with the expanded list.
-alter table ge_prospects drop constraint if exists ge_prospects_status_check;
-alter table ge_prospects add constraint ge_prospects_status_check
-  check (status in ('new', 'researching', 'research_complete', 'contacted',
-                    'replied', 'qualified', 'meeting_booked', 'proposal_sent',
-                    'won', 'lost', 'do_not_contact'));
+-- [bundle] superseded by 0022_research_failed_status.sql — an older, narrower definition of ge_prospects.ge_prospects_status_check. Replaying it would validate today's rows against a rule they have outgrown.
+-- alter table ge_prospects add constraint ge_prospects_status_check
+--   check (status in ('new', 'researching', 'research_complete', 'contacted',
+--                     'replied', 'qualified', 'meeting_booked', 'proposal_sent',
+--                     'won', 'lost', 'do_not_contact'));
+
 
 -- Who owns this prospect (Settings → Team member).
 alter table ge_prospects
@@ -932,25 +936,28 @@ alter table ge_campaigns add constraint ge_campaigns_channel_check
 -- ======================================================================
 -- 0018_growth_pipeline_statuses.sql
 -- ======================================================================
--- =============================================================================
--- 0018 — Growth Engine: complete outbound pipeline statuses
+-- [bundle] paired with the superseded add below
+-- -- =============================================================================
+-- -- 0018 — Growth Engine: complete outbound pipeline statuses
+-- --
+-- -- Extends (never renames) the prospect pipeline with six stages:
+-- --   outreach_ready, follow_up_sent, proposal_in_progress, negotiation,
+-- --   future_opportunity, archived
+-- -- Existing statuses and every automation on them are preserved; the new
+-- -- ones slot between them (see lib/growth/constants.ts for the full order).
+-- -- Additive to 0017; run after it. Fully idempotent.
+-- -- =============================================================================
 --
--- Extends (never renames) the prospect pipeline with six stages:
---   outreach_ready, follow_up_sent, proposal_in_progress, negotiation,
---   future_opportunity, archived
--- Existing statuses and every automation on them are preserved; the new
--- ones slot between them (see lib/growth/constants.ts for the full order).
--- Additive to 0017; run after it. Fully idempotent.
--- =============================================================================
+-- alter table ge_prospects drop constraint if exists ge_prospects_status_check;
 
-alter table ge_prospects drop constraint if exists ge_prospects_status_check;
-alter table ge_prospects add constraint ge_prospects_status_check
-  check (status in (
-    'new', 'researching', 'research_complete', 'outreach_ready',
-    'contacted', 'follow_up_sent', 'replied', 'qualified', 'meeting_booked',
-    'proposal_in_progress', 'proposal_sent', 'negotiation',
-    'won', 'lost', 'future_opportunity', 'do_not_contact', 'archived'
-  ));
+-- [bundle] superseded by 0022_research_failed_status.sql — an older, narrower definition of ge_prospects.ge_prospects_status_check. Replaying it would validate today's rows against a rule they have outgrown.
+-- alter table ge_prospects add constraint ge_prospects_status_check
+--   check (status in (
+--     'new', 'researching', 'research_complete', 'outreach_ready',
+--     'contacted', 'follow_up_sent', 'replied', 'qualified', 'meeting_booked',
+--     'proposal_in_progress', 'proposal_sent', 'negotiation',
+--     'won', 'lost', 'future_opportunity', 'do_not_contact', 'archived'
+--   ));
 
 -- ======================================================================
 -- 0019_voice_agent.sql
