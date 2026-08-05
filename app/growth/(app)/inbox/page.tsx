@@ -22,6 +22,8 @@ import {
   sortByInstantDesc,
   latestRealMessage,
 } from "@/lib/growth/inbox-order";
+import { isAwaiting, isHumanReply } from "@/lib/growth/awaiting";
+import { classifyInbound } from "@/lib/growth/inbound-classify";
 
 function fmt(ts: string | null | undefined): string {
   if (!ts) return "—";
@@ -252,8 +254,50 @@ export default async function InboxPage({
       // inbound, and that unsent draft would otherwise register as "we
       // replied" and silently clear the Reply-due flag on every conversation.
       const latestReal = latestRealMessage(thread) ?? latest;
-      const awaitingUs = latestReal?.direction === "inbound";
-      return { pid, thread, latest, latestReal, awaitingUs };
+
+      // "REPLY DUE" NOW MEANS A PERSON IS WAITING, which is what the rest of
+      // the engine has meant by it for a while.
+      //
+      // latestRealMessage() filters unsent DRAFTS — the thing it was written
+      // for — but not out-of-office bounces or opt-outs. So a prospect who
+      // wrote back, got an answer, and then went on annual leave came out as
+      // "Reply due"; and someone who replied STOP was flagged as needing an
+      // answer and sorted to the very top of the list, because this group is
+      // ordered longest-waiting first.
+      //
+      // The morning brief has always excluded both. lib/growth/awaiting.ts was
+      // written to give the rule one home after the dashboard and Jarvis were
+      // fixed — its own docstring lists "the inbox" as already on that rule.
+      // It wasn't. So the dashboard could say "3 replies are waiting on you"
+      // and the click-through show seven orange badges.
+      //
+      // Nothing is hidden: the conversation stays in the list, the thread
+      // still shows every message, and the row now SAYS what the newest
+      // message was instead of mislabelling it.
+      const lastHumanInbound = thread.find(
+        (m) => m.direction === "inbound" && isHumanReply(m)
+      );
+      const lastSentOut = thread.find(
+        (m) => m.direction === "outbound" && m.status === "sent"
+      );
+      const awaitingUs = Boolean(
+        lastHumanInbound &&
+          isAwaiting(
+            messageInstant(lastHumanInbound),
+            lastSentOut ? messageInstant(lastSentOut) : null
+          )
+      );
+      // When the newest thing they sent was NOT a person, say which — an
+      // out-of-office often carries the date they're back, which is more
+      // useful than a badge that just says "not you".
+      const auto =
+        latestReal?.direction === "inbound" && !isHumanReply(latestReal)
+          ? classifyInbound(String(latestReal.subject ?? ""), String(latestReal.body ?? ""))
+          : null;
+      // Sort by the message actually waiting on an answer, not by whatever
+      // landed last — otherwise an auto-responder resets a reply's age.
+      const waitingSince = lastHumanInbound ?? latestReal;
+      return { pid, thread, latest, latestReal, awaitingUs, auto, waitingSince };
     })
     .filter(
       (c) =>
@@ -273,7 +317,7 @@ export default async function InboxPage({
       // which already sorts longest-waiting first. The two surfaces answering
       // the same question in opposite orders is its own bug.
       if (a.awaitingUs && b.awaitingUs) {
-        return messageInstant(a.latestReal) < messageInstant(b.latestReal) ? -1 : 1;
+        return messageInstant(a.waitingSince) < messageInstant(b.waitingSince) ? -1 : 1;
       }
       // Already answered: newest activity first, which is what you want when
       // you're looking back over a thread rather than working a queue.
@@ -292,7 +336,16 @@ export default async function InboxPage({
     : convMessages.some((m) => m.prospect_id === selectedId)
       ? convMessages.filter((m) => m.prospect_id === selectedId)
       : sortByInstantDesc(messages.filter((m) => m.prospect_id === selectedId));
-  const lastInbound = selectedThread.find((m) => m.direction === "inbound");
+  // The newest inbound from a PERSON. This drives the composer's reply context
+  // and its default channel, and it used to be the newest inbound of any kind
+  // — so a prospect who asked a real question and then set an out-of-office had
+  // Jarvis drafting a reply to "I am on annual leave until 12 August" instead
+  // of to the question underneath it. Falls back to the newest inbound of any
+  // kind, so a thread that holds nothing but an auto-reply still gives the
+  // composer a channel to open on.
+  const lastInbound =
+    selectedThread.find((m) => m.direction === "inbound" && isHumanReply(m)) ??
+    selectedThread.find((m) => m.direction === "inbound");
 
   // Surface what needs a decision first: a FAILED send (retry or delete) then
   // QUEUED (scheduled for 8am), then the bulk of plain drafts. The rows are
@@ -607,6 +660,22 @@ export default async function InboxPage({
                         <strong style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.company}</strong>
                         <span style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
                           {c.awaitingUs && <span className="badge badge-orange">Reply due</span>}
+                          {/* The row used to wear "Reply due" here. Now it
+                              says what actually landed — and an out-of-office
+                              usually tells us the date they're back, which is
+                              the one thing worth knowing before chasing. */}
+                          {!c.awaitingUs && c.auto && (
+                            <span
+                              className="badge badge-gray"
+                              title={c.auto.reason ?? undefined}
+                            >
+                              {c.auto.kind === "opt_out"
+                                ? "Opted out"
+                                : c.auto.returnsOn
+                                  ? `Away · back ${c.auto.returnsOn}`
+                                  : "Auto-reply"}
+                            </span>
+                          )}
                           <span style={{ fontSize: 11, color: "var(--faint)" }}>{relTime(messageInstant(c.latestReal))}</span>
                         </span>
                       </div>

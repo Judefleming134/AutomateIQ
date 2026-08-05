@@ -58,6 +58,14 @@ export function isAwaiting(
  * question got two answers depending on which screen you were looking at, and
  * the two that were wrong are the two he works from during the day.
  *
+ * AND SO DID THE INBOX, until 2026-08-05 — despite the table at the top of
+ * this file listing it first as though it were already on the rule. It used
+ * latestRealMessage(), which filters unsent DRAFTS (what it was written for)
+ * but cannot tell an auto-responder from a person. So an opt-out wore a
+ * "Reply due" badge at the very top of the list, and the dashboard's count and
+ * its own click-through disagreed. Fixed there too; see
+ * lib/growth/inbox-human-reply.test.ts.
+ *
  * Same classifier the inbound webhook uses to decide whether a message moves
  * the pipeline at all, so a message that was not allowed to advance a prospect
  * cannot turn round and demand a reply.
