@@ -8,6 +8,9 @@ import { SubmitButton } from "@/components/admin/submit-button";
 import { ImportButton, StageSelect, TaskCheckbox } from "./interactive";
 import { addContact, addTask } from "./actions";
 
+/** Rows the pipeline renders in one go, newest activity first. */
+const LIST_CAP = 500;
+
 const STAGE_ORDER = ["new", "contacted", "qualified", "won", "lost"] as const;
 const STAGE_LABEL: Record<string, string> = {
   new: "New",
@@ -31,14 +34,30 @@ export default async function CrmAgentPage({
     .from("crm_contacts")
     .select("id, name, email, phone, company, stage, source, last_activity_at")
     .order("last_activity_at", { ascending: false })
-    .limit(500);
+    .limit(LIST_CAP);
   if (query) {
     contactsQuery = contactsQuery.or(
       `name.ilike.%${query}%,email.ilike.%${query}%,company.ilike.%${query}%`
     );
   }
 
-  const [{ data: contacts }, { data: tasks }] = await Promise.all([
+  // The headline numbers are their OWN counts, not `.length` of the list below.
+  //
+  // They used to be derived from `contacts`, which is (a) search-filtered and
+  // (b) capped at 500. So typing "murphy" into the search box rewrote
+  // "Contacts" and "Won" to the number of MATCHES — the whole-pipeline totals
+  // silently became a search result — and any business past 500 contacts read
+  // "Contacts 500" for ever. "Open tasks" had the same shape against a
+  // `.limit(25)`: 25 open tasks and 200 open tasks both showed 25.
+  //
+  // These run inside the same Promise.all, so honesty costs no extra latency.
+  const [
+    { data: contacts },
+    { data: tasks },
+    { count: contactTotal },
+    { count: wonTotal },
+    { count: openTaskTotal },
+  ] = await Promise.all([
     contactsQuery,
     supabase
       .from("crm_tasks")
@@ -46,12 +65,31 @@ export default async function CrmAgentPage({
       .eq("done", false)
       .order("due_date", { ascending: true, nullsFirst: false })
       .limit(25),
+    supabase.from("crm_contacts").select("id", { count: "exact", head: true }),
+    supabase
+      .from("crm_contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("stage", "won"),
+    supabase
+      .from("crm_tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("done", false),
   ]);
 
   const all = contacts ?? [];
-  const won = all.filter((c) => c.stage === "won").length;
   const openTasks = tasks ?? [];
   const today = new Date().toISOString().slice(0, 10);
+
+  // A count query can come back null on error; fall back to what IS on screen
+  // rather than showing a confident zero over a full pipeline.
+  const contactCount = contactTotal ?? all.length;
+  const won = wonTotal ?? all.filter((c) => c.stage === "won").length;
+  const openTaskCount = openTaskTotal ?? openTasks.length;
+
+  // Both lists are capped. Say so where the cap bites, so a missing contact or
+  // follow-up reads as "there are more" rather than "it's gone".
+  const contactsTruncated = !query && contactCount > all.length && all.length >= LIST_CAP;
+  const tasksHidden = Math.max(0, openTaskCount - openTasks.length);
 
   const byStage = (stage: string) => all.filter((c) => (c.stage ?? "new") === stage);
 
@@ -69,11 +107,17 @@ export default async function CrmAgentPage({
       </div>
 
       <div className="stat-grid">
-        <StatCard label="Contacts" value={all.length} icon={<Contact />} accent="#3B82F6" />
+        <StatCard
+          label="Contacts"
+          value={contactCount}
+          icon={<Contact />}
+          accent="#3B82F6"
+          hint={query ? `${all.length} matching “${q.trim()}”` : "in your pipeline"}
+        />
         <StatCard label="Won" value={won} icon={<Trophy />} accent="#34D399" hint="deals closed" />
         <StatCard
           label="Open tasks"
-          value={openTasks.length}
+          value={openTaskCount}
           icon={<ListChecks />}
           accent="#EA580C"
           hint="follow-ups to do"
@@ -97,6 +141,15 @@ export default async function CrmAgentPage({
             </div>
           ) : (
             <div className="crm-pipeline">
+              {contactsTruncated && (
+                <p
+                  className="empty-state"
+                  style={{ padding: "0 0 10px", textAlign: "left" }}
+                >
+                  Showing the {all.length} most recently active of {contactCount}{" "}
+                  contacts — search above to find an older one.
+                </p>
+              )}
               {STAGE_ORDER.map((stage) => {
                 const rows = byStage(stage);
                 if (rows.length === 0) return null;
@@ -195,6 +248,15 @@ export default async function CrmAgentPage({
                   );
                 })}
               </ul>
+            )}
+            {tasksHidden > 0 && (
+              <p
+                className="empty-state"
+                style={{ padding: "8px 0 0", textAlign: "left" }}
+              >
+                + {tasksHidden} more open task{tasksHidden === 1 ? "" : "s"} not
+                shown — tick these off to see the rest.
+              </p>
             )}
             <ActionForm action={addTask} style={{ marginTop: 12 }}>
               <div className="field">
