@@ -39,13 +39,18 @@ export type MarketingProduct = {
    *   ReputationIQ). The question a visitor asks is "is this for me?".
    * "core" — works whatever you run (AssistIQ, SiteIQ, ContentIQ). The
    *   question is "what else do I get?".
+   * "module" — one job done properly, switchable on its own (QuoteIQ,
+   *   ClientIQ, LeadIQ, CustomIQ). Three of these are the pieces TradeIQ is
+   *   assembled from and CustomIQ is the bespoke door; each is nonetheless a
+   *   separate entitlement in `business_products`, so a customer really can
+   *   buy one without the rest. The question is "can I just have that bit?".
    *
    * The index used to render all seven as one flat list, which contradicted
    * its own hero ("start with the core and switch on what your industry
    * needs") and left a lone card stranded on a third row of a 3-column grid —
    * the exact orphan the free-tools hub already had to fix once.
    */
-  group: "industry" | "core";
+  group: "industry" | "core" | "module";
 };
 
 export const MARKETING_PRODUCTS: MarketingProduct[] = [
@@ -281,6 +286,146 @@ export const MARKETING_PRODUCTS: MarketingProduct[] = [
     accent: "#0EA5E9",
     group: "industry",
   },
+  /**
+   * The four that had a brand and no address.
+   *
+   * QuoteIQ, ClientIQ, LeadIQ and CustomIQ are named on the portal, in the
+   * chat answers and out loud on calls, and until now every one of them lived
+   * at a URL carrying its old internal name — /portal/instant-quote-agent,
+   * /portal/crm-agent, /portal/speed-to-lead-agent, /portal/custom-solutions.
+   * Behind a login, and unguessable. "It's automateiq.ie slash quoteiq" was a
+   * 404.
+   *
+   * Each one below is a real, separately-entitled product: `instant-quote-agent`,
+   * `crm-agent`, `speed-to-lead-agent` and `custom-solutions` are distinct keys
+   * in `business_products`, so a customer can be given one without the others.
+   * Every bullet is checked against what the portal route actually does — see
+   * lib/products/unbacked-claims.test.ts for why that rule exists.
+   */
+  {
+    slug: "quoteiq",
+    name: "QuoteIQ",
+    kicker: "For anyone who quotes for a living",
+    headline: "Price the job before you leave it.",
+    sub: "Describe the work and get a priced, itemised quote you can send from the van — then see when it's opened, accepted or declined.",
+    who: "Trades, installers and contractors who lose work because the quote took three evenings to write and went out cold.",
+    does: [
+      {
+        title: "Job description in, priced quote out",
+        body: "Type what the job involves and it comes back itemised, using your own rates. Set your price guide once and every quote after it is priced the way you price.",
+      },
+      {
+        title: "Sent as a link, not a PDF nobody opens",
+        body: "The customer gets their own page. You see when it was viewed, and they accept or decline on it — so you stop ringing to ask whether they got it.",
+      },
+      {
+        title: "The accepted quote becomes the invoice",
+        body: "One step, and it's keyed to the quote it came from — so the same job can never be invoiced twice by accident.",
+      },
+      {
+        title: "You find out whether your pricing works",
+        body: "Acceptance rate, value won and value still out, off the quotes you actually sent. Not a feeling about how the year is going.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-quoteiq",
+    live: true,
+    accent: "#EA580C",
+    group: "module",
+  },
+  {
+    slug: "clientiq",
+    name: "ClientIQ",
+    kicker: "For the customer list living in a phone",
+    headline: "Every customer and lead in one place.",
+    sub: "One pipeline for everyone who has ever contacted you, with a stage, a history and a follow-up task — instead of a search back through WhatsApp.",
+    who: "Any business whose customer records are spread across a phone, a notebook, an inbox and somebody's memory.",
+    does: [
+      {
+        title: "It imports what the rest already knows",
+        body: "One button pulls in the customers ReputationIQ has asked for reviews, the enquiries SiteIQ has captured and everyone QuoteIQ has priced a job for. Nothing typed twice.",
+      },
+      {
+        title: "A pipeline, not a list",
+        body: "New, contacted, qualified, won, lost. Change someone's stage in one click and the board shows you what's actually live rather than everyone you've ever met.",
+      },
+      {
+        title: "Follow-ups you can't forget",
+        body: "Put a task with a due date against a contact. Open tasks sit at the top, soonest due first, and stay there until they're ticked.",
+      },
+      {
+        title: "Findable",
+        body: "Search across every record by name, email or company — whichever product it arrived from.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-clientiq",
+    live: true,
+    accent: "#3B82F6",
+    group: "module",
+  },
+  {
+    slug: "leadiq",
+    name: "LeadIQ",
+    kicker: "For the enquiry that goes cold in an hour",
+    headline: "Answer every enquiry before your competitor reads theirs.",
+    sub: "An enquiry through your page gets a personal reply immediately, day or night — your wording, your name, and logged where you can see it went.",
+    who: "Any business where enquiries land while you're up a ladder, driving or asleep, and the first reply wins the job.",
+    does: [
+      {
+        title: "Replies as the enquiry lands",
+        body: "Not a queue that runs later — the reply goes out in the same moment the form is submitted, which is the whole point of it.",
+      },
+      {
+        title: "Your words, not a robot's",
+        body: "You write the subject and the template once. The preview shows it with your real business name filled in, so what you approved is what sends.",
+      },
+      {
+        title: "Never the same email twice",
+        body: "It checks what has already gone to that person before sending. Someone who enquires twice in a week is not auto-replied to twice.",
+      },
+      {
+        title: "On, off, and counted",
+        body: "Pause it any time. Replies sent all-time and this week sit on the page, so “we get back to people fast” becomes a number.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-leadiq",
+    live: true,
+    accent: "#F59E0B",
+    group: "module",
+  },
+  {
+    slug: "customiq",
+    name: "CustomIQ",
+    kicker: "For the job no product covers",
+    headline: "The system that doesn't exist yet.",
+    sub: "A module built around exactly how your business works, that appears in your portal beside everything else — same login, same records, nothing extra to remember.",
+    who: "Businesses with a repetitive job no off-the-shelf product fits — the one everyone works around instead of solving.",
+    does: [
+      {
+        title: "Built around your process",
+        body: "Describe the job that eats the week. What gets built is shaped to how you already work rather than a template you have to bend yourself to.",
+      },
+      {
+        title: "It lives where everything else lives",
+        body: "Your module appears on your own page and in your sidebar. No install, no second login, no separate tool nobody opens after week two.",
+      },
+      {
+        title: "On the same records",
+        body: "It reads and writes the same customers and jobs as the rest of your account, so it's part of the system instead of sitting beside it.",
+      },
+      {
+        title: "Most of the range started here",
+        body: "TradeIQ, FinanceIQ and PermitIQ were each one company's problem first. If yours turns out to be common, it becomes a product.",
+      },
+    ],
+    loginHref: "/login",
+    leadSource: "product-customiq",
+    live: true,
+    accent: "#F472B6",
+    group: "module",
+  },
 ];
 
 /** Section headings for the index, in render order. */
@@ -294,6 +439,11 @@ export const MARKETING_GROUPS = [
     key: "core" as const,
     label: "The core three, whatever you run",
     blurb: "Not industry-specific — these sit under everything else and any account can switch them on.",
+  },
+  {
+    key: "module" as const,
+    label: "Or just the one piece you need",
+    blurb: "You don't have to take a whole product. Each of these is a single job done properly on the same core — three of them are the parts TradeIQ is assembled from, and CustomIQ is where we build the one that doesn't exist yet.",
   },
 ];
 

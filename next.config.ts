@@ -67,6 +67,57 @@ const nextConfig: NextConfig = {
       // already has an account.
       { source: "/permitiq", destination: "/products/permitiq", permanent: true },
       { source: "/financeiq", destination: "/products/financeiq", permanent: true },
+
+      // …and then the same hole was still open for everything else.
+      //
+      // /permitiq and /financeiq fixed two names and stopped. Every other
+      // product was in exactly the same state: SiteIQ answered at
+      // /portal/website-agent, AssistIQ at /portal/ai-assistant, QuoteIQ at
+      // /portal/instant-quote-agent — old internal slugs, behind a login, and
+      // unguessable. The brand is the thing said out loud; the brand is what
+      // gets typed into the address bar. So every product now has its own
+      // top-level address, and the rule has no exceptions left to forget.
+      //
+      // They land on the public product page rather than the app for the same
+      // reason the first two did: a stranger who typed the name gets an
+      // explanation, and a customer who typed it gets the Log in button that
+      // page already carries.
+      //
+      // TradeIQ is deliberately absent — /tradeiq is a real route (the app
+      // itself), and /tradeos/:path* above redirects INTO it. A redirect here
+      // would break the app root and every emailed invoice link with it.
+      { source: "/quoteiq", destination: "/products/quoteiq", permanent: true },
+      { source: "/clientiq", destination: "/products/clientiq", permanent: true },
+      { source: "/leadiq", destination: "/products/leadiq", permanent: true },
+      { source: "/customiq", destination: "/products/customiq", permanent: true },
+      { source: "/siteiq", destination: "/products/siteiq", permanent: true },
+      { source: "/contentiq", destination: "/products/contentiq", permanent: true },
+      { source: "/assistiq", destination: "/products/assistiq", permanent: true },
+      { source: "/reputationiq", destination: "/products/reputationiq", permanent: true },
+
+      // The brand casing, as it is actually written down.
+      //
+      // Nobody writes "quoteiq" — the name is QuoteIQ, and that is what goes on
+      // a card, in an email signature and into an address bar. Next matches a
+      // redirect `source` CASE-SENSITIVELY and there is no middleware here, so
+      // /quoteIQ was a 404 while /quoteiq worked. The line above about "the
+      // proxy's case correction" was assuming something this codebase does not
+      // do; these entries make it true rather than hoped for.
+      //
+      // One extra line per product, matching the one casing a human types. It
+      // is deliberately not a middleware: a middleware would run on requests
+      // across the whole site to fix eleven URLs.
+      { source: "/tradeIQ", destination: "/tradeiq", permanent: true },
+      { source: "/financeIQ", destination: "/products/financeiq", permanent: true },
+      { source: "/permitIQ", destination: "/products/permitiq", permanent: true },
+      { source: "/quoteIQ", destination: "/products/quoteiq", permanent: true },
+      { source: "/clientIQ", destination: "/products/clientiq", permanent: true },
+      { source: "/leadIQ", destination: "/products/leadiq", permanent: true },
+      { source: "/customIQ", destination: "/products/customiq", permanent: true },
+      { source: "/siteIQ", destination: "/products/siteiq", permanent: true },
+      { source: "/contentIQ", destination: "/products/contentiq", permanent: true },
+      { source: "/assistIQ", destination: "/products/assistiq", permanent: true },
+      { source: "/reputationIQ", destination: "/products/reputationiq", permanent: true },
     ];
   },
 };

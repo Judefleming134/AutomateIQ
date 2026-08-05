@@ -162,9 +162,11 @@ describe("the homepage links to the product pages", () => {
     const NOT_STANDALONE = new Set([
       "AutomateIQ", // the company
       "ReceptionIQ", // sold inside TradeIQ
-      "QuoteIQ", "ClientIQ", "LeadIQ", // sold inside TradeIQ
-      "CustomIQ", // a framework, not a catalogue product
     ]);
+    // QuoteIQ, ClientIQ, LeadIQ and CustomIQ came off this list on 2026-08-05
+    // when they got their own pages and their own automateiq.ie/<name> address.
+    // Exactly the shrink the comment above describes — four fewer names the
+    // site can print without having anywhere to send the person who wants one.
     const named = new Set(
       [...HTML.matchAll(/<h[1-4][^>]*>([A-Z][A-Za-z]*IQ)<\/h[1-4]>/g)].map((m) => m[1])
     );
@@ -179,7 +181,10 @@ describe("the homepage links to the product pages", () => {
     // "Three products you can switch on now" sat above four cards, and the
     // footer said "All three, compared" while linking four. A number written
     // out in prose is the one thing adding a product silently invalidates.
-    const WORDS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+    const WORDS = [
+      "one", "two", "three", "four", "five", "six",
+      "seven", "eight", "nine", "ten", "eleven", "twelve",
+    ];
     const correct = WORDS[MARKETING_PRODUCTS.length - 1];
     // If the list outgrows WORDS, `correct` is undefined and every number
     // reads as wrong — the test would fail for the wrong reason and get muted.
@@ -188,9 +193,10 @@ describe("the homepage links to the product pages", () => {
     // Only phrasings that are genuinely counting PRODUCTS. A looser pattern
     // (`just|only \w+`) flagged "Just one connected core", which counts the
     // core, not the range — a test that cries wolf gets muted.
+    const NUM = "one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve";
     const claims = [
-      ...HTML.matchAll(/\ball (one|two|three|four|five|six|seven|eight|nine|ten)\b/gi),
-      ...HTML.matchAll(/\b(one|two|three|four|five|six|seven|eight|nine|ten) products\b/gi),
+      ...HTML.matchAll(new RegExp(`\\ball (${NUM})\\b`, "gi")),
+      ...HTML.matchAll(new RegExp(`\\b(${NUM}) products\\b`, "gi")),
     ]
       .map((m) => m[1].toLowerCase())
       .filter((w) => wrong.includes(w));
