@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { resolveChaseDate, dublinDate } from "./dates";
+import { resolveChaseDate, addDays } from "./dates";
 
 /**
  * Marking a meeting no-show or cancelled wrote a line to the prospect's
@@ -50,12 +50,15 @@ describe("what the timeline now says matches what was stored", () => {
   it("a lead with no date gets one, and is told so", () => {
     const chase = resolveChaseDate(null, TODAY, FALLBACK.no_show);
     expect(chase.kept).toBe(false);
-    // resolveChaseDate's FALLBACK is computed from the real clock, not from
-    // the `today` argument (which only decides whether an existing date is
-    // still in the future) — so the expected value is dublinDate(n), full
-    // stop. Comparing it against a date derived from TODAY would be asserting
-    // something the function never promised.
-    expect(chase.date).toBe(dublinDate(FALLBACK.no_show));
+    // This used to read `dublinDate(FALLBACK.no_show)`, with a comment saying
+    // the fallback was computed from the real clock rather than from `today`.
+    // That WAS true, and it was the bug: the function compared against the
+    // caller's `today` and then counted forward from Dublin's, so it answered
+    // two different questions in one call. It went red for the hour between
+    // 23:00 UTC and Dublin midnight every summer night. Both halves now use
+    // the `today` they were given.
+    expect(chase.date).toBe(addDays(TODAY, FALLBACK.no_show));
+    expect(chase.date).toBe("2026-08-04");
   });
 
   it("a lead with a chase already booked KEEPS it — and the line says kept", () => {
