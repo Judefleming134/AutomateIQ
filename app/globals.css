@@ -284,6 +284,27 @@ a {
   width: 100%;
 }
 
+/* Nothing inside the app shell may widen the page.
+ *
+ * A <code> span is the one thing that routinely has no break opportunity in it
+ * — an env var name, a URL, a CSV header list. The CSV hint on the prospects
+ * page was 114 characters with no spaces: ~820px at 12px monospace against a
+ * 375px phone, and since neither .form-card nor .main-content sets overflow,
+ * it widened the whole page and the body scrolled sideways.
+ *
+ * Four <code> spans in the codebase already carried an inline
+ * wordBreak:break-all because someone hit this before. This makes it the
+ * default for the shell so the next one cannot reintroduce it.
+ *
+ * `anywhere` rather than `break-all`: it only breaks when the word would
+ * otherwise overflow, so short spans are untouched, and unlike break-all it
+ * also stops the span forcing its container wide in the first place.
+ * Deliberately scoped to .main-content — the public marketing pages are not
+ * touched. */
+.main-content code {
+  overflow-wrap: anywhere;
+}
+
 .sidebar-backdrop {
   display: none;
 }

@@ -667,7 +667,16 @@ export default async function ProspectsPage({
           <p style={{ fontSize: 13, color: "var(--faint)", marginTop: 0 }}>
             Drop a .csv file (Google Sheets: File → Download → .csv) or paste
             rows straight from the sheet. Keep the header row. Recognised
-            columns (any order): <code style={{ fontSize: 12 }}>{CSV_HINT}</code>.
+            columns (any order):{" "}
+            {/* 114 characters with no spaces, so nothing in it is a break
+                opportunity: at 12px monospace it renders ~820px wide against a
+                375px phone, and neither .form-card (max-width:480px, which does
+                not bind below 375) nor .main-content sets overflow — so it
+                widened the whole page and the body scrolled sideways. The same
+                wordBreak the other long <code> spans in this codebase already
+                carry (the booking URL, the webhook URL). More reachable since
+                the campaign link started opening this panel automatically. */}
+            <code style={{ fontSize: 12, wordBreak: "break-all" }}>{CSV_HINT}</code>.
             Rows need a company + at least one contact method; duplicate emails
             are skipped.
           </p>
