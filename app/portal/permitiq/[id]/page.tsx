@@ -11,7 +11,7 @@ import {
 } from "@/lib/permitiq/checklist";
 import { UploadPanel, ReclassifyForm, ReviewButton } from "./upload-panel";
 
-export const metadata = { title: "Application — PermitIQ" };
+export const metadata = { title: "Application — PlanIQ" };
 
 // Uploading a large drawing and then READING it with the model is the one
 // slow path in this product; the default budget is not enough for a big PDF.
@@ -144,7 +144,7 @@ export default async function ApplicationPage({
       {latestReview && (
         <div className="panel panel-block" style={{ marginBottom: 16 }}>
           <p className="aseo-block-label">
-            PermitIQ review ·{" "}
+            PlanIQ review ·{" "}
             {new Date(latestReview.created_at as string).toLocaleDateString("en-IE", {
               day: "numeric",
               month: "short",

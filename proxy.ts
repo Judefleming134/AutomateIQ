@@ -23,7 +23,7 @@ export const config = {
   // entries above are exactly why the case-forgiving redirect for brand URLs
   // shipped dead: `/TradeIQ` matches none of them, so canonicalPath() was
   // never reached and every capitalised URL on the site still 404'd —
-  // /TradeIQ, /PermitIQ, /FinanceIQ, /Products, /Book, /Systems, all of them.
+  // /TradeIQ, /PlanIQ, /FinanceIQ, /Products, /Book, /Systems, all of them.
   //
   // Deliberately narrow rather than the usual catch-all
   // "/((?!api|_next|.*\\..*).*)": a catch-all would route the marketing

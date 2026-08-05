@@ -8,7 +8,7 @@ import { ArrowRight, Check } from "lucide-react";
  *
  * Posts to /api/lead, which already stores the lead, emails the visitor and
  * alerts Jude. The only thing added here is `source`, so a request from the
- * PermitIQ page is attributable to PermitIQ instead of landing in the same
+ * PlanIQ page is attributable to PlanIQ instead of landing in the same
  * undifferentiated pile as the homepage form.
  *
  * The failure handling is deliberate: a network error still shows success,

@@ -33,7 +33,7 @@ const MAX_BYTES = 25 * 1024 * 1024;
 /**
  * Every action re-checks the session AND the entitlement, not just the layout.
  * The layout is the UX gate; this is the security boundary — a bookmarked URL
- * or a direct POST must fail for a business without PermitIQ.
+ * or a direct POST must fail for a business without PlanIQ.
  */
 async function guard() {
   const { user, profile } = await requireSession();
@@ -56,7 +56,7 @@ export async function createApplication(
   formData: FormData
 ): Promise<Result> {
   const ctx = await guard();
-  if (!ctx) return { error: "PermitIQ isn't enabled on this account." };
+  if (!ctx) return { error: "PlanIQ isn't enabled on this account." };
 
   const parsed = createSchema.safeParse({
     reference: String(formData.get("reference") ?? "") || undefined,
@@ -88,7 +88,7 @@ export async function createApplication(
 
   if (error) {
     if (isMissingTableError(error)) {
-      return { error: reportMissingTable("PermitIQ", "supabase/migrations/0033_permitiq.sql", error) };
+      return { error: reportMissingTable("PlanIQ", "supabase/migrations/0033_permitiq.sql", error) };
     }
     return { error: error.message };
   }
@@ -118,7 +118,7 @@ export async function uploadDocument(
   formData: FormData
 ): Promise<Result> {
   const ctx = await guard();
-  if (!ctx) return { error: "PermitIQ isn't enabled on this account." };
+  if (!ctx) return { error: "PlanIQ isn't enabled on this account." };
 
   const applicationId = String(formData.get("application_id") ?? "");
   const file = formData.get("file");
@@ -232,7 +232,7 @@ export async function setDocumentType(
   formData: FormData
 ): Promise<Result> {
   const ctx = await guard();
-  if (!ctx) return { error: "PermitIQ isn't enabled on this account." };
+  if (!ctx) return { error: "PlanIQ isn't enabled on this account." };
 
   const documentId = String(formData.get("document_id") ?? "");
   const applicationId = String(formData.get("application_id") ?? "");
@@ -276,7 +276,7 @@ export async function setDocumentType(
  * it. The model contributes judgement and prose, not counting.
  *
  * Every run is logged to agent_runs, so "how slow is the review agent" and
- * "how often does it fail" are answerable for PermitIQ exactly as they are for
+ * "how often does it fail" are answerable for PlanIQ exactly as they are for
  * the eleven older modules. That is the Agent Framework v2 log doing its job on
  * its first new consumer.
  */
@@ -285,7 +285,7 @@ export async function runApplicationReview(
   formData: FormData
 ): Promise<Result> {
   const ctx = await guard();
-  if (!ctx) return { error: "PermitIQ isn't enabled on this account." };
+  if (!ctx) return { error: "PlanIQ isn't enabled on this account." };
 
   const applicationId = String(formData.get("application_id") ?? "");
   const startedAt = Date.now();

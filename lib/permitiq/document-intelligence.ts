@@ -59,7 +59,7 @@ const SCHEMA = {
 } as const;
 
 const SYSTEM = [
-  "You are a planning-application document assessor for PermitIQ.",
+  "You are a planning-application document assessor for PlanIQ.",
   "You are shown ONE document from a planning or building permit application, plus the list of requirements that application must satisfy.",
   "",
   "Your job:",

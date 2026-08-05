@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
               "",
               `Email: ${email}`,
               // Which page it came from. Without this, a request from the
-              // PermitIQ page is indistinguishable from a homepage signup,
+              // PlanIQ page is indistinguishable from a homepage signup,
               // and the reply goes out talking about the wrong product.
               `Product: ${productName ?? "AutomateIQ (homepage)"}`,
               `Source: ${source}`,

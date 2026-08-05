@@ -5,10 +5,15 @@ import { FilePlus } from "lucide-react";
 import { createApplication } from "./actions";
 
 /**
- * Ireland's types are real and seeded. The US list is deliberately present but
- * empty of seeded requirements — Jude asked for Ireland production-ready with
- * the USA visible, and pretending a US checklist exists would be worse than
- * saying plainly that it doesn't yet.
+ * Both jurisdictions are now seeded. Ireland carries the national
+ * planning-permission and retention lists (migration 0033); the US carries the
+ * typical residential building-permit baseline (migration 0044), which a named
+ * building department overrides item by item.
+ *
+ * This used to note that the US list was deliberately present but EMPTY —
+ * "pretending a US checklist exists would be worse than saying plainly that it
+ * doesn't yet". That stayed the right call until there was something real to
+ * put behind it.
  */
 const TYPES_BY_JURISDICTION: Record<string, { value: string; label: string }[]> = {
   ie: [
@@ -43,16 +48,26 @@ export function ApplicationForm({ jurisdiction }: { jurisdiction: "ie" | "us" })
       </div>
 
       <div>
-        <label htmlFor="pq-authority">Planning authority (optional)</label>
+        <label htmlFor="pq-authority">
+          {jurisdiction === "us"
+            ? "Building department (optional)"
+            : "Planning authority (optional)"}
+        </label>
         <input
           id="pq-authority"
           name="authority"
           maxLength={160}
-          placeholder="e.g. Fingal County Council"
+          placeholder={
+            jurisdiction === "us"
+              ? "e.g. City of Austin"
+              : "e.g. Fingal County Council"
+          }
         />
         <p style={{ fontSize: 12, color: "var(--faint)", margin: "4px 0 0" }}>
-          Leave blank and we use the national requirements. Naming the authority
-          adds anything specific they ask for.
+          Leave blank and we use the{" "}
+          {jurisdiction === "us" ? "typical baseline" : "national requirements"}.
+          Naming the {jurisdiction === "us" ? "department" : "authority"} adds
+          anything specific they ask for.
         </p>
       </div>
 

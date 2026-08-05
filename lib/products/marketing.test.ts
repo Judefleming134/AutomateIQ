@@ -129,7 +129,10 @@ describe("marketing products — the request-access door", () => {
   });
 
   it("trims the value before matching, so whitespace still attributes", () => {
-    expect(resolveLeadSource("  product-permitiq  ").productName).toBe("PermitIQ");
+    // Still product-permitiq after the PlanIQ rename, on purpose: it is the
+    // value stored against every lead this page has ever produced, and the
+    // leads list filters on that raw string. See lib/products/marketing.ts.
+    expect(resolveLeadSource("  product-permitiq  ").productName).toBe("PlanIQ");
   });
 });
 

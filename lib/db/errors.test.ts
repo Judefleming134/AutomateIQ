@@ -214,7 +214,10 @@ describe("the products that were broken are each wired up", () => {
     ["ClientIQ", "app/portal/crm-agent/actions.ts"],
     ["AssistIQ", "app/portal/ai-assistant/actions.ts"],
     ["ContentIQ", "lib/content-agent/campaign-core.ts"],
-    ["PermitIQ", "app/portal/permitiq/actions.ts"],
+    // PlanIQ, renamed from PermitIQ on 2026-08-05. The FILE PATH is
+    // deliberately still permitiq/: the route folder is frozen with the
+    // entitlement key, and only the display name moved.
+    ["PlanIQ", "app/portal/permitiq/actions.ts"],
   ])("%s reports through the shared helper", (product, file) => {
     const src = readFileSync(path.join(ROOT, file), "utf8");
     expect(src).toContain(`reportMissingTable("${product}"`);
@@ -227,7 +230,7 @@ describe("the products that were broken are each wired up", () => {
     expect(src).toContain('reportMissingTable("Your order form"');
   });
 
-  it("the PermitIQ list page uses the shared check too", () => {
+  it("the PlanIQ list page uses the shared check too", () => {
     // It rendered a convincing, wrong empty state — "you have no applications"
     // — whenever the real PGRST205 error arrived.
     const src = readFileSync(path.join(ROOT, "app", "portal", "permitiq", "page.tsx"), "utf8");

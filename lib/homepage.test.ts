@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { PRODUCT_FAMILIES } from "@/lib/products/registry";
+import { MARKETING_PRODUCTS } from "@/lib/products/marketing";
 import { PROOF } from "@/lib/proof";
 
 /**
@@ -150,8 +151,14 @@ describe("homepage — the built-in assistant tells the truth", () => {
   });
 
   it("knows every product by name", () => {
+    // DERIVED, not a typed-out list of three. It used to name TradeIQ,
+    // FinanceIQ and PermitIQ literally, which meant the assistant could go on
+    // failing to mention a newly shipped product forever — the same
+    // hard-coded-list trap the sitemap and the products index each had to fix.
+    // It also meant renaming PermitIQ to PlanIQ failed here for the shallow
+    // reason (a stale literal) rather than the real one.
     const kb = HTML.slice(HTML.indexOf("var KB=["), HTML.indexOf("function respond("));
-    const missing = ["TradeIQ", "FinanceIQ", "PermitIQ"].filter(
+    const missing = MARKETING_PRODUCTS.map((p) => p.name).filter(
       (n) => !kb.includes(n)
     );
     expect(missing).toEqual([]);

@@ -29,7 +29,7 @@ export function UploadPanel({
       <div>
         <label htmlFor="pq-doctype">What is it? (optional)</label>
         <select id="pq-doctype" name="doc_type" defaultValue="">
-          <option value="">Let PermitIQ work it out</option>
+          <option value="">Let PlanIQ work it out</option>
           {requirements.map((r) => (
             <option key={r.code} value={r.code}>
               {r.label}
