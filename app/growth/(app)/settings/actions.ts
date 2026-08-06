@@ -76,18 +76,62 @@ export async function saveGrowthSettings(_prev: Result, formData: FormData): Pro
       toUpdate.set(next, ids);
     }
   }
+  // Chunk the id list so a very large IN(...) never overruns URL limits.
+  //
+  // It did. `.in("id", [...])` serialises every id INTO THE REQUEST URL at ~39
+  // bytes per percent-encoded UUID, and this chunked at 500 — a 19,565-byte
+  // URL, 239% of the ~8KB ceiling (scratchpad/threshold-rescore.mjs):
+  //
+  //   ids per chunk   URL bytes   vs 8192
+  //   150             5,915       72%      ← selectAllRowsByIds' own size
+  //   200             7,865       96%
+  //   210             8,255       101%     FAILS
+  //   500            19,565       239%     FAILS
+  //
+  // So every full 500-id chunk failed outright. Only a TRAILING chunk that
+  // happened to fall under ~210 got through, which made it worse than a clean
+  // failure: 1,200 changed rows split 500/500/200, and exactly 200 of them got
+  // the new verdict while 1,000 kept the old one — decided by `changed % 500`.
+  //
+  // And the result was never read, so the action still returned { ok: true }.
+  // The page said the thresholds were saved (they were) while the pipeline
+  // carried on showing OLD verdicts against the NEW rules, which is the one
+  // thing this re-derive exists to prevent.
+  //
+  // Under ~210 it worked, which is why it survived: a small database re-scores
+  // perfectly and gives no hint that a bigger one silently doesn't.
+  //
+  // 150 to match lib/growth/db.ts, so there is one number in the codebase for
+  // "ids that fit in a URL". Failures are now collected and reported.
+  const ID_CHUNK = 150;
+  const failures: string[] = [];
+  let rescored = 0;
   for (const [status, ids] of toUpdate) {
-    // Chunk the id list so a very large IN(...) never overruns URL limits.
-    for (let i = 0; i < ids.length; i += 500) {
-      await admin
+    for (let i = 0; i < ids.length; i += ID_CHUNK) {
+      const chunk = ids.slice(i, i + ID_CHUNK);
+      const { error: updateError } = await admin
         .from("ge_prospects")
         .update({ qualification_status: status })
-        .in("id", ids.slice(i, i + 500));
+        .in("id", chunk);
+      if (updateError) failures.push(updateError.message);
+      else rescored += chunk.length;
     }
   }
 
   revalidatePath("/growth/settings");
   revalidatePath("/growth/prospects");
+
+  // The settings themselves are saved either way — that upsert already
+  // succeeded, and rolling it back would be worse. Say what didn't happen
+  // instead of reporting a clean success over a half-applied re-score.
+  if (failures.length > 0) {
+    const pending = [...toUpdate.values()].reduce((n, ids) => n + ids.length, 0) - rescored;
+    return {
+      error:
+        `Settings saved, but ${pending} prospect${pending === 1 ? "" : "s"} could not be re-scored ` +
+        `under the new thresholds (${failures[0]}). Their status is stale — save again to retry.`,
+    };
+  }
   return { ok: true };
 }
 
