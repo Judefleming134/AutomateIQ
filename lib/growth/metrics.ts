@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectAllRows } from "@/lib/growth/db";
+import { isHumanReply } from "@/lib/growth/awaiting";
 
 export type GrowthMetrics = {
   windowDays: number | null;
@@ -9,7 +10,10 @@ export type GrowthMetrics = {
   contacted: number;
   outreachSent: number;
   outreachByChannel: Record<string, number>;
+  /** Replies from PEOPLE. Auto-responders and opt-outs are not counted here. */
   replies: number;
+  /** Inbound in the window that was an auto-reply or an opt-out, not a person. */
+  autoReplies: number;
   repliedProspects: number;
   replyRate: number; // % of contacted prospects that replied
   positiveReplies: number;
@@ -99,6 +103,22 @@ export type GrowthData = {
     created_at: string;
     sent_at: string | null;
   }[];
+  /**
+   * Inbound rows again, with the two columns the classifier needs.
+   *
+   * Fetched SEPARATELY rather than adding `subject`/`body` to `messages`
+   * above: bodies run to 10,000 characters and `messages` is every row in the
+   * table, so carrying them there would put tens of megabytes through the
+   * dashboard, Jarvis and the 07:00 brief to classify the few per cent of rows
+   * that are inbound. Filtered `direction = inbound` at the database, so this
+   * is small by construction.
+   */
+  inboundDetail: {
+    prospect_id: string;
+    created_at: string;
+    subject: string | null;
+    body: string | null;
+  }[];
   meetings: { prospect_id: string; status: string; created_at: string }[];
   campaigns: { id: string; name: string; status: string }[];
   research: { solutions: unknown; created_at: string }[];
@@ -137,7 +157,7 @@ async function fetchGrowthData(
   withSolutions = true,
   sinceIso: string | null = null
 ): Promise<GrowthData> {
-  const [prospects, messages, meetings, campaigns, research, proposals] =
+  const [prospects, messages, inboundDetail, meetings, campaigns, research, proposals] =
     await Promise.all([
       selectAllRows<{
         id: string;
@@ -194,6 +214,21 @@ async function fetchGrowthData(
             )
           : q;
       }),
+      // Inbound only, with subject + body, so a reply can be told from an
+      // out-of-office. Same floor as the messages load — `inbound` is filtered
+      // on created_at, so nothing below it can matter.
+      selectAllRows<{
+        prospect_id: string;
+        created_at: string;
+        subject: string | null;
+        body: string | null;
+      }>(() => {
+        const q = admin
+          .from("ge_messages")
+          .select("prospect_id, created_at, subject, body")
+          .eq("direction", "inbound");
+        return sinceIso ? q.gte("created_at", sinceIso) : q;
+      }),
       selectAllRows<{ prospect_id: string; status: string; created_at: string }>(
         () => admin.from("ge_meetings").select("prospect_id, status, created_at")
       ),
@@ -209,7 +244,7 @@ async function fetchGrowthData(
         admin.from("ge_proposals").select("status, updated_at")
       ),
     ]);
-  return { prospects, messages, meetings, campaigns, research, proposals };
+  return { prospects, messages, inboundDetail, meetings, campaigns, research, proposals };
 }
 
 /**
@@ -247,7 +282,42 @@ export function computeGrowthMetrics(
       m.status === "sent" &&
       inWindow(m.sent_at ?? m.created_at)
   );
-  const inbound = wMessages.filter((m) => m.direction === "inbound");
+  // AN OUT-OF-OFFICE IS NOT A REPLY.
+  //
+  // This was the last surface in the engine still counting one as a person.
+  // The inbox (#592), the morning brief's reply list (#552), the awaiting count
+  // (#548) and Jarvis's chat (#595) all classify inbound before counting it —
+  // but they each do it locally, and THIS file is the shared source that feeds
+  // the dashboard, analytics, campaigns, the CSV exports, Jarvis's stats and
+  // the brief's stats. So "Reply rate" — the engine's headline metric — plus
+  // every per-campaign, per-industry and per-tone reply rate under it were
+  // computed over raw inbound.
+  //
+  // In an Irish August a dozen holiday auto-responders in a week is ordinary,
+  // and they land on the leads that were emailed most recently — the ones a
+  // tone or a campaign is being judged on. So the effect is not evenly spread
+  // noise: it inflates exactly the row you are about to act on, and
+  // "best performing style" gets copied into every future message.
+  //
+  // FAILS OPEN, deliberately. A row with no matching detail entry is treated
+  // as human: if this extra load ever comes back short, the numbers degrade to
+  // exactly what they are today rather than collapsing the engine's headline
+  // metric to zero and looking like every prospect went quiet.
+  const humanInboundKeys = new Set<string>();
+  for (const d of data.inboundDetail) {
+    if (isHumanReply(d)) humanInboundKeys.add(`${d.prospect_id} ${d.created_at}`);
+  }
+  const detailKeys = new Set(
+    data.inboundDetail.map((d) => `${d.prospect_id} ${d.created_at}`)
+  );
+  const isHumanRow = (m: { prospect_id: string; created_at: string }) => {
+    const key = `${m.prospect_id} ${m.created_at}`;
+    return humanInboundKeys.has(key) || !detailKeys.has(key);
+  };
+
+  const allInbound = wMessages.filter((m) => m.direction === "inbound");
+  const inbound = allInbound.filter(isHumanRow);
+  const autoReplies = allInbound.length - inbound.length;
 
   const prospectById = new Map(allProspects.map((p) => [p.id, p]));
   const contactedIds = new Set(sent.map((m) => m.prospect_id));
@@ -334,9 +404,12 @@ export function computeGrowthMetrics(
 
   // Best-performing outreach style: a tone's send "converted" if the
   // prospect sent anything back after that message went out.
+  // Same rule here: a tone did not "convert" because an auto-responder fired
+  // at the address it was sent to.
   const inboundByProspect = new Map<string, string[]>();
   for (const m of allMessages) {
     if (m.direction !== "inbound") continue;
+    if (!isHumanRow(m)) continue;
     const list = inboundByProspect.get(m.prospect_id) ?? [];
     list.push(m.created_at);
     inboundByProspect.set(m.prospect_id, list);
@@ -369,6 +442,7 @@ export function computeGrowthMetrics(
     outreachSent: sent.length,
     outreachByChannel,
     replies: inbound.length,
+    autoReplies,
     repliedProspects: repliedIds.size,
     replyRate: pct(
       [...repliedIds].filter((id) => contactedIds.has(id)).length,

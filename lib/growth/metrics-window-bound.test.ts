@@ -103,6 +103,13 @@ const data: GrowthData = {
     msg({ created_at: iso(299), direction: "inbound", status: "received", prospect_id: "p1", sentiment: "neutral" }),
     msg({ created_at: iso(120), sent_at: iso(120), prospect_id: "p1", tone: "warm" }),
   ],
+  // Every inbound row above, with the columns the reply classifier needs.
+  // Both are genuine replies here, so this fixture's numbers are unaffected by
+  // the auto-reply filter — see reply-classification.test.ts for that.
+  inboundDetail: [
+    { prospect_id: "p3", created_at: iso(1), subject: "Re: quick question", body: "Interesting — what would this cost for 6 vans?" },
+    { prospect_id: "p1", created_at: iso(299), subject: "Re: quick question", body: "Go on then, send me the details and I'll have a look." },
+  ],
   meetings: [{ prospect_id: "p2", status: "booked", created_at: iso(4) }],
   campaigns: [{ id: "c1", name: "Roofers Q3", status: "active" }],
   research: [{ solutions: [{ name: "SiteIQ" }], created_at: iso(6) }],
