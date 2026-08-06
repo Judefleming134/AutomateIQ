@@ -78,7 +78,7 @@ function pct(part: number, whole: number): number {
  * a trailing window; null = all time. Internal-scale data (thousands of
  * rows, one team) — aggregating in JS keeps the queries trivial.
  */
-type GrowthData = {
+export type GrowthData = {
   prospects: {
     id: string;
     status: string;
@@ -125,9 +125,12 @@ type GrowthData = {
  */
 /**
  * @param sinceIso When every requested window is bounded, the ISO timestamp of
- *   the earliest one — messages outside it (bar pending ones) are left in the
- *   database instead of paged into memory. Null whenever ANY caller wants
- *   all-time figures, because then every row is genuinely needed.
+ *   the earliest one — messages outside it (bar pending ones, and sends that
+ *   went out inside it) are left in the database instead of paged into memory.
+ *   Null whenever ANY caller wants all-time figures, because then every row is
+ *   genuinely needed. Applied to the ge_messages select below; the other five
+ *   tables are lifetime by construction (prospect totals, pipeline value, the
+ *   won/qualified counts) and are deliberately not bounded.
  */
 async function fetchGrowthData(
   admin: SupabaseClient,
@@ -159,11 +162,38 @@ async function fetchGrowthData(
         tone: string | null;
         created_at: string;
         sent_at: string | null;
-      }>(() =>
-        admin
+      }>(() => {
+        const q = admin
           .from("ge_messages")
-          .select("prospect_id, campaign_id, channel, direction, status, sentiment, tone, created_at, sent_at")
-      ),
+          .select("prospect_id, campaign_id, channel, direction, status, sentiment, tone, created_at, sent_at");
+        // THE BOUND THIS FUNCTION ALREADY CLAIMED TO APPLY.
+        //
+        // `sinceIso` was computed by windowFloor(), passed in, documented in
+        // detail — and then never used. Every "last 30 days" load paged the
+        // ENTIRE message history into memory, including the engine's own home
+        // page, which is the most-loaded screen there is.
+        //
+        // Three ways a row can still matter below the floor, all kept:
+        //   · created_at inside it — ordinary recent activity, and the only
+        //     instant `inbound` is filtered on.
+        //   · sent_at inside it — a draft written before the window and sent
+        //     inside it. `sent` filters on `sent_at ?? created_at`, so bounding
+        //     on created_at alone would silently undercount the send that the
+        //     overnight-draft + 07:00-cron split makes routine. Same reasoning
+        //     as the floor in lib/growth/awaiting.ts.
+        //   · still draft or queued — the backlog tiles are LIFETIME by
+        //     construction ("whatever is sitting in the queue right now"), so a
+        //     draft from six months ago must still be counted. This is the
+        //     "(bar pending ones)" the docstring already promised.
+        //
+        // Null floor = a caller wanted all-time (Jarvis, the morning brief),
+        // and nothing is bounded. windowFloor guards that; this respects it.
+        return sinceIso
+          ? q.or(
+              `created_at.gte.${sinceIso},sent_at.gte.${sinceIso},status.in.(draft,queued)`
+            )
+          : q;
+      }),
       selectAllRows<{ prospect_id: string; status: string; created_at: string }>(
         () => admin.from("ge_meetings").select("prospect_id, status, created_at")
       ),
@@ -182,8 +212,14 @@ async function fetchGrowthData(
   return { prospects, messages, meetings, campaigns, research, proposals };
 }
 
-/** Aggregate ONE trailing window from already-loaded data. Pure (no I/O). */
-function computeGrowthMetrics(
+/**
+ * Aggregate ONE trailing window from already-loaded data. Pure (no I/O).
+ *
+ * Exported so the row-bounding in fetchGrowthData can be proven harmless:
+ * the test computes this over the full fixture and over the bounded subset and
+ * requires the two to be identical. Nothing else calls it directly.
+ */
+export function computeGrowthMetrics(
   data: GrowthData,
   days: number | null
 ): GrowthMetrics {
