@@ -65,12 +65,35 @@ export default async function CallListPage() {
     "id, company, contact_name, lead_score, status, phone, next_follow_up_at, last_contact_at, industry, location, linkedin_url, instagram_url, facebook_url";
   const WORKABLE = ["contacted", "follow_up_sent", "outreach_ready", "research_complete"];
 
-  // TWO queries, deliberately. A single score-ordered fetch capped at 160 meant
-  // a DUE CHASE scoring below that cut never entered the list at all — the
-  // "due chases first" sort below could only reorder whatever the score window
-  // happened to contain. On a database of a few hundred phone leads that hides
-  // the most time-critical calls completely. Due chases are now fetched on
-  // their own terms (most overdue first) and merged with the top-scored rest.
+  // THREE queries, deliberately, one per tier the sort below ranks on.
+  //
+  // A single score-ordered fetch capped at 160 meant a row scoring below that
+  // cut never entered the list at all — the tier sort could only reorder
+  // whatever the score window happened to contain. Due chases got their own
+  // query for exactly that reason.
+  //
+  // NEVER-RUNG LEADS NEEDED THE SAME THING, and it took longer to show up
+  // because it only appears once the page has been USED. Jude calls
+  // best-score-first (this page's own default, and the order the 07:00
+  // autopilot picks too), and logging a call schedules a follow-up
+  // automatically — so the highest-scored leads are precisely the ones that
+  // acquire a future chase date and become tier 2, "not due yet". They then
+  // fill the score window from the top and push every never-rung lead out of
+  // it. Replayed over 400 phone leads (scratchpad/call-list-tiers.mjs):
+  //
+  //   called   uncalled   OLD due/new/booked   NEW due/new/booked
+  //   0        400        0 / 40 / 0           0 / 40 / 0
+  //   60       340        4 / 36 / 0           4 / 36 / 0
+  //   200      200        6 /  0 / 34          6 / 34 / 0
+  //   300      100        6 /  0 / 34          6 / 34 / 0
+  //
+  // At 200 called, forty cards and not one never-rung lead, with two hundred
+  // sitting in the database — the list stops working exactly when it has been
+  // worked. CLAUDE.md names the shape: a score-ordered cap applied BEFORE the
+  // still-to-work filter, so the items that should lead never enter the list.
+  //
+  // Tier 1 is exactly `next_follow_up_at is null` (not due, not booked ahead),
+  // so it can be asked for directly, best score first.
   // The Dublin-midnight boundary for "called today" — declared before the
   // queries because the head-count below needs it too. In summer a call logged
   // between midnight and 1am Irish falls before UTC midnight, and using UTC
@@ -80,6 +103,7 @@ export default async function CallListPage() {
 
   const [
     { data: dueRaw },
+    { data: freshRaw },
     { data: topRaw },
     { count: workableTotal },
     { data: workedTodayRows },
@@ -92,6 +116,16 @@ export default async function CallListPage() {
       .not("next_follow_up_at", "is", null)
       .lte("next_follow_up_at", today)
       .order("next_follow_up_at", { ascending: true })
+      .limit(80),
+    // TIER 1 on its own terms: nothing in the diary — never rung, or rung with
+    // no date agreed. Best score first, so this is the warmest untouched work.
+    admin
+      .from("ge_prospects")
+      .select(COLUMNS)
+      .not("phone", "is", null)
+      .in("status", WORKABLE)
+      .is("next_follow_up_at", null)
+      .order("lead_score", { ascending: false, nullsFirst: false })
       .limit(80),
     admin
       .from("ge_prospects")
@@ -157,9 +191,11 @@ export default async function CallListPage() {
   // stamps that column too, and being emailed is not being called.
   const calledToday = (p: { id: string }) => workedTodayIds.has(p.id);
 
-  // Merge, de-duplicate — a lead can legitimately appear in both queries —
-  // then drop anyone already called today.
-  const merged = [...(dueRaw ?? []), ...(topRaw ?? [])];
+  // Merge, de-duplicate — a lead can legitimately appear in more than one of
+  // the three queries — then drop anyone already called today. The score-
+  // ordered query stays LAST so the two tier-specific ones win the dedupe;
+  // they carry identical columns, so it only decides ordering within a tier.
+  const merged = [...(dueRaw ?? []), ...(freshRaw ?? []), ...(topRaw ?? [])];
   const seen = new Set<string>();
   const deduped = merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   const workable = deduped.filter((p) => !calledToday(p));
